@@ -9,7 +9,23 @@ import {
 import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
 import { formatearHora, mostrarHorarioReserva } from "@/app/mi-negocio/types";
 
+/**
+ * Los estados que son "alguien que viene hoy". Cancelada y rechazada ya
+ * no son el día de nadie; `bloqueada` es un compromiso traído del
+ * calendario del dueño (0072), no un cliente; `temporal` es un carrito a
+ * medio pagar. Es exactamente el mismo conjunto que usa
+ * `citas/metricas-dia.ts`, para que las dos pantallas no cuenten
+ * distinto el mismo día.
+ */
+const ESTADOS_DEL_DIA = new Set(["pendiente", "confirmada", "cumplida", "no_asistio"]);
+
 export type Metricas = {
+  /**
+   * Lo que hay HOY: el número que se mira al abrir el panel en la
+   * mañana. Sale de la misma lista de reservas que todo lo demás — no
+   * hay una consulta extra ni un dato de ejemplo.
+   */
+  reservasHoy: number;
   reservasEsteMes: number;
   reservasMesAnterior: number;
   ingresosEsteMes: number;
@@ -30,15 +46,29 @@ export function calcularMetricas({
   reservas,
   esLugar,
   hoy = new Date(),
+  hoyISO,
 }: {
   reservas: ReservaFinanzas[];
   esLugar: boolean;
   hoy?: Date;
+  /**
+   * El día de hoy EN LA ZONA DEL NEGOCIO ("YYYY-MM-DD"). Se pide aparte
+   * y no se deriva de `hoy` porque `hoy` es la hora del servidor: en
+   * Vercel eso es UTC, y entre las 6 p.m. y la medianoche de Costa Rica
+   * el "hoy" derivado ya es mañana. La página pasa `hoyISOCR()`, que es
+   * el mismo día que usa el resto del panel.
+   */
+  hoyISO?: string;
 }): Metricas {
   const hoyLimpio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
   const mesAnteriorRef = new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1);
+  const diaDeHoy = hoyISO ?? fechaISO(hoyLimpio);
 
   const confirmadas = reservas.filter((r) => r.estado === "confirmada");
+
+  const reservasHoy = reservas.filter(
+    (r) => r.fecha === diaDeHoy && ESTADOS_DEL_DIA.has(r.estado),
+  ).length;
 
   const reservasEsteMes = confirmadas.filter((r) => mismoMes(aFecha(r.fecha), hoy)).length;
   const reservasMesAnterior = confirmadas.filter((r) =>
@@ -91,6 +121,7 @@ export function calcularMetricas({
   );
 
   return {
+    reservasHoy,
     reservasEsteMes,
     reservasMesAnterior,
     ingresosEsteMes,
@@ -100,6 +131,13 @@ export function calcularMetricas({
     porCobrarProximos30,
     totalReservasHistorico: confirmadas.length,
   };
+}
+
+/** "YYYY-MM-DD" de una fecha local, sin pasar por UTC (que la corre). */
+function fechaISO(d: Date): string {
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mes}-${dia}`;
 }
 
 /**

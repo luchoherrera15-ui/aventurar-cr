@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
-import { definicionDe, mesesDeAhorroAnual, precioDe } from "@/lib/lealtad/planes";
+import { definicionDe, descuentoAnualPct, precioDe } from "@/lib/lealtad/planes";
 import { solicitarPlanLealtad } from "./actions";
 import { iniciarPagoDelPaquete } from "./pago-actions";
 
@@ -473,9 +473,9 @@ function etiquetaDePeriodo(
   }
   if (!def) return "Pagar el año";
   const anual = precioDe(def, "año");
-  const ahorro = mesesDeAhorroAnual(def);
+  const ahorro = descuentoAnualPct(def);
   return (
     `Pagar el año${anual ? ` — ${anual}` : ""}` +
-    (ahorro > 0 ? ` (${ahorro} meses gratis)` : "")
+    (ahorro > 0 ? ` (${ahorro}% menos)` : "")
   );
 }

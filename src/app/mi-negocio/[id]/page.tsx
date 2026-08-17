@@ -3,14 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parsearPrecioPorPersona } from "@/lib/precio-lugar";
-import {
-  IconChartBars,
-  IconClipboard,
-  IconClock,
-  IconEdit,
-  IconHome,
-  IconSparkles,
-} from "@/components/icons";
+// Los íconos del menú ya no se eligen acá: los da `iconoModulo`, para
+// que el mismo módulo tenga la misma cara en el menú y en las tarjetas
+// de acceso del tablero.
+import { IconEdit, IconSparkles } from "@/components/icons";
 import {
   CATALOGO_LABEL,
   CATEGORIAS,
@@ -111,7 +107,20 @@ import { sumarDiasISO } from "@/lib/fechas";
 import { contextoDesdeDatos } from "@/lib/business/contexto";
 import { definicionTipo, usaAgendaPorHoras } from "@/lib/business/modulos";
 import { widgetsDashboard } from "@/lib/business/widgets";
+import { itemsMenuNegocio } from "@/lib/business/menu";
+import { identidadDe, variablesAcento } from "@/lib/business/identidad";
 import ModulosPanel from "./modulos-panel";
+import { iconoModulo } from "./iconos-modulos";
+import AccesosModulos from "./accesos-modulos";
+import type { ResumenDelDia } from "./dashboard-metricas";
+// Los números del día se calculan con el MISMO motor que la pantalla de
+// la agenda (jornada real del equipo menos bloqueos), para que las dos
+// pantallas no digan porcentajes distintos del mismo día.
+import {
+  etiquetaHoras,
+  metricasDelDia,
+  type CitaParaMetricas,
+} from "./citas/metricas-dia";
 
 const ESTADO_LABEL: Record<Rancho["estado"], string> = {
   pendiente: "Pendiente de aprobación",
@@ -353,7 +362,15 @@ export default async function RanchoDetallePage({
   const reservasFinanzas = reservas as unknown as ReservaFinanzas[];
   const gastos = (gastosRes.data ?? []) as Gasto[];
 
-  const metricas = calcularMetricas({ reservas: reservasFinanzas, esLugar });
+  // El "hoy" del negocio, no el del servidor: en Vercel `new Date()` es
+  // UTC y a partir de las 6 p.m. de Costa Rica ya sería mañana.
+  const hoyCR = hoyISOCR();
+
+  const metricas = calcularMetricas({
+    reservas: reservasFinanzas,
+    esLugar,
+    hoyISO: hoyCR,
+  });
   const resumen = resumenFinanciero({ reservas: reservasFinanzas, gastos });
   const reservasPendientes = reservas.filter((r) => r.estado === "pendiente");
   const pendientes = reservasPendientes.length;
@@ -422,8 +439,6 @@ export default async function RanchoDetallePage({
 
   // La agenda: los eventos que vienen, ordenados, con HOY y MAÑANA
   // resaltados — el control operativo del día a día.
-  const hoyCR = hoyISOCR();
-
   const agenda: EventoAgenda[] = reservas
     .filter((r) => r.fecha >= hoyCR && (r.estado === "pendiente" || r.estado === "confirmada"))
     .map((r) => ({
@@ -508,6 +523,87 @@ export default async function RanchoDetallePage({
     bloqueosVigentes = (bloqueosRes.data ?? []) as BloqueoAgenda[];
   }
 
+  const zonaNegocio = (datosCrudos.zona_horaria as string) || "America/Costa_Rica";
+
+  /* ======== LOS NÚMEROS DE HOY ========
+   *
+   * NINGUNO SALE DE UN SUPUESTO. Todo lo que hace falta ya está cargado
+   * en esta misma pantalla: las reservas del día (de la tanda grande),
+   * el equipo con su horario propio, el horario semanal del negocio y
+   * los bloqueos vigentes. Cero consultas de más.
+   *
+   * `metricasDelDia` es el motor de la pantalla de la agenda, no una
+   * copia: la ocupación de acá y la de allá tienen que ser el mismo
+   * porcentaje o una de las dos está mintiendo. Devuelve `ocupacion:
+   * null` cuando no hay jornada contra la cual medir (nadie trabaja hoy,
+   * o el negocio nunca configuró su horario) y entonces la tarjeta
+   * directamente no se pinta — un 0% que significa "no sabemos" es peor
+   * que una tarjeta menos.
+   *
+   * Solo para quien agenda POR HORAS. En un lugar que alquila la fecha
+   * entera no hay minutos que dividir: su número de hoy es cuántas
+   * reservas tiene (`metricas.reservasHoy`) y su ocupación es la de 30
+   * días, que ya existía.
+   */
+  let resumenDelDia: ResumenDelDia | null = null;
+  if (agendaPorHoras && modulos.has("agenda")) {
+    // Sin `hora_inicio` una fila no ocupa una franja: es la "reserva
+    // fantasma" que el propio panel advierte más abajo (no descuenta
+    // disponibilidad ni aparece en la agenda del día). Contarla como
+    // tiempo ocupado inflaría el porcentaje con algo que nadie ve.
+    const citasDeHoy: CitaParaMetricas[] = (
+      reservas as unknown as {
+        fecha: string;
+        hora_inicio?: string | null;
+        duracion_minutos?: number | null;
+        miembro_id?: string | null;
+        estado: string;
+        monto_total: number | null;
+        evento_pagado: boolean;
+        monto_cobrado_final?: number | null;
+      }[]
+    )
+      .filter((r) => r.fecha === hoyCR && !!r.hora_inicio)
+      .map((r) => ({
+        hora_inicio: r.hora_inicio as string,
+        duracion_minutos: r.duracion_minutos ?? null,
+        miembro_id: r.miembro_id ?? null,
+        estado: r.estado,
+        monto_total: r.monto_total,
+        evento_pagado: r.evento_pagado,
+        monto_cobrado_final: r.monto_cobrado_final ?? null,
+      }));
+
+    const dia = metricasDelDia({
+      fecha: hoyCR,
+      zona: zonaNegocio,
+      citas: citasDeHoy,
+      equipo: equipoAgenda,
+      horario: horarioDeDetalles(rancho.detalles),
+      horariosPorMiembro,
+      bloqueos: bloqueosVigentes,
+    });
+
+    // El desglose se arma con las piezas que de verdad hay: un día sin
+    // pendientes no dice "0 sin confirmar".
+    const desglose = [
+      dia.confirmadas > 0 ? `${dia.confirmadas} confirmadas` : null,
+      dia.sinConfirmar > 0 ? `${dia.sinConfirmar} sin confirmar` : null,
+      dia.yaVinieron > 0 ? `${dia.yaVinieron} ya vinieron` : null,
+      dia.noVinieron > 0 ? `${dia.noVinieron} no vinieron` : null,
+    ].filter(Boolean);
+
+    resumenDelDia = {
+      total: dia.total,
+      desglose: desglose.length > 0 ? desglose.join(" · ") : null,
+      ocupacion: dia.ocupacion,
+      detalleOcupacion:
+        dia.ocupacion === null
+          ? null
+          : `${etiquetaHoras(dia.minutosAgendados)} de ${etiquetaHoras(dia.minutosDeAgenda)}`,
+    };
+  }
+
   // El calendario de ocupados muestra todo lo activo (no solo lo
   // próximo): así también se ve de un vistazo lo que ya pasó este mes.
   // Incluye los bloqueos (manuales o importados de agendas externas):
@@ -586,6 +682,29 @@ export default async function RanchoDetallePage({
     }
   }
 
+  /* ======== EL MENÚ, ARMADO DE LOS MÓDULOS DEL TIPO ========
+   *
+   * Antes esto eran cuatro pestañas escritas a mano (Inicio · Citas ·
+   * Finanzas · Configuración), así que daba igual que el tipo declarara
+   * once módulos: el dueño veía cuatro. Ahora la lista sale entera de
+   * `itemsMenuNegocio`, que es puro y está probado — incluida la regla
+   * de que un módulo sin pantalla se muestra apagado y sin enlace.
+   *
+   * La MISMA lista alimenta el menú lateral y las tarjetas de acceso del
+   * tablero: no hay forma de que una ofrezca algo que la otra no.
+   */
+  const identidadTipo = identidadDe(negocio.tipo);
+  const etiquetaCatalogo = CATALOGO_LABEL[categoriaParaIcono];
+  const itemsMenu = itemsMenuNegocio({
+    ranchoId: rancho.id,
+    tipo: negocio.tipo,
+    modulos,
+    vocabulario: identidadTipo.vocabulario,
+    agendaPorHoras,
+    esVerticalCitas,
+    etiquetaCatalogo,
+  });
+
   // La agenda entera — antes era su propia pestaña; ahora es el cuerpo
   // de Inicio, con las mismas acciones de siempre.
   const contenidoAgenda = (
@@ -625,13 +744,10 @@ export default async function RanchoDetallePage({
             .
           </p>
         )}
-        {/* Lo que viene, en cinco tarjetas — pegado al calendario, que
-            es lo que se mira todos los días. El historial completo, con
-            la auditoría de cada reserva, va más abajo. */}
-        <div>
-          <h3 className="titulo mb-3.5 text-[15px] text-aventurea-navy">Próximas reservas</h3>
-          <ProximasReservasCards eventos={agenda} />
-        </div>
+        {/* "Lo que viene" SUBIÓ: ahora abre el tablero, arriba del
+            calendario, porque es lo que se mira al llegar. Lo que quedó
+            acá es el calendario del mes y lo que se hace de vez en
+            cuando (sincronizar, cargar agenda vieja). */}
 
         <SeccionPlegable
           marco={false}
@@ -702,15 +818,30 @@ export default async function RanchoDetallePage({
       </div>
   );
 
-  // INICIO es ahora LA pantalla operativa, en tres bloques y en este
-  // orden: (a) lo que espera acción, (b) la agenda del mes, (c) el
-  // histórico con la auditoría de cada reserva. Antes esto vivía
-  // repartido entre "Inicio" y "Agenda" y en el teléfono eran tres
-  // rieles apilados donde no se entendía nada.
+  // El ítem del menú que abre la agenda del día, si existe: el tablero
+  // lo usa para rematar el bloque "lo de hoy" con un enlace a la
+  // pantalla donde de verdad se opera. Sale de la MISMA lista del menú,
+  // así que si esa pantalla no es de este negocio, el enlace no existe.
+  const itemAgendaDia = itemsMenu.find(
+    (i) => i.id === "agenda" && i.destino.clase === "ruta",
+  );
+  const hrefAgendaDia =
+    itemAgendaDia?.destino.clase === "ruta" ? itemAgendaDia.destino.href : null;
+
+  // INICIO ES EL TABLERO, en el orden de la maqueta:
+  //   (a) la fila de números — cómo va HOY,
+  //   (b) lo que espera respuesta,
+  //   (c) lo del día: lo que viene, con el atajo a la agenda,
+  //   (d) las herramientas del tipo de negocio,
+  //   (e) el calendario del mes y el histórico con auditoría.
+  //
+  // Antes los números iban DESPUÉS de los avisos y "lo que viene" estaba
+  // enterrado debajo del calendario, así que la primera pantalla del
+  // panel era un mes entero de cuadritos.
   const tabInicio: Tab = {
     id: "inicio",
     label: "Inicio",
-    icon: <IconHome />,
+    icon: iconoModulo("inicio"),
     // El puntito de pendientes viaja con la barra de avisos.
     badge: pendientes,
     // Los links viejos (correos ya enviados, la campana del menú y la
@@ -718,7 +849,31 @@ export default async function RanchoDetallePage({
     alias: ["agenda", "reservas"],
     content: (
       <div className="flex flex-col gap-6">
-        {/* (a) Lo que espera respuesta. Las solicitudes traen sus
+        {/* (a) Los números. Cada tarjeta se pinta solo si su dato sale
+            de la base: la de ocupación desaparece cuando el negocio no
+            tiene horario configurado, en vez de mostrar 0%. */}
+        <div>
+          <h2 className="titulo mb-3.5 text-[18px] text-aventurea-navy">Tu negocio en números</h2>
+          <DashboardMetricas
+            metricas={metricas}
+            dia={resumenDelDia}
+            widgets={widgetsDashboard({
+              tipo: negocio.tipo,
+              modulos,
+              // La ocupación por día solo dice algo donde una fecha se
+              // reserva entera (Lugares); en una barbería el mismo día
+              // tiene veinte espacios.
+              ocupacionDisponible: metricas.ocupacionProximos30 !== null,
+              // La de HOY es otra cosa: minutos agendados sobre minutos
+              // de jornada. Solo existe si hubo jornada que medir.
+              ocupacionDeHoyDisponible: resumenDelDia?.ocupacion !== null &&
+                resumenDelDia?.ocupacion !== undefined,
+              vocabulario: identidadTipo.vocabulario,
+            })}
+          />
+        </div>
+
+        {/* (b) Lo que espera respuesta. Las solicitudes traen sus
             propios botones: revisar el comprobante, confirmar (dispara
             el correo al cliente) o rechazar. */}
         <BarraAvisos avisos={avisos} haySolicitudes={reservasPendientes.length > 0}>
@@ -733,26 +888,54 @@ export default async function RanchoDetallePage({
           )}
         </BarraAvisos>
 
-        <div>
-          <h2 className="titulo mb-3.5 text-[18px] text-aventurea-navy">Tu negocio en números</h2>
-          <DashboardMetricas
-            metricas={metricas}
-            widgets={widgetsDashboard({
-              tipo: negocio.tipo,
-              modulos,
-              // La ocupación por día solo dice algo donde una fecha se
-              // reserva entera (Lugares); en una barbería el mismo día
-              // tiene veinte espacios.
-              ocupacionDisponible: metricas.ocupacionProximos30 !== null,
-            })}
-          />
-        </div>
+        {/* (c) Lo del día: lo que viene, arriba de todo lo demás. */}
+        {modulos.has("agenda") && (
+          <section>
+            <div className="mb-3.5 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 className="titulo text-[18px] text-aventurea-navy">Lo que viene</h2>
+              {hrefAgendaDia && (
+                <Link
+                  href={hrefAgendaDia}
+                  className="text-[12.5px] font-bold text-aventurea-navy hover:underline"
+                >
+                  {/* El label ya trae la palabra del tipo ("Citas",
+                      "Consultas", "Agenda del día"): no se le agrega
+                      nada o queda "agenda del día del día". */}
+                  Ver {itemAgendaDia?.label.toLowerCase()} →
+                </Link>
+              )}
+            </div>
+            <ProximasReservasCards eventos={agenda} />
+          </section>
+        )}
 
-        {/* (b) La agenda, entera y con todas sus acciones — SOLO si el
-            negocio tiene el módulo (0108). Un negocio que existe para
-            su programa de lealtad no toma reservas: mostrarle un
-            calendario vacío y su historial de reservas era ruido puro
-            (y hacía la pantalla larguísima). */}
+        {/* (d) Las herramientas de ESTE tipo de negocio. Es el bloque
+            que hace que un consultorio no se vea como una barbería: lo
+            que ya se puede abrir, y lo que su rubro trae y todavía
+            estamos construyendo (apagado, sin enlace). */}
+        {itemsMenu.some((i) => i.modulo !== null) && (
+        <section>
+          <h2 className="titulo mb-1 text-[18px] text-aventurea-navy">
+            Tus herramientas
+          </h2>
+          <p className="mb-3.5 max-w-[70ch] text-[13px] text-aventurea-ink-soft">
+            {definicionTipo(negocio.tipo).label} — {identidadTipo.descripcion}{" "}
+            <Link
+              href="?tab=config&seccion=modulos"
+              className="font-bold text-aventurea-navy underline"
+            >
+              Cambiá tu tipo o apagá lo que no usés
+            </Link>
+            .
+          </p>
+          <AccesosModulos items={itemsMenu} />
+        </section>
+        )}
+
+        {/* (e) El calendario del mes y el histórico — SOLO si el negocio
+            tiene el módulo (0108). Un negocio que existe para su
+            programa de lealtad no toma reservas: mostrarle un calendario
+            vacío y su historial era ruido puro. */}
         {modulos.has("agenda") && (
           <>
             <section>
@@ -760,8 +943,6 @@ export default async function RanchoDetallePage({
               {contenidoAgenda}
             </section>
 
-            {/* (c) El histórico con auditoría: quién reservó, a qué hora,
-                con qué correo, cuánto depositó y cuánto queda pendiente. */}
             <section>
               <h2 className="titulo mb-3.5 text-[18px] text-aventurea-navy">
                 Últimas reservas y su auditoría
@@ -782,7 +963,8 @@ export default async function RanchoDetallePage({
   // lo que el proveedor carga acá es lo que el cliente elige al armar
   // su pedido en la página pública. Lugares no lo necesita — ya tiene
   // su propio sistema de precios y servicios adicionales.
-  const etiquetaCatalogo = CATALOGO_LABEL[categoriaParaIcono];
+  // (`etiquetaCatalogo` se resolvió arriba, junto con el menú: es uno de
+  // los labels que el menú necesita.)
   // El contenido se declara aparte porque lo usan DOS lugares: la
   // pestaña "Catálogo" (eventos/servicios) y la sección "Mis productos"
   // de Configuración (citas).
@@ -819,14 +1001,14 @@ export default async function RanchoDetallePage({
   const tabCatalogo: Tab = {
     id: "catalogo",
     label: etiquetaCatalogo,
-    icon: <IconClipboard />,
+    icon: iconoModulo("servicios"),
     content: contenidoCatalogo,
   };
 
   const tabFinanzas: Tab = {
     id: "finanzas",
     label: "Finanzas",
-    icon: <IconChartBars />,
+    icon: iconoModulo("pagos"),
     content: (
       <div>
         {errorFinanzas && (
@@ -893,7 +1075,6 @@ export default async function RanchoDetallePage({
   // Datos que ya no son "de citas": los usan las secciones de agenda
   // por horas de acá abajo, que ahora montan las DOS pestañas de
   // Configuración. Por eso se declaran antes que ellas.
-  const zonaNegocio = (datosCrudos.zona_horaria as string) || "America/Costa_Rica";
   const brutoDepositoCitas = datosCrudos.deposito_citas;
   const depositoCitas =
     typeof brutoDepositoCitas === "number" || typeof brutoDepositoCitas === "string"
@@ -918,7 +1099,11 @@ export default async function RanchoDetallePage({
       {modulos.has("equipo") && (
         <SeccionPlegable
           marco={false}
-          abierta={seccion === "colaboradores"}
+          // `equipo` es lo que manda el ítem del menú; `colaboradores`
+          // se conserva porque hay links viejos que lo usan (y también
+          // abre la sección de "quién administra", más abajo — son las
+          // dos caras de "mi gente").
+          abierta={seccion === "equipo" || seccion === "colaboradores"}
           titulo="Mis colaboradores"
           descripcion="Las personas que atienden (y también espacios como cabinas o camillas). Cada quien puede tener su propio horario y sus propios servicios."
           resumen={equipoAgenda.length > 0 ? `${equipoAgenda.length} en el equipo` : undefined}
@@ -1309,50 +1494,57 @@ export default async function RanchoDetallePage({
     ),
   };
 
-  // EL MENÚ SE ARMA DE LOS MÓDULOS, no de la vertical. Cada ítem
-  // declara qué módulo necesita; un módulo apagado (o una pantalla que
-  // todavía no existe) simplemente no aporta ítem.
-  //
-  // Con los defaults de cada tipo esto da EXACTAMENTE el menú de antes:
-  //   CITAS    — Inicio · Citas · Finanzas · Configuración
-  //   EVENTOS  — Inicio · Catálogo (si no es lugar) · Finanzas · Config.
-  // Lo verifica src/lib/business/modulos.test.ts contra la regla vieja,
-  // caso por caso.
-  //
-  // Los `grupo` son para cuando el menú crece (un gimnasio con clases,
-  // membresías y check-in): PanelSidebar solo pinta los encabezados
-  // cuando hay de qué agrupar.
-  const tabs: Tab[] = [
-    { ...tabInicio, grupo: "agenda" },
-    // La agenda del día vive en su propia ruta (/citas) y la ve todo
-    // negocio que agende por horas: la pantalla nunca fue de la
-    // vertical, es de la forma de agendar. Manda el módulo — quien
-    // apaga Agenda no la ve, aunque trabaje por horas.
-    ...(agendaPorHoras && modulos.has("agenda")
-      ? [
-          {
-            id: "citas",
-            label: esVerticalCitas ? "Citas" : "Agenda del día",
-            href: `/mi-negocio/${rancho.id}/citas`,
-            icon: <IconClock />,
-            grupo: "agenda",
-          } satisfies Tab,
-        ]
-      : []),
-    ...(!esVerticalCitas && modulos.has("servicios")
-      ? [{ ...tabCatalogo, grupo: "gestion" as const }]
-      : []),
-    ...(modulos.has("pagos") ? [{ ...tabFinanzas, grupo: "finanzas" as const }] : []),
-    // Lealtad NO aparece acá, y es a propósito: es un producto aparte,
-    // con su propia cuenta (0134), su propio plan y su propia puerta en
-    // /lealtad. Un negocio puede tener Lealtad sin estar en el
-    // marketplace, y al revés.
-    //
-    // El atajo que había acá contradecía eso: hacía ver a Lealtad como
-    // una pestaña más de la ficha del marketplace, y colaba el id del
-    // RANCHO en una URL que ya no es la fuente de verdad.
-    { ...(esVerticalCitas ? tabConfig : tabConfigEventos), grupo: "config" },
-  ];
+  /* ======== EL MENÚ LATERAL ========
+   *
+   * Se arma recorriendo `itemsMenu` —la lista que resolvió
+   * `itemsMenuNegocio` a partir de los módulos del tipo— y colgándole a
+   * cada ítem lo que solo esta pantalla puede darle: el contenido de las
+   * pestañas que se montan acá (Inicio, Catálogo, Finanzas,
+   * Configuración) y el contador de solicitudes.
+   *
+   * Antes esta lista era cuatro entradas escritas a mano; por eso un
+   * consultorio y una barbería veían el mismo menú. Ahora la barbería ve
+   * su gente, su equipo y sus reportes, y el consultorio ve además sus
+   * cinco secciones clínicas apagadas — porque su tipo las declara.
+   *
+   * Cuatro cosas que NO cambiaron:
+   *   · Ningún ítem lleva a un 404: los destinos los decide el módulo
+   *     puro y su prueba (`menu.test.ts`) los verifica contra la lista
+   *     de rutas que existen de verdad.
+   *   · Las pestañas siguen viviendo en `?tab=`, con sus alias viejos.
+   *   · Lealtad NO aparece: es un producto aparte, con su propia cuenta
+   *     (0134), su propio plan y su propia puerta en /lealtad.
+   *   · El contenido de todas las pestañas queda montado (PanelSidebar
+   *     lo esconde con `hidden`), así no se pierde un formulario a
+   *     medio llenar al cambiar de sección.
+   */
+  const tabConfiguracion = esVerticalCitas ? tabConfig : tabConfigEventos;
+  const contenidoDePestana: Record<string, Tab> = {
+    inicio: tabInicio,
+    catalogo: tabCatalogo,
+    finanzas: tabFinanzas,
+    config: tabConfiguracion,
+  };
+
+  const tabs: Tab[] = itemsMenu.flatMap((item): Tab[] => {
+    const comun = { grupo: item.grupo, icon: iconoModulo(item.id) };
+
+    if (item.destino.clase === "proximamente") {
+      return [{ id: item.id, label: item.label, proximamente: true, ...comun }];
+    }
+
+    if (item.destino.clase === "ruta") {
+      return [{ id: item.id, label: item.label, href: item.destino.href, ...comun }];
+    }
+
+    // `seccion`: una pestaña que se monta en esta misma pantalla. Si el
+    // contenido no existiera, el ítem se cae en vez de dejar una
+    // pestaña vacía — pero eso no puede pasar hoy: la prueba del menú
+    // fija que los únicos `tab` posibles son estos cuatro.
+    const base = contenidoDePestana[item.destino.tab];
+    if (!base) return [];
+    return [{ ...base, label: item.label, ...comun }];
+  });
 
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
 
@@ -1392,6 +1584,34 @@ export default async function RanchoDetallePage({
           </p>
         </div>
       </div>
+
+      {/* QUÉ TIPO DE NEGOCIO ES, arriba del menú — porque es lo que
+          explica por qué el menú dice lo que dice. La pastilla se pinta
+          con el acento del tipo (`suave` de fondo, `tinta` de letra: el
+          par para el que están calibrados), y si el dueño todavía no
+          eligió tipo se le ofrece hacerlo en vez de mostrarle "Otro",
+          que no le informa nada. Mismo criterio que la cabecera de la
+          agenda de citas. */}
+      {negocio.tipoExplicito ? (
+        <p className="mt-3">
+          <span
+            className="inline-block max-w-full truncate rounded-lg px-2 py-1 text-[11px] font-bold"
+            style={{
+              backgroundColor: "var(--acento-suave)",
+              color: "var(--acento)",
+            }}
+          >
+            {definicionTipo(negocio.tipo).label}
+          </span>
+        </p>
+      ) : (
+        <Link
+          href="?tab=config&seccion=modulos"
+          className="mt-3 block text-[11px] font-bold leading-snug text-white/55 hover:text-white hover:underline"
+        >
+          Elegí tu tipo de negocio y este panel se adapta a tu rubro →
+        </Link>
+      )}
 
       {rancho.estado === "aprobado" && (
         <Link
@@ -1516,7 +1736,18 @@ export default async function RanchoDetallePage({
       </Link>
 
       <div className="mt-4">
-        <PanelSidebar tabs={tabs} defaultTab="inicio" identidad={identidad} encabezado={encabezado} />
+        {/* El acento del tipo de negocio entra UNA sola vez, acá: el
+            ítem activo del menú, la pastilla del tipo y los íconos de
+            las tarjetas de acceso lo leen como `var(--acento…)`, así
+            ninguna de esas piezas necesita saber de qué color es un spa
+            — ni lleva un hexadecimal suelto. */}
+        <PanelSidebar
+          tabs={tabs}
+          defaultTab="inicio"
+          identidad={identidad}
+          encabezado={encabezado}
+          acento={variablesAcento(identidadTipo)}
+        />
       </div>
     </main>
   );

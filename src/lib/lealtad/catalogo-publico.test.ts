@@ -190,8 +190,8 @@ describe("catalogoPublico — los números que la app estaba mintiendo", () => {
   it("Arranque son $12, no ₡12 900, y su cupo es 200", () => {
     const arranque = catalogoPublico().planes.find((p) => p.id === "arranque");
     expect(arranque?.precio).toBe("$12");
-    expect(arranque?.precioAnual).toBe("$120");
-    expect(arranque?.notaPrecio).toBe("$120 al año — 2 meses gratis");
+    expect(arranque?.precioAnual).toBe("$115");
+    expect(arranque?.notaPrecio).toBe("$115 al año — 20% menos");
     expect(arranque?.etiquetaClientes).toBe("Hasta 200 clientes");
   });
 

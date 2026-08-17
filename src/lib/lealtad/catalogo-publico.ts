@@ -49,7 +49,7 @@ import {
   PLANES_VIGENTES,
   PLAN_DESTACADO,
   etiquetasDeCapacidades,
-  mesesDeAhorroAnual,
+  descuentoAnualPct,
   precioDe,
   type DefinicionPlan,
 } from "./planes";
@@ -129,18 +129,23 @@ function conMiles(n: number): string {
 }
 
 /**
- * La línea chica debajo del precio. Es la MISMA de
- * `src/app/lealtad/paquetes-cliente.tsx`, con una diferencia: los
- * «2 meses gratis» salen de `mesesDeAhorroAnual()` en vez de estar
- * escritos, así que un cambio de precio anual no los deja mintiendo.
+ * La línea chica debajo del precio. El descuento sale de
+ * `descuentoAnualPct()` y no de un texto escrito, así que un cambio de
+ * precio anual no lo deja mintiendo.
+ *
+ * Decía «2 meses gratis» y ahora dice el porcentaje, por la misma razón
+ * por la que cambió en el resto del sitio: desde que el anual es 20%
+ * menos, contar meses regalados dice MENOS de lo que se da (el ahorro
+ * real son 2,4 meses) y además ya no describe la regla — la regla es un
+ * porcentaje.
  */
 function notaPrecioDe(def: DefinicionPlan): string {
   if (def.precioMensual === 0) return `${def.diasPrueba} días, sin tarjeta`;
   const anual = precioDe(def, "año");
   if (anual === null) return "Cotizado a tu medida";
-  const meses = mesesDeAhorroAnual(def);
-  if (meses <= 0) return `${anual} al año`;
-  return `${anual} al año — ${meses} ${meses === 1 ? "mes gratis" : "meses gratis"}`;
+  const pct = descuentoAnualPct(def);
+  if (pct <= 0) return `${anual} al año`;
+  return `${anual} al año — ${pct}% menos`;
 }
 
 function topesDe(def: DefinicionPlan): TopePublico[] {

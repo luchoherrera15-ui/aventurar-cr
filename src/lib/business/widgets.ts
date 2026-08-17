@@ -20,8 +20,11 @@
  */
 
 import type { ModuloId, TipoNegocioId } from "./modulos";
+import type { Vocabulario } from "./identidad";
 
 export type WidgetId =
+  | "reservas_hoy"
+  | "ocupacion_hoy"
   | "ingresos_mes"
   | "por_cobrar_30"
   | "reservas_mes"
@@ -82,13 +85,43 @@ export function widgetsDashboard({
   tipo,
   modulos,
   ocupacionDisponible,
+  ocupacionDeHoyDisponible = false,
+  vocabulario,
 }: {
   tipo: TipoNegocioId;
   modulos: ReadonlySet<ModuloId>;
   ocupacionDisponible: boolean;
+  /**
+   * ¿Se puede calcular el % de agenda ocupada DE HOY? Solo es `true`
+   * cuando `metricasDelDia` devolvió un número — o sea, cuando hay
+   * jornada de verdad contra la cual medir (horario configurado y
+   * alguien trabajando). Sin eso la tarjeta no se pinta: un 0% que
+   * significa "no sabemos" es peor que una tarjeta menos.
+   */
+  ocupacionDeHoyDisponible?: boolean;
+  /**
+   * El vocabulario del tipo (`identidadDe(tipo).vocabulario`). Llega
+   * como parámetro y no se importa acá para no cerrar el círculo:
+   * `identidad.ts` ya lee `palabraReserva` de este archivo. Sin él se
+   * cae a `palabraReserva`, que es de donde ese vocabulario hereda, así
+   * que los dos caminos dicen lo mismo.
+   */
+  vocabulario?: Vocabulario;
 }): WidgetDashboard[] {
-  const { singular, Plural } = palabraReserva(tipo);
+  const heredada = palabraReserva(tipo);
+  const singular = vocabulario?.visita.singular ?? heredada.singular;
+  const Plural = vocabulario?.visita.Plural ?? heredada.Plural;
   const widgets: WidgetDashboard[] = [];
+
+  // EL DÍA VA PRIMERO. El panel se abre en la mañana para saber qué hay
+  // hoy, no cómo cerró el mes; el mes es análisis y baja un escalón.
+  const hayHoy = modulos.has("agenda");
+  if (hayHoy) {
+    widgets.push({ id: "reservas_hoy", titulo: `${Plural} hoy`, nivel: "principal" });
+    if (ocupacionDeHoyDisponible) {
+      widgets.push({ id: "ocupacion_hoy", titulo: "Ocupación de hoy", nivel: "principal" });
+    }
+  }
 
   if (modulos.has("pagos")) {
     widgets.push(
@@ -99,7 +132,10 @@ export function widgetsDashboard({
 
   if (modulos.has("agenda")) {
     widgets.push(
-      { id: "reservas_mes", titulo: `${Plural} este mes`, nivel: "principal" },
+      // Con la tarjeta de hoy arriba, el total del mes pasa a ser el
+      // número de análisis que era: cuatro tarjetas principales es lo
+      // que entra de un vistazo, y la quinta se lee cuando se busca.
+      { id: "reservas_mes", titulo: `${Plural} este mes`, nivel: hayHoy ? "secundario" : "principal" },
       { id: "proxima_reserva", titulo: `Próxima ${singular}`, nivel: "secundario" },
     );
     if (ocupacionDisponible) {

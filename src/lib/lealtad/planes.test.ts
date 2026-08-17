@@ -7,6 +7,7 @@ import {
   estadoDelLimite,
   etiquetaTiposDe,
   etiquetasDeCapacidades,
+  descuentoAnualPct,
   mesesDeAhorroAnual,
   planIncluyeTipo,
   planQueDesbloquea,
@@ -559,9 +560,9 @@ describe("precioDe", () => {
   });
 
   it("da el precio anual cuando se lo piden", () => {
-    expect(precioDe(PLANES.arranque, "año")).toBe("$120");
-    expect(precioDe(PLANES.impulso, "año")).toBe("$420");
-    expect(precioDe(PLANES.ilimitado, "año")).toBe("$890");
+    expect(precioDe(PLANES.arranque, "año")).toBe("$115");
+    expect(precioDe(PLANES.impulso, "año")).toBe("$400");
+    expect(precioDe(PLANES.ilimitado, "año")).toBe("$850");
   });
 
   it("la prueba es cero y el negociado no tiene cifra", () => {
@@ -721,5 +722,46 @@ describe("el plan sin costo tiene tope de programas", () => {
 
   it("los retirados conservan SIN_TOPES: no se le quita a quien ya lo tenía", () => {
     expect(PLANES.gratis.limites.programas).toBeNull();
+  });
+});
+
+describe("EL ANUAL ES 20% MENOS, y eso es una promesa que se comprueba con calculadora", () => {
+  /**
+   * El descuento anual dejó de ser «dos meses de regalo» (16,7%) y pasó
+   * a ser 20%. Los precios se redondearon HACIA ABAJO justamente para
+   * que el descuento real nunca quede por debajo de lo que la página
+   * anuncia: prometer 20% y cobrar 19,8% es la clase de detalle que un
+   * cliente verifica.
+   *
+   * Y el número que se MUESTRA se redondea hacia abajo también, así que
+   * nunca puede anunciar más de lo que el precio cumple.
+   */
+  it("ningún paquete de pago da menos del 20% al año", () => {
+    for (const id of PLANES_OFRECIDOS) {
+      const def = PLANES[id];
+      if (!def.precioMensual || !def.precioAnual) continue;
+      const real = ((def.precioMensual * 12 - def.precioAnual) / (def.precioMensual * 12)) * 100;
+      expect(real, `${id} promete 20% y da ${real.toFixed(1)}%`).toBeGreaterThanOrEqual(20);
+    }
+  });
+
+  it("lo que se anuncia nunca es MÁS que lo que se cobra", () => {
+    for (const id of PLANES_OFRECIDOS) {
+      const def = PLANES[id];
+      if (!def.precioMensual || !def.precioAnual) continue;
+      const real = ((def.precioMensual * 12 - def.precioAnual) / (def.precioMensual * 12)) * 100;
+      expect(descuentoAnualPct(def), `${id} anuncia de más`).toBeLessThanOrEqual(real);
+    }
+  });
+
+  it("los tres de pago anuncian 20%", () => {
+    expect(descuentoAnualPct(PLANES.arranque)).toBe(20);
+    expect(descuentoAnualPct(PLANES.impulso)).toBe(20);
+    expect(descuentoAnualPct(PLANES.ilimitado)).toBe(20);
+  });
+
+  it("un paquete sin precio anual no anuncia ningún descuento", () => {
+    expect(descuentoAnualPct(PLANES.prueba)).toBe(0);
+    expect(descuentoAnualPct(PLANES.empresa)).toBe(0);
   });
 });

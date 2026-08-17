@@ -490,8 +490,17 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     nombre: "Arranque",
     descripcion: "Para el local que pone su primera tarjeta a rodar.",
     precioMensual: 12,
-    // Dos meses de regalo: 12 × 12 = 144, y el anual sale 120.
-    precioAnual: 120,
+    // ── EL ANUAL ES 20% MENOS QUE PAGAR MES A MES ──────────────────
+    // 12 × 12 = 144, menos 20% = 115,20 → se cobra 115.
+    //
+    // EL REDONDEO VA SIEMPRE HACIA ABAJO, y no es capricho: redondear
+    // hacia arriba dejaría el descuento real por debajo del 20% que la
+    // página promete. Anunciar 20% y cobrar 19,8% es exactamente la
+    // clase de detalle que un cliente comprueba con la calculadora.
+    // Así queda en 20,1%: se promete 20 y se da un poco más.
+    //
+    // Antes era «dos meses de regalo» (×10), que daba 16,7%.
+    precioAnual: 115,
     limites: {
       clientesActivos: 200,
       // DOS tarjetas. Antes iba en 1, y no por tacañería: el cupo de
@@ -517,7 +526,9 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     nombre: "Impulso",
     descripcion: "Para el que ya tiene clientela y quiere hacerla volver.",
     precioMensual: 42,
-    precioAnual: 420,
+    // 42 × 12 = 504, menos 20% = 403,20 → 400 (20,6%). Ver la nota del
+    // redondeo en el paquete Arranque: siempre hacia abajo.
+    precioAnual: 400,
     limites: {
       clientesActivos: 1_150,
       programas: 5,
@@ -537,7 +548,9 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     nombre: "Ilimitado",
     descripcion: "Sin techo de clientes ni de tarjetas, y el diseño lo hacemos nosotros.",
     precioMensual: 89,
-    precioAnual: 890,
+    // 89 × 12 = 1068, menos 20% = 854,40 → 850 (20,4%). Mismo redondeo
+    // hacia abajo que los otros dos.
+    precioAnual: 850,
     limites: {
       clientesActivos: null,
       programas: null,
@@ -882,6 +895,26 @@ export function mesesDeAhorroAnual(def: DefinicionPlan): number {
   if (!def.precioMensual || !def.precioAnual) return 0;
   const ahorro = def.precioMensual * 12 - def.precioAnual;
   return Math.round(ahorro / def.precioMensual);
+}
+
+/**
+ * CUÁNTO SE AHORRA PAGANDO EL AÑO, en porcentaje entero.
+ *
+ * Reemplaza a «2 meses gratis» como la forma de anunciar el anual, y no
+ * es cambio de gusto: desde que el anual es 20% menos, «2 meses» dice
+ * MENOS de lo que se da (el ahorro real son 2,4 meses) y además ya no
+ * describe la regla — la regla es un porcentaje, no una cantidad de
+ * meses regalados.
+ *
+ * REDONDEA HACIA ABAJO, a propósito. Si un paquete quedara en 20,6%,
+ * anunciar «21%» sería prometer más de lo que el precio cumple. Con
+ * `Math.floor` el número que se muestra siempre se queda corto o
+ * exacto: se promete 20 y se da 20,6.
+ */
+export function descuentoAnualPct(def: DefinicionPlan): number {
+  if (!def.precioMensual || !def.precioAnual) return 0;
+  const completo = def.precioMensual * 12;
+  return Math.floor(((completo - def.precioAnual) / completo) * 100);
 }
 
 /**

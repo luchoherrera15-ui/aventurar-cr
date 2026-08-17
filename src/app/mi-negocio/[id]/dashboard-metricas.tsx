@@ -10,6 +10,7 @@ import {
   IconCheck,
   IconChevronDown,
   IconClock,
+  IconCompass,
   IconTagLine,
   IconUsers,
 } from "@/components/icons";
@@ -28,13 +29,60 @@ type Card = {
 };
 
 /**
+ * LO QUE PASA HOY, ya resuelto por el servidor.
+ *
+ * Llega masticado (números y textos, nada de fechas ni objetos de
+ * dominio) y NO se importa `citas/metricas-dia.ts` acá a propósito: ese
+ * módulo arrastra el motor de disponibilidad, y meter un módulo de
+ * servidor adentro de un componente `"use client"` es exactamente lo
+ * que ya rompió Finanzas y el panel de IA en su momento.
+ *
+ * `null` significa "este negocio no tiene cómo saberlo", y entonces las
+ * tarjetas del día no se pintan — no se pintan en cero.
+ */
+export type ResumenDelDia = {
+  /** Cuántas visitas hay hoy, contadas con los estados reales. */
+  total: number;
+  /** "14 confirmadas · 2 sin confirmar", o null si no hay nada que decir. */
+  desglose: string | null;
+  /** 0-100, o null cuando no hay jornada contra la cual medir. */
+  ocupacion: number | null;
+  /** "5 h 30 min ocupados de 8 h" — el crudo del que sale el %. */
+  detalleOcupacion: string | null;
+};
+
+/**
  * Cómo se pinta cada widget. El TÍTULO no está acá a propósito: lo pone
  * `widgetsDashboard` según el tipo de negocio ("Citas este mes" en una
  * barbería, "Reservas este mes" en un salón de eventos). Acá vive solo
  * el número y su ícono.
  */
-function contenidoWidget(id: WidgetId, m: Metricas): Omit<Card, "titulo"> | null {
+function contenidoWidget(
+  id: WidgetId,
+  m: Metricas,
+  dia: ResumenDelDia | null,
+): Omit<Card, "titulo"> | null {
   switch (id) {
+    case "reservas_hoy":
+      return {
+        // Con agenda por horas manda el conteo del día (mismo cálculo
+        // que la pantalla de la agenda, para que no se contradigan);
+        // sin ella, el conteo por fecha de las reservas.
+        valor: String(dia?.total ?? m.reservasHoy),
+        detalle: dia?.desglose ?? undefined,
+        icono: <IconCalendarLine />,
+      };
+    case "ocupacion_hoy":
+      // Sin jornada real no hay tarjeta. El `null` viaja desde
+      // `metricasDelDia`, que devuelve null en vez de 0 justamente para
+      // que acá se pueda distinguir "vacío" de "no se sabe".
+      return dia?.ocupacion === null || dia?.ocupacion === undefined
+        ? null
+        : {
+            valor: `${dia.ocupacion}%`,
+            detalle: dia.detalleOcupacion ?? undefined,
+            icono: <IconCompass />,
+          };
     case "ingresos_mes":
       return {
         valor: fmtColones(m.ingresosEsteMes),
@@ -133,9 +181,12 @@ function Dato({ titulo, valor, detalle, icono, plata = false }: Card) {
 export default function DashboardMetricas({
   metricas,
   widgets,
+  dia = null,
 }: {
   metricas: Metricas;
   widgets: WidgetDashboard[];
+  /** Lo de hoy, cuando el negocio tiene agenda por horas. */
+  dia?: ResumenDelDia | null;
 }) {
   const [abierto, setAbierto] = useState(false);
   const { ingresosEsteMes, proximaReserva, totalReservasHistorico } = metricas;
@@ -153,7 +204,7 @@ export default function DashboardMetricas({
     widgets
       .filter((w) => w.nivel === nivel)
       .flatMap((w) => {
-        const contenido = contenidoWidget(w.id, metricas);
+        const contenido = contenidoWidget(w.id, metricas, dia);
         return contenido ? [{ titulo: w.titulo, ...contenido }] : [];
       });
 
@@ -166,8 +217,14 @@ export default function DashboardMetricas({
     <div className="flex flex-col gap-2">
       {/* Dos columnas en móvil: con tres, cada tarjeta quedaba en 87px
           útiles y «₡12.500.000» se cortaba (un monto no tiene dónde
-          partirse). */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
+          partirse). En pantalla grande la fila se ajusta a cuántas
+          tarjetas hay de verdad: con cuatro son cuatro columnas, con
+          tres son tres — nunca queda un hueco al final de la fila. */}
+      <div
+        className={`grid grid-cols-2 gap-2 sm:gap-2.5 ${
+          principales.length >= 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"
+        }`}
+      >
         {principales.map((card) => (
           <Dato key={card.titulo} {...card} />
         ))}

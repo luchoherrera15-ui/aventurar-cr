@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { IconChevronDown } from "@/components/icons";
 import { GRUPO_LABEL, type GrupoId } from "@/lib/business/modulos";
@@ -15,6 +15,18 @@ export type Tab = {
   /** Contador chiquito al lado del label (ej. reservas por aprobar). */
   badge?: number;
   icon?: ReactNode;
+  /**
+   * El tipo de negocio declara este módulo pero todavía no hay pantalla.
+   * Se pinta apagado, con la marca «Pronto», y NO es clickeable — ni
+   * botón ni enlace: un <span>. Que no exista el elemento interactivo es
+   * lo que garantiza que no pueda llevar a un 404 ni recibir el teclado.
+   *
+   * Se muestra igual (en vez de esconderlo) porque es lo que hace que el
+   * panel se vea del rubro: un consultorio con sus cinco secciones
+   * clínicas apagadas se reconoce como consultorio; sin ellas es una
+   * barbería de otro color.
+   */
+  proximamente?: boolean;
   /**
    * El bloque del menú al que pertenece (Agenda, Gestión, Fitness…).
    * Solo se pinta el encabezado cuando el menú es largo — ver abajo.
@@ -66,11 +78,26 @@ export default function PanelSidebar({
   defaultTab,
   identidad,
   encabezado,
+  acento,
 }: {
   tabs: Tab[];
   defaultTab: string;
   identidad?: ReactNode;
   encabezado?: ReactNode;
+  /**
+   * El acento del tipo de negocio como variables CSS, tal como las
+   * devuelve `variablesAcento(identidad)`. Entra UNA vez en el
+   * contenedor y el ítem activo lo lee con `var(--acento-solido)`; así
+   * no hay un solo hexadecimal suelto acá adentro y un spa se pinta
+   * aguamarina sin que este componente sepa qué es un spa.
+   *
+   * Se usan `solido`/`sobreSolido` y no `tinta` a propósito: la columna
+   * es navy oscuro y la tinta está calibrada para leerse sobre blanco.
+   * El relleno sólido con letra blanca es justo el papel que declara
+   * `Acento.solido` ("pastilla del tipo activo"), y su contraste ya está
+   * medido en identidad.ts.
+   */
+  acento?: Record<string, string>;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -100,15 +127,18 @@ export default function PanelSidebar({
   }
 
   // Los ítems `href` (Citas, que navega a una ruta de verdad) se marcan
-  // activos por pathname; el resto, por el estado `activo`.
-  const esActivo = (t: Tab) => (t.href ? pathname.startsWith(t.href) : activo === t.id);
+  // activos por pathname; el resto, por el estado `activo`. Los atajos a
+  // una sección de Configuración llevan `?query` en el href y por eso
+  // nunca matchean: el activo en ese caso es la pestaña a la que caen.
+  const esActivo = (t: Tab) =>
+    !t.proximamente && (t.href ? !t.href.includes("?") && pathname.startsWith(t.href) : activo === t.id);
 
-  // Los encabezados de bloque (AGENDA, GESTIÓN, FITNESS…) solo aparecen
-  // cuando el menú de verdad los necesita: con los cuatro ítems de una
-  // barbería agrupar es ruido, con los nueve de un gimnasio es lo único
-  // que lo hace leíble.
+  // Los encabezados de bloque (AGENDA, GESTIÓN, CLÍNICO, FITNESS…) solo
+  // aparecen cuando el menú de verdad los necesita: con cuatro ítems
+  // agrupar es ruido, con los doce de un consultorio es lo único que lo
+  // hace leíble.
   const gruposDistintos = new Set(tabs.map((t) => t.grupo).filter(Boolean)).size;
-  const conEncabezados = gruposDistintos > 1 && tabs.length > 5;
+  const conEncabezados = gruposDistintos > 1 && tabs.length > 4;
 
   function itemsNav(alCerrar: () => void) {
     let grupoPintado: GrupoId | undefined;
@@ -119,11 +149,22 @@ export default function PanelSidebar({
           const abreGrupo = conEncabezados && !!t.grupo && t.grupo !== grupoPintado;
           const primerGrupo = abreGrupo && grupoPintado === undefined;
           if (t.grupo) grupoPintado = t.grupo;
-          const cls = `flex items-center gap-2.5 rounded-xl border-l-[3px] px-3.5 py-2.5 text-[13.5px] font-bold transition-colors ${
-            activa
-              ? "border-aventurea-sky bg-white/10 text-white"
-              : "border-transparent text-white/60 hover:bg-white/5 hover:text-white"
-          }`;
+          const base =
+            "flex items-center gap-2.5 rounded-xl border-l-[3px] px-3.5 py-2.5 text-[13.5px] font-bold transition-colors";
+          const cls = t.proximamente
+            ? `${base} cursor-default border-transparent text-white/30`
+            : `${base} border-transparent ${
+                activa ? "text-white" : "text-white/60 hover:bg-white/5 hover:text-white"
+              }`;
+          // El acento pinta el ítem activo. Sin `acento` (o si alguien
+          // reusa este componente sin pasarlo) cae al blanco tenue de
+          // siempre, así que nunca queda un ítem sin fondo.
+          const estilo: CSSProperties | undefined = activa
+            ? {
+                background: "var(--acento-solido, rgba(255,255,255,.10))",
+                color: "var(--acento-sobre, white)",
+              }
+            : undefined;
           const contenidoItem = (
             <>
               {t.icon && <span className="shrink-0 [&_svg]:h-[17px] [&_svg]:w-[17px]">{t.icon}</span>}
@@ -131,6 +172,11 @@ export default function PanelSidebar({
                   por defecto pero los <Link> no — sin esto, el único
                   ítem con href (Citas) quedaba corrido a la izquierda. */}
               <span className="flex-1 truncate text-center">{t.label}</span>
+              {t.proximamente && (
+                <span className="shrink-0 rounded-lg border border-white/15 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-white/35">
+                  Pronto
+                </span>
+              )}
               {!!t.badge && t.badge > 0 && (
                 <span className="shrink-0 rounded-lg bg-aventurea-sky px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none text-white">
                   {t.badge}
@@ -138,12 +184,19 @@ export default function PanelSidebar({
               )}
             </>
           );
-          const item = t.href ? (
-            <Link href={t.href} className={cls} onClick={alCerrar}>
+          const item = t.proximamente ? (
+            // Ni <button> ni <Link>: un módulo sin pantalla no puede
+            // tener nada que clickear. `title` explica el porqué al pasar
+            // el mouse, sin ocupar lugar en la columna.
+            <span className={cls} title={`${t.label} viene en camino — todavía no se puede abrir.`}>
+              {contenidoItem}
+            </span>
+          ) : t.href ? (
+            <Link href={t.href} className={cls} style={estilo} onClick={alCerrar}>
               {contenidoItem}
             </Link>
           ) : (
-            <button type="button" onClick={() => cambiar(t.id)} className={cls}>
+            <button type="button" onClick={() => cambiar(t.id)} className={cls} style={estilo}>
               {contenidoItem}
             </button>
           );
@@ -167,7 +220,13 @@ export default function PanelSidebar({
   const seccionActiva = tabs.find((t) => esActivo(t));
 
   return (
-    <div className="lg:grid lg:grid-cols-[224px_1fr] lg:items-start lg:gap-8">
+    // 236px y no 224: el menú pasó de cuatro ítems a los de todo el tipo
+    // de negocio, y "Paquetes y bonos" o "Formularios" con su marca
+    // «Pronto» al lado no entraban sin truncarse a la mitad.
+    <div
+      className="lg:grid lg:grid-cols-[236px_1fr] lg:items-start lg:gap-8"
+      style={acento as CSSProperties | undefined}
+    >
       {/* top-20 (80px): el header del panel mide 64px fijos, así que el
           offset deja de ser una adivinanza. Envuelve identidad+nav para
           que las dos suban pegadas al hacer scroll, como un solo bloque. */}
@@ -178,8 +237,11 @@ export default function PanelSidebar({
           </div>
         )}
 
-        {/* Desktop: columna fija */}
-        <aside className="hidden shrink-0 rounded-3xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy p-3 lg:block">
+        {/* Desktop: columna fija. `max-h`/`overflow-y-auto`: el menú de
+            un consultorio son doce ítems y en una laptop de 768px de
+            alto los últimos quedaban abajo del pliegue, sin scroll
+            propio porque la columna es sticky. */}
+        <aside className="hidden shrink-0 rounded-3xl bg-gradient-to-br from-aventurea-navy-2 to-aventurea-navy p-3 lg:block lg:max-h-[calc(100svh-6rem)] lg:overflow-y-auto">
           {itemsNav(() => {})}
         </aside>
 
@@ -212,7 +274,10 @@ export default function PanelSidebar({
                 onClick={() => setSelectorAbierto(false)}
                 className="fixed inset-0 z-10 cursor-default"
               />
-              <div className="absolute left-0 right-0 top-full z-20 mt-1.5 rounded-2xl bg-aventurea-navy p-3 shadow-2xl">
+              {/* Alto tope + scroll propio: en el teléfono el menú
+                  completo de un tipo con muchos módulos se pasaba de
+                  pantalla y los últimos ítems quedaban inalcanzables. */}
+              <div className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-[65svh] overflow-y-auto rounded-2xl bg-aventurea-navy p-3 shadow-2xl">
                 {itemsNav(() => setSelectorAbierto(false))}
               </div>
             </>
@@ -224,8 +289,10 @@ export default function PanelSidebar({
           pierde un formulario a medio llenar al cambiar de sección. */}
       <div className="min-w-0">
         {encabezado}
+        {/* Los `href` navegan a otra pantalla y los `proximamente` no
+            tienen contenido: ninguno de los dos monta nada acá. */}
         {tabs
-          .filter((t) => !t.href)
+          .filter((t) => !t.href && !t.proximamente)
           .map((t) => (
             <div key={t.id} className={activo === t.id ? "" : "hidden"}>
               {t.content}

@@ -1,6 +1,6 @@
 import {
   definicionDe,
-  mesesDeAhorroAnual,
+  descuentoAnualPct,
   precioDe,
   type PlanId,
 } from "@/lib/lealtad/planes";
@@ -202,14 +202,14 @@ function PaqueteCobrable({
   // Las etiquetas se arman en el SERVIDOR, donde vive el catálogo: el
   // «2 meses gratis» sale de `mesesDeAhorroAnual`, no de un texto
   // escrito a mano que se desincroniza el día que cambie un precio.
-  const ahorro = mesesDeAhorroAnual(def);
+  const ahorro = descuentoAnualPct(def);
   const opciones: OpcionDePago[] = periodos.map((periodo) =>
     periodo === "anual"
       ? {
           periodo,
           etiqueta:
             `Pagar el año — ${precioDe(def, "año") ?? ""}` +
-            (ahorro > 0 ? ` (${ahorro} meses gratis)` : ""),
+            (ahorro > 0 ? ` (${ahorro}% menos)` : ""),
         }
       : { periodo, etiqueta: `Pagar ${precioDe(def) ?? ""} por mes` },
   );

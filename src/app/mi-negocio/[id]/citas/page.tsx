@@ -437,6 +437,10 @@ export default async function CitasConfigPage({
         {negocio.modulos.has("reportes") && (
           <SeccionPlegable
             marco={false}
+            // El ancla a la que apunta el ítem "Reportes" del menú del
+            // panel (ver lib/business/menu.ts). Sin `id` ese ítem no
+            // tendría a dónde llevar y se pintaría como "próximamente".
+            id="reportes"
             titulo="Cómo va el negocio"
             descripcion={`${visita.Plural}, asistencia, ingresos, quién atiende más y a qué horas — derivado de tu agenda real.`}
           >
