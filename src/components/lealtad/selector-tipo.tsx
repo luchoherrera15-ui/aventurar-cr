@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { TIPOS_TARJETA_LISTA, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { planQueDesbloquea, tiposDelPlan } from "@/lib/lealtad/planes";
-import { Icono, type NombreIcono } from "./iconos";
+import { Icono, type NombreIcono } from "@/app/lealtad/panel/[id]/iconos";
 
 /**
  * PASO 1 DEL CREADOR: qué clase de tarjeta se va a hacer.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Interruptor } from "./paso-beneficio";
+import { Interruptor } from "@/components/lealtad/paso-beneficio";
 
 /**
  * CUÁNDO VALE LA TARJETA Y CUÁNTAS VECES (0136).

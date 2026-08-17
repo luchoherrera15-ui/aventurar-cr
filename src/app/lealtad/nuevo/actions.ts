@@ -4,6 +4,14 @@ import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, esPlanOfrecido, esPlanSinCosto } from "@/lib/lealtad/planes";
+import { TIPOS_TARJETA } from "@/lib/lealtad/tipos-tarjeta";
+import { acumulacionDe, recompensaInicial } from "@/lib/lealtad/mostrador";
+import { sembrarRecompensa } from "@/lib/lealtad/sembrar-recompensa";
+import {
+  validarTarjetaDeAlta,
+  type TarjetaAltaValidada,
+  type TarjetaDeAlta,
+} from "@/lib/lealtad/tarjeta-alta";
 import { finDePrueba } from "@/lib/lealtad/prueba";
 import { generarSlugUnico } from "@/lib/slug";
 import { apagarModulosOperativos } from "@/lib/lealtad/solo-lealtad";
@@ -55,6 +63,14 @@ export async function solicitarAltaConPlan(datos: {
   paseLogoUrl: string;
   regalia: string;
   metaSellos: number;
+  /**
+   * La tarjeta ARMADA EN EL WIZARD NUEVO (5 pasos): tipo, beneficio,
+   * colores, icono del sello y las dos imágenes. Opcional y todo
+   * opcional adentro — el payload del wizard viejo, que no la manda,
+   * sigue funcionando idéntico. Solo la usa el alta GRATIS instantánea;
+   * los caminos de solicitud (pago o personalizado) no la tocan.
+   */
+  tarjeta?: TarjetaDeAlta | null;
 }): Promise<Resultado> {
   const nombre = datos.nombreNegocio.trim();
   if (!nombre || nombre.length > 80) {
@@ -74,13 +90,36 @@ export async function solicitarAltaConPlan(datos: {
   // tener: acá se elige.
   if (!esPlanOfrecido(datos.plan)) return { ok: false, motivo: "Ese paquete no existe." };
 
+  // Sin costo = sin depósito que verificar. Se pregunta por el catálogo
+  // y no por `precioMensual === 0` suelto: el paquete RETIRADO `gratis`
+  // también vale $0, y esa comparación floja era la segunda mitad del
+  // agujero de arriba.
+  const gratis = esPlanSinCosto(datos.plan);
+
+  // ── LA TARJETA DEL WIZARD NUEVO (opcional) ──────────────────────
+  // Se valida SIEMPRE que venga —tipo contra el paquete, beneficio con
+  // su forma real, colores, icono y URLs del storage propio—, con las
+  // mismas reglas que `crearTarjeta` (ver tarjeta-alta.ts). Pero solo
+  // REEMPLAZA al camino viejo en el alta gratis instantánea y cuando
+  // trae el tipo: los caminos de solicitud (pago / personalizado)
+  // siguen guardando exactamente las columnas de siempre.
+  let tarjetaValidada: TarjetaAltaValidada | null = null;
+  if (datos.tarjeta && !datos.personalizado) {
+    const v = validarTarjetaDeAlta(datos.tarjeta, datos.plan);
+    if (!v.ok) return { ok: false, motivo: v.motivo };
+    tarjetaValidada = v.tarjeta;
+  }
+  const tarjeta = gratis && !datos.personalizado && tarjetaValidada?.modo ? tarjetaValidada : null;
+
   const descripcion = datos.descripcion.trim().slice(0, 500);
   const regalia = datos.regalia.trim().slice(0, 120);
   if (datos.personalizado) {
     if (descripcion.length < 5) {
       return { ok: false, motivo: "Contanos cómo soñás la tarjeta (unas palabras alcanzan)." };
     }
-  } else {
+  } else if (!tarjeta) {
+    // El camino VIEJO (color + regalía + meta): exige sus campos solo
+    // cuando la tarjeta nueva no viene a reemplazarlos.
     if (!/^#[0-9a-fA-F]{6}$/.test(datos.paseColor)) {
       return { ok: false, motivo: "Elegí el color de tu tarjeta." };
     }
@@ -95,11 +134,6 @@ export async function solicitarAltaConPlan(datos: {
     }
   }
 
-  // Sin costo = sin depósito que verificar. Se pregunta por el catálogo
-  // y no por `precioMensual === 0` suelto: el paquete RETIRADO `gratis`
-  // también vale $0, y esa comparación floja era la segunda mitad del
-  // agujero de arriba.
-  const gratis = esPlanSinCosto(datos.plan);
   if (!gratis) {
     if (datos.metodoPago !== "sinpe" && datos.metodoPago !== "transferencia") {
       return { ok: false, motivo: "Elegí cómo pagaste: SINPE o transferencia." };
@@ -134,6 +168,7 @@ export async function solicitarAltaConPlan(datos: {
       metaSellos: datos.metaSellos,
       telefono: datos.telefono.trim().slice(0, 30) || null,
       correo: user.email ?? "(sin correo)",
+      tarjeta,
     });
   }
 
@@ -253,6 +288,12 @@ async function crearGratisAlInstante(d: {
   metaSellos: number;
   telefono: string | null;
   correo: string;
+  /**
+   * La tarjeta del wizard nuevo, YA VALIDADA por `validarTarjetaDeAlta`
+   * (tipo contra el paquete incluido). null = payload viejo: todo sigue
+   * saliendo de paseColor/regalia/metaSellos, idéntico a siempre.
+   */
+  tarjeta: TarjetaAltaValidada | null;
 }): Promise<Resultado> {
   const admin = createAdminClient();
   if (!admin) return { ok: false, motivo: "No hay conexión de servicio." };
@@ -295,6 +336,10 @@ async function crearGratisAlInstante(d: {
   // Nace SOLO para lealtad: sin agenda, catálogo, equipo ni finanzas.
   await apagarModulosOperativos(admin, ranchoId);
 
+  // El programa base, con un INSERT directo — igual que siempre. (Una
+  // versión intermedia de este archivo lo hacía con un RPC de un
+  // esfuerzo que quedó descartado; ese RPC nunca existió en la base de
+  // producción, así que acá vive el insert de toda la vida.)
   const { data: prog, error: eProg } = await admin
     .from("programa_lealtad")
     .insert({
@@ -305,22 +350,74 @@ async function crearGratisAlInstante(d: {
       puntos_por_colon: 0,
       activo: true,
       estado: "activo",
-      pase_color_fondo: d.paseColor,
-      pase_logo_url: d.paseLogoUrl,
+      // `|| null`: con el wizard nuevo los campos legacy pueden venir
+      // vacíos (la apariencia real viaja en `tarjeta` y se aplica en el
+      // UPDATE de abajo) — un "" en la columna de color pintaría mal.
+      pase_color_fondo: d.paseColor || null,
+      pase_logo_url: d.paseLogoUrl || null,
     })
     .select("id")
     .single();
   if (eProg || !prog) {
     return { ok: false, motivo: "El negocio se creó pero el programa no: " + (eProg?.message ?? "") };
   }
+  const programaId = prog.id as string;
 
-  const { error: eRec } = await admin.from("recompensas").insert({
-    programa_id: prog.id,
-    nombre: d.regalia,
-    costo_puntos: d.metaSellos,
-    activo: true,
-  });
-  if (eRec) console.error("[alta-gratis] La recompensa no se pudo crear:", eRec.message);
+  // La tarjeta del wizard nuevo, con las DOS piezas presentes. El tipo
+  // se estrecha acá para que abajo no haga falta un `!` en cada uso.
+  const t =
+    d.tarjeta && d.tarjeta.modo && d.tarjeta.beneficio
+      ? { ...d.tarjeta, modo: d.tarjeta.modo, beneficio: d.tarjeta.beneficio }
+      : null;
+
+  if (t) {
+    // ── LO QUE LA PERSONA ARMÓ, SOBRE EL PROGRAMA BASE ──────────────
+    // Este UPDATE con la llave de servicio escribe el tipo, el
+    // beneficio (0135), la apariencia (0122/0132/0145) y las columnas
+    // de acumulación — las mismas dos que el motor `acreditar_lealtad`
+    // SÍ mira: sin `acumulacionDe`, un cashback del wizard acreditaría
+    // 1 punto por visita y 0% de la compra (el bug exacto que ya se
+    // arregló en `crearTarjeta`).
+    const acumula = acumulacionDe(t.beneficio);
+    const cambios: Record<string, unknown> = {
+      modo: t.modo,
+      beneficio: t.beneficio,
+      puntos_por_visita: acumula.porVisita,
+      puntos_por_colon: acumula.porColon,
+      compra_minima: acumula.compraMinima,
+    };
+    // Solo las columnas que la persona de verdad eligió: las ausentes
+    // conservan lo que el RPC ya dejó, no se pisan con null.
+    if (t.colorFondo) cambios.pase_color_fondo = t.colorFondo;
+    if (t.colorSello) cambios.pase_color_sello = t.colorSello;
+    if (t.iconoSello) cambios.pase_sello_icono = t.iconoSello;
+    if (t.logoUrl) cambios.pase_logo_url = t.logoUrl;
+    if (t.bannerUrl) cambios.pase_banner_url = t.bannerUrl;
+
+    const { error: eTarjeta } = await admin
+      .from("programa_lealtad")
+      .update(cambios)
+      .eq("id", programaId);
+    // No tumba el alta: el negocio y el programa ya existen, y lo peor
+    // que queda es una tarjeta con los defaults — el dueño la edita
+    // desde su panel. Perderlo todo por esto sería peor.
+    if (eTarjeta) {
+      console.error("[alta-gratis] La tarjeta del wizard no se pudo aplicar:", eTarjeta.message);
+    }
+
+    // La recompensa según el TIPO (los ocho, no solo sellos): la misma
+    // siembra que usa `crearTarjeta` — dos siembras distintas para la
+    // misma tarjeta se separan el día que alguien toca una.
+    await sembrarRecompensa(admin, programaId, t.beneficio);
+  } else {
+    const { error: eRec } = await admin.from("recompensas").insert({
+      programa_id: programaId,
+      nombre: d.regalia,
+      costo_puntos: d.metaSellos,
+      activo: true,
+    });
+    if (eRec) console.error("[alta-gratis] La recompensa no se pudo crear:", eRec.message);
+  }
 
   // El complemento que gobierna el módulo (0077): sin él, el panel
   // muestra "sin activar" aunque todo lo demás exista.
@@ -353,7 +450,11 @@ async function crearGratisAlInstante(d: {
   if (eAddon) console.error("[alta-gratis] El addon no se pudo activar:", eAddon.message);
 
   // El registro: la solicitud queda ATENDIDA por el sistema, con todo
-  // lo que la persona armó — auditoría y finanzas la ven igual.
+  // lo que la persona armó — auditoría y finanzas la ven igual. Con la
+  // tarjeta nueva, las columnas viejas del registro se llenan con su
+  // equivalente honesto: la regalía es el premio que se sembró, y la
+  // meta solo existe si la tarjeta es de sellos.
+  const receta = t ? recompensaInicial(t.beneficio) : null;
   const { error: eSol } = await admin.from("solicitudes_lealtad").insert({
     rancho_id: ranchoId,
     solicitante_id: d.userId,
@@ -363,10 +464,10 @@ async function crearGratisAlInstante(d: {
     plan: d.plan,
     telefono: d.telefono,
     personalizado: false,
-    pase_color: d.paseColor,
-    pase_logo_url: d.paseLogoUrl,
-    regalia: d.regalia,
-    meta_sellos: d.metaSellos,
+    pase_color: t ? (t.colorFondo ?? (d.paseColor || null)) : d.paseColor,
+    pase_logo_url: t ? t.logoUrl : d.paseLogoUrl,
+    regalia: t ? (receta?.nombre ?? null) : d.regalia,
+    meta_sellos: t ? (t.beneficio.tipo === "sellos" ? t.beneficio.requeridos : null) : d.metaSellos,
     estado: "atendida",
     atendida_en: new Date().toISOString(),
   });
@@ -377,8 +478,13 @@ async function crearGratisAlInstante(d: {
       subject: `NEGOCIO NUEVO AUTO-CREADO (plan Gratis) — ${d.nombre}`,
       html: `
         <p><b>${escapar(d.nombre)}</b> (${escapar(d.tipo)}${d.detalle ? ` — ${escapar(d.detalle)}` : ""})
-        se creó SOLO con el plan Gratis: programa activo, regalía
-        «${escapar(d.regalia)}» a ${d.metaSellos} sellos. Dueño: ${escapar(d.correo)}.</p>
+        se creó SOLO con el plan Gratis: programa activo, ${
+          t
+            ? `tarjeta de ${escapar(TIPOS_TARJETA[t.modo].nombre.toLowerCase())}${
+                receta ? ` — «${escapar(receta.nombre)}»` : ""
+              }`
+            : `regalía «${escapar(d.regalia)}» a ${d.metaSellos} sellos`
+        }. Dueño: ${escapar(d.correo)}.</p>
         ${
           corte
             ? `<p>La prueba <b>vence el ${escapar(corte.slice(0, 10))}</b>: ese día el

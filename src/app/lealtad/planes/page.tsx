@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -51,6 +52,43 @@ export default async function PlanesLealtadPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // ── De vuelta de Stripe con el negocio YA creado ──────────────────
+  // A /lealtad/planes solo vuelve el checkout de un negocio NUEVO (el
+  // upgrade vuelve a su panel). Si el webhook ya corrió, la solicitud
+  // de alta quedó atendida y apuntando al rancho que creó — y ese
+  // negocio pagó pero todavía no tiene NINGUNA tarjeta, porque el pago
+  // con tarjeta no arma programa (a diferencia del alta del creador).
+  // En ese caso el siguiente paso no es esta pantalla: es armar la
+  // primera tarjeta, y el wizard lo hace con /lealtad/nuevo?rancho=….
+  // Si el webhook todavía no terminó, no hay rancho que buscar y se
+  // queda el aviso de siempre («en unos segundos»).
+  if (pago === "listo" && user) {
+    const admin = createAdminClient();
+    if (admin) {
+      const { data: solicitud } = await admin
+        .from("solicitudes_lealtad")
+        .select("rancho_id")
+        .eq("solicitante_id", user.id)
+        .eq("estado", "atendida")
+        .not("rancho_id", "is", null)
+        .order("atendida_en", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const ranchoPagado = (solicitud?.rancho_id as string | null) ?? null;
+      if (ranchoPagado) {
+        const { data: programa } = await admin
+          .from("programa_lealtad")
+          .select("id")
+          .eq("rancho_id", ranchoPagado)
+          .limit(1)
+          .maybeSingle();
+        // Con programa ya armado NO se redirige: sería mandar a crear
+        // una tarjeta que ya existe (o pisar la de una compra vieja).
+        if (!programa) redirect(`/lealtad/nuevo?rancho=${ranchoPagado}`);
+      }
+    }
+  }
 
   // Los negocios del que mira (propios + donde colabora), para el
   // selector del formulario. El filtro real de seguridad es

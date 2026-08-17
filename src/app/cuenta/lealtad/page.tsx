@@ -11,7 +11,7 @@ import {
   type ConfigBeneficio,
 } from "@/lib/lealtad/tipos-tarjeta";
 import { esIconoSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
-import VistaPase from "@/app/lealtad/panel/[id]/vista-pase";
+import VistaPase from "@/components/lealtad/vista-pase";
 
 /**
  * EL RESPALDO WEB DE LA TARJETA — "vení a bookea.lat/cuenta/lealtad si

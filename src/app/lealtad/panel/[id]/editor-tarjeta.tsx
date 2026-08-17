@@ -13,11 +13,11 @@ import {
 } from "@/lib/lealtad/tipos-tarjeta";
 import { avisoDeMeta, puedeCambiarTipo, puedeEditarse, type SituacionTarjeta } from "@/lib/lealtad/editable";
 import { Icono, type NombreIcono } from "./iconos";
-import SelectorTipo from "./selector-tipo";
-import PasoBeneficio from "./paso-beneficio";
+import SelectorTipo from "@/components/lealtad/selector-tipo";
+import PasoBeneficio from "@/components/lealtad/paso-beneficio";
 import PasoReglas, { resumenDeReglas, type Reglas } from "./paso-reglas";
 import EditorRecompensas from "./editor-recompensas";
-import VistaPase from "./vista-pase";
+import VistaPase from "@/components/lealtad/vista-pase";
 import { BloqueEstado } from "./pases-panel";
 import { BloqueDiseno } from "./seccion-tarjeta-digital";
 import { AvisoError, AvisoGuardado, BarraGuardar, NotaCercania, usePrograma } from "./programa-contexto";

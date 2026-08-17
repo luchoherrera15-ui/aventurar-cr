@@ -10,8 +10,8 @@ import {
   tipoDe,
   type ConfigBeneficio,
 } from "@/lib/lealtad/tipos-tarjeta";
-import PlantillasColor from "./plantillas-color";
-import SelectorIconoSello from "./selector-icono-sello";
+import PlantillasColor from "@/components/lealtad/plantillas-color";
+import SelectorIconoSello from "@/components/lealtad/selector-icono-sello";
 import {
   AvisoError,
   AvisoGuardado,
@@ -20,7 +20,7 @@ import {
   usePrograma,
 } from "./programa-contexto";
 import { contextoDeLaTarjeta, type ProgramaFila, type RecompensaFila } from "./pases-actions";
-import VistaPase from "./vista-pase";
+import VistaPase from "@/components/lealtad/vista-pase";
 
 /**
  * EL DISEÑO DE LA TARJETA que el cliente guarda en el teléfono.

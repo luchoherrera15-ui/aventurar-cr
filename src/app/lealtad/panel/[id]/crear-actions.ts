@@ -8,8 +8,9 @@ import { definicionDe, planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { esIconoSello, iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
-import { hoyISOCR, minutoISOCR } from "@/lib/fechas";
+import { minutoISOCR } from "@/lib/fechas";
 import { acumulacionDe, recompensaInicial, traducirErrorDeBase } from "@/lib/lealtad/mostrador";
+import { sembrarRecompensa } from "@/lib/lealtad/sembrar-recompensa";
 import { esColumnaAusente } from "@/lib/lealtad/errores-base";
 import { elegirPrograma, resumenDeFila } from "@/lib/wallet/programa-principal";
 import { estadoAlCrear } from "./estado-inicial";
@@ -405,84 +406,10 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
   return { ok: true, programaId: data.id as string };
 }
 
-/**
- * LA RECOMPENSA CON LA QUE NACE LA TARJETA — los OCHO tipos, no tres.
- *
- * La meta de un pase («5 de 10») sale de la recompensa activa más
- * barata (0121) y NO de una columna propia. Y el botón de canje del
- * mostrador tampoco se puede dibujar sin una fila en `recompensas`:
- * `meta` llega null y no hay nada que ofrecer.
- *
- * ------------------------------------------------------------------
- * LO QUE ESTABA ROTO
- * ------------------------------------------------------------------
- * Acá vivía un `metaDe(beneficio); if (meta === null) return;`. `metaDe`
- * solo responde para sellos, puntos y gift card, así que las tarjetas
- * de CUPÓN, DESCUENTO, MEMBRESÍA, EVENTO y CASHBACK —cinco de los
- * ocho— nacían sin nada canjeable. Escanear un cupón de un solo uso le
- * acreditaba 1 punto, cada vez, y la pantalla decía «¡Sello sumado!».
- *
- * Qué significa canjear en cada tipo se decide en un solo lugar
- * (`recompensaInicial`, src/lib/lealtad/mostrador.ts) y está probado
- * caso por caso; acá solo se guarda lo que esa función resuelve.
- *
- * Si falla, la tarjeta igual quedó creada: el dueño puede agregar la
- * recompensa a mano desde Recompensas, o tocar «Configurar el
- * beneficio» en el mostrador. Perder el programa entero por esto sería
- * peor.
- */
-async function sembrarRecompensa(
-  db: NonNullable<ReturnType<typeof createAdminClient>>,
-  programaId: string,
-  beneficio: ConfigBeneficio,
-) {
-  const receta = recompensaInicial(beneficio);
-  if (!receta) return;
-
-  // La vigencia de una membresía se cuenta desde HOY en hora de Costa
-  // Rica: con UTC, una tarjeta creada a las 7 de la noche nacería
-  // vigente desde mañana.
-  const vence =
-    receta.vigenciaMeses === null ? null : sumarMesesISO(hoyISOCR(), receta.vigenciaMeses);
-
-  const fila: Record<string, unknown> = {
-    programa_id: programaId,
-    nombre: receta.nombre,
-    costo_puntos: receta.costo,
-    activo: true,
-    tipo: receta.tipo,
-    valor: receta.valor,
-    instrucciones: receta.instrucciones,
-    limite_por_cliente: receta.limitePorCliente,
-    stock_total: receta.stockTotal,
-    vigencia_hasta: vence,
-  };
-
-  const { error } = await db.from("recompensas").insert(fila);
-  if (!error) return;
-
-  // Las columnas ricas son de la 0125. Sin ella, la recompensa entra
-  // igual con lo que la base sí sabe guardar: mejor una tarjeta
-  // canjeable sin instrucciones que una que no se puede canjear.
-  console.warn("[lealtad] recompensa con detalle rechazada, se reintenta simple:", error.message);
-  await db.from("recompensas").insert({
-    programa_id: programaId,
-    nombre: receta.nombre,
-    costo_puntos: receta.costo,
-    activo: true,
-  });
-}
-
-/** Suma meses a un "YYYY-MM-DD" sin pasar por zonas horarias. */
-function sumarMesesISO(iso: string, meses: number): string {
-  const [a, m, d] = iso.split("-").map(Number);
-  // Día 0 del mes siguiente = último día del mes destino: así el 31 de
-  // enero + 1 mes da el 28/29 de febrero y no el 3 de marzo.
-  const ultimo = new Date(Date.UTC(a, m - 1 + meses + 1, 0)).getUTCDate();
-  return new Date(Date.UTC(a, m - 1 + meses, Math.min(d, ultimo)))
-    .toISOString()
-    .slice(0, 10);
-}
+// `sembrarRecompensa` vivía acá; hoy está en
+// src/lib/lealtad/sembrar-recompensa.ts porque también la llama el
+// asistente de alta de /lealtad/nuevo. El comentario grande de por qué
+// siembra los OCHO tipos —y no tres— se fue con ella.
 
 /**
  * REPARAR una tarjeta que nació sin nada canjeable.

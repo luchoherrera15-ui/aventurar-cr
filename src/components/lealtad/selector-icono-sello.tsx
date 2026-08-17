@@ -1,7 +1,7 @@
 "use client";
 
 import { ICONOS_SELLO_LISTA, type IconoSello } from "@/lib/lealtad/iconos-sello";
-import { Icono, SelloConIcono } from "./iconos";
+import { Icono, SelloConIcono } from "@/app/lealtad/panel/[id]/iconos";
 
 /**
  * QUÉ DIBUJO LLEVA CADA SELLO.

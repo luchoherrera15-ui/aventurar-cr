@@ -12,15 +12,15 @@ import {
 } from "@/lib/wallet/tarjeta";
 import { metaDe, tipoDe, type ConfigBeneficio } from "@/lib/lealtad/tipos-tarjeta";
 import { iconoDelSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
-import { SelloConIcono } from "./iconos";
+import { SelloConIcono } from "@/app/lealtad/panel/[id]/iconos";
 
 /**
  * LA VISTA PREVIA DEL PASE, en vivo.
  *
- * La usa el creador de tarjetas y el editor del diseño. Una sola, no
- * una por pantalla: dos maquetas del mismo pase se separan en cuanto
- * alguien toca una, y a partir de ahí el negocio ve una cosa en el
- * creador y otra en el editor.
+ * La usa el creador de tarjetas, el editor del diseño y el asistente de
+ * alta. Una sola, no una por pantalla: dos maquetas del mismo pase se
+ * separan en cuanto alguien toca una, y a partir de ahí el negocio ve
+ * una cosa en el creador y otra en el editor.
  *
  * ------------------------------------------------------------------
  * LOS TEXTOS NO SE INVENTAN ACÁ
@@ -63,8 +63,22 @@ export type DatosVista = {
 
 type Plataforma = "apple" | "google";
 
-export default function VistaPase({ datos }: { datos: DatosVista }) {
+export default function VistaPase({
+  datos,
+  superficie = "oscura",
+}: {
+  datos: DatosVista;
+  /**
+   * Sobre qué fondo vive el componente. Los textos que lo rodean —las
+   * pestañas y el aviso al pie— son blancos translúcidos porque el
+   * panel es navy; puestos sobre una pantalla clara desaparecen. Con
+   * «clara» se pintan en los grises de la marca. La TARJETA no cambia:
+   * sus textos van sobre su propio color, no sobre el de la página.
+   */
+  superficie?: "clara" | "oscura";
+}) {
   const [plataforma, setPlataforma] = useState<Plataforma>("apple");
+  const clara = superficie === "clara";
 
   const tipo = tipoDe(datos.modo);
   const meta = metaDe(datos.beneficio);
@@ -108,7 +122,7 @@ export default function VistaPase({ datos }: { datos: DatosVista }) {
         className="mx-auto flex w-fit gap-1 rounded-xl p-1"
         role="tablist"
         aria-label="Plataforma de la vista previa"
-        style={{ background: "rgba(255,255,255,.08)" }}
+        style={{ background: clara ? "var(--navy-suave)" : "rgba(255,255,255,.08)" }}
       >
         {(["apple", "google"] as const).map((p) => (
           <button
@@ -118,7 +132,11 @@ export default function VistaPase({ datos }: { datos: DatosVista }) {
             aria-selected={plataforma === p}
             onClick={() => setPlataforma(p)}
             className={`presionable rounded-lg px-3.5 py-1.5 text-[12px] font-bold transition-colors ${
-              plataforma === p ? "bg-white text-[#062653]" : "text-white/60 hover:text-white"
+              plataforma === p
+                ? "bg-white text-[#062653]"
+                : clara
+                  ? "text-bookea-gris hover:text-bookea-tinta"
+                  : "text-white/60 hover:text-white"
             }`}
           >
             {p === "apple" ? "Apple Wallet" : "Google Wallet"}
@@ -141,7 +159,11 @@ export default function VistaPase({ datos }: { datos: DatosVista }) {
         )}
       </div>
 
-      <p className="mt-3 text-center text-[11px] leading-snug text-white/40">
+      <p
+        className={`mt-3 text-center text-[11px] leading-snug ${
+          clara ? "text-bookea-gris" : "text-white/40"
+        }`}
+      >
         Vista aproximada. La apariencia final puede variar según el dispositivo y la
         plataforma.
       </p>

@@ -139,6 +139,31 @@ export default function PlanesCliente({
         ))}
       </div>
 
+      {/* ── NEGOCIO NUEVO: el wizard de la primera tarjeta ──────────
+          Quien todavía no tiene nada en Bookea puede armar la tarjeta
+          COMPLETA (tipo, beneficio, colores, vista previa) en
+          /lealtad/nuevo con el paquete ya elegido. El formulario de
+          abajo sigue intacto: con tarjeta se paga primero y el wizard
+          espera del otro lado del cobro; con SINPE la solicitud es la
+          de siempre. */}
+      {plan && conSesion && negocios.length === 0 && (
+        <div className="mt-5 rounded-2xl border border-white/15 bg-white/[.06] p-4">
+          <p className="text-[13.5px] font-extrabold text-white">
+            ¿Negocio nuevo? Armá tu tarjeta de una vez
+          </p>
+          <p className="mt-1 max-w-[520px] text-[12.5px] leading-snug text-white/65">
+            Elegís el tipo de tarjeta, el beneficio y tus colores en cinco pasos, viendo la
+            tarjeta mientras la armás{plan.esGratis ? " — sin pagar nada" : ""}.
+          </p>
+          <Link
+            href={`/lealtad/nuevo?plan=${plan.id}`}
+            className="mt-3 inline-block rounded-xl bg-[#ee7420] px-4 py-2.5 text-[13px] font-extrabold text-white hover:brightness-110"
+          >
+            Armar mi tarjeta con {plan.nombre} →
+          </Link>
+        </div>
+      )}
+
       {plan && conSesion && (
         <div className="mt-5">
           <FormularioSolicitud
