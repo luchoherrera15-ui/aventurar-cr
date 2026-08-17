@@ -47,7 +47,7 @@ export default function NavLealtad() {
             src="/logo-bookea-nav-v3.png"
             alt="Bookea"
             width={440}
-            height={109}
+            height={138}
             className="h-7 w-auto shrink-0 sm:h-8"
           />
           <span className="hidden text-[13px] font-bold text-aventurea-ink-soft sm:inline">

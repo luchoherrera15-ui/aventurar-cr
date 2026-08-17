@@ -52,7 +52,7 @@ export default function SiteFooter() {
               src="/logo-bookea-nav-v3.png"
               alt="Bookea"
               width={440}
-              height={109}
+              height={138}
               loading="lazy"
               decoding="async"
               className="h-8 w-auto"

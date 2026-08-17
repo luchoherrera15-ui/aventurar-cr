@@ -181,7 +181,7 @@ export default async function PlanesLealtadPage({
               src="/logo-bookea-blanco-v3.png"
               alt="Bookea"
               width={132}
-              height={33}
+              height={41}
               className="h-[30px] w-auto"
             />
           </Link>

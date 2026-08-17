@@ -122,7 +122,7 @@ export default async function NuevoNegocioLealtadPage({
             src="/logo-bookea-nav-v3.png"
             alt="Bookea"
             width={110}
-            height={28}
+            height={34}
             className="h-[24px] w-auto"
           />
         </Link>

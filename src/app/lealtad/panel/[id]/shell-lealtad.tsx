@@ -358,7 +358,7 @@ export default function ShellLealtad({
                     src="/logo-bookea-blanco-v3.png"
                     alt="Bookea"
                     width={92}
-                    height={23}
+                    height={29}
                     className="h-[19px] w-auto opacity-70"
                   />
                 </Link>

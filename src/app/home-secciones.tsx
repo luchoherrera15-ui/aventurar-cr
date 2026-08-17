@@ -246,7 +246,7 @@ function VitrinaSinDatos() {
         src="/logo-bookea-blanco-v3.png"
         alt="Bookea"
         width={1251}
-        height={309}
+        height={391}
         className="relative h-9 w-auto sm:h-11"
       />
       <p className="titulo relative max-w-[22ch] text-[clamp(20px,3vw,30px)] text-white">

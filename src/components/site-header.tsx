@@ -57,7 +57,7 @@ export default async function SiteHeader({
             src="/logo-bookea-nav-v3.png"
             alt="Bookear"
             width={440}
-            height={109}
+            height={138}
             className="h-8 w-auto shrink-0 sm:h-9"
           />
           {breadcrumb && (
