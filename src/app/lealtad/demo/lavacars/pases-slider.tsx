@@ -110,7 +110,7 @@ const SLIDES: Slide[] = [
   },
 ];
 
-const AMARILLO = "#f5bd18";
+const AMARILLO = "#ffb800";
 
 export default function PasesSlider() {
   const [i, setI] = useState(0);

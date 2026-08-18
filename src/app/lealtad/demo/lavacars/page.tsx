@@ -53,9 +53,21 @@ import GrillaProductos from "./grilla-productos";
  *    (ubicación + depósito de adelanto, `grilla-productos.tsx`) en vez
  *    de mandar a otra pantalla — sigue siendo mockup (no hay pago ni
  *    fila real detrás), pero ahora se ve y se siente completo.
+ *
+ * 5. TERCERA VUELTA — tercer mockup del dueño (mismo archivo, editado):
+ *    hero en grilla de dos columnas (texto | pase) en vez de superponer
+ *    el pase con posición absoluta. Pedido explícito: "resaltemos el
+ *    pase" pero "mantené el slide entre los pases" — el mockup trae UN
+ *    pase fijo (20% off); acá sigue el carrusel de 4 formas de
+ *    `pases-slider.tsx`, solo que ahora en su propia columna en vez de
+ *    flotando encima de la foto. Las 5 fotos de ESTA vuelta del mockup
+ *    tampoco sirvieron -un Porsche con "PORSCHE" en el baúl y placa de
+ *    EEUU, un gato (nada que ver), un Audi con el aro a la vista, la
+ *    misma de Meguiar's ya rechazada antes, y una que ni carga (404)-
+ *    así que se siguen usando las fotos ya verificadas del banco.
  */
 
-const AMARILLO = "#f5bd18";
+const AMARILLO = "#ffb800";
 const LINEA = "rgba(255,255,255,.12)";
 
 export const metadata: Metadata = {
@@ -85,8 +97,8 @@ export default function DemoLavacarsPage() {
           </a>
         </header>
 
-        {/* ══════════════ HERO ══════════════ */}
-        <section className="relative overflow-hidden bg-[#151719] lg:min-h-[690px]">
+        {/* ══════════════ HERO — grilla de 2 columnas ══════════════ */}
+        <section className="relative overflow-hidden bg-[#151719]">
           <div className="absolute inset-0">
             <Image
               src={FOTO_HERO}
@@ -104,101 +116,165 @@ export default function DemoLavacarsPage() {
                 background:
                   // Oscuro en las DOS puntas -izquierda para el texto,
                   // derecha para que el pase se recorte contra algo
-                  // sólido- con la foto asomando solo en el medio. Antes
-                  // se apagaba de golpe hacia la derecha y el pase (navy)
-                  // quedaba compitiendo con la espuma clara de fondo.
+                  // sólido- con la foto asomando solo en el medio.
                   "linear-gradient(90deg,rgba(0,0,0,.93) 0%,rgba(0,0,0,.72) 30%,rgba(0,0,0,.22) 54%,rgba(0,0,0,.62) 76%,rgba(0,0,0,.9) 100%)," +
                   "linear-gradient(0deg,rgba(0,0,0,.48),transparent 50%)",
               }}
             />
+            {/* Se funde con el negro del resto de la página en vez de
+                cortar en seco -el `.hero:after` del mockup. */}
+            <div
+              aria-hidden
+              className="absolute inset-x-0 bottom-0 h-[140px]"
+              style={{ background: "linear-gradient(transparent,#070809)" }}
+            />
           </div>
 
-          <div className="relative flex flex-col gap-10 px-6 py-10 sm:px-[58px] sm:py-[62px] lg:min-h-[690px] lg:justify-center">
+          {/* Grilla, no posición absoluta: el pase gana su PROPIA
+              columna en vez de flotar encima de la foto -pedido
+              explícito de "resaltemos el pase" del tercer mockup. */}
+          <div className="relative grid gap-10 px-6 py-10 sm:px-[42px] sm:py-16 lg:grid-cols-[1.08fr_.92fr] lg:items-center lg:py-20">
             <div className="max-w-[680px]">
               <div className="flex flex-wrap items-center gap-2.5">
                 <div className="text-[9px] font-extrabold uppercase tracking-[.22em] text-[#b5bac3]">
-                  Lavacar El Rayo · Programa de lealtad
+                  Lavacar El Rayo · Premium
                 </div>
                 <span
                   className="inline-flex items-center gap-1.5 border px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[.14em]"
-                  style={{ borderColor: "rgba(245,189,24,.4)", color: AMARILLO }}
+                  style={{ borderColor: "rgba(255,184,0,.4)", color: AMARILLO }}
                 >
                   ● A domicilio
                 </span>
               </div>
               <h1 className="mt-[15px] text-[clamp(38px,6vw,86px)] leading-[.92] tracking-[-.045em] font-bold">
-                Un lavado no se olvida.
+                Tu carro.
                 <br />
-                <span style={{ color: AMARILLO }}>Una tarjeta, sí.</span>
+                <span style={{ color: AMARILLO }}>Otro nivel.</span>
               </h1>
-              <p className="mt-[22px] max-w-[480px] text-[14px] leading-[1.7] text-[#c0c4cb]">
+              <p className="mt-[22px] max-w-[510px] text-[14px] leading-[1.7] text-[#c1c7cb]">
                 <strong className="text-white">Lavacar El Rayo</strong> no existe — es el ejemplo.
-                Vamos hasta donde estés: pedís el paquete, dejás un adelanto para asegurar el turno
-                y premiamos cada visita con sellos y beneficios.
+                Lavado profesional y detallado, a domicilio. Reservá tu turno, dejá el adelanto y
+                acumulá beneficios en tu pase digital.
               </p>
 
-              <div className="mt-7 flex flex-col gap-2 sm:flex-row">
-                <div
-                  className="min-w-[150px] border px-4 py-3.5"
-                  style={{ borderColor: LINEA, background: "rgba(0,0,0,.36)" }}
-                >
-                  <b className="block text-[11px]">LA REGLA</b>
-                  <small className="text-[9px] text-[#8e949e]">1 sello por lavado completo</small>
+              <div className="mt-7 flex flex-wrap gap-2">
+                <div className="border px-[17px] py-3.5" style={{ borderColor: LINEA, background: "rgba(7,9,11,.65)" }}>
+                  <b className="block text-[15px]">+2.500</b>
+                  <small className="text-[9px] uppercase tracking-wide text-[#7f888f]">Carros atendidos</small>
                 </div>
-                <div
-                  className="min-w-[150px] border px-4 py-3.5"
-                  style={{ borderColor: LINEA, background: "rgba(0,0,0,.36)" }}
-                >
-                  <b className="block text-[11px]">LA RECOMPENSA</b>
-                  <small className="text-[9px] text-[#8e949e]">6.º lavado gratis</small>
+                <div className="border px-[17px] py-3.5" style={{ borderColor: LINEA, background: "rgba(7,9,11,.65)" }}>
+                  <b className="block text-[15px]">4.9/5</b>
+                  <small className="text-[9px] uppercase tracking-wide text-[#7f888f]">Clientes</small>
+                </div>
+                <div className="border px-[17px] py-3.5" style={{ borderColor: LINEA, background: "rgba(7,9,11,.65)" }}>
+                  <b className="block text-[15px]">30–90 min</b>
+                  <small className="text-[9px] uppercase tracking-wide text-[#7f888f]">Tiempo estimado</small>
                 </div>
               </div>
 
-              <div className="mt-[26px] flex flex-wrap gap-2">
-                <Link
-                  href="/lealtad/nuevo"
-                  className="inline-flex items-center justify-center bg-white px-[18px] py-[13px] text-[9px] font-extrabold uppercase tracking-[.1em] text-[#070809]"
-                >
-                  Quiero esto en mi negocio
-                </Link>
+              <div className="mt-7 flex flex-wrap gap-2">
                 <a
                   href="#productos"
+                  className="inline-flex items-center justify-center bg-white px-[18px] py-[13px] text-[9px] font-extrabold uppercase tracking-[.1em] text-[#070809]"
+                >
+                  Ver servicios
+                </a>
+                <Link
+                  href="/lealtad/nuevo"
                   className="inline-flex items-center justify-center border px-[18px] py-[13px] text-[9px] font-extrabold uppercase tracking-[.1em] text-white"
                   style={{ borderColor: LINEA }}
                 >
-                  Ver paquetes
-                </a>
+                  Quiero esto en mi negocio
+                </Link>
               </div>
             </div>
 
-            {/* El slider vive DENTRO del hero, a la derecha en desktop
-                -mismo lugar que el mockup- y en flujo normal debajo del
-                texto en pantallas angostas, donde no hay espacio para
-                superponerlo sin tapar la letra. */}
-            <div className="flex justify-center lg:absolute lg:right-7 lg:top-1/2 lg:block lg:-translate-y-1/2">
+            <div className="flex justify-center lg:justify-end">
               <PasesSlider />
             </div>
           </div>
         </section>
 
-        {/* ══════════════ PRODUCTOS ══════════════ */}
+        {/* ══════════════ SERVICIOS ══════════════ */}
         <section className="py-[70px]" id="productos">
           <div className="mb-7 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
             <div>
               <div className="text-[9px] font-extrabold uppercase tracking-[.22em] text-[#b5bac3]">
-                Paquetes y productos
+                Servicios
               </div>
               <h2 className="mt-[7px] text-[clamp(26px,3.5vw,38px)] leading-[1.02] tracking-[-.03em] font-bold">
-                Comprá hoy. Volvé después.
+                Elegí cómo querés dejarlo.
               </h2>
             </div>
             <p className="max-w-[330px] text-[11px] text-[#777e89] sm:text-right">
-              Paquetes diseñados para premiar la recurrencia y convertir cada visita en una nueva
-              oportunidad.
+              Servicios rápidos para el día a día y tratamientos completos para recuperar el
+              acabado del vehículo — todos a domicilio.
             </p>
           </div>
 
           <GrillaProductos />
+        </section>
+
+        {/* ══════════════ BENEFICIOS ══════════════ */}
+        <section className="border-t py-[70px]" style={{ borderColor: LINEA }}>
+          <div className="mb-7">
+            <div className="text-[9px] font-extrabold uppercase tracking-[.22em] text-[#b5bac3]">
+              Bookea Wallet
+            </div>
+            <h2 className="mt-[7px] text-[clamp(26px,3.5vw,38px)] leading-[1.02] tracking-[-.03em] font-bold">
+              Cada visita cuenta.
+            </h2>
+            <p className="mt-2 max-w-[560px] text-[12px] leading-[1.6] text-[#8f989f]">
+              El sitio del negocio y el pase digital viven juntos: el cliente pide el servicio,
+              lo recibe en su casa y acumula beneficios desde el mismo lugar.
+            </p>
+          </div>
+
+          <div className="grid gap-3.5 lg:grid-cols-2">
+            <div className="border p-[30px]" style={{ borderColor: LINEA, background: "#0b0e11" }}>
+              <div className="text-[9px] font-extrabold uppercase tracking-[.18em]" style={{ color: AMARILLO }}>
+                Programa El Rayo
+              </div>
+              <h3 className="mt-2 text-[24px] leading-tight tracking-[-.03em]">
+                9 lavados. El décimo va por la casa.
+              </h3>
+              <p className="mt-2.5 max-w-[450px] text-[12px] leading-[1.6] text-[#8f989f]">
+                Mostrá tu pase digital en cada visita. Cada lavado elegible suma un sello solo.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                {Array.from({ length: 10 }, (_, i) => (
+                  <span
+                    key={i}
+                    className="grid h-[37px] w-[37px] place-items-center border text-[10px] font-extrabold"
+                    style={
+                      i < 5
+                        ? { background: AMARILLO, color: "#111", borderColor: AMARILLO }
+                        : { borderColor: "#343a3f" }
+                    }
+                  >
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="border p-[30px]" style={{ borderColor: LINEA, background: "#0b0e11" }}>
+              <div className="text-[9px] font-extrabold uppercase tracking-[.18em]" style={{ color: AMARILLO }}>
+                Reservas online
+              </div>
+              <h3 className="mt-2 text-[24px] leading-tight tracking-[-.03em]">Reservá sin llamar.</h3>
+              <p className="mt-2.5 max-w-[450px] text-[12px] leading-[1.6] text-[#8f989f]">
+                Elegí servicio, ubicación y hora. El negocio recibe la solicitud y llega hasta
+                donde estés.
+              </p>
+              <a
+                href="#productos"
+                className="mt-6 inline-flex items-center justify-center bg-white px-[18px] py-[13px] text-[9px] font-extrabold uppercase tracking-[.1em] text-[#070809]"
+              >
+                Agendar servicio
+              </a>
+            </div>
+          </div>
         </section>
 
         <div className="border-t pb-6 pt-6 text-center" style={{ borderColor: LINEA }}>

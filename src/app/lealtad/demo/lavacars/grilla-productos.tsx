@@ -21,7 +21,7 @@ import Image from "next/image";
  * (Stripe/SINPE) es otro pedido, no este.
  */
 
-const AMARILLO = "#f5bd18";
+const AMARILLO = "#ffb800";
 const LINEA = "rgba(255,255,255,.12)";
 
 type Producto = {
@@ -31,48 +31,50 @@ type Producto = {
   texto: string;
   precio: string;
   boton: string;
-  foto?: string;
+  foto: string;
 };
 
-const FOTO_PACK5 = "/lealtad/plantillas/franjas/lavacar-1.jpg";
-const FOTO_PREMIUM = "/lealtad/plantillas/franjas/lavacar-2.jpg";
+const FOTO_EXPRESS = "/lealtad/plantillas/franjas/lavacar-1.jpg";
+const FOTO_FULL = "/lealtad/plantillas/franjas/lavacar-2.jpg";
 const FOTO_CERAMICO = "/lealtad/plantillas/franjas/lavacar-4.jpg";
+const FOTO_INTERIOR = "/lealtad/plantillas/franjas/lavacar-1.jpg";
 
 const PRODUCTOS: Producto[] = [
   {
-    id: "pack5",
-    tag: "Favorito",
-    titulo: "Pack 5 Lavados",
-    texto: "A domicilio. Ideal para clientes frecuentes.",
-    precio: "₡38.000",
+    id: "express",
+    tag: "Más vendido",
+    titulo: "Lavado Express",
+    texto: "Exterior + aspirado + secado, a domicilio.",
+    precio: "₡6.500",
     boton: "Solicitar",
-    foto: FOTO_PACK5,
+    foto: FOTO_EXPRESS,
   },
   {
-    id: "premium",
+    id: "full",
     tag: "Premium",
-    titulo: "Pack Premium",
-    texto: "3 lavados premium a domicilio + beneficio.",
-    precio: "₡24.000",
+    titulo: "Full Detail",
+    texto: "Interior + exterior + llantas.",
+    precio: "₡18.000",
     boton: "Solicitar",
-    foto: FOTO_PREMIUM,
-  },
-  {
-    id: "giftcard",
-    tag: "Gift Card",
-    titulo: "Gift Card",
-    texto: "Regalá un lavado. Sin tarjetas físicas.",
-    precio: "Desde ₡5.000",
-    boton: "Comprar",
+    foto: FOTO_FULL,
   },
   {
     id: "ceramico",
-    tag: "Nuevo",
-    titulo: "Cerámico",
-    texto: "Protección avanzada, a domicilio.",
-    precio: "₡18.900",
-    boton: "Solicitar",
+    tag: "Protección",
+    titulo: "Tratamiento Cerámico",
+    texto: "Brillo, protección y acabado de larga duración.",
+    precio: "₡65.000",
+    boton: "Cotizar",
     foto: FOTO_CERAMICO,
+  },
+  {
+    id: "interior",
+    tag: "Interior",
+    titulo: "Interior Pro",
+    texto: "Tapicería + plásticos + vapor.",
+    precio: "₡14.500",
+    boton: "Solicitar",
+    foto: FOTO_INTERIOR,
   },
 ];
 
@@ -94,31 +96,17 @@ export default function GrillaProductos() {
       <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {PRODUCTOS.map((p) => (
           <article key={p.id} className="border" style={{ borderColor: LINEA, background: "#0d0f12" }}>
-            {p.foto ? (
-              <div className="relative h-[150px] sm:h-[190px]">
-                <Image src={p.foto} alt="" fill sizes="(min-width: 1024px) 25vw, 50vw" className="object-cover" />
-                <div
-                  aria-hidden
-                  className="absolute inset-0"
-                  style={{ background: "linear-gradient(0deg,rgba(0,0,0,.58),transparent 55%)" }}
-                />
-                <span className="absolute left-3 top-3 bg-white px-[7px] py-[5px] text-[8px] font-extrabold uppercase text-[#090a0c]">
-                  {p.tag}
-                </span>
-              </div>
-            ) : (
+            <div className="relative h-[150px] sm:h-[190px]">
+              <Image src={p.foto} alt="" fill sizes="(min-width: 1024px) 25vw, 50vw" className="object-cover" />
               <div
-                className="relative flex h-[150px] items-center justify-center sm:h-[190px]"
-                style={{ background: "linear-gradient(155deg,#1a1704,#070809 70%)" }}
-              >
-                <span className="absolute left-3 top-3 bg-white px-[7px] py-[5px] text-[8px] font-extrabold uppercase text-[#090a0c]">
-                  {p.tag}
-                </span>
-                <span className="text-[13px] font-extrabold uppercase tracking-[.18em]" style={{ color: AMARILLO }}>
-                  Gift Card
-                </span>
-              </div>
-            )}
+                aria-hidden
+                className="absolute inset-0"
+                style={{ background: "linear-gradient(0deg,rgba(0,0,0,.58),transparent 55%)" }}
+              />
+              <span className="absolute left-3 top-3 bg-white px-[7px] py-[5px] text-[8px] font-extrabold uppercase text-[#090a0c]">
+                {p.tag}
+              </span>
+            </div>
             <div className="p-[17px]">
               <h3 className="text-[17px] font-bold leading-tight">{p.titulo}</h3>
               <p className="mt-1.5 min-h-[30px] text-[10px] text-[#777e88]">{p.texto}</p>
@@ -217,7 +205,7 @@ function ModalSolicitud({ producto, onCerrar }: { producto: Producto; onCerrar: 
 
             <div
               className="mt-4 border p-3.5"
-              style={{ borderColor: "rgba(245,189,24,.35)", background: "rgba(245,189,24,.06)" }}
+              style={{ borderColor: "rgba(255,184,0,.35)", background: "rgba(255,184,0,.06)" }}
             >
               <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: AMARILLO }}>
                 Depósito de adelanto
