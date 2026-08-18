@@ -45,6 +45,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascApiKeyPath": "../apple/AuthKey_ZWRZFHG45C.p8",
+        "ascApiKeyId": "ZWRZFHG45C",
+        "ascApiKeyIssuerId": "c5ba31ec-b095-41de-a015-9ff1fc667a53"
+      }
+    }
   }
 }
