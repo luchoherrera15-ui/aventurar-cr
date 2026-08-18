@@ -121,7 +121,7 @@ export default function PasesSlider() {
   }
 
   return (
-    <div className="w-full max-w-[300px]">
+    <div className="w-full max-w-[340px]">
       <p className="text-center text-[9px] font-extrabold uppercase tracking-[.18em] text-white/45">
         Tu tarjeta, a tu manera
       </p>
@@ -129,7 +129,13 @@ export default function PasesSlider() {
         Ahora estás viendo: <span style={{ color: AMARILLO }}>{slide.etiqueta}</span>
       </p>
 
-      <div className="mt-3">
+      {/* Pedido explícito: "que se vea bastante" — un `scale` sube TODO
+          el pase de forma proporcional (texto, ícono, sellos) en vez de
+          solo ensanchar el contenedor, que dejaría los elementos
+          internos con el mismo tamaño flotando en más aire. El margen
+          vertical extra compensa el alto que gana al escalar, para que
+          no se pegue con la etiqueta de arriba ni los puntos de abajo. */}
+      <div className="my-5 scale-110">
         <PaseWallet
           marca="apple"
           negocio="Lavacar El Rayo"

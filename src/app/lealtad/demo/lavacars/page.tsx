@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import PasesSlider from "./pases-slider";
+import GrillaProductos from "./grilla-productos";
 
 /**
  * DEMO · LAVACAR — landing profesional armada sobre el mockup que trajo
@@ -45,13 +46,13 @@ import PasesSlider from "./pases-slider";
  *    que esas tarjetas de oferta) eso no entra en el alto del hero, así
  *    que quedó como carrusel de una sola tarjeta visible a la vez.
  *
- * 4. LOS BOTONES "Ver beneficios"/"Comprar paquete" y "Ver
- *    paquete"/"Comprar"/"Reservar" de las tarjetas de producto: esto es
- *    un negocio que NO EXISTE (Lavacar El Rayo es el ejemplo, como en
- *    el resto de /lealtad/demo) — no hay un carrito real detrás. Los
- *    botones quedaron con el mismo tono llamativo del mockup pero
- *    apuntando a las dos acciones reales de esta pantalla: armar tu
- *    propia tarjeta o ver los paquetes de Bookea.
+ * 4. LOS BOTONES DE LOS PAQUETES: segundo pedido del dueño — esta
+ *    página dejó de ser "así se vería la lealtad" y pasó a ser "así
+ *    podría verse el SITIO del lavacar", para mostrársela a lavacars
+ *    de verdad. Cada paquete abre un panel de "solicitar el servicio"
+ *    (ubicación + depósito de adelanto, `grilla-productos.tsx`) en vez
+ *    de mandar a otra pantalla — sigue siendo mockup (no hay pago ni
+ *    fila real detrás), pero ahora se ve y se siente completo.
  */
 
 const AMARILLO = "#f5bd18";
@@ -62,57 +63,6 @@ export const metadata: Metadata = {
 };
 
 const FOTO_HERO = "/lealtad/plantillas/franjas/lavacar-4.jpg";
-const FOTO_PACK5 = "/lealtad/plantillas/franjas/lavacar-1.jpg";
-const FOTO_PREMIUM = "/lealtad/plantillas/franjas/lavacar-2.jpg";
-const FOTO_CERAMICO = "/lealtad/plantillas/franjas/lavacar-4.jpg";
-
-type Producto = {
-  id: string;
-  tag: string;
-  titulo: string;
-  texto: string;
-  precio: string;
-  boton: string;
-  foto?: string;
-};
-
-const PRODUCTOS: Producto[] = [
-  {
-    id: "pack5",
-    tag: "Favorito",
-    titulo: "Pack 5 Lavados",
-    texto: "Ideal para clientes frecuentes.",
-    precio: "₡38.000",
-    boton: "Ver paquete",
-    foto: FOTO_PACK5,
-  },
-  {
-    id: "premium",
-    tag: "Premium",
-    titulo: "Pack Premium",
-    texto: "3 lavados premium + beneficio.",
-    precio: "₡24.000",
-    boton: "Ver paquete",
-    foto: FOTO_PREMIUM,
-  },
-  {
-    id: "giftcard",
-    tag: "Gift Card",
-    titulo: "Gift Card",
-    texto: "Regalá un lavado. Sin tarjetas físicas.",
-    precio: "Desde ₡5.000",
-    boton: "Comprar",
-  },
-  {
-    id: "ceramico",
-    tag: "Nuevo",
-    titulo: "Cerámico",
-    texto: "Protección avanzada y acabado premium.",
-    precio: "₡18.900",
-    boton: "Reservar",
-    foto: FOTO_CERAMICO,
-  },
-];
 
 export default function DemoLavacarsPage() {
   return (
@@ -165,8 +115,16 @@ export default function DemoLavacarsPage() {
 
           <div className="relative flex flex-col gap-10 px-6 py-10 sm:px-[58px] sm:py-[62px] lg:min-h-[690px] lg:justify-center">
             <div className="max-w-[680px]">
-              <div className="text-[9px] font-extrabold uppercase tracking-[.22em] text-[#b5bac3]">
-                Lavacar El Rayo · Programa de lealtad
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="text-[9px] font-extrabold uppercase tracking-[.22em] text-[#b5bac3]">
+                  Lavacar El Rayo · Programa de lealtad
+                </div>
+                <span
+                  className="inline-flex items-center gap-1.5 border px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-[.14em]"
+                  style={{ borderColor: "rgba(245,189,24,.4)", color: AMARILLO }}
+                >
+                  ● A domicilio
+                </span>
               </div>
               <h1 className="mt-[15px] text-[clamp(38px,6vw,86px)] leading-[.92] tracking-[-.045em] font-bold">
                 Un lavado no se olvida.
@@ -175,8 +133,8 @@ export default function DemoLavacarsPage() {
               </h1>
               <p className="mt-[22px] max-w-[480px] text-[14px] leading-[1.7] text-[#c0c4cb]">
                 <strong className="text-white">Lavacar El Rayo</strong> no existe — es el ejemplo.
-                Premiamos cada visita: acumulá sellos, desbloqueá beneficios y hacé que tu próximo
-                lavado valga más.
+                Vamos hasta donde estés: pedís el paquete, dejás un adelanto para asegurar el turno
+                y premiamos cada visita con sellos y beneficios.
               </p>
 
               <div className="mt-7 flex flex-col gap-2 sm:flex-row">
@@ -240,51 +198,7 @@ export default function DemoLavacarsPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-            {PRODUCTOS.map((p) => (
-              <article key={p.id} className="border" style={{ borderColor: LINEA, background: "#0d0f12" }}>
-                {p.foto ? (
-                  <div className="relative h-[150px] sm:h-[190px]">
-                    <Image src={p.foto} alt="" fill sizes="(min-width: 1024px) 25vw, 50vw" className="object-cover" />
-                    <div
-                      aria-hidden
-                      className="absolute inset-0"
-                      style={{ background: "linear-gradient(0deg,rgba(0,0,0,.58),transparent 55%)" }}
-                    />
-                    <span className="absolute left-3 top-3 bg-white px-[7px] py-[5px] text-[8px] font-extrabold uppercase text-[#090a0c]">
-                      {p.tag}
-                    </span>
-                  </div>
-                ) : (
-                  <div
-                    className="relative flex h-[150px] items-center justify-center sm:h-[190px]"
-                    style={{ background: "linear-gradient(155deg,#1a1704,#070809 70%)" }}
-                  >
-                    <span className="absolute left-3 top-3 bg-white px-[7px] py-[5px] text-[8px] font-extrabold uppercase text-[#090a0c]">
-                      {p.tag}
-                    </span>
-                    <span className="text-[13px] font-extrabold uppercase tracking-[.18em]" style={{ color: AMARILLO }}>
-                      Gift Card
-                    </span>
-                  </div>
-                )}
-                <div className="p-[17px]">
-                  <h3 className="text-[17px] font-bold leading-tight">{p.titulo}</h3>
-                  <p className="mt-1.5 min-h-[30px] text-[10px] text-[#777e88]">{p.texto}</p>
-                  <div className="mt-3.5 flex items-center justify-between">
-                    <span className="text-[16px] font-bold">{p.precio}</span>
-                    <Link
-                      href="/lealtad/nuevo"
-                      className="border px-2.5 py-2 text-[8px] font-extrabold uppercase text-white hover:bg-white hover:text-[#08090b]"
-                      style={{ borderColor: LINEA }}
-                    >
-                      {p.boton}
-                    </Link>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
+          <GrillaProductos />
         </section>
 
         <div className="border-t pb-6 pt-6 text-center" style={{ borderColor: LINEA }}>
