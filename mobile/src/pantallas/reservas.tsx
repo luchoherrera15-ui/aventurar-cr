@@ -9,6 +9,7 @@ import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import TituloPantalla from "@/components/titulo-pantalla";
 import ResenaModal from "@/components/resena-modal";
+import CancelarReservaModal from "@/components/cancelar-reserva-modal";
 import { Estado, Micro, Tarjeta, Vacio, type TonoEstado } from "@/components/ui";
 import { CATEGORIA_LABEL, fmtColones } from "@/lib/types";
 import { CATEGORIA_CITA_LABEL, DIAS_CORTO, MESES_CORTO, horaBonita } from "@/lib/citas";
@@ -86,6 +87,7 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
   const [reservas, setReservas] = useState<ReservaCliente[] | null>(null);
   const [resenasPropias, setResenasPropias] = useState<Map<string, ResenaPropia>>(new Map());
   const [resenaAbierta, setResenaAbierta] = useState<ReservaCliente | null>(null);
+  const [cancelarAbierta, setCancelarAbierta] = useState<ReservaCliente | null>(null);
 
   const cargar = useCallback(() => {
     if (!session) return;
@@ -192,7 +194,15 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
         <ScrollView contentContainerStyle={styles.lista}>
           <Seccion titulo="En curso" vacio="Nada en curso por ahora.">
             {activas.map((r) => (
-              <TarjetaReserva key={r.id} reserva={r} />
+              <TarjetaReserva
+                key={r.id}
+                reserva={r}
+                onCancelar={
+                  r.estado === "pendiente" || r.estado === "confirmada"
+                    ? () => setCancelarAbierta(r)
+                    : undefined
+                }
+              />
             ))}
           </Seccion>
           <Seccion titulo="Historial" vacio="Acá vas a ver tus reservas pasadas.">
@@ -205,6 +215,11 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
                 onResena={
                   (r.estado === "confirmada" || r.estado === "cumplida") && r.rancho_id
                     ? () => setResenaAbierta(r)
+                    : undefined
+                }
+                onCancelar={
+                  r.estado === "pendiente" || r.estado === "confirmada"
+                    ? () => setCancelarAbierta(r)
                     : undefined
                 }
               />
@@ -223,6 +238,17 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
           resenaExistente={resenasPropias.get(resenaAbierta.id) ?? null}
           onCerrar={() => setResenaAbierta(null)}
           onGuardada={() => cargar()}
+        />
+      )}
+
+      {cancelarAbierta && (
+        <CancelarReservaModal
+          visible
+          reservaId={cancelarAbierta.id}
+          clienteId={session.user.id}
+          nombreRancho={cancelarAbierta.ranchos?.nombre ?? "el proveedor"}
+          onCerrar={() => setCancelarAbierta(null)}
+          onCancelada={() => cargar()}
         />
       )}
     </View>
@@ -256,12 +282,15 @@ function TarjetaReserva({
   atenuada,
   resena,
   onResena,
+  onCancelar,
 }: {
   reserva: ReservaCliente;
   atenuada?: boolean;
   resena?: ResenaPropia | null;
   /** Presente solo cuando la reserva se puede reseñar (confirmada). */
   onResena?: () => void;
+  /** Presente solo cuando la reserva se puede cancelar (pendiente/confirmada). */
+  onCancelar?: () => void;
 }) {
   const router = useRouter();
   const tono = ESTADO_TONO[reserva.estado] ?? "gris";
@@ -323,6 +352,11 @@ function TarjetaReserva({
             </Text>
           </Pressable>
         )}
+        {onCancelar && (
+          <Pressable onPress={onCancelar} hitSlop={8}>
+            <Text style={styles.botonCancelarTexto}>Cancelar reserva</Text>
+          </Pressable>
+        )}
       </View>
     </Tarjeta>
   );
@@ -381,4 +415,5 @@ const styles = StyleSheet.create({
   botonMensajesTexto: { color: Colors.navy, fontFamily: Fonts.extraBold, fontSize: 12.5 },
   botonResena: { alignItems: "center", flexDirection: "row", gap: 4 },
   botonResenaTexto: { color: Colors.accent, fontFamily: Fonts.extraBold, fontSize: 12.5 },
+  botonCancelarTexto: { color: Colors.danger, fontFamily: Fonts.extraBold, fontSize: 12.5 },
 });
