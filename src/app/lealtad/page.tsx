@@ -159,14 +159,20 @@ export default async function LealtadPage() {
       {/* ================= HERO (navy) ================= */}
       <section
         data-tema="oscuro"
-        className="relative overflow-hidden pb-16 pt-14 sm:pb-24 sm:pt-20"
+        className="relative pb-16 pt-14 sm:pb-24 sm:pt-20"
         style={{ background: NAVY_PROFUNDO, color: "#ffffff" }}
       >
-        <div
-          aria-hidden
-          className="pointer-events-none absolute left-[18%] top-[26%] h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.16] blur-[140px]"
-          style={{ background: ACCION_OSCURO }}
-        />
+        {/* El blur lleva SU PROPIO `overflow-hidden` — la sección ya no
+            puede tenerlo: el editor de tarjeta (Modo 3, más abajo)
+            monta un preview `sticky` y cualquier ancestro con overflow
+            distinto de `visible` rompe el cálculo de `position: sticky`
+            aunque ese ancestro nunca scrollee por sí mismo. */}
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div
+            className="absolute left-[18%] top-[26%] h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.16] blur-[140px]"
+            style={{ background: ACCION_OSCURO }}
+          />
+        </div>
 
         <div className="relative mx-auto w-[min(1180px,92vw)] py-6">
           <div className="mx-auto max-w-[790px] text-center">
