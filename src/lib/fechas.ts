@@ -175,3 +175,75 @@ export function proximaFechaLibre(
   }
   return null;
 }
+
+/**
+ * "Hace cuánto" en español de Costa Rica, en escalones legibles (hoy,
+ * ayer, hace N días/semanas/meses/años). Sirve para leer antigüedad de
+ * un vistazo -ej. "cliente desde" en /admin/complementos- sin perder la
+ * fecha exacta, que se sigue mostrando aparte (normalmente en un
+ * `title`, como ya se hace con "dato cruzado" en ese mismo panel).
+ *
+ * SIN `Intl.RelativeTimeFormat` a propósito: esa API no elige la unidad
+ * sola -hay que pasarle `format(-3, 'month')` ya decidido-, así que no
+ * ahorra la parte difícil, que es elegir el escalón. El resto de este
+ * archivo (`fechaLargaCR`, `fmtHoraCR`, `fechaCortaMensaje`) ya escribe
+ * el texto a mano para controlar exactamente el español de Costa Rica;
+ * mantenerlo a mano acá es consistente con el archivo, no una excepción.
+ *
+ * `null` si la fecha es inválida o falta -mismo criterio que el resto
+ * del archivo: un dato roto no se disfraza mostrando cualquier cosa.
+ */
+export function haceCuanto(iso: string | null, ahora: Date = new Date()): string | null {
+  if (!iso) return null;
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return null;
+
+  // Por CALENDARIO de Costa Rica, no por el reloj del runtime (Vercel
+  // corre en UTC) — mismo motivo que el resto de este archivo (ver el
+  // comentario de cabecera): sin esto, entre las 6pm y medianoche hora
+  // de CR el "día" que ven getFullYear()/getMonth()/getDate() ya es el
+  // de mañana en UTC. `hoyISOCR()`/`fechaISOCR()` ya resuelven esto en
+  // todo el resto del archivo — acá se reusan, no se reinventa la regla.
+  //
+  // `ahora` es un parámetro (no siempre `new Date()`) por lo mismo que
+  // ya hace `minutoISOCR` acá arriba: sin poder fijar "el momento
+  // actual" desde afuera, no hay forma de probar el borde real que
+  // encontró la auditoría (26 horas de diferencia cruzando la
+  // medianoche de Costa Rica).
+  const [anioAhora, mesAhora, diaAhora] = fechaISOCR(ahora).split("-").map(Number);
+  const [anioFecha, mesFecha, diaFecha] = fechaISOCR(fecha).split("-").map(Number);
+
+  // Días de diferencia por CALENDARIO, no por milisegundos: dos
+  // instantes 26 horas aparte pueden ser "hoy" y "pasado mañana" en
+  // días de calendario CR, no "hace 1 día" — restar los componentes
+  // año/mes/día ya resueltos (vía Date.UTC, que acá solo sirve de
+  // calculadora de fechas, no de huso horario) da el día calendario
+  // exacto sin arrastrar la hora del instante original.
+  const diasAhora = Date.UTC(anioAhora, mesAhora - 1, diaAhora);
+  const diasFecha = Date.UTC(anioFecha, mesFecha - 1, diaFecha);
+  const dias = Math.round((diasAhora - diasFecha) / 86_400_000);
+
+  if (dias <= 0) return "hoy"; // incluye el reloj del cliente adelantado
+  if (dias === 1) return "ayer";
+  if (dias < 7) return `hace ${dias} días`;
+  if (dias < 30) {
+    const semanas = Math.round(dias / 7);
+    return semanas === 1 ? "hace 1 semana" : `hace ${semanas} semanas`;
+  }
+
+  // A partir de acá, por MES DE CALENDARIO -no `Math.floor(dias / 30)`.
+  // Un mes de calendario no son siempre 30 días, y derivar con floor()
+  // se desalinea con el tiempo: "hace 1 año calendario exacto" podría
+  // leer "hace 12 meses" según dónde caiga el redondeo, y eso es peor
+  // que impreciso -es inconsistente consigo mismo según la fecha de hoy.
+  let meses = (anioAhora - anioFecha) * 12 + (mesAhora - mesFecha);
+  if (diaAhora < diaFecha) meses -= 1;
+  meses = Math.max(meses, 1);
+
+  if (dias < 365) {
+    return meses === 1 ? "hace 1 mes" : `hace ${meses} meses`;
+  }
+
+  const anios = Math.max(1, Math.floor(meses / 12));
+  return anios === 1 ? "hace 1 año" : `hace ${anios} años`;
+}

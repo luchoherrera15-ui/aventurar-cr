@@ -24,6 +24,9 @@ import {
   type ConceptoPlan,
 } from "@/lib/lealtad/regalias";
 import { perteneceASeccion, SECCION_CORTA, SECCION_LABEL, type SeccionAdmin } from "../vertical";
+import { haceCuanto } from "@/lib/fechas";
+import VerPaseModal from "./ver-pase-modal";
+import VerClientesModal from "./ver-clientes-modal";
 
 export type FilaAddon = {
   rancho_id: string;
@@ -88,6 +91,46 @@ const ETIQUETA: Record<EstadoAddon, string> = {
   vencido: "Vencido",
   apagado: "Sin contratar",
 };
+
+/**
+ * El estado de `ranchos.estado` (CHECK: pendiente/aprobado/rechazado,
+ * 0008), dicho con honestidad -no es un flag "publicado / solo lealtad"
+ * inventado, porque la base HOY no distingue esos dos casos: un negocio
+ * lealtad-only nace en "pendiente" a propósito (nunca lo aprueba nadie,
+ * `alta-desde-solicitud.ts`) y un negocio de marketplace real esperando
+ * revisión TAMBIÉN está en "pendiente". Mostrar el estado real, sin
+ * fingir que se sabe la intención, es la decisión correcta hasta que
+ * exista una columna que separe los dos casos.
+ *
+ * Se muestra SIEMPRE, no solo cuando no es "aprobado" -es una excepción
+ * a propósito al resto del panel (que calla lo esperado y solo grita la
+ * anomalía): el dueño pidió "forma o no parte del marketplace" como un
+ * dato a leer en cada fila, no como una alarma condicional.
+ *
+ * Los pares de clases son los que YA están en producción en este mismo
+ * archivo (el chip "Activo" de arriba, la regalía vencida, el badge
+ * "moroso" de abajo) -contraste ya validado por precedente, no hace
+ * falta rederivar nada.
+ */
+const ESTADO_BADGE: Record<string, string> = {
+  aprobado: "bg-aventurea-green-light text-aventurea-green",
+  pendiente: "bg-aventurea-sky-light text-aventurea-orange-dark",
+  rechazado: "bg-red-50 text-red-700",
+};
+const ESTADO_BADGE_DEFAULT = "bg-aventurea-cream-2 text-aventurea-ink-soft";
+const ESTADO_LABEL: Record<string, string> = {
+  aprobado: "Publicado",
+  pendiente: "Pendiente de aprobación",
+  rechazado: "Rechazado",
+};
+
+/** Clases y texto del badge de estado, con el fallback honesto. */
+function estadoBadge(estado: string | null): { clase: string; texto: string } {
+  if (estado && ESTADO_BADGE[estado]) {
+    return { clase: ESTADO_BADGE[estado], texto: ESTADO_LABEL[estado] };
+  }
+  return { clase: ESTADO_BADGE_DEFAULT, texto: "Sin estado" };
+}
 
 /** Cuántas filas se pintan a la vez. */
 const POR_PAGINA = 50;
@@ -184,6 +227,13 @@ export default function ComplementosPanel({
   const [desc, setDesc] = useState(false);
   const [pagina, setPagina] = useState(0);
   const [elegido, setElegido] = useState<string | null>(null);
+  // Los dos modales viven a este nivel (no dentro de Fila) porque un
+  // modal por fila x 50 filas visibles sería 50 componentes montados
+  // escuchando; acá solo hay UNO de cada uno, con el id de a quién le
+  // toca. Se guarda el NOMBRE junto al id para no tener que buscarlo de
+  // nuevo en `negocios` al renderizar el modal.
+  const [verPase, setVerPase] = useState<{ id: string; nombre: string } | null>(null);
+  const [verClientes, setVerClientes] = useState<{ id: string; nombre: string } | null>(null);
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -357,7 +407,7 @@ export default function ComplementosPanel({
         </p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-white">
-          <table className="w-full min-w-[900px] border-collapse text-[13px]">
+          <table className="w-full min-w-[980px] border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-aventurea-line bg-aventurea-cream-2/50 text-left text-[11px] uppercase tracking-[0.1em] text-aventurea-ink-soft">
                 <Encabezado campo="nombre" actual={campo} desc={desc} onClick={ordenarPor}>
@@ -378,6 +428,7 @@ export default function ComplementosPanel({
                 <Encabezado campo="desde" actual={campo} desc={desc} onClick={ordenarPor}>
                   Cliente desde
                 </Encabezado>
+                <th className="px-3 py-2.5 font-bold">Pase</th>
               </tr>
             </thead>
             <tbody>
@@ -387,6 +438,8 @@ export default function ComplementosPanel({
                   negocio={n}
                   elegido={elegido === n.id}
                   onElegir={() => setElegido(elegido === n.id ? null : n.id)}
+                  onVerPase={() => setVerPase({ id: n.id, nombre: n.nombre })}
+                  onVerClientes={() => setVerClientes({ id: n.id, nombre: n.nombre })}
                 />
               ))}
             </tbody>
@@ -433,6 +486,22 @@ export default function ComplementosPanel({
       {negocio && (
         <Detalle negocio={negocio} onCerrar={() => setElegido(null)} faltaLaBitacora={faltaLaBitacora} />
       )}
+
+      {/* ── Los dos modales de solo-lectura, uno a la vez ──────────── */}
+      {verPase && (
+        <VerPaseModal
+          ranchoId={verPase.id}
+          nombre={verPase.nombre}
+          onCerrar={() => setVerPase(null)}
+        />
+      )}
+      {verClientes && (
+        <VerClientesModal
+          ranchoId={verClientes.id}
+          nombre={verClientes.nombre}
+          onCerrar={() => setVerClientes(null)}
+        />
+      )}
     </div>
   );
 }
@@ -477,10 +546,16 @@ function Fila({
   negocio: n,
   elegido,
   onElegir,
+  onVerPase,
+  onVerClientes,
 }: {
   negocio: NegocioConAddons;
   elegido: boolean;
   onElegir: () => void;
+  /** Abre el modal de "cómo se ve el pase" para este negocio. */
+  onVerPase: () => void;
+  /** Abre el modal de solo-lectura con los clientes inscritos. */
+  onVerClientes: () => void;
 }) {
   const activos = n.addons.filter((a) => estadoDeAddon(a) === "activo");
   const vencidos = n.addons.filter((a) => estadoDeAddon(a) === "vencido");
@@ -493,6 +568,7 @@ function Fila({
   const dias = diasPara(proximo ?? null);
   const discrepa =
     n.tieneCuenta && n.planCuenta !== null && n.planCuenta !== n.planRancho;
+  const estado = estadoBadge(n.estado);
 
   return (
     <tr
@@ -503,11 +579,9 @@ function Fila({
     >
       <td className="px-3 py-2.5">
         <span className="font-bold text-aventurea-ink">{n.nombre}</span>
-        {n.estado !== "aprobado" && (
-          <span className="ml-2 rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft">
-            {n.estado ?? "sin estado"}
-          </span>
-        )}
+        <span className={`ml-2 rounded-full px-2 py-0.5 text-[10.5px] font-bold ${estado.clase}`}>
+          {estado.texto}
+        </span>
         {discrepa && (
           <span
             title="La cuenta y el negocio guardan paquetes distintos, y el que manda es el de la cuenta."
@@ -550,23 +624,38 @@ function Fila({
       </td>
 
       <td className="px-3 py-2.5">
-        <span
-          className={
-            limite.lleno
-              ? "font-bold text-red-700"
-              : limite.cerca
-                ? "font-bold text-aventurea-orange-dark"
-                : "text-aventurea-ink"
-          }
-        >
-          {n.miembros.toLocaleString("es-CR")}
-          {limite.limite !== null && (
-            <span className="text-aventurea-ink-soft">
-              {" "}
-              / {limite.limite.toLocaleString("es-CR")}
-            </span>
-          )}
-        </span>
+        {/* El número mismo es el gatillo del modal de clientes: es el
+            dato exacto que la pregunta "¿cuántos usuarios tiene
+            inscritos?" señala, y convertirlo en botón evita una décima
+            columna para un verbo que el número ya sugiere. Solo
+            clickeable si hay algo que mostrar -abrir un modal vacío no
+            aporta nada. */}
+        {n.miembros > 0 ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onVerClientes();
+            }}
+            className={`underline decoration-dotted underline-offset-2 hover:decoration-solid ${
+              limite.lleno
+                ? "font-bold text-red-700"
+                : limite.cerca
+                  ? "font-bold text-aventurea-orange-dark"
+                  : "text-aventurea-ink"
+            }`}
+          >
+            {n.miembros.toLocaleString("es-CR")}
+            {limite.limite !== null && (
+              <span className="text-aventurea-ink-soft">
+                {" "}
+                / {limite.limite.toLocaleString("es-CR")}
+              </span>
+            )}
+          </button>
+        ) : (
+          <span className="text-aventurea-ink-soft">0</span>
+        )}
       </td>
 
       <td className="px-3 py-2.5 text-aventurea-ink-soft">
@@ -614,7 +703,28 @@ function Fila({
         )}
       </td>
 
-      <td className="px-3 py-2.5 text-aventurea-ink-soft">{fechaCorta(n.creadoEn) ?? "—"}</td>
+      <td className="px-3 py-2.5 text-aventurea-ink-soft" title={fechaCorta(n.creadoEn) ?? undefined}>
+        {haceCuanto(n.creadoEn) ?? "—"}
+      </td>
+
+      <td className="px-3 py-2.5">
+        {/* Siempre habilitado, aunque `n.tarjetas` sea 0 o desconocido:
+            el conteo de tarjetas puede no reflejar una tarjeta archivada
+            que igual vale previsualizar, y el modal ya resuelve con
+            honestidad el caso "no tiene ninguna" -duplicar ese criterio
+            acá para deshabilitar el botón sería un segundo lugar donde
+            puede desalinearse. */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onVerPase();
+          }}
+          className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1 text-[11.5px] font-bold text-aventurea-navy"
+        >
+          Ver pase
+        </button>
+      </td>
     </tr>
   );
 }
@@ -788,6 +898,7 @@ function Detalle({
   onCerrar: () => void;
   faltaLaBitacora: boolean;
 }) {
+  const estado = estadoBadge(negocio.estado);
   return (
     <div className="mt-6 rounded-2xl border border-aventurea-line bg-white p-5">
       <div className="flex flex-wrap items-baseline gap-x-2.5">
@@ -795,11 +906,9 @@ function Detalle({
         <span className="rounded-full bg-aventurea-cream-2 px-2.5 py-0.5 text-[11px] font-bold text-aventurea-ink-soft">
           {SECCION_CORTA[negocio.vertical ?? ""] ?? "sin categoría"}
         </span>
-        {negocio.estado !== "aprobado" && (
-          <span className="rounded-full bg-aventurea-sky-light px-2.5 py-0.5 text-[11px] font-bold text-aventurea-orange-dark">
-            {negocio.estado ?? "sin estado"}
-          </span>
-        )}
+        <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${estado.clase}`}>
+          {estado.texto}
+        </span>
         <button
           type="button"
           onClick={onCerrar}
