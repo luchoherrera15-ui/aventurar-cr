@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
+import { subirImagenAlAlta } from "@/lib/lealtad/subida-alta";
 import { solicitarAltaConPlan } from "./actions";
 import type { DatosPago } from "@/app/lealtad/planes/formulario-solicitud";
 import { crearTarjeta, type BorradorTarjeta } from "@/app/lealtad/panel/[id]/crear-actions";
@@ -332,43 +333,10 @@ export default function WizardAlta({
 
   // ── Subidas del MODO COMPLETO: bucket `comprobantes`, como hoy ──
   // (En modo solo-tarjeta sube `SubirImagen` a `ranchos-fotos`, que es
-  // el bucket que `crearTarjeta` exige.)
-  async function subirAlAlta(
-    archivo: File,
-    destino: "logo" | "banda",
-  ): Promise<string | null> {
-    const supabase = createClient();
-    // `conservarAlfa` en el logo — un logo NO es una foto: aplastado a
-    // JPEG opaco, un logo blanco desaparece sobre el sello blanco.
-    const liviano = await comprimirImagen(
-      archivo,
-      destino === "logo" ? { conservarAlfa: true } : undefined,
-    );
-    const ext = liviano.name.split(".").pop()?.toLowerCase() || (destino === "logo" ? "png" : "jpg");
-    // LAS DOS VAN A `logos-negocio/`, Y NO ES DESPROLIJIDAD.
-    //
-    // La banda subía a `bandas-negocio/` y SIEMPRE fallaba con «No
-    // pudimos subir la banda». La causa no estaba acá: la migración
-    // 0148 (auditoría de seguridad) acotó las subidas anónimas al
-    // bucket `comprobantes` a cuatro carpetas —solicitudes-lealtad/,
-    // logos-negocio/, pedidos-invitacion/ y AAAA-MM-DD/— para que
-    // nadie escriba en la raíz ni invente carpetas. `bandas-negocio/`
-    // no existía cuando se escribió esa lista, porque la banda es
-    // posterior: el comentario de la 0148 dice, textual,
-    // «logos-negocio/ → el logo del pase, wizard-alta.tsx».
-    //
-    // Se resuelve del lado del código y no con una migración nueva a
-    // propósito: agregar una carpeta a la política obliga al dueño a
-    // pegar SQL en producción para arreglar algo que ya está roto, y
-    // deja la puerta rota hasta que lo haga. El prefijo del nombre
-    // distingue las dos igual de bien.
-    const path = `logos-negocio/${destino === "logo" ? "logo" : "banda"}-${Date.now()}.${ext}`;
-    const { error: e } = await supabase.storage.from("comprobantes").upload(path, liviano);
-    if (e) return null;
-    const { data } = supabase.storage.from("comprobantes").getPublicUrl(path);
-    return data?.publicUrl ?? null;
-  }
-
+  // el bucket que `crearTarjeta` exige.) `subirImagenAlAlta` vive en
+  // src/lib/lealtad/subida-alta.ts para que el configurador fusionado
+  // de /lealtad suba el logo por el MISMO camino — ver el comentario
+  // largo sobre `logos-negocio/` y la política 0148 en ese archivo.
   async function subirLogo(archivo: File) {
     setErrorLogo("");
     if (archivo.size > 8 * 1024 * 1024) {
@@ -376,7 +344,7 @@ export default function WizardAlta({
       return;
     }
     setSubiendoLogo(true);
-    const url = await subirAlAlta(archivo, "logo");
+    const url = await subirImagenAlAlta(archivo, "logo");
     if (url) patch({ logoUrl: url });
     else setErrorLogo("No pudimos subir el logo. Intentá de nuevo.");
     setSubiendoLogo(false);
@@ -389,7 +357,7 @@ export default function WizardAlta({
       return;
     }
     setSubiendoBanda(true);
-    const url = await subirAlAlta(archivo, "banda");
+    const url = await subirImagenAlAlta(archivo, "banda");
     if (url) patch({ bannerUrl: url });
     else setErrorBanda("No pudimos subir la banda. Intentá de nuevo.");
     setSubiendoBanda(false);

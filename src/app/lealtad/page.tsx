@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
+import { createClient } from "@/lib/supabase/server";
 import {
   ETIQUETAS_CAPACIDAD,
   PLANES,
@@ -55,7 +56,14 @@ const ACCION_OSCURO_TINTA = "var(--accion-claro-tinta)";
 const ACENTO_OSCURO = "var(--orange)"; /* el naranja del logo, solo sobre navy */
 const ACENTO_CLARO = "var(--orange-acento-claro)"; /* su gemelo legible sobre blanco */
 
-export const revalidate = 21600;
+// Se cae la ISR de 6 horas que tenía esta página (`revalidate = 21600`):
+// el configurador ahora crea la cuenta y el negocio ACÁ MISMO, y para
+// decidir si le muestra a la visita el paso «Tu cuenta» necesita saber
+// si ya hay sesión — eso exige leer la cookie en cada pedido, que es
+// justo lo que una página estática no puede hacer. El resto de la
+// landing (planes, FAQ, cómo funciona) no cambió de contenido; lo que
+// cambió es que ya no se puede servir la misma copia cacheada durante
+// horas sin mentirle a quien ya tiene cuenta.
 
 export const metadata: Metadata = {
   title: "Lealtad",
@@ -130,7 +138,18 @@ const FAQ: { pregunta: string; respuesta: string }[] = [
   },
 ];
 
-export default function LealtadPage() {
+export default async function LealtadPage() {
+  // Se decide del lado del SERVIDOR, con la cookie de sesión, y no en
+  // el cliente: es la misma comprobación que ya hacía
+  // `/lealtad/nuevo/page.tsx`, así que no hay una segunda forma de
+  // saber si alguien está logueado, y el configurador arranca sin el
+  // parpadeo de "primero muestro el paso de cuenta y después lo escondo
+  // cuando el cliente confirma que sí había sesión".
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <main className="min-h-svh bg-white">
       <RevealOnScroll />
@@ -184,7 +203,7 @@ export default function LealtadPage() {
           </div>
 
           <div className="mt-12">
-            <ConfiguradorLealtad />
+            <ConfiguradorLealtad haySesion={!!user} />
           </div>
 
           <div className="mt-8 flex flex-col items-center gap-2 text-center">
