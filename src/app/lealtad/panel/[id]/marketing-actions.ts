@@ -4,6 +4,14 @@ import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { probarAvisoDePase, type DiagnosticoAviso } from "@/lib/wallet/servicio";
 import { enviarMensajePromocional } from "@/lib/wallet/mensaje-promocional";
+import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
+import {
+  estadoCupoNotificaciones,
+  inicioProximoMesEnCR,
+  liberarCupoNotificacion,
+  reservarCupoNotificacion,
+} from "@/lib/lealtad/cupo-notificaciones";
+import type { EstadoLimite } from "@/lib/lealtad/planes";
 
 /**
  * MARKETING — la lista de pases con quién los tiene, y el botón para
@@ -208,11 +216,85 @@ export async function enviarAvisoDePrueba(
 
 const TOPE_MENSAJE = 120;
 
+type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
+
+/**
+ * El plan efectivo de un negocio, mismo patrón que ya usan
+ * `equipoLleno` (equipo-actions.ts) y el chequeo de tipo de
+ * `crear-actions.ts`: se lee con la llave de servicio porque el
+ * paquete es dato de producto y no de la fila de nadie —depender de la
+ * sesión ataría el tope a que la RLS de `cuentas` (0134) esté corrida—,
+ * y `contextoDeCuenta` hace ganar a la cuenta sobre el respaldo del
+ * rancho (la transición de la 0134, en dos tiempos).
+ */
+async function planDelNegocio(db: Admin, ranchoId: string): Promise<string | null> {
+  const { data: rancho } = await db
+    .from("ranchos")
+    .select("plan_lealtad")
+    .eq("id", ranchoId)
+    .maybeSingle();
+  const { data: cuenta } = await db
+    .from("cuentas")
+    .select("id")
+    .eq("rancho_id", ranchoId)
+    .maybeSingle();
+  const { plan } = await contextoDeCuenta(
+    db,
+    cuenta?.id ? { cuenta_id: cuenta.id as string } : {},
+    { planRancho: (rancho?.plan_lealtad as string | null) ?? null },
+  );
+  return plan;
+}
+
+/**
+ * Cuánto cupo de notificaciones le queda al negocio este mes, para que
+ * `marketing-mensaje.tsx` lo pinte y deshabilite el botón antes de
+ * intentar un envío que el servidor va a rechazar de todos modos.
+ *
+ * Mismo chequeo de tenencia que `enviarNotificacionPromocional`: sin
+ * él, un `programaId` ajeno (adivinado o leído, `programa_lealtad` es
+ * legible por `anon`) filtraría cuánto cupo le queda a OTRO negocio.
+ */
+export async function obtenerCupoNotificaciones(
+  ranchoId: string,
+  programaId: string,
+): Promise<Resultado<EstadoLimite>> {
+  const acceso = await accesoDeNegocio(ranchoId);
+  if (!acceso.ok) return { ok: false, motivo: acceso.motivo };
+
+  const db = createAdminClient();
+  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+
+  const { data: programa } = await db
+    .from("programa_lealtad")
+    .select("rancho_id")
+    .eq("id", programaId)
+    .maybeSingle();
+  if (!programa || programa.rancho_id !== ranchoId) {
+    return { ok: false, motivo: "Esa tarjeta no es de este negocio." };
+  }
+
+  const plan = await planDelNegocio(db, ranchoId);
+  const estado = await estadoCupoNotificaciones(db, ranchoId, plan);
+  return { ok: true, datos: estado };
+}
+
 /**
  * "MIÉRCOLES MATCHAS 2X1" — el mensaje real, a todos los que tienen el
  * pase. Verifica tenencia del programa igual que las de arriba, y de
  * paso corta un mensaje absurdamente largo: el campo del reverso de
  * Apple tiene un ancho fijo, y un párrafo entero ahí se corta feo.
+ *
+ * DESDE LA 0183, el envío tiene un tope real por mes calendario y por
+ * NEGOCIO (no por tarjeta — misma lección de `clientesActivos`, ver la
+ * cabecera de `cupo-notificaciones.ts`): Prueba y Starter 1, Impulso
+ * 20, Ilimitado 50. El cupo se RESERVA de forma atómica (RPC con
+ * advisory lock, ver `reservarCupoNotificacion`) ANTES de llamar a
+ * `enviarMensajePromocional` — contar y anotar en dos pasos separados
+ * por el envío entero (segundos reales) dejaba pasar dos pedidos casi
+ * simultáneos por la misma ventana. Si el envío falla, la reserva se
+ * libera: un intento fallido (Apple/Google caídos) no le cobra cupo a
+ * un mensaje que nunca llegó a ningún lado.
  */
 export async function enviarNotificacionPromocional(
   ranchoId: string,
@@ -243,8 +325,33 @@ export async function enviarNotificacionPromocional(
   const limpio = mensaje.trim().slice(0, TOPE_MENSAJE);
   if (limpio.length < 3) return { ok: false, motivo: "Escribí el mensaje que querés mandar." };
 
+  const plan = await planDelNegocio(db, ranchoId);
+  const reserva = await reservarCupoNotificacion(db, ranchoId, programaId, plan);
+  if (!reserva.reservado) {
+    // `reserva.limite` no puede ser null acá: `reservarCupoNotificacion`
+    // solo devuelve `reservado: false` cuando SÍ hay un tope numérico
+    // contra el que comparó.
+    const limite = reserva.limite ?? 0;
+    const proxima = inicioProximoMesEnCR().toLocaleDateString("es-CR", {
+      day: "numeric",
+      month: "long",
+    });
+    const notif = limite === 1 ? "tu 1 notificación" : `tus ${limite} notificaciones`;
+    const verbo = limite === 1 ? "vuelve" : "vuelven";
+    return {
+      ok: false,
+      motivo: `Ya usaste ${notif} de este mes — ${verbo} a abrirse el ${proxima}.`,
+    };
+  }
+
   const resultado = await enviarMensajePromocional(programaId, limpio);
-  if (!resultado.ok) return { ok: false, motivo: resultado.motivo };
+  if (!resultado.ok) {
+    // El envío no llegó a ningún lado: se libera la reserva para no
+    // cobrarle cupo a un mensaje que nunca salió.
+    await liberarCupoNotificacion(db, reserva.id);
+    return { ok: false, motivo: resultado.motivo };
+  }
+
   return {
     ok: true,
     datos: {

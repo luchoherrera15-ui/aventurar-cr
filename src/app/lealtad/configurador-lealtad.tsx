@@ -11,6 +11,7 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
+import { esPlanOfrecido, type PlanId } from "@/lib/lealtad/planes";
 import { PALETAS, coloresDePaleta, paletaDeLosColores } from "@/lib/lealtad/paletas";
 import { esIconoSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
 import { esPlantillaIcono } from "@/lib/lealtad/plantillas-icono";
@@ -79,6 +80,17 @@ export type EstadoLealtad = {
   vista: Vista;
   nombreNegocio: string;
   modo: TipoTarjeta;
+  /**
+   * El paquete que se tocó en Modo 2 (`PanelPaquetesLealtad`) — puro
+   * cosmético para el aviso ámbar de «Revisar y crear» en Modo 3. NUNCA
+   * decide qué plan hace falta de verdad: eso lo sigue derivando
+   * `editor-tarjeta-completo.tsx` 100% de `modo` (el TIPO de tarjeta),
+   * porque el servidor revalida el paquete contra el tipo elegido, no
+   * contra este campo. Si el dueño elige "Impulso" acá y después arma
+   * (Sección 1) un tipo que solo trae Prueba, `planElegido` se queda
+   * desactualizado a propósito — no hay drama, es solo un texto.
+   */
+  planElegido: PlanId | null;
   beneficio: ConfigBeneficio;
   colorFondo: string;
   colorSello: string;
@@ -110,6 +122,7 @@ function estadoInicial(): EstadoLealtad {
     vista: "menu",
     nombreNegocio: "",
     modo: "sellos",
+    planElegido: null,
     beneficio: configPorDefecto("sellos"),
     colorFondo: base.fondo,
     colorSello: base.sello,
@@ -144,6 +157,12 @@ function sanearGuardado(crudo: unknown): EstadoLealtad {
   if (typeof c.modo === "string" && esTipoTarjeta(c.modo)) {
     limpio.modo = c.modo;
     limpio.beneficio = leerBeneficio(c.beneficio, c.modo) ?? configPorDefecto(c.modo);
+  }
+  // Un borrador viejo (de antes de esta captura) simplemente no tenía
+  // este campo — `typeof !== "string"` cae al default `null` sin
+  // romper nada, mismo criterio que el resto de este saneo.
+  if (typeof c.planElegido === "string" && esPlanOfrecido(c.planElegido)) {
+    limpio.planElegido = c.planElegido;
   }
   if (typeof c.colorFondo === "string" && HEX.test(c.colorFondo)) limpio.colorFondo = c.colorFondo;
   if (typeof c.colorSello === "string" && HEX.test(c.colorSello)) limpio.colorSello = c.colorSello;
@@ -267,7 +286,7 @@ export default function ConfiguradorLealtad({ haySesion }: { haySesion: boolean 
       ) : (
         <PanelPaquetesLealtad
           tipoElegido={estado.modo}
-          alSeguir={() => patch({ vista: "editor" })}
+          alSeguir={(planId) => patch({ planElegido: planId, vista: "editor" })}
         />
       )}
     </div>

@@ -38,10 +38,16 @@
  *     se escribe igual: es la última puerta antes de la red, y una
  *     promesa publicada no se puede despublicar de los teléfonos que
  *     ya la bajaron.
- *   · Los topes que NO se hacen cumplir (`notificacionesMes`, `sedes`,
- *     `automatizaciones`). Están en 0 o en 1 justamente porque no hay
- *     producto detrás; mandarlos por la red los convertiría en una
- *     cifra que alguien pinta en una pantalla.
+ *   · Los topes que NO se hacen cumplir (`sedes`, `automatizaciones`).
+ *     Están en 0 o en 1 justamente porque no hay producto detrás;
+ *     mandarlos por la red los convertiría en una cifra que alguien
+ *     pinta en una pantalla.
+ *   · `notificacionesMes` YA NO va en esta lista desde la 0183 — sí
+ *     hay producto y sí se hace cumplir (`marketing-actions.ts`), solo
+ *     que este catálogo público no lo incluye en `TOPES_PUBLICADOS`
+ *     porque las pantallas que lo muestran (panel de paquetes,
+ *     /lealtad/planes) leen `planes.ts` directo, no este archivo —
+ *     es una decisión de superficie, no una promesa vacía.
  *
  * Hay una prueba por cada punto de esta lista.
  */

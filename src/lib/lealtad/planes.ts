@@ -27,13 +27,17 @@
  * definiciones, y hay pruebas sobre cada una.)
  *
  * Todo lo demás —wallet, personalización, reglas y vencimientos,
- * póster y QR, modo mostrador, equipo con permisos y analítica— va en
- * LOS CUATRO: es la base del producto, no un escalón.
+ * póster y QR, modo mostrador, equipo con permisos, analítica y poder
+ * mandar notificaciones— va en LOS CUATRO: es la base del producto, no
+ * un escalón. Lo que SÍ escalona es el CUPO de notificaciones (1/1/20/50,
+ * 0183) y, desde Impulso, la proyección de crecimiento sobre esa
+ * analítica (`proyeccion_metricas`).
  *
  * Lo que se reparte es lo que el código SABE hacer cumplir: el cupo de
  * clientes (las dos puertas de Wallet, vía `personasActivasDe`), las
  * tarjetas (`crear-actions.ts`), los tipos (`crear-actions.ts` y
- * `pases-actions.ts`), el equipo (`equipo-actions.ts`) y `cercania`
+ * `pases-actions.ts`), el equipo (`equipo-actions.ts`), las
+ * notificaciones (`enviarNotificacionPromocional`, 0183) y `cercania`
  * (`generar.ts`). Un escalón que no se hace cumplir es decoración, y
  * este archivo ya vivió esa etapa una vez.
  *
@@ -161,16 +165,27 @@ export type PlanId = (typeof PLANES_ID)[number];
  * POR QUÉ LAS DE ABAJO SIGUEN DECLARADAS SI NADIE LAS USA
  * ------------------------------------------------------------------
  * Existían porque los paquetes RETIRADOS las nombraban. Esos paquetes
- * ya no están, y sin embargo estas trece se quedan: son la lista de lo
+ * ya no están, y sin embargo estas doce se quedan: son la lista de lo
  * que NO SE PUEDE VENDER, y para que `CAPACIDADES_SIN_PRODUCTO` sea
  * una lista de verdad —recorrible por una prueba, y no un comentario—
- * el tipo tiene que poder NOMBRARLAS.
+ * el tipo tiene que poder NOMBRARLAS. ("notificaciones" se mudó arriba
+ * en 2026-08: dejó de ser una de estas doce — ver la nota de cabecera.)
  *
  * Se ganó algo en el camino: hoy ningún paquete las usa, así que
  * `CAPACIDADES_SIN_PRODUCTO` describe exactamente lo mismo que este
  * bloque de abajo, y el filtro de `catalogo-publico.ts` no tiene nada
  * que sacar. Esa es la señal de que el catálogo está limpio, no de que
  * la lista sobre.
+ *
+ * ------------------------------------------------------------------
+ * 2026-08 — "notificaciones" SE MUDÓ ARRIBA
+ * ------------------------------------------------------------------
+ * Vivía en este bloque con el comentario "SIN PRODUCTO: el push de
+ * Wallet es silencioso, no hay pantalla ni acción para redactar y
+ * enviar nada". Ya no es cierto: `enviarNotificacionPromocional`
+ * (marketing-actions.ts) + `marketing-mensaje.tsx` mandan el mensaje de
+ * verdad, con cupo real contado en `notificaciones_promocionales`
+ * (0183). Por eso ahora son doce las que quedan sin producto, no trece.
  */
 export type Capacidad =
   // ── Lo que existe de verdad ─────────────────────────────────────
@@ -200,10 +215,24 @@ export type Capacidad =
    *  revertir, auditoría. (0127 permisos_lealtad + 0134
    *  cuentas_equipo) */
   | "equipo_con_permisos"
-  /** Métricas del programa: altas por semana, activos, sellos y
-   *  canjes de 30 días contra los 30 anteriores, ritmo y proyección.
-   *  (metricas.tsx) */
+  /** Métricas del programa: altas, activos, sellos y canjes de los
+   *  últimos 30 días contra los 30 anteriores. Las CUATRO cifras van en
+   *  los cuatro paquetes — lo que se reparte por escalón es la card de
+   *  proyección, ver `proyeccion_metricas`. (metricas.tsx) */
   | "analitica"
+  /** Notificación real al pase del cliente ("MIÉRCOLES MATCHAS 2X1"),
+   *  con cupo por mes según el paquete (1/1/20/50).
+   *  (`enviarNotificacionPromocional` en marketing-actions.ts, contra
+   *  `notificaciones_promocionales`, 0183). Va en los CUATRO —lo que
+   *  cambia por paquete es el número, no si se puede mandar algo, ver
+   *  `LimitesPlan.notificacionesMes`. */
+  | "notificaciones"
+  /** La card "A este ritmo → Proyección" de `metricas.tsx`
+   *  (`ritmoSemanal`/`proyeccion30`): cuántos clientes nuevos hace falta
+   *  por semana para llegar a una meta en 30 días. Va SOLO en Impulso e
+   *  Ilimitado — no confundir con `analitica`, que son las cuatro
+   *  cifras básicas y esas sí van en los cuatro paquetes. */
+  | "proyeccion_metricas"
   /** Que el pase aparezca solo en la pantalla bloqueada cuando el
    *  cliente pasa cerca del local. Es nativo de Wallet y lo enciende
    *  `generar.ts` con `puede()`.
@@ -232,10 +261,6 @@ export type Capacidad =
   // Se quedan declaradas para que `CAPACIDADES_SIN_PRODUCTO` las pueda
   // enumerar y las pruebas las puedan buscar en lo que sale a la calle.
   // Sacar una de acá es decir «esto se construyó», y hay que probarlo.
-  /** SIN PRODUCTO. El push de Wallet existe pero es SILENCIOSO: sirve
-   *  para refrescar el pase, no para que el negocio mande un mensaje.
-   *  No hay pantalla ni acción para redactar y enviar nada. */
-  | "notificaciones"
   /** SIN PRODUCTO. No hay cohortes ni rendimiento por programa. */
   | "analitica_avanzada"
   /** SIN PRODUCTO. No hay segmentos de lealtad (lo de `crm-citas.ts`
@@ -281,13 +306,12 @@ export type Capacidad =
  * Sacar algo de esta lista es la señal de que se construyó: ese día se
  * mueve para arriba en `Capacidad` y recién ahí se puede vender.
  *
- * Que hoy ningún paquete nombre ninguna de las trece no la vuelve
+ * Que hoy ningún paquete nombre ninguna de las doce no la vuelve
  * decorativa: es la lista que hace que agregarla siga siendo un error
  * atrapado por la suite, y el filtro de `catalogo-publico.ts` la vuelve
  * a aplicar en la última puerta antes de la red.
  */
 export const CAPACIDADES_SIN_PRODUCTO: readonly Capacidad[] = [
-  "notificaciones",
   "analitica_avanzada",
   "segmentacion",
   "campanas_programadas",
@@ -311,8 +335,9 @@ export const CAPACIDADES_SIN_PRODUCTO: readonly Capacidad[] = [
  * ------------------------------------------------------------------
  * CUÁLES SE EXIGEN DE VERDAD, HOY
  * ------------------------------------------------------------------
- * TRES de los seis: `clientesActivos`, `programas` y `administradores`
- * (este último desde el reparto de la 0142). Los otros tres se dejan
+ * CUATRO de los seis: `clientesActivos`, `programas` y `administradores`
+ * (desde el reparto de la 0142) y `notificacionesMes` (desde la 0183,
+ * contra `notificaciones_promocionales`). Los otros dos se dejan
  * escritos porque el tipo los pide, pero están puestos en el valor que
  * NO promete nada (ver cada campo).
  */
@@ -348,11 +373,16 @@ export type LimitesPlan = {
    */
   programas: number | null;
   /**
-   * TOPE DECLARADO, SIN PRODUCTO DETRÁS. No hay forma de que un
-   * negocio mande una notificación: el push de Wallet es silencioso y
-   * solo refresca el pase. Va en 0 en todo el catálogo de hoy —
-   * inventar una bolsa de 1.000 envíos sería vender un envío que nadie
-   * puede hacer. El día que exista el envío, acá van los números.
+   * SE EXIGE, por NEGOCIO y por mes calendario (no por tarjeta — la
+   * misma lección de `clientesActivos`: un negocio de Impulso con 5
+   * tarjetas mandaría 5×20=100 mensajes si se contara por tarjeta, no
+   * 20; ver `cupo-notificaciones.ts`).
+   *
+   * Lo hace cumplir `enviarNotificacionPromocional`
+   * (marketing-actions.ts) contra la tabla `notificaciones_promocionales`
+   * (0183), ANTES de llamar a `enviarMensajePromocional`. `null` no es
+   * un valor de este catálogo: los cuatro paquetes venden un número —
+   * Prueba y Starter 1, Impulso 20, Ilimitado 50.
    */
   notificacionesMes: number | null;
   /**
@@ -422,20 +452,21 @@ export type DefinicionPlan = {
  * Lo que trae CUALQUIER paquete del catálogo de hoy, incluida la
  * prueba.
  *
- * Son ocho, y las ocho existen: hay un archivo, una tabla o una
+ * Son nueve, y las nueve existen: hay un archivo, una tabla o una
  * pantalla detrás de cada una. Lo que se cobra es la ESCALA —cuánta
- * gente entra— no desbloquear una funcionalidad que ya está escrita.
+ * gente entra, o cuántas notificaciones por mes— no desbloquear una
+ * funcionalidad que ya está escrita.
  *
  * Que la lista sea generosa es a propósito y no un descuido: si el
  * negocio de $12 y el de $89 corren el mismo código, el catálogo tiene
- * que decirlo. La alternativa —repartir estas ocho en escalones— sería
+ * que decirlo. La alternativa —repartir estas nueve en escalones— sería
  * inventar candados que el código no tiene, y el cliente de $12 los
  * descubriría abiertos el primer día.
  *
  * ------------------------------------------------------------------
- * POR QUÉ LAS OCHO VAN EN LOS CUATRO PAQUETES
+ * POR QUÉ LAS NUEVE VAN EN LOS CUATRO PAQUETES
  * ------------------------------------------------------------------
- * Porque las ocho son la BASE DEL PRODUCTO: el negocio de $12 y el de
+ * Porque las nueve son la BASE DEL PRODUCTO: el negocio de $12 y el de
  * $89 corren el mismo código, y el catálogo tiene que decirlo.
  *
  * El catálogo anterior fingía lo contrario: «Crece» ($27) sumaba
@@ -444,15 +475,20 @@ export type DefinicionPlan = {
  * pagaba el triple recibía exactamente lo mismo. Repetir ese reparto
  * con nombres nuevos habría repetido el problema.
  *
- * Lo que SÍ escalona el reparto de la 0142 son los números —clientes,
- * tarjetas, tipos, equipo— más las dos capacidades reales que sobraban,
- * y las dos van juntas en el paquete de arriba:
+ * Lo que SÍ escalona el reparto de la 0142 (y de la 0183) son los
+ * números —clientes, tarjetas, tipos, equipo, notificaciones— más tres
+ * capacidades reales que no van en los cuatro:
  *
- *   · `cercania` — `generar.ts` la consulta con `puede()`. Se sigue
- *     regalando con el complemento suelto `pases_cercania` (0123) para
- *     quien ya lo compró: un paquete nuevo no le quita lo pagado a
- *     nadie;
- *   · `diseno_a_medida` — el camino «personalizado» de la 0130.
+ *   · `proyeccion_metricas` — la card "A este ritmo → Proyección" de
+ *     `metricas.tsx`. Va desde Impulso: las cuatro cifras básicas
+ *     (`analitica`) se quedan en los cuatro, pero la proyección es del
+ *     escalón de arriba;
+ *   · `cercania` — `generar.ts` la consulta con `puede()`. Va SOLO en
+ *     Ilimitado, y se sigue regalando con el complemento suelto
+ *     `pases_cercania` (0123) para quien ya lo compró: un paquete nuevo
+ *     no le quita lo pagado a nadie;
+ *   · `diseno_a_medida` — el camino «personalizado» de la 0130. También
+ *     SOLO en Ilimitado.
  *
  * Lo que no se puede es agregar algo de `CAPACIDADES_SIN_PRODUCTO`:
  * hay una prueba que lo frena.
@@ -466,6 +502,7 @@ const INCLUIDO_SIEMPRE: readonly Capacidad[] = [
   "modo_mostrador",
   "equipo_con_permisos",
   "analitica",
+  "notificaciones",
 ];
 
 /**
@@ -511,7 +548,11 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
       // `crear-actions.ts` hace valer. Hay una prueba que impide que
       // un plan sin costo quede con programas ilimitados.
       programas: 1,
-      notificacionesMes: 0,
+      // UNA notificación por mes calendario, y es del NEGOCIO, no de la
+      // tarjeta (ver `LimitesPlan.notificacionesMes`). Mismo número que
+      // Starter: el paquete gratis alcanza para probar el botón, no
+      // para operar una campaña.
+      notificacionesMes: 1,
       // El dueño y nadie más: `administradores` cuenta al dueño.
       administradores: 1,
       sedes: 1,
@@ -573,7 +614,10 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
       // cuenta de la 0142 eso ya no pasa —los 100 son 100 sumando las
       // dos— y el escalón puede ser lo que el dueño aprobó.
       programas: 2,
-      notificacionesMes: 0,
+      // Mismo número que Prueba: un local recién arrancando manda un
+      // aviso puntual, no una campaña seguida. El salto real está en
+      // Impulso (20).
+      notificacionesMes: 1,
       administradores: 3,
       sedes: 1,
       automatizaciones: 0,
@@ -596,12 +640,16 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     limites: {
       clientesActivos: 1_000,
       programas: 5,
-      notificacionesMes: 0,
+      // VEINTE, el salto grande del catálogo: de un aviso puntual a
+      // poder correr una campaña seguida en el mes.
+      notificacionesMes: 20,
       administradores: 10,
       sedes: 1,
       automatizaciones: 0,
     },
-    capacidades: INCLUIDO_SIEMPRE,
+    // `INCLUIDO_SIEMPRE` más la proyección de crecimiento: es el
+    // primer paquete que la trae (ver `proyeccion_metricas`).
+    capacidades: [...INCLUIDO_SIEMPRE, "proyeccion_metricas"],
     // Los ocho: membresía, gift card y evento entran acá.
     tipos: null,
     diasPrueba: 0,
@@ -618,16 +666,21 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     limites: {
       clientesActivos: null,
       programas: null,
-      notificacionesMes: 0,
+      // CINCUENTA. No es `null` (ilimitado de verdad) a propósito: un
+      // negocio que manda más de 50 avisos promocionales al mes le está
+      // llenando el pase de spam a su propio cliente, y eso no es un
+      // límite técnico que valga la pena regalar.
+      notificacionesMes: 50,
       administradores: null,
       sedes: 1,
       automatizaciones: 0,
     },
-    // Las dos capacidades reales que quedaban sin repartir. `cercania`
-    // se sigue vendiendo suelta como complemento (0123) para quien ya
-    // la compró: `puede()` acepta las dos puertas, así que subirla al
-    // paquete no le apaga el aviso a nadie.
-    capacidades: [...INCLUIDO_SIEMPRE, "cercania", "diseno_a_medida"],
+    // `INCLUIDO_SIEMPRE` más `proyeccion_metricas` (que ya trae Impulso,
+    // ver ese objeto) más las dos capacidades reales que quedaban sin
+    // repartir. `cercania` se sigue vendiendo suelta como complemento
+    // (0123) para quien ya la compró: `puede()` acepta las dos puertas,
+    // así que subirla al paquete no le apaga el aviso a nadie.
+    capacidades: [...INCLUIDO_SIEMPRE, "proyeccion_metricas", "cercania", "diseno_a_medida"],
     tipos: null,
     diasPrueba: 0,
     vigente: true,
@@ -675,6 +728,20 @@ export const ETIQUETAS_CAPACIDAD: Record<Capacidad, string> = {
   modo_mostrador: "Modo mostrador para sellar y canjear",
   equipo_con_permisos: "Tu equipo, con permisos por persona",
   analitica: "Métricas: altas, activos, sellos y canjes",
+  // NEUTRA A PROPÓSITO, mismo criterio que `tipos_de_tarjeta`: el
+  // número real (1/1/20/50) depende del paquete, así que un texto fijo
+  // acá sería mentira en Prueba o verdad a medias en Ilimitado. La
+  // viñeta que sí dice CUÁNTAS la arma `etiquetaNotificacionesDe()`, y
+  // `etiquetasDeCapacidades()` la mete en el lugar de esta.
+  notificaciones: "Notificaciones al pase del cliente",
+  // NO se escribe "...a 30 días": `catalogo-publico.test.ts` ya vigila
+  // que ningún texto público contenga el substring "0 días" —quedó de
+  // cuando `notaPrecioDe` podía anunciar «0 días, sin tarjeta» como si
+  // el paquete gratis ya hubiera vencido— y "a 30 días" lo dispara
+  // igual (es substring de "30 días"), aunque acá no tenga nada que ver
+  // con un vencimiento. Se esquiva con otra redacción, no tocando esa
+  // guardia.
+  proyeccion_metricas: "Proyección de crecimiento mensual",
   // El «(en iPhone)» no es letra chica: `google.ts` no escribe
   // ubicaciones en el objeto, así que en Android el aviso no sale.
   // Prometerlo entero sería vender medio producto.
@@ -686,7 +753,6 @@ export const ETIQUETAS_CAPACIDAD: Record<Capacidad, string> = {
   // escribe igual porque `Record<Capacidad, string>` la exige, y porque
   // es lo que las pruebas buscan en el cuerpo que sale a la calle: sin
   // texto que buscar, «esto no se promete» no se podría comprobar.
-  notificaciones: "Notificaciones al pase del cliente",
   analitica_avanzada: "Analítica avanzada",
   segmentacion: "Segmentación de clientes",
   campanas_programadas: "Campañas programadas",
@@ -704,10 +770,13 @@ export const ETIQUETAS_CAPACIDAD: Record<Capacidad, string> = {
 /**
  * Cómo se le cuenta cada tope. Mismo criterio que las capacidades.
  *
- * Hoy ninguna pantalla las usa —la UI solo pinta `clientesActivos` con
- * su propio texto— y está bien que así sea mientras cuatro de los seis
- * topes no se hagan cumplir. Existen para que agregar un tope NUEVO
- * obligue a pensar cómo se le cuenta a un dueño de negocio.
+ * `catalogo-publico.ts` la usa para los TRES topes que publica
+ * (`TOPES_PUBLICADOS`). `notificacionesMes` no está entre esos tres a
+ * propósito —no se agregó con la 0183, ver el comentario de
+ * `TOPES_PUBLICADOS` en ese archivo—: su número real viaja como
+ * CAPACIDAD (`etiquetaNotificacionesDe`), no por acá. Existen igual
+ * para que agregar un tope NUEVO obligue a pensar cómo se le cuenta a
+ * un dueño de negocio.
  */
 export const ETIQUETAS_LIMITE: Record<keyof LimitesPlan, string> = {
   clientesActivos: "Clientes activos",
@@ -919,16 +988,33 @@ export function etiquetaTiposDe(def: DefinicionPlan): string {
 }
 
 /**
+ * Cómo se le cuenta a un dueño de negocio cuántas notificaciones trae
+ * su paquete. Mismo criterio que `etiquetaTiposDe`: se calcula desde
+ * `LimitesPlan.notificacionesMes` en vez de escribirse a mano, porque
+ * una frase aparte se desincroniza el día que cambie el número — y ese
+ * número es la promesa central que pidió el dueño para esta pantalla.
+ */
+export function etiquetaNotificacionesDe(def: DefinicionPlan): string {
+  const n = def.limites.notificacionesMes;
+  if (n === null) return "Notificaciones ilimitadas al pase del cliente";
+  return `${n} notificaci${n === 1 ? "ón" : "ones"} al mes`;
+}
+
+/**
  * Las viñetas de un paquete, listas para pintar.
  *
- * Es `ETIQUETAS_CAPACIDAD` con UNA sustitución: la de los tipos, que
- * depende del paquete. Existe para que ninguna pantalla tenga que
- * acordarse de esa excepción — la olvidan todas menos la última que se
- * tocó.
+ * Es `ETIQUETAS_CAPACIDAD` con DOS sustituciones: la de los tipos y la
+ * de las notificaciones, que dependen del paquete. Existe para que
+ * ninguna pantalla tenga que acordarse de esas excepciones — las
+ * olvidan todas menos la última que se tocó.
  */
 export function etiquetasDeCapacidades(def: DefinicionPlan): string[] {
   return def.capacidades.map((c) =>
-    c === "tipos_de_tarjeta" ? etiquetaTiposDe(def) : ETIQUETAS_CAPACIDAD[c],
+    c === "tipos_de_tarjeta"
+      ? etiquetaTiposDe(def)
+      : c === "notificaciones"
+        ? etiquetaNotificacionesDe(def)
+        : ETIQUETAS_CAPACIDAD[c],
   );
 }
 

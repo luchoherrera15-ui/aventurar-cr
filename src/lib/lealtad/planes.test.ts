@@ -5,6 +5,7 @@ import {
   esPlanOfrecido,
   esPlanSinCosto,
   estadoDelLimite,
+  etiquetaNotificacionesDe,
   etiquetaTiposDe,
   etiquetasDeCapacidades,
   descuentoAnualPct,
@@ -709,14 +710,44 @@ describe("no se promete lo que no existe", () => {
   });
 
   it("los topes sin producto detrás no prometen nada", () => {
-    // No hay envío de notificaciones ni automatizaciones: un número
-    // acá sería una bolsa que nadie puede gastar. Y no hay modelo de
-    // sedes: cada negocio es una.
+    // No hay automatizaciones: un número acá sería una bolsa que nadie
+    // puede gastar. Y no hay modelo de sedes: cada negocio es una.
+    // `notificacionesMes` YA NO va acá desde la 0183 — tiene test propio
+    // abajo, porque ahora es un tope que el servidor SÍ hace cumplir.
     for (const id of PLANES_OFRECIDOS) {
-      expect(PLANES[id].limites.notificacionesMes, `${id}`).toBe(0);
       expect(PLANES[id].limites.automatizaciones, `${id}`).toBe(0);
       expect(PLANES[id].limites.sedes, `${id}`).toBe(1);
     }
+  });
+
+  it("el cupo de notificaciones es 1/1/20/50", () => {
+    // Prueba: 1 por mes
+    // Starter (id interno "arranque"): 1 por mes
+    // Impulso: 20 por mes
+    // Ilimitado: 50 por mes
+    expect(PLANES.prueba.limites.notificacionesMes).toBe(1);
+    expect(PLANES.arranque.limites.notificacionesMes).toBe(1);
+    expect(PLANES.impulso.limites.notificacionesMes).toBe(20);
+    expect(PLANES.ilimitado.limites.notificacionesMes).toBe(50);
+  });
+
+  it("la proyección de crecimiento es SOLO de Impulso para arriba", () => {
+    expect(puede("prueba", "proyeccion_metricas")).toBe(false);
+    expect(puede("arranque", "proyeccion_metricas")).toBe(false);
+    expect(puede("impulso", "proyeccion_metricas")).toBe(true);
+    expect(puede("ilimitado", "proyeccion_metricas")).toBe(true);
+    // Las cuatro cifras básicas se quedan en los cuatro paquetes: no se
+    // confunden `analitica` (siempre) con `proyeccion_metricas` (desde
+    // Impulso).
+    for (const id of PLANES_OFRECIDOS) expect(puede(id, "analitica")).toBe(true);
+  });
+
+  it("mandar notificaciones lo puede hacer cualquier paquete — lo que cambia es el número", () => {
+    for (const id of PLANES_OFRECIDOS) expect(puede(id, "notificaciones")).toBe(true);
+    expect(etiquetaNotificacionesDe(PLANES.prueba)).toBe("1 notificación al mes");
+    expect(etiquetaNotificacionesDe(PLANES.arranque)).toBe("1 notificación al mes");
+    expect(etiquetaNotificacionesDe(PLANES.impulso)).toBe("20 notificaciones al mes");
+    expect(etiquetaNotificacionesDe(PLANES.ilimitado)).toBe("50 notificaciones al mes");
   });
 
   it("toda capacidad tiene etiqueta, exista o no el producto", () => {
@@ -728,21 +759,36 @@ describe("no se promete lo que no existe", () => {
     }
   });
 
-  it("los TRES primeros paquetes traen la misma lista de capacidades", () => {
+  it("los DOS primeros paquetes traen la misma lista de capacidades", () => {
     /**
-     * No es un olvido: entre Prueba, Arranque e Impulso la diferencia
-     * es de ESCALA —clientes, tarjetas, tipos, equipo— y nada más.
+     * No es un olvido: entre Prueba y Arranque la diferencia es de
+     * ESCALA —clientes, tarjetas, tipos, equipo— y nada más.
      *
      * El catálogo anterior fingía lo contrario —«Crece» ($27) sumaba
      * cuatro capacidades sobre «Esencial» ($9) y las cuatro eran
      * humo—, y quien pagaba el triple recibía lo mismo. Este test es el
      * recordatorio: un escalón de capacidad solo se agrega si el código
      * LO HACE CUMPLIR, y este test se cambia a mano sabiendo por qué.
-     * Así se agregaron las dos de Ilimitado.
+     *
+     * Impulso YA NO entra en esta lista desde la 0183: suma
+     * `proyeccion_metricas` sobre estos dos, y ese salto tiene test
+     * propio abajo ("Impulso suma sobre Prueba/Arranque..."). Antes de
+     * eso, "los TRES primeros" incluía a Impulso; ahora son dos.
      */
     const referencia = [...PLANES.prueba.capacidades].sort();
-    for (const id of ["prueba", "arranque", "impulso"] as const) {
+    for (const id of ["prueba", "arranque"] as const) {
       expect([...PLANES[id].capacidades].sort(), `«${PLANES[id].nombre}»`).toEqual(referencia);
+    }
+  });
+
+  it("Impulso suma sobre Prueba/Arranque exactamente proyeccion_metricas", () => {
+    const extra = PLANES.impulso.capacidades.filter(
+      (c) => !PLANES.arranque.capacidades.includes(c),
+    );
+    expect([...extra].sort()).toEqual(["proyeccion_metricas"]);
+    for (const cap of extra) {
+      expect(CAPACIDADES_SIN_PRODUCTO).not.toContain(cap);
+      expect(ETIQUETAS_CAPACIDAD[cap]).toBeTruthy();
     }
   });
 

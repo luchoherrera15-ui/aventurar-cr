@@ -541,10 +541,25 @@ export default function EditorTarjetaCompleto({
               {!esGratis && planQueAbre && (
                 <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
                   <p className="text-[12px] leading-snug text-amber-800">
-                    <strong className="font-extrabold">
-                      Las tarjetas de {TIPOS_TARJETA[estado.modo].nombre.toLowerCase()} vienen con
-                      el paquete {planQueAbre.nombre}.
-                    </strong>{" "}
+                    {/* Si el paquete que se tocó en Modo 2 coincide con el
+                        que este tipo exige de verdad, se lo confirma en
+                        vez de anunciarlo como si fuera nuevo — puro
+                        cosmético, la validación real sigue siendo 100%
+                        `planQueAbre` (derivado de `estado.modo`), nunca
+                        `estado.planElegido`: ver el comentario de
+                        `EstadoLealtad.planElegido` en
+                        `configurador-lealtad.tsx`. */}
+                    {estado.planElegido === planQueAbre.id ? (
+                      <strong className="font-extrabold">
+                        Elegiste el paquete {planQueAbre.nombre} — las tarjetas de{" "}
+                        {TIPOS_TARJETA[estado.modo].nombre.toLowerCase()} vienen con él.
+                      </strong>
+                    ) : (
+                      <strong className="font-extrabold">
+                        Las tarjetas de {TIPOS_TARJETA[estado.modo].nombre.toLowerCase()} vienen con
+                        el paquete {planQueAbre.nombre}.
+                      </strong>
+                    )}{" "}
                     Ese camino pide un depósito y lo confirma Bookea — lo tuyo se guarda igual, no
                     perdés nada de lo que armaste acá.
                   </p>

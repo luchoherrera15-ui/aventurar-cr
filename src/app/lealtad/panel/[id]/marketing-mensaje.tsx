@@ -1,15 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Card } from "@/components/panel/piezas";
 import {
   CAMPO_PANEL,
   CUERPO_SUAVE,
+  DETALLE,
   ESTADO_AVISO,
   RADIO_TILE,
 } from "@/components/panel/sistema";
+import type { EstadoLimite } from "@/lib/lealtad/planes";
 import { ACCION, ACCION_TINTA, BOTON_ACCION } from "../sistema-lealtad";
-import { enviarNotificacionPromocional } from "./marketing-actions";
+import { enviarNotificacionPromocional, obtenerCupoNotificaciones } from "./marketing-actions";
 
 const TOPE = 120;
 
@@ -21,6 +23,12 @@ const TOPE = 120;
  * Separado de <TablaMarketing> (que es por-cliente, "probar el aviso
  * de este pase") porque esto es lo opuesto: un solo mensaje, a todos a
  * la vez. Mezclarlos en un mismo componente confundía las dos acciones.
+ *
+ * DESDE LA 0183, el envío tiene cupo por mes según el paquete (1/1/20/50
+ * — Prueba, Starter, Impulso, Ilimitado). El cupo se pide acá, aparte de
+ * `enviarNotificacionPromocional`, para no forzar a `marketing-lealtad.tsx`
+ * (el padre) a cargar con un prop nuevo — mismo criterio que ya separa
+ * `listarPasesDelPrograma` (lectura) de `enviarAvisoDePrueba` (acción).
  */
 export default function MarketingMensaje({
   ranchoId,
@@ -33,6 +41,26 @@ export default function MarketingMensaje({
   const [ocupado, iniciar] = useTransition();
   const [resultado, setResultado] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cupo, setCupo] = useState<EstadoLimite | null>(null);
+
+  function cargarCupo() {
+    obtenerCupoNotificaciones(ranchoId, programaId).then((res) => {
+      if (res.ok) setCupo(res.datos);
+    });
+  }
+
+  // Al montar, con el mismo resguardo de "componente ya se fue" que ya
+  // usa `seccion-tarjeta-digital.tsx` para este mismo patrón: la
+  // promesa puede resolver después de que el panel cambió de tarjeta.
+  useEffect(() => {
+    let vivo = true;
+    obtenerCupoNotificaciones(ranchoId, programaId).then((res) => {
+      if (vivo && res.ok) setCupo(res.datos);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [ranchoId, programaId]);
 
   function enviar() {
     setError(null);
@@ -58,6 +86,7 @@ export default function MarketingMensaje({
         [parteApple, parteGoogle].filter(Boolean).join(" ") ||
           "Guardado — todavía no hay ningún pase instalado para avisar.",
       );
+      cargarCupo();
     });
   }
 
@@ -85,13 +114,34 @@ export default function MarketingMensaje({
         <button
           type="button"
           onClick={enviar}
-          disabled={ocupado || mensaje.trim().length < 3}
+          disabled={ocupado || mensaje.trim().length < 3 || (cupo?.lleno ?? false)}
           className={BOTON_ACCION}
           style={{ background: ACCION, color: ACCION_TINTA }}
         >
           {ocupado ? "Enviando…" : "Enviar a todos"}
         </button>
       </div>
+
+      {/* El cupo del mes (0183). `cupo.limite === null` es "sin plan
+          conocido": no se muestra nada en vez de un aviso mentiroso.
+          Quieto (DETALLE) con cupo de sobra, ámbar al 80% y en el color
+          de alerta ya lleno — mismos tres estados que el resto del panel. */}
+      {cupo && cupo.limite !== null && (
+        <p
+          className={
+            cupo.lleno
+              ? `mt-2.5 ${RADIO_TILE} px-3 py-2 text-[12px] font-bold ${ESTADO_AVISO.alerta}`
+              : cupo.cerca
+                ? `mt-2.5 ${RADIO_TILE} px-3 py-2 text-[12px] font-bold ${ESTADO_AVISO.aviso}`
+                : `mt-1.5 ${DETALLE}`
+          }
+          role={cupo.lleno ? "alert" : undefined}
+        >
+          {cupo.lleno
+            ? `Ya usaste ${cupo.limite === 1 ? "tu 1 notificación" : `tus ${cupo.limite} notificaciones`} de este mes.`
+            : `Te quedan ${cupo.disponibles} de ${cupo.limite} notificaci${cupo.limite === 1 ? "ón" : "ones"} este mes.`}
+        </p>
+      )}
 
       {/* Error y resultado usan los estados del sistema. Antes eran un
           rojo y un verde propios de este archivo —`red-200` sobre

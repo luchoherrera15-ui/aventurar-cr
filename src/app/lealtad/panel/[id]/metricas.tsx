@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { definicionDe } from "@/lib/lealtad/planes";
+import { definicionDe, puede, PLANES, PLANES_OFRECIDOS } from "@/lib/lealtad/planes";
 import { Card, CardVacia, GrillaTablero } from "@/components/panel/piezas";
 import {
   CUERPO,
@@ -164,6 +164,16 @@ export default async function MetricasLealtad({
 
   const d = await calcularMetricas(db, programaId, plan);
 
+  // La proyección de crecimiento (ritmoSemanal/proyeccion30) es capacidad
+  // de paquete, no un dato gratis: Prueba y Starter se quedan con las
+  // cuatro cifras básicas de arriba, sin la card de "A este ritmo". `abre`
+  // es el paquete más barato que SÍ la trae, para nombrarlo en el aviso —
+  // mismo tono que `selector-tipo.tsx` ("Necesitás el paquete X para...").
+  const tieneProyeccion = puede(plan, "proyeccion_metricas");
+  const abre = PLANES_OFRECIDOS.map((id) => PLANES[id]).find((p) =>
+    p.capacidades.includes("proyeccion_metricas"),
+  );
+
   return (
     <div className={`flex flex-col ${GAP_TABLERO}`}>
       <div className={`grid grid-cols-2 ${GAP_METRICAS} lg:grid-cols-4`}>
@@ -235,22 +245,32 @@ export default async function MetricasLealtad({
       </Card>
 
       <GrillaTablero>
-        <Card eyebrow="A este ritmo" titulo="Proyección" nivel="h3">
-          <p className={CUERPO}>
-            {d.ritmoSemanal > 0 ? (
-              <>
-                Al ritmo de las últimas 4 semanas (~{Math.round(d.ritmoSemanal * 10) / 10} por
-                semana), en un mes andarías por <strong>{d.proyeccion30} miembros</strong>
-                {d.limite !== null && d.proyeccion30 >= d.limite && (
-                  <> — pasarías el tope de tu plan ({d.limite}): hora de mejorar el paquete</>
-                )}
-                .
-              </>
-            ) : (
-              <>Sin afiliaciones en el último mes. El QR en el mostrador es lo que más afilia.</>
-            )}
-          </p>
-        </Card>
+        {tieneProyeccion ? (
+          <Card eyebrow="A este ritmo" titulo="Proyección" nivel="h3">
+            <p className={CUERPO}>
+              {d.ritmoSemanal > 0 ? (
+                <>
+                  Al ritmo de las últimas 4 semanas (~{Math.round(d.ritmoSemanal * 10) / 10} por
+                  semana), en un mes andarías por <strong>{d.proyeccion30} miembros</strong>
+                  {d.limite !== null && d.proyeccion30 >= d.limite && (
+                    <> — pasarías el tope de tu plan ({d.limite}): hora de mejorar el paquete</>
+                  )}
+                  .
+                </>
+              ) : (
+                <>Sin afiliaciones en el último mes. El QR en el mostrador es lo que más afilia.</>
+              )}
+            </p>
+          </Card>
+        ) : (
+          <Card eyebrow="A este ritmo" titulo="Proyección" nivel="h3">
+            <p className={CUERPO}>
+              La proyección de crecimiento se desbloquea con el paquete {abre?.nombre ?? "Impulso"}{" "}
+              — con tu paquete actual tenés las cuatro métricas de arriba: altas, activos, sellos y
+              canjes.
+            </p>
+          </Card>
+        )}
         <Card
           eyebrow="Wallet"
           titulo="Tarjetas en el teléfono"

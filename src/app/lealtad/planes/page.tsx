@@ -14,6 +14,7 @@ import { datosDePagoBookea } from "@/lib/pagos-bookea";
 import { planesConPrecio } from "@/lib/pagos/precios";
 import PlanesCliente, { type TarjetaPlan } from "./planes-cliente";
 import type { NegocioElegible } from "./formulario-solicitud";
+import { Icono } from "../panel/[id]/iconos";
 
 /**
  * Los paquetes del programa de lealtad — donde empieza la compra.
@@ -203,6 +204,34 @@ export default async function PlanesLealtadPage({
             ? "Pagás con tarjeta y tu programa queda activo al instante. Si preferís SINPE, depositás y el equipo de Bookea te lo deja andando."
             : "Dejás la solicitud y el equipo de Bookea genera el programa y la tarjeta por vos — con tus colores, tu logo y tu regalía, bien hecho desde el día uno."}
         </p>
+
+        {/* Misma fila de confianza de `panel-paquetes-lealtad.tsx`,
+            condicionada a `conTarjeta.length > 0`: sin llaves de Stripe
+            configuradas no hay wallets ni tarjeta que prometer, y esta
+            página vuelve a ser SOLO SINPE (ver el comentario de cabecera
+            del archivo). El flujo real de pago (Stripe/SINPE dentro del
+            diálogo de `FormularioSolicitud`) no se toca — esto es nada
+            más el mismo texto de confianza, arriba del todo. */}
+        {conTarjeta.length > 0 && (
+          <div className="mt-4">
+            <p className="flex items-center gap-1.5 text-[11.5px] font-bold text-white/80">
+              <Icono nombre="listo" className="h-3.5 w-3.5 shrink-0 text-white/80" />
+              100&nbsp;% seguro, sin guardar tu tarjeta en Bookea
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {["Stripe", "Visa", "Mastercard", "Apple Pay", "Google Pay", "SINPE Móvil"].map(
+                (chip) => (
+                  <span
+                    key={chip}
+                    className="rounded-full border border-white/35 bg-white/5 px-2.5 py-1 text-[10px] font-bold text-white/80"
+                  >
+                    {chip}
+                  </span>
+                ),
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── De vuelta de Stripe ────────────────────────────────────
             «En unos segundos» y no «listo»: el paquete lo confirma el
