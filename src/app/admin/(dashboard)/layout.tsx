@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth";
 import { logout } from "./actions";
 import { seccionActiva } from "./vertical-server";
-import VerticalSwitcher from "./vertical-switcher";
+import VerticalSwitcherCondicional from "./vertical-switcher-condicional";
 
 /**
  * La segunda puerta del panel, y la que de verdad importa.
@@ -57,7 +57,7 @@ export default async function DashboardLayout({
         </div>
         <div className="border-t border-aventurea-line/60">
           <div className="mx-auto w-full max-w-[2200px] px-6 py-2 lg:px-10">
-            <VerticalSwitcher actual={seccion} />
+            <VerticalSwitcherCondicional actual={seccion} />
           </div>
         </div>
       </header>
