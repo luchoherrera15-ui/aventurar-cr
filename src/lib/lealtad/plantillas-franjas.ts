@@ -117,6 +117,29 @@ export const PLANTILLAS_FRANJA: PlantillaFranja[] = [
   // "tienda-1" salió del banco: el wordmark real "Gods" queda visible
   // en unas gorras del estante.
   franja("tienda-2", "tienda", "Unsplash photo ojZ4wJNUM5w"),
+
+  // Lavacar (lavado de carros)
+  franja("lavacar-1", "lavacar", "Unsplash photo A9NU9_PvJIw"),
+  franja("lavacar-2", "lavacar", "Unsplash photo Ce_gQ7Z0eAc"),
+  // "lavacar-3" salió del banco: un balde de detailing con una etiqueta
+  // de color al fondo, fuera de foco — no se pudo leer ningún texto ni
+  // confirmar que fuera una marca real, pero es EXACTAMENTE el patrón
+  // de "producto/balde con marca visible" que ya rompió este banco dos
+  // veces (Meguiar's, KEVIN.MURPHY). Más vale una foto menos que
+  // arriesgar una tercera.
+  franja("lavacar-4", "lavacar", "Unsplash photo rbXzG9aAxVA"),
+
+  // Courier (mensajería / paquetería / entregas)
+  // Ojo con este rubro en particular: casi toda foto de courier "real"
+  // en Unsplash trae el logo de una empresa de paquetería de verdad
+  // pegado en la caja, la mochila o la moto del repartidor — se
+  // descartaron candidatos con Papa John's, Glovo, Amazon Prime, IKEA
+  // y wehkamp.nl bien legibles antes de llegar a estas cuatro (por eso
+  // el banco terminó siendo solo cajas/paquetes, sin gente repartiendo).
+  franja("courier-1", "courier", "Unsplash photo gthSas4oYC0"),
+  franja("courier-2", "courier", "Unsplash photo qO2ztAz5g7A"),
+  franja("courier-3", "courier", "Unsplash photo DevJkLB3hWE"),
+  franja("courier-4", "courier", "Unsplash photo 03iCZxk8UlM"),
 ];
 
 /** Las franjas disponibles para un `PresetRubro.id` dado (vacío si no hay ninguna). */

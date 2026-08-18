@@ -183,6 +183,23 @@ export const PRESETS_RUBRO: Record<Rubro, readonly PresetRubro[]> = {
       icono: "flor",
       regalias: ["Flor de regalo", "Ramo pequeño gratis", "10% en tu próximo ramo"],
     },
+    {
+      id: "courier",
+      nombre: "Courier",
+      // Grafito: el único tono del grupo "otro" que no repite el azul de
+      // lavacar (cashback) ni el verde de tienda (puntos) — nada que
+      // choque al lado de los otros cuatro chips.
+      paleta: de(PALETAS.descuento),
+      // El sello se queda en los doce cerrados: un vehículo de reparto
+      // sigue siendo un vehículo, mismo criterio que lavacar.
+      icono: "auto",
+      regalias: [
+        "Envío gratis",
+        "Envío exprés gratis",
+        "10% en tu próximo envío",
+        "Recolección a domicilio gratis",
+      ],
+    },
   ],
 };
 

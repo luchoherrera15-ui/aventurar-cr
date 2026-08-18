@@ -293,6 +293,46 @@ export const PLANTILLAS_ICONO: readonly PlantillaIcono[] = [
     [capsula(8, 6, 8, 12), "M8.4 10.5 15.6 8M8.4 14.5 15.6 12", "M7 4.5h10M7 19.5h10M12 19.5V22"],
     "barberia",
   ),
+
+  // Lavado de autos: dibujo NUEVO, no viene de icons.tsx (el rubro
+  // "lavacar" ya tenía sello "auto" reusado, pero acá hacía falta uno
+  // propio y distinto). Una cubeta con agua adentro y espuma arriba —se
+  // lee como lavado, no como "otro carro" al lado del ícono "Autos".
+  icono(
+    "lavado-autos",
+    "Lavado de autos",
+    [
+      "M6.5 9h11l-1.3 9.5a2 2 0 0 1-2 1.7h-4.4a2 2 0 0 1-2-1.7L6.5 9Z",
+      "M8.5 9c0-2.8 7-2.8 7 0",
+      "M7.7 13h8.6",
+      circulo(9, 6, 1.3),
+      circulo(12.3, 4.3, 1.6),
+      circulo(15.2, 6.2, 1.2),
+    ],
+    "lavacar",
+  ),
+
+  // Paquetería: dibujo NUEVO, no viene de icons.tsx (rubro "courier" es
+  // nuevo, sin ícono propio hasta ahora). Una caja cerrada con la V de
+  // los solapas y la cinta bajando por el medio, más la etiqueta de
+  // envío — se lee como paquete, no como el regalo envuelto de arriba.
+  icono(
+    "paquete-courier",
+    "Paquetería",
+    // La versión anterior era un rectángulo con una V desde las dos
+    // esquinas superiores a un punto central — el glifo universal de
+    // "sobre de carta", no de una caja. Se reemplaza por la caja en
+    // perspectiva (hexágono + costura en Y desde el centro) que usan
+    // la mayoría de los sistemas de íconos para "paquete/envío": nada
+    // que se confunda con un sobre ni con `regalo` (que lleva moño).
+    [
+      "M12 3 19.5 7 19.5 15 12 19 4.5 15 4.5 7Z",
+      "M12 11V19",
+      "M12 11 4.5 7",
+      "M12 11 19.5 7",
+    ],
+    "courier",
+  ),
 ];
 
 export function esPlantillaIcono(valor: unknown): valor is string {
