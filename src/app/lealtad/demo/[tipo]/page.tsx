@@ -180,6 +180,25 @@ const DEMOS: Record<string, Demo> = {
       "El lavado gratis decide a dónde vuelve el próximo sábado.",
     ],
   },
+  courier: {
+    categoria: "Courier",
+    // Autohosteada (banco de franjas de hoy), no un hotlink nuevo — ya
+    // verificada a mano sin ninguna marca de otro courier visible.
+    foto: "/lealtad/plantillas/franjas/courier-2.jpg",
+    negocio: "Envíos Rápido CR",
+    modo: "sellos",
+    etiquetaCampo: "Envíos",
+    valor: "5/8",
+    total: 8,
+    logrados: 5,
+    regla: "1 sello por cada envío",
+    regalia: "El octavo envío va gratis",
+    pasos: [
+      "El cliente escanea el QR al dejar el paquete en el mostrador.",
+      "Cada envío suma su sello — sin cartilla de papel que se pierda.",
+      "El envío gratis lo hace elegirte a vos antes que a otro courier.",
+    ],
+  },
 };
 
 /** Lo que además puede vivir en la misma tarjeta del cliente. */
