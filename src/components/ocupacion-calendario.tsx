@@ -343,16 +343,27 @@ export default function OcupacionCalendario({
                   style={elegido ? undefined : piel.estiloBarra}
                 />
               )}
-              {/* El punto de HOY solo aparece en un día LIBRE, que es
-                  donde no hay barrita: si estuvieran los dos, el día se
-                  llenaría de marcas. En un día ocupado el «hoy» ya lo
-                  dice el número en el acento. */}
-              {esHoy && !estado && (
+              {/* HOY, con todas las letras. Antes era un punto de 4px, y
+                  un punto hay que saber leerlo: no dice qué significa, y
+                  en un calendario donde los estados YA se comunican con
+                  marcas de color, una marca más se lee como un estado
+                  más. La palabra no se puede malinterpretar.
+
+                  Va aunque el día esté ocupado —a diferencia del punto,
+                  que se escondía para no encimarse con la barrita—
+                  porque el problema de antes era el RUIDO de dos marcas
+                  de color juntas, y una palabra no compite con una
+                  barrita: se leen como cosas distintas.
+
+                  Hereda la tinta del número, que ya está medida contra
+                  las cuatro celdas posibles (≥5:1 en la peor). */}
+              {esHoy && (
                 <span
-                  aria-hidden="true"
-                  className={`h-1 w-1 rounded-full ${elegido ? "bg-white" : ""}`}
-                  style={elegido ? undefined : (MARCA_ACENTO as CSSProperties)}
-                />
+                  className="text-[8.5px] font-extrabold uppercase leading-none tracking-[0.08em]"
+                  style={estiloNumero}
+                >
+                  Hoy
+                </span>
               )}
             </>
           );
