@@ -5,12 +5,12 @@ import { Card } from "@/components/panel/piezas";
 import {
   CAMPO_PANEL,
   CUERPO_SUAVE,
-  DETALLE,
   ESTADO_AVISO,
   RADIO_TILE,
 } from "@/components/panel/sistema";
 import type { EstadoLimite } from "@/lib/lealtad/planes";
 import { ACCION, ACCION_TINTA, BOTON_ACCION } from "../sistema-lealtad";
+import Medidor from "./medidor";
 import { enviarNotificacionPromocional, obtenerCupoNotificaciones } from "./marketing-actions";
 
 const TOPE = 120;
@@ -124,23 +124,29 @@ export default function MarketingMensaje({
 
       {/* El cupo del mes (0183). `cupo.limite === null` es "sin plan
           conocido": no se muestra nada en vez de un aviso mentiroso.
-          Quieto (DETALLE) con cupo de sobra, ámbar al 80% y en el color
-          de alerta ya lleno — mismos tres estados que el resto del panel. */}
+          <Medidor> es el MISMO medidor que ya usa el resto del panel
+          (Inicio, Plan y facturación) para un tope mensual — no hace
+          falta inventar una barra ni una paleta nueva, y el pedido del
+          dueño era justo esto: que se vea "cómo se va llenando".
+          El texto sigue debajo, con el mismo tono ya validado, y
+          conserva `role="alert"` cuando se llena para no perder la
+          accesibilidad que tenía antes de que hubiera barra. */}
       {cupo && cupo.limite !== null && (
-        <p
-          className={
-            cupo.lleno
-              ? `mt-2.5 ${RADIO_TILE} px-3 py-2 text-[12px] font-bold ${ESTADO_AVISO.alerta}`
-              : cupo.cerca
-                ? `mt-2.5 ${RADIO_TILE} px-3 py-2 text-[12px] font-bold ${ESTADO_AVISO.aviso}`
-                : `mt-1.5 ${DETALLE}`
-          }
-          role={cupo.lleno ? "alert" : undefined}
-        >
-          {cupo.lleno
-            ? `Ya usaste ${cupo.limite === 1 ? "tu 1 notificación" : `tus ${cupo.limite} notificaciones`} de este mes.`
-            : `Te quedan ${cupo.disponibles} de ${cupo.limite} notificaci${cupo.limite === 1 ? "ón" : "ones"} este mes.`}
-        </p>
+        <div className="mt-3">
+          <Medidor
+            icono="campana"
+            etiqueta="Notificaciones este mes"
+            usado={cupo.usado}
+            tope={cupo.limite}
+            alerta={cupo.lleno}
+            aviso={cupo.cerca}
+          />
+          <p className={`mt-1.5 ${CUERPO_SUAVE}`} role={cupo.lleno ? "alert" : undefined}>
+            {cupo.lleno
+              ? `Ya usaste ${cupo.limite === 1 ? "tu 1 notificación" : `tus ${cupo.limite} notificaciones`} de este mes.`
+              : `Te quedan ${cupo.disponibles} de ${cupo.limite} notificaci${cupo.limite === 1 ? "ón" : "ones"} este mes.`}
+          </p>
+        </div>
       )}
 
       {/* Error y resultado usan los estados del sistema. Antes eran un

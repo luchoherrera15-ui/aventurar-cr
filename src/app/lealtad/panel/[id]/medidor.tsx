@@ -80,8 +80,17 @@ export default function Medidor({
       ) : (
         /* 6px y no 8: es la `.progress` de la maqueta (4px), subida a la
            escala del panel. Y el carril es más OSCURO que la tarjeta, no
-           más claro — sobre fondo oscuro un hueco se hunde apagándose. */
-        <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-black/25">
+           más claro — sobre fondo oscuro un hueco se hunde apagándose.
+           role="progressbar" en el carril: es el contenedor con el ancho
+           conocido (0-100), no el relleno interno. */
+        <div
+          className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-black/25"
+          role="progressbar"
+          aria-valuenow={pct}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={etiqueta}
+        >
           <div
             className="h-full rounded-full transition-[width] duration-500"
             style={{ width: `${pct}%`, background: color }}
