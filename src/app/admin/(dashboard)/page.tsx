@@ -120,6 +120,18 @@ export default async function AdminHubPage() {
           alerta={null}
           icon={<IconComplemento />}
         />
+        {/* Soporte general del sitio (bookea.lat/ayuda): cualquiera que
+            visite, tenga o no negocio, le escribe acá a Bookea. Aparte
+            de Complementos a propósito — ver el comentario de cabecera
+            de admin/ayuda/page.tsx. */}
+        <HubCard
+          href="/admin/ayuda"
+          title="Hablá con Bookea"
+          descripcion="Los mensajes de soporte de quien escribe desde bookea.lat/ayuda, tenga o no cuenta."
+          stat={null}
+          alerta={null}
+          icon={<IconChat />}
+        />
         {/* La cola de la API de Lealtad va APARTE de Complementos: acá
             no se decide un plan ni un cobro, se decide a quién se le
             permite existir como integrador de datos de terceros. */}
@@ -241,6 +253,19 @@ function HubCard({
         </svg>
       </div>
     </Link>
+  );
+}
+
+function IconChat() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21 12a7.5 7.5 0 0 1-11.4 6.4L4 20l1.3-4.8A7.5 7.5 0 1 1 21 12Z"
+      />
+      <path strokeLinecap="round" d="M8.5 11h7M8.5 14h4.5" />
+    </svg>
   );
 }
 
