@@ -276,15 +276,15 @@ describe("catalogoPublico — los números que la app estaba mintiendo", () => {
     expect(texto).not.toContain("0 días");
   });
 
-  it("Arranque son $12, no ₡12 900, y su cupo es 200", () => {
+  it("Arranque son $12, no ₡12 900, y su cupo es 100", () => {
     const arranque = catalogoPublico().planes.find((p) => p.id === "arranque");
     expect(arranque?.precio).toBe("$12");
     expect(arranque?.precioAnual).toBe("$115");
     expect(arranque?.notaPrecio).toBe("$115 al año — 20% menos");
-    expect(arranque?.etiquetaClientes).toBe("Hasta 200 clientes");
+    expect(arranque?.etiquetaClientes).toBe("Hasta 100 clientes");
   });
 
-  it("Impulso escribe sus 1150 clientes con separador de miles", () => {
+  it("Impulso escribe sus 1000 clientes con separador de miles", () => {
     const impulso = catalogoPublico().planes.find((p) => p.id === "impulso");
     expect(impulso?.precio).toBe("$42");
     // El separador de es-CR es un ESPACIO DURO (U+00A0), no un punto:
@@ -293,8 +293,8 @@ describe("catalogoPublico — los números que la app estaba mintiendo", () => {
     // el código de escape para que nadie lo "arregle" a un espacio
     // normal creyendo que es un typo — con espacio normal el número se
     // parte en dos al final de una línea.
-    expect(impulso?.etiquetaClientes).toBe("Hasta 1 150 clientes");
-    expect(impulso?.topes.find((t) => t.id === "clientesActivos")?.valor).toBe(1150);
+    expect(impulso?.etiquetaClientes).toBe("Hasta 1 000 clientes");
+    expect(impulso?.topes.find((t) => t.id === "clientesActivos")?.valor).toBe(1000);
   });
 
   it("Ilimitado es el único sin tope, y son $89", () => {

@@ -10,8 +10,8 @@ import { describe, expect, it, vi } from "vitest";
  *      tres meses después.
  *
  *   2. QUE BAJAR DE PAQUETE AVISE CON NÚMEROS. El caso del encargo —«si
- *      el negocio tiene 300 clientes y lo bajás a uno de 200, ¿qué
- *      pasa?»— tiene que producir un aviso con el 300 y el 200 adentro,
+ *      el negocio tiene 300 clientes y lo bajás a uno de 100, ¿qué
+ *      pasa?»— tiene que producir un aviso con el 300 y el 100 adentro,
  *      no un texto genérico. Y el caso que PARECE inofensivo —dejarlo
  *      «Sin plan»— tiene que avisar todavía más fuerte, porque quitar el
  *      paquete no apaga nada: lo deja sin ningún tope.
@@ -125,7 +125,7 @@ describe("avisos al cambiar de paquete", () => {
     ).toEqual([]);
   });
 
-  it("el caso del encargo: 300 clientes bajando a un paquete de 200", () => {
+  it("el caso del encargo: 300 clientes bajando a un paquete de 100", () => {
     const avisos = avisosDeCambioDePlan({
       planActual: "impulso",
       planNuevo: "arranque",
@@ -136,7 +136,7 @@ describe("avisos al cambiar de paquete", () => {
     expect(clientes).toBeDefined();
     // Los dos números CONCRETOS de este negocio, en el texto.
     expect(clientes?.texto).toContain("300");
-    expect(clientes?.texto).toContain("200");
+    expect(clientes?.texto).toContain("100");
     // Y lo que de verdad pasa: nadie pierde nada, no entran nuevos.
     expect(clientes?.texto).toContain("Nadie pierde su tarjeta");
   });

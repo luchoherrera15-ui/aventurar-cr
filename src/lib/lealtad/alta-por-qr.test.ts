@@ -15,7 +15,7 @@ import { altaPorQr, textoConsentimientoNegocio } from "./personas";
  *      llamador no pasaba por `personasActivasDe()`, el tope que se
  *      cobra se saltaba entero por la puerta del mostrador. Acá se
  *      comprueba que pasa — y que NO se le aplica a quien ya es
- *      miembro, porque si no el cliente 200 de un paquete lleno no
+ *      miembro, porque si no el cliente 100 de un paquete lleno no
  *      podría ni volver a abrir su propia tarjeta.
  *
  *   2. LA PRUEBA DEL CONSENTIMIENTO. Que el texto que viaja a la base
@@ -208,15 +208,15 @@ describe("altaPorQr — el mínimo se exige en el SERVIDOR", () => {
 
 describe("altaPorQr — el tope del paquete no se salta por esta puerta", () => {
   it("frena a alguien NUEVO cuando el paquete está lleno, sin tocar la base", async () => {
-    // Arranque son 200 clientes activos.
-    const { resultado, registro } = await correrAlta({ plan: "arranque", personasActivas: 200 });
+    // Arranque son 100 clientes activos.
+    const { resultado, registro } = await correrAlta({ plan: "arranque", personasActivas: 100 });
     expect(resultado.estado).toBe("lleno");
     // Y lo importante: NO se llamó al RPC que inserta.
     expect(registro.rpc.map((l) => l.nombre)).not.toContain("alta_persona_por_qr");
   });
 
   it("deja pasar mientras haya lugar", async () => {
-    const { resultado, registro } = await correrAlta({ plan: "arranque", personasActivas: 199 });
+    const { resultado, registro } = await correrAlta({ plan: "arranque", personasActivas: 99 });
     expect(resultado.estado).toBe("listo");
     expect(registro.rpc.map((l) => l.nombre)).toContain("alta_persona_por_qr");
   });
@@ -226,7 +226,7 @@ describe("altaPorQr — el tope del paquete no se salta por esta puerta", () => 
     // tope se le aplicara, no podría ni volver a abrir su tarjeta.
     const { resultado } = await correrAlta({
       plan: "arranque",
-      personasActivas: 200,
+      personasActivas: 100,
       personas: [{ id: "persona-ana", correo: "ana@ejemplo.com" }],
       miembros: ["persona-ana"],
     });
@@ -236,7 +236,7 @@ describe("altaPorQr — el tope del paquete no se salta por esta puerta", () => 
   it("reconoce a la misma persona por el teléfono aunque el correo sea otro", async () => {
     const { resultado } = await correrAlta({
       plan: "arranque",
-      personasActivas: 200,
+      personasActivas: 100,
       personas: [{ id: "persona-ana", telefono: "88888888" }],
       miembros: ["persona-ana"],
     });
@@ -245,7 +245,7 @@ describe("altaPorQr — el tope del paquete no se salta por esta puerta", () => 
 
   it("la cookie de este navegador también la identifica", async () => {
     const { resultado } = await correrAlta(
-      { plan: "arranque", personasActivas: 200, miembros: ["persona-ana"] },
+      { plan: "arranque", personasActivas: 100, miembros: ["persona-ana"] },
       { personaProbada: "persona-ana" },
     );
     expect(resultado.estado).toBe("listo");
@@ -255,7 +255,7 @@ describe("altaPorQr — el tope del paquete no se salta por esta puerta", () => 
     const { resultado } = await correrAlta(
       {
         plan: "arranque",
-        personasActivas: 200,
+        personasActivas: 100,
         personas: [{ id: "persona-ana", cliente_id: "cuenta-ana" }],
         miembros: ["persona-ana"],
       },

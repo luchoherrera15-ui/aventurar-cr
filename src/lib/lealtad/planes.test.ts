@@ -466,8 +466,8 @@ describe("el catálogo de Lealtad", () => {
   });
 
   it("tiene los topes de clientes acordados", () => {
-    expect(PLANES.arranque.limites.clientesActivos).toBe(200);
-    expect(PLANES.impulso.limites.clientesActivos).toBe(1_150);
+    expect(PLANES.arranque.limites.clientesActivos).toBe(100);
+    expect(PLANES.impulso.limites.clientesActivos).toBe(1_000);
     // El de $89 es ILIMITADO: sin tope, no un número muy grande.
     expect(PLANES.ilimitado.limites.clientesActivos).toBeNull();
   });
@@ -548,8 +548,8 @@ describe("EL CUPO NO SE MULTIPLICA POR LAS TARJETAS", () => {
    *
    * `generar.ts` y `google.ts` contaban los miembros POR `programa_id`,
    * así que cada tarjeta traía su propio cupo: Arranque con 2 tarjetas
-   * habría afiliado 400 cobrando por 200, e Impulso con 5 habría
-   * afiliado 5.750 cobrando por 1.150. Por eso los paquetes de pago
+   * habría afiliado 200 cobrando por 100, e Impulso con 5 habría
+   * afiliado 5.000 cobrando por 1.000. Por eso los paquetes de pago
    * iban con UNA tarjeta — un candado puesto para tapar el agujero.
    *
    * El conteo por cuenta (`personasActivasDe`, cupo.ts) es lo que
@@ -571,16 +571,16 @@ describe("EL CUPO NO SE MULTIPLICA POR LAS TARJETAS", () => {
     }
   });
 
-  it("Impulso son 1.150 clientes con sus 5 tarjetas, no 5.750", () => {
+  it("Impulso son 1.000 clientes con sus 5 tarjetas, no 5.000", () => {
     expect(PLANES.impulso.limites.programas).toBe(5);
-    expect(PLANES.impulso.limites.clientesActivos).toBe(1_150);
-    expect(estadoDelLimite("impulso", "clientesActivos", 1_150).lleno).toBe(true);
-    expect(estadoDelLimite("impulso", "clientesActivos", 5_750).disponibles).toBe(0);
+    expect(PLANES.impulso.limites.clientesActivos).toBe(1_000);
+    expect(estadoDelLimite("impulso", "clientesActivos", 1_000).lleno).toBe(true);
+    expect(estadoDelLimite("impulso", "clientesActivos", 5_000).disponibles).toBe(0);
   });
 
-  it("Arranque son 200 con sus 2 tarjetas, no 400", () => {
+  it("Arranque son 100 con sus 2 tarjetas, no 200", () => {
     expect(PLANES.arranque.limites.programas).toBe(2);
-    expect(estadoDelLimite("arranque", "clientesActivos", 400).lleno).toBe(true);
+    expect(estadoDelLimite("arranque", "clientesActivos", 200).lleno).toBe(true);
   });
 });
 
@@ -825,12 +825,12 @@ describe("los planes crecen", () => {
       administradores: 1,
     });
     expect(PLANES.arranque.limites).toMatchObject({
-      clientesActivos: 200,
+      clientesActivos: 100,
       programas: 2,
       administradores: 3,
     });
     expect(PLANES.impulso.limites).toMatchObject({
-      clientesActivos: 1_150,
+      clientesActivos: 1_000,
       programas: 5,
       administradores: 10,
     });
@@ -915,23 +915,23 @@ describe("puede", () => {
 
 describe("estadoDelLimite", () => {
   it("cuenta lo que queda", () => {
-    const e = estadoDelLimite("arranque", "clientesActivos", 80);
-    expect(e).toMatchObject({ limite: 200, disponibles: 120, lleno: false, cerca: false });
+    const e = estadoDelLimite("arranque", "clientesActivos", 40);
+    expect(e).toMatchObject({ limite: 100, disponibles: 60, lleno: false, cerca: false });
     expect(e.porcentaje).toBe(40);
   });
 
   it("avisa al 80%, no al 95%", () => {
     // Enterarse cuando ya casi no entra nadie no deja tiempo de decidir.
-    expect(estadoDelLimite("arranque", "clientesActivos", 159).cerca).toBe(false);
-    expect(estadoDelLimite("arranque", "clientesActivos", 160).cerca).toBe(true);
-    expect(estadoDelLimite("arranque", "clientesActivos", 160).lleno).toBe(false);
+    expect(estadoDelLimite("arranque", "clientesActivos", 79).cerca).toBe(false);
+    expect(estadoDelLimite("arranque", "clientesActivos", 80).cerca).toBe(true);
+    expect(estadoDelLimite("arranque", "clientesActivos", 80).lleno).toBe(false);
   });
 
   it("marca lleno justo en el tope, no después", () => {
-    expect(estadoDelLimite("arranque", "clientesActivos", 199).lleno).toBe(false);
-    expect(estadoDelLimite("arranque", "clientesActivos", 200).lleno).toBe(true);
-    expect(estadoDelLimite("impulso", "clientesActivos", 1_149).lleno).toBe(false);
-    expect(estadoDelLimite("impulso", "clientesActivos", 1_150).lleno).toBe(true);
+    expect(estadoDelLimite("arranque", "clientesActivos", 99).lleno).toBe(false);
+    expect(estadoDelLimite("arranque", "clientesActivos", 100).lleno).toBe(true);
+    expect(estadoDelLimite("impulso", "clientesActivos", 999).lleno).toBe(false);
+    expect(estadoDelLimite("impulso", "clientesActivos", 1_000).lleno).toBe(true);
   });
 
   it("pasado el tope no muestra disponibles negativos ni pasa de 100%", () => {

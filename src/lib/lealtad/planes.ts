@@ -566,11 +566,11 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     // Antes era «dos meses de regalo» (×10), que daba 16,7%.
     precioAnual: 115,
     limites: {
-      clientesActivos: 200,
+      clientesActivos: 100,
       // DOS tarjetas. Antes iba en 1, y no por tacañería: el cupo de
       // clientes se contaba POR PROGRAMA, así que un segundo programa
-      // duplicaba en silencio los 200 que se cobran. Con el conteo por
-      // cuenta de la 0142 eso ya no pasa —los 200 son 200 sumando las
+      // duplicaba en silencio los 100 que se cobran. Con el conteo por
+      // cuenta de la 0142 eso ya no pasa —los 100 son 100 sumando las
       // dos— y el escalón puede ser lo que el dueño aprobó.
       programas: 2,
       notificacionesMes: 0,
@@ -594,7 +594,7 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     // redondeo en el paquete Arranque: siempre hacia abajo.
     precioAnual: 400,
     limites: {
-      clientesActivos: 1_150,
+      clientesActivos: 1_000,
       programas: 5,
       notificacionesMes: 0,
       administradores: 10,
