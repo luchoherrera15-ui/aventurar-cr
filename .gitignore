@@ -51,5 +51,11 @@ credentials*.json
 # Fotos de negocios que se suben con script (no van al repo)
 /puramatcha/
 
+# Credenciales de firma para las tiendas (App Store Connect API key,
+# cuenta de servicio de Google Play) — nunca al repo
+/apple/
+/google-play/
+*.p8
+
 # Arnés de medición de rendimiento (Lighthouse pesa mucho; ver scripts/rendimiento/README.md)
 /.rendimiento/
