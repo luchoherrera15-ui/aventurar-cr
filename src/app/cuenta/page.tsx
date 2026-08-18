@@ -205,10 +205,18 @@ export default async function CuentaPage({
   const tieneNegocio = negocios.length > 0;
 
   // ¿Alguno de sus negocios tiene el programa de lealtad contratado?
-  // Con uno alcanza: la tarjeta lleva al listado y ahí se elige cuál.
   // Si ninguno lo tiene, la tarjeta igual aparece pero invitando a
   // contratarlo — es lo que hace que alguien se entere de que existe.
+  //
+  // CON UNO SOLO, LA TARJETA CAE DIRECTO EN SU PANEL — no en el
+  // listado «Mis negocios». Antes se mandaba siempre al listado
+  // («con uno alcanza: la tarjeta lleva al listado y ahí se elige
+  // cuál»), pero eso obliga a un clic extra siempre que la respuesta
+  // es obvia: la mayoría de las cuentas administran un solo negocio.
+  // El listado sigue existiendo para cuando de verdad hay que elegir
+  // (2+ negocios con lealtad), así que no se pierde nada.
   let lealtadActiva = false;
+  let lealtadNegocioUnico: string | null = null;
   if (tieneNegocio) {
     const { data: conLealtad } = await supabase
       .from("addons_negocio")
@@ -218,9 +226,10 @@ export default async function CuentaPage({
         negocios.map((n) => n.id),
       )
       .eq("addon", "lealtad")
-      .eq("activo", true)
-      .limit(1);
-    lealtadActiva = (conLealtad ?? []).length > 0;
+      .eq("activo", true);
+    const idsConLealtad = (conLealtad ?? []).map((r) => (r as { rancho_id: string }).rancho_id);
+    lealtadActiva = idsConLealtad.length > 0;
+    lealtadNegocioUnico = idsConLealtad.length === 1 ? idsConLealtad[0] : null;
   }
 
   const hoy = hoyISOCR();
@@ -389,6 +398,7 @@ export default async function CuentaPage({
         vecesContratado={vecesContratado}
         negociosLength={negocios.length}
         lealtadActiva={lealtadActiva}
+        lealtadNegocioUnico={lealtadNegocioUnico}
         confirmacionesNuevas={confirmacionesNuevas}
         invitacionIds={invitacionIds}
         personasConfirmadas={personasConfirmadas}

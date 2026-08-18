@@ -125,6 +125,8 @@ interface TableroModosProps {
   vecesContratado: number;
   negociosLength: number;
   lealtadActiva: boolean;
+  /** El id del único negocio con lealtad activa, o null si son 0 o 2+. */
+  lealtadNegocioUnico: string | null;
   confirmacionesNuevas: number;
   invitacionIds: string[];
   personasConfirmadas: number;
@@ -160,6 +162,7 @@ export default function TableroModos({
   vecesContratado,
   negociosLength,
   lealtadActiva,
+  lealtadNegocioUnico,
   confirmacionesNuevas,
   invitacionIds,
   personasConfirmadas,
@@ -191,6 +194,17 @@ export default function TableroModos({
   // renderiza fuera de hora del build) — puramente informativo, no
   // decide nada.
   const fechaHoy = capitalizar(HOY.format(new Date()));
+
+  // A DÓNDE LLEVA «PROGRAMA DE LEALTAD» — un solo lugar, dos usos.
+  // Sin programa activo: la landing de ventas. Con un solo negocio que
+  // lo tenga: directo a SU panel — el clic extra de elegir en una lista
+  // de un solo elemento no le sirve a nadie. Con 2+, al listado, que es
+  // donde de verdad hace falta elegir.
+  const hrefLealtad = !lealtadActiva
+    ? "/lealtad"
+    : lealtadNegocioUnico
+      ? `/cuenta/ir/lealtad?negocio=${lealtadNegocioUnico}`
+      : "/cuenta/ir/lealtad";
 
   return (
     <main className="mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 sm:py-7">
@@ -266,10 +280,7 @@ export default function TableroModos({
                   <ItemNavOscuro href="/cuenta/ir/finanzas" icono={<IconChartBars className="h-[16px] w-[16px]" />}>
                     Finanzas
                   </ItemNavOscuro>
-                  <ItemNavOscuro
-                    href={lealtadActiva ? "/cuenta/ir/lealtad" : "/lealtad"}
-                    icono={<IconStar className="h-[16px] w-[16px]" />}
-                  >
+                  <ItemNavOscuro href={hrefLealtad} icono={<IconStar className="h-[16px] w-[16px]" />}>
                     Programa de lealtad
                   </ItemNavOscuro>
                 </>
@@ -399,7 +410,7 @@ export default function TableroModos({
                     numero: vecesContratado,
                   },
                   {
-                    href: lealtadActiva ? "/cuenta/ir/lealtad" : "/lealtad",
+                    href: hrefLealtad,
                     icono: <IconStar className="h-[17px] w-[17px]" />,
                     titulo: "Programa de lealtad",
                     detalle: lealtadActiva
