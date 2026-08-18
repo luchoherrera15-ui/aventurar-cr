@@ -12,6 +12,7 @@ import { ACCION, ACCION_TINTA, BOTON_ACCION, BOTON_LEALTAD } from "../sistema-le
 import type { TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import {
   acreditarOperacion,
+  afiliarClienteAMano,
   buscarClientesDelPrograma,
   cambiarEstadoMiembro,
   canjearRecompensa,
@@ -568,6 +569,147 @@ function FormularioCompletar({
   );
 }
 
+// ── Dar de alta a un cliente nuevo, desde la caja ──────────────────
+
+/**
+ * ALTA A MANO DE UN CLIENTE QUE TODAVÍA NO EXISTE EN BOOKEA.
+ *
+ * ── EN QUÉ SE DIFERENCIA DE `FormularioCompletar` ───────────────────
+ * `FormularioCompletar` ARREGLA una ficha vieja que ya tiene `miembro`
+ * (llegó rota por el camino que `personas.ts` documenta): solo le pone
+ * nombre y contacto a algo que ya existía. Este formulario CREA todo
+ * de cero —persona, vínculo con el negocio, consentimiento y
+ * membresía— para alguien que hoy no tiene ninguna fila en ningún
+ * lado. Por eso llama a `afiliarClienteAMano` y no a
+ * `completarDatosDelCliente`, y por eso necesita `programaId`: hace
+ * falta saber a qué programa se afilia, no solo qué miembro completar.
+ *
+ * ── EL CHECKBOX ES EL MISMO TEXTO, A PROPÓSITO ──────────────────────
+ * No se reescribe: es lenguaje ya aprobado y ya archivado en
+ * `consentimientos_persona` con ese texto exacto para las fichas
+ * arregladas por `FormularioCompletar`. Que diga lo mismo acá evita
+ * que dos pantallas casi iguales le pidan al cajero leer dos frases
+ * distintas para la misma pregunta.
+ */
+function FormularioAgregarCliente({
+  ranchoId,
+  programaId,
+  nombreInicial,
+  onListo,
+  onCancelar,
+}: {
+  ranchoId: string;
+  programaId: string;
+  /** Lo que ya se tecleó en el buscador — para no hacerlo escribir dos veces. */
+  nombreInicial: string;
+  onListo: (cliente: { miembroId: string; nombre: string; contacto: string[] }) => void;
+  onCancelar: () => void;
+}) {
+  const [nombre, setNombre] = useState(nombreInicial);
+  const [whatsapp, setWhatsapp] = useState("");
+  const [correo, setCorreo] = useState("");
+  const [acepta, setAcepta] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  function guardar() {
+    setGuardando(true);
+    setAviso(null);
+    afiliarClienteAMano(ranchoId, programaId, {
+      nombre,
+      whatsapp,
+      correo,
+      aceptaPromos: acepta,
+    })
+      .then((res) => {
+        if (!res.ok) {
+          setAviso(res.motivo);
+          return;
+        }
+        onListo({ miembroId: res.miembroId, nombre: res.nombre, contacto: res.contacto });
+      })
+      .catch(() => setAviso("No se pudo guardar. Probá de nuevo."))
+      .finally(() => setGuardando(false));
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        guardar();
+      }}
+      className="mt-3 rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-3"
+    >
+      <p className="text-[12.5px] font-bold text-aventurea-ink">
+        Cliente nuevo — pedile el nombre y un contacto.
+      </p>
+      <div className="mt-2 flex flex-col gap-2">
+        <input
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          maxLength={60}
+          autoComplete="off"
+          placeholder="Nombre"
+          aria-label="Nombre del cliente nuevo"
+          className={CAMPO_PANEL}
+        />
+        <div className="flex flex-wrap gap-2">
+          <input
+            value={whatsapp}
+            onChange={(e) => setWhatsapp(e.target.value)}
+            type="tel"
+            inputMode="tel"
+            autoComplete="off"
+            placeholder="WhatsApp"
+            aria-label="WhatsApp del cliente nuevo"
+            className={`min-w-0 flex-1 ${CAMPO_PANEL}`}
+          />
+          <input
+            value={correo}
+            onChange={(e) => setCorreo(e.target.value)}
+            type="email"
+            inputMode="email"
+            autoComplete="off"
+            placeholder="Correo"
+            aria-label="Correo del cliente nuevo"
+            className={`min-w-0 flex-1 ${CAMPO_PANEL}`}
+          />
+        </div>
+        <p className={DETALLE}>Con el WhatsApp o el correo alcanza.</p>
+      </div>
+
+      <label className="mt-2.5 flex cursor-pointer items-start gap-2">
+        <input
+          type="checkbox"
+          checked={acepta}
+          onChange={(e) => setAcepta(e.target.checked)}
+          className="mt-0.5 h-4 w-4 shrink-0"
+          style={{ accentColor: ACCION }}
+        />
+        <span className={DETALLE}>
+          Le preguntamos y dijo que sí quiere recibir avisos de promociones y premios.
+        </span>
+      </label>
+
+      {aviso && <p className="mt-2 text-[12px] font-bold text-red-700">{aviso}</p>}
+
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        <button
+          type="submit"
+          disabled={guardando}
+          className={BOTON_ACCION}
+          style={{ background: ACCION, color: ACCION_TINTA }}
+        >
+          {guardando ? "Guardando…" : "Guardar"}
+        </button>
+        <button type="button" onClick={onCancelar} className={BOTON_LEALTAD}>
+          Cancelar
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ── Puerta 1: el mostrador ─────────────────────────────────────────
 
 /**
@@ -579,6 +721,7 @@ function FormularioCompletar({
  */
 export function BuscarYAtender({
   ranchoId,
+  programaId,
   tipo,
   meta,
   recompensa,
@@ -586,6 +729,13 @@ export function BuscarYAtender({
   pideMonto,
 }: {
   ranchoId: string;
+  /**
+   * El programa que se está operando en esta caja. Solo lo necesita
+   * el alta de cliente nuevo (`afiliarClienteAMano`) — ni el escáner ni
+   * la búsqueda por nombre lo usan, porque ahí el miembro ya existe y
+   * ya sabe a qué programa pertenece.
+   */
+  programaId: string;
   tipo: TipoTarjeta;
   meta: number | null;
   recompensa: RecompensaDelPrograma;
@@ -598,10 +748,18 @@ export function BuscarYAtender({
   const [aviso, setAviso] = useState<string | null>(null);
   const [encontrados, setEncontrados] = useState<MiembroAtendible[] | null>(null);
   const [novedades, setNovedades] = useState<Record<string, Novedad>>({});
+  /** El formulario de alta está abierto — se puede abrir con o sin
+   *  haber buscado antes, ver la nota junto al botón de abajo. */
+  const [agregando, setAgregando] = useState(false);
+  /** El aviso de éxito del alta recién hecha, con el recordatorio del
+   *  Wallet. Se limpia con la próxima búsqueda para que no quede
+   *  pegado mirando a otro cliente. */
+  const [recienAgregado, setRecienAgregado] = useState<string | null>(null);
 
   function buscar() {
     setBuscando(true);
     setAviso(null);
+    setRecienAgregado(null);
     buscarClientesDelPrograma(ranchoId, texto)
       .then((res) => {
         if (!res.ok) {
@@ -615,6 +773,29 @@ export function BuscarYAtender({
       .finally(() => setBuscando(false));
   }
 
+  /**
+   * El alta terminó bien. En vez de forzar una búsqueda nueva contra
+   * el servidor, la fila se arma acá mismo con lo que la acción ya
+   * devolvió y se pone arriba de la lista: el cajero pasa directo a
+   * apretar «sumar sello» para la visita que motivó el alta, sin un
+   * segundo viaje.
+   */
+  function altaLista(cliente: { miembroId: string; nombre: string; contacto: string[] }) {
+    const fila: MiembroAtendible = {
+      miembroId: cliente.miembroId,
+      nombre: cliente.nombre,
+      sinNombre: false,
+      contacto: cliente.contacto,
+      saldo: 0,
+      estado: "activa",
+      conPase: false,
+    };
+    setEncontrados((v) => [fila, ...(v ?? [])]);
+    setAgregando(false);
+    setAviso(null);
+    setRecienAgregado(cliente.nombre);
+  }
+
   return (
     <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
       <h3 className="text-[15px] font-bold text-aventurea-ink">Sin la tarjeta a mano</h3>
@@ -623,29 +804,70 @@ export function BuscarYAtender({
         por nombre y sumale su sello igual.
       </p>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          buscar();
-        }}
-        className="mt-3 flex flex-wrap gap-2"
-      >
-        <input
-          value={texto}
-          onChange={(e) => setTexto(e.target.value)}
-          placeholder="Nombre del cliente"
-          aria-label="Nombre del cliente"
-          className={`min-w-0 flex-1 ${CAMPO_PANEL}`}
-        />
-        <button
-          type="submit"
-          disabled={buscando}
-          className={BOTON_ACCION}
-          style={{ background: ACCION, color: ACCION_TINTA }}
+      <div className="mt-3 flex flex-wrap items-start gap-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            buscar();
+          }}
+          className="flex min-w-[200px] flex-1 flex-wrap gap-2"
         >
-          {buscando ? "Buscando…" : "Buscar"}
-        </button>
-      </form>
+          <input
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder="Nombre del cliente"
+            aria-label="Nombre del cliente"
+            className={`min-w-0 flex-1 ${CAMPO_PANEL}`}
+          />
+          <button
+            type="submit"
+            disabled={buscando}
+            className={BOTON_ACCION}
+            style={{ background: ACCION, color: ACCION_TINTA }}
+          >
+            {buscando ? "Buscando…" : "Buscar"}
+          </button>
+        </form>
+
+        {/* Siempre visible y no solo cuando la búsqueda falla: muchos
+            clientes nuevos son obviamente nuevos desde el principio
+            (primera visita), y obligar a buscar y fallar antes de poder
+            darlos de alta es fricción de sobra con el cliente enfrente. */}
+        {permisos.acreditar && (
+          <button
+            type="button"
+            onClick={() => setAgregando(true)}
+            className={BOTON_LEALTAD}
+          >
+            + Agregar cliente nuevo
+          </button>
+        )}
+      </div>
+
+      {agregando && (
+        <FormularioAgregarCliente
+          ranchoId={ranchoId}
+          programaId={programaId}
+          nombreInicial={texto}
+          onListo={altaLista}
+          onCancelar={() => setAgregando(false)}
+        />
+      )}
+
+      {recienAgregado && (
+        <div className="mt-3 rounded-xl bg-aventurea-green-light px-3 py-2.5 text-[12.5px] text-aventurea-green">
+          <p className="font-bold">Cliente agregado. Ya puede empezar a juntar.</p>
+          {/* No hay un enlace personal que reconozca a la persona sola
+              todavía (pendiente de una mejora futura): el link genérico
+              de «Compartí tu tarjeta» funciona, pero recién la reconoce
+              cuando teclea el MISMO correo o WhatsApp que se anotó acá. */}
+          <p className="mt-1 font-normal text-aventurea-ink-soft">
+            Para que se lleve la tarjeta al teléfono, compartile el link o el QR de arriba
+            («Compartí tu tarjeta») — cuando lo abra con el mismo correo o WhatsApp que acabás
+            de anotar, el sistema ya lo va a reconocer.
+          </p>
+        </div>
+      )}
 
       {aviso && (
         <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-[12.5px] font-bold text-red-700">
@@ -655,8 +877,18 @@ export function BuscarYAtender({
 
       {encontrados !== null && encontrados.length === 0 && (
         <p className="mt-3 rounded-xl bg-aventurea-cream-2 px-3 py-2.5 text-[12.5px] text-aventurea-ink-soft">
-          Nadie con ese nombre está afiliado todavía. Se afilia solo agregando la tarjeta desde
-          tu QR, y ahí ya aparece acá.
+          Nadie con ese nombre está afiliado todavía.{" "}
+          {permisos.acreditar ? (
+            <button
+              type="button"
+              onClick={() => setAgregando(true)}
+              className="font-bold underline underline-offset-2"
+            >
+              Agregalo vos mismo →
+            </button>
+          ) : (
+            "Se afilia solo agregando la tarjeta desde tu QR, y ahí ya aparece acá."
+          )}
         </p>
       )}
 

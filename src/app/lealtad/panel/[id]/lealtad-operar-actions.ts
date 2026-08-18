@@ -19,6 +19,9 @@ import {
   textoConsentimientoMostrador,
   VERSION_CONSENTIMIENTO_MOSTRADOR,
 } from "@/lib/lealtad/personas";
+import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
+import { personasActivasDe } from "@/lib/lealtad/cupo";
+import { definicionDe } from "@/lib/lealtad/planes";
 
 /**
  * Las operaciones del día a día del programa de lealtad: acreditar,
@@ -788,6 +791,166 @@ export async function completarDatosDelCliente(
 
   return {
     ok: true,
+    nombre: revision.nombre,
+    contacto: [correo, telefono].filter((v): v is string => v !== null),
+  };
+}
+
+// ── AGREGAR CLIENTE NUEVO, DESDE CERO ─────────────────────────────
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  ALTA A MANO: LA PUERTA QUE NO ES UN QR
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * ── PARA QUIÉN ES, Y PARA QUIÉN NO ──────────────────────────────────
+ * Hasta hoy la ÚNICA puerta de alta a un programa era que el cliente
+ * escaneara el póster y llenara su propio formulario. El dueño pidió
+ * poder afiliar a mano, desde la caja, a gente real que va a quedar
+ * funcionando PARA SIEMPRE — no un script de una vez.
+ *
+ * Esta función es para GENTE NUEVA EN BOOKEA ENTERAMENTE. Si el
+ * correo o el WhatsApp que se teclea ya es de alguien —de este negocio
+ * o de cualquier otro— no se crea una fila nueva: se avisa, y a esa
+ * persona se la busca por nombre con `buscarClientesDelPrograma`, que
+ * es la puerta correcta para quien ya tiene ficha. Confundir las dos
+ * dejaría que un cajero apurado le cuelgue un consentimiento y una
+ * membresía de este negocio a la identidad de un tercero que nunca
+ * puso un pie acá, solo porque compartió el mismo dato con otra
+ * persona en otro lado.
+ *
+ * ── POR QUÉ NO ES `completarDatosDelCliente` CON OTRO NOMBRE ────────
+ * `completarDatosDelCliente` regulariza una ficha que YA EXISTE
+ * (exige `persona_id`, corta si es null). Acá no hay membresía previa
+ * de la cual partir: se crea la persona, el vínculo, el consentimiento
+ * y la membresía LOS CUATRO, en una sola transacción, adentro del RPC
+ * `alta_persona_por_mostrador` (0184) — hermana de `alta_persona_por_qr`
+ * con el mismo orden interno que exige el trigger `miembros_zexigir_
+ * respaldo` (0181): vínculo y consentimiento tienen que existir ANTES
+ * del insert en `miembros`, o la base rechaza la transacción entera.
+ *
+ * ── EL TOPE DEL PAQUETE, ANTES DEL RPC ───────────────────────────────
+ * `cupo.ts:45-56` dejó la advertencia textual: el día que se conecte
+ * el alta sin escanear, ese llamador tiene que pasar por
+ * `personasActivasDe()` ANTES de llamar al RPC, o el tope del paquete
+ * se salta entero por la puerta del mostrador. Mismo criterio que
+ * `altaPorQr` (personas.ts:863-880): se frena la afiliación NUEVA
+ * cuando el paquete ya está lleno.
+ *
+ * ── EXIGE `acreditar` Y NO UN PERMISO NUEVO ─────────────────────────
+ * Es el permiso de quien atiende la caja, que es quien tiene a la
+ * persona enfrente para preguntarle — mismo criterio que
+ * `completarDatosDelCliente`.
+ */
+export async function afiliarClienteAMano(
+  ranchoId: string,
+  programaId: string,
+  datos: { nombre: string; whatsapp: string; correo: string; aceptaPromos: boolean },
+): Promise<Resultado<{ miembroId: string; nombre: string; contacto: string[] }>> {
+  const revision = revisarAlta({
+    nombre: datos.nombre,
+    correo: datos.correo,
+    telefono: datos.whatsapp,
+  });
+  if (!revision.ok) return { ok: false, motivo: revision.error };
+
+  const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
+  if (!user) redirect("/lealtad/login");
+  if (!ok) return { ok: false, motivo: "No tenés acceso a este negocio." };
+  // Mismo permiso que completarDatosDelCliente: es quien atiende la
+  // caja, que es quien tiene a la persona enfrente para preguntarle.
+  if (!permisos.acreditar) return { ok: false, motivo: SIN_PERMISO.acreditar };
+
+  const db = createAdminClient();
+  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+
+  // El programa tiene que ser DE ESTE negocio: llega del navegador, y
+  // sin este chequeo cualquiera podría afiliar gente al programa de
+  // otro rancho con sus propios permisos de mostrador.
+  const { data: programa } = await db
+    .from("programa_lealtad")
+    .select("*")
+    .eq("id", programaId)
+    .maybeSingle();
+  if (!programa || (programa as { rancho_id?: string | null }).rancho_id !== ranchoId) {
+    return { ok: false, motivo: "Ese programa no es de este negocio." };
+  }
+
+  const { correo, telefono } = revision.contacto;
+
+  // Mismo chequeo que completarDatosDelCliente (677-686). Acá no hay
+  // persona_id propio: CUALQUIER persona existente con ese contacto
+  // cuenta como ajena — este formulario es solo para gente nueva.
+  const duenos = await duenosDelContacto(db, { correo, telefono });
+  if (!duenos.confiable) {
+    return { ok: false, motivo: "No pudimos comprobar esos datos ahora mismo. Probá de nuevo." };
+  }
+  if (duenos.porCorreo !== null) {
+    return { ok: false, motivo: "Ese correo ya es de otro cliente. Buscalo arriba con el nombre." };
+  }
+  if (duenos.porTelefono !== null) {
+    return { ok: false, motivo: "Ese WhatsApp ya es de otro cliente. Buscalo arriba con el nombre." };
+  }
+
+  const { data: negocio } = await db
+    .from("ranchos")
+    .select("nombre, plan_lealtad")
+    .eq("id", ranchoId)
+    .maybeSingle();
+  const nombreNegocio = ((negocio as { nombre?: string | null } | null)?.nombre ?? "").trim();
+
+  // ── EL TOPE DEL PAQUETE, ANTES DEL RPC ──────────────────────────
+  // Mismo criterio que altaPorQr (personas.ts:863-880): el mostrador
+  // no puede ser la puerta por la que un paquete de $12 afilia sin
+  // techo (advertencia textual de cupo.ts:45-56).
+  const { plan, cuentaId } = await contextoDeCuenta(db, programa as Record<string, unknown>, {
+    planRancho: (negocio as { plan_lealtad?: string | null } | null)?.plan_lealtad ?? null,
+  });
+  const limite = definicionDe(plan)?.limites.clientesActivos;
+  if (limite !== null && limite !== undefined) {
+    const usadas = await personasActivasDe(db, { cuentaId, ranchoId });
+    if (usadas >= limite) {
+      return {
+        ok: false,
+        motivo: "Tu paquete ya usó todo su cupo de clientes. Escribile a Bookea para subir de plan.",
+      };
+    }
+  }
+
+  const { data, error } = await db.rpc("alta_persona_por_mostrador", {
+    p_programa: programaId,
+    p_correo: correo,
+    p_telefono: telefono,
+    p_nombre: revision.nombre,
+    p_acepta: datos.aceptaPromos,
+    p_texto_consentimiento: textoConsentimientoMostrador(nombreNegocio),
+  });
+  if (error) return { ok: false, motivo: traducirErrorDeBase(error, "afiliar al cliente") };
+
+  const r = data as {
+    estado?: string;
+    campo?: "correo" | "whatsapp";
+    miembro_id?: string;
+  };
+
+  if (r.estado === "duplicado") {
+    return {
+      ok: false,
+      motivo:
+        r.campo === "correo"
+          ? "Ese correo ya es de otro cliente. Buscalo arriba con el nombre."
+          : "Ese WhatsApp ya es de otro cliente. Buscalo arriba con el nombre.",
+    };
+  }
+  if (r.estado !== "listo" || typeof r.miembro_id !== "string") {
+    return { ok: false, motivo: "No se pudo afiliar. Probá de nuevo." };
+  }
+
+  revalidatePath(`/lealtad/panel/${ranchoId}`);
+
+  return {
+    ok: true,
+    miembroId: r.miembro_id,
     nombre: revision.nombre,
     contacto: [correo, telefono].filter((v): v is string => v !== null),
   };

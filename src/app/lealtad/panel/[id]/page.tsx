@@ -947,6 +947,7 @@ export default async function PanelNegocioLealtad({
           p && permisos.acreditar ? (
             <ModoMostrador
               ranchoId={id}
+              programaId={p.id}
               // `pideMontoElTipo` y no «todo lo que no sea sellos»: esa
               // condición le pedía el monto de la compra a un cupón, a
               // una entrada de evento y a un carnet de socio, donde el

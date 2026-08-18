@@ -37,12 +37,16 @@ const EscanerPanel = dynamic(() => import("./escaner-panel"), {
 
 export default function ModoMostrador({
   ranchoId,
+  programaId,
   pideMonto,
   recompensa,
   tipo = null,
   permisos = { acreditar: true, canjear: true, revertir: false },
 }: {
   ranchoId: string;
+  /** El programa que se opera en esta caja — lo necesita el alta de
+   *  cliente nuevo dentro de `BuscarYAtender` (ver ese archivo). */
+  programaId: string;
   pideMonto: boolean;
   recompensa: { id: string; nombre: string; costo: number } | null;
   /**
@@ -84,6 +88,7 @@ export default function ModoMostrador({
       <div className="mt-4">
         <BuscarYAtender
           ranchoId={ranchoId}
+          programaId={programaId}
           tipo={tipoTarjeta}
           meta={recompensa?.costo ?? null}
           recompensa={recompensa}
