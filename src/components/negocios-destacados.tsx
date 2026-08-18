@@ -150,9 +150,15 @@ export default function NegociosDestacados({
         {/* Grilla en escritorio, RIEL en teléfono — las dos cosas, como
             la maqueta. El `-mr-4` deja que la segunda tarjeta sangre
             contra el borde: es lo que dice «esto se desliza» sin poner
-            una flecha de 32 px que en un dedo no se acierta. */}
+            una flecha de 32 px que en un dedo no se acierta.
+
+            `sm:justify-items-start`: con 1 o 2 negocios cada tarjeta
+            sigue ocupando su columna de `grid-cols-3`, pero sin
+            estirarse a llenarla — la tarjeta tiene su propio ancho fijo
+            (ver `TarjetaDestacada`) y deja de arrastrar una franja
+            blanca vacía a la derecha del precio. */}
         <div
-          className={`mt-5 grid auto-cols-[84%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 pt-0.5 snap-x snap-mandatory -mr-4 sm:mr-0 sm:auto-cols-auto sm:grid-flow-row sm:gap-3 sm:overflow-visible ${columnas}`}
+          className={`mt-5 grid auto-cols-[84%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 pt-0.5 snap-x snap-mandatory -mr-4 sm:mr-0 sm:auto-cols-auto sm:grid-flow-row sm:justify-items-start sm:gap-3 sm:overflow-visible ${columnas}`}
           style={{ scrollbarWidth: "none" }}
         >
           {lista.map((negocio, i) => (
@@ -205,7 +211,7 @@ function TarjetaDestacada({
       href={rutaDeNegocio(negocio)}
       data-reveal
       style={estiloRevelado(indice, 70)}
-      className="group grid h-[124px] snap-start grid-cols-[104px_1fr] overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_5px_18px_-6px_rgba(22,41,94,0.16)] transition-all hover:-translate-y-[3px] hover:border-aventurea-navy/40 hover:shadow-[0_14px_30px_-14px_rgba(22,41,94,0.35)] sm:h-[132px] sm:grid-cols-[112px_1fr]"
+      className="group grid h-[124px] snap-start grid-cols-[104px_1fr] overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_5px_18px_-6px_rgba(22,41,94,0.16)] transition-all hover:-translate-y-[3px] hover:border-aventurea-navy/40 hover:shadow-[0_14px_30px_-14px_rgba(22,41,94,0.35)] sm:h-[132px] sm:w-[280px] sm:grid-cols-[112px_1fr]"
     >
       <div
         className="relative overflow-hidden bg-aventurea-blue-light"
@@ -246,6 +252,16 @@ function TarjetaDestacada({
             Demo
           </span>
         )}
+
+        {/* «Nuevo» va sobre la foto y no en el cuerpo: es lo primero
+            que se lee de la tarjeta, no algo que compite con el precio
+            por una esquina de 11px. En la esquina opuesta a «Demo» —
+            un negocio sembrado y uno recién publicado no chocan. */}
+        {esNuevo && negocio.destacado_orden == null && (
+          <span className="insignia-nueva absolute right-1.5 top-1.5 rounded-md bg-aventurea-blue px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-sm">
+            Nuevo
+          </span>
+        )}
       </div>
 
       <div className="flex min-w-0 flex-col p-3">
@@ -284,19 +300,13 @@ function TarjetaDestacada({
           </span>
 
           {/* En el lugar donde la maqueta pone `★ 4.9`. Acá va lo único
-              que la base sostiene: la marca del admin, o la edad de la
-              publicación. Si un día `resenas` deja de estar en cero,
-              este es el hueco donde entra la nota. */}
-          {negocio.destacado_orden != null ? (
+              que la base sostiene: la marca a mano del admin. «Nuevo»
+              se mudó a la foto (ver arriba); si un día `resenas` deja
+              de estar en cero, este es el hueco donde entra la nota. */}
+          {negocio.destacado_orden != null && (
             <span className="shrink-0 rounded-md bg-aventurea-sky px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
               ★ Destacado
             </span>
-          ) : (
-            esNuevo && (
-              <span className="shrink-0 rounded-md bg-aventurea-cream-2 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-aventurea-ink">
-                Nuevo
-              </span>
-            )
           )}
         </div>
       </div>
