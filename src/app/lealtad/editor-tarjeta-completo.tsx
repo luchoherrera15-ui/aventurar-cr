@@ -456,6 +456,30 @@ export default function EditorTarjetaCompleto({
                   valor={estado.franjaModo === "banco" ? estado.franjaBancoId : null}
                   alElegir={elegirFranjaBanco}
                 />
+                {/* La subida propia va PEGADA a la galería de la que es
+                    alternativa — antes vivía en un bloque aparte junto a
+                    "Tu logo", separada de esta galería por toda la
+                    sección de "Imagen del negocio" del medio, así que
+                    quien buscaba "subir mi propia franja" no la
+                    encontraba acá donde la esperaba. */}
+                <div className="mt-3">
+                  <SubidaPropia
+                    etiqueta="Tu franja"
+                    subiendo={subiendoFranja}
+                    error={errorFranja}
+                    activa={estado.franjaModo === "propia"}
+                    vista={estado.bannerUrl ?? previewLocalFranja}
+                    subida={!!estado.bannerUrl}
+                    onArchivo={(a) => void elegirArchivoPropio(a, "franja")}
+                    onQuitar={quitarFranjaPropia}
+                  />
+                  {!haySesion && previewLocalFranja && (
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-bookea-gris">
+                      Esto es solo una vista previa: se sube de verdad en cuanto tengas tu cuenta,
+                      en la sección «Tu cuenta».
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -465,36 +489,25 @@ export default function EditorTarjetaCompleto({
                   alElegir={elegirImagenBanco}
                   colorFondo={estado.colorFondo}
                 />
+                <div className="mt-3">
+                  <SubidaPropia
+                    etiqueta="Tu logo"
+                    subiendo={subiendoLogo}
+                    error={errorLogo}
+                    activa={estado.imagenModo === "propia"}
+                    vista={estado.logoUrl ?? previewLocalLogo}
+                    subida={!!estado.logoUrl}
+                    onArchivo={(a) => void elegirArchivoPropio(a, "logo")}
+                    onQuitar={quitarImagenPropia}
+                  />
+                  {!haySesion && previewLocalLogo && (
+                    <p className="mt-1.5 text-[11px] leading-relaxed text-bookea-gris">
+                      Esto es solo una vista previa: se sube de verdad en cuanto tengas tu cuenta,
+                      en la sección «Tu cuenta».
+                    </p>
+                  )}
+                </div>
               </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <SubidaPropia
-                  etiqueta="Tu logo"
-                  subiendo={subiendoLogo}
-                  error={errorLogo}
-                  activa={estado.imagenModo === "propia"}
-                  vista={estado.logoUrl ?? previewLocalLogo}
-                  subida={!!estado.logoUrl}
-                  onArchivo={(a) => void elegirArchivoPropio(a, "logo")}
-                  onQuitar={quitarImagenPropia}
-                />
-                <SubidaPropia
-                  etiqueta="Tu franja"
-                  subiendo={subiendoFranja}
-                  error={errorFranja}
-                  activa={estado.franjaModo === "propia"}
-                  vista={estado.bannerUrl ?? previewLocalFranja}
-                  subida={!!estado.bannerUrl}
-                  onArchivo={(a) => void elegirArchivoPropio(a, "franja")}
-                  onQuitar={quitarFranjaPropia}
-                />
-              </div>
-              {!haySesion && (previewLocalLogo || previewLocalFranja) && (
-                <p className="text-[11px] leading-relaxed text-bookea-gris">
-                  Esto es solo una vista previa: se sube de verdad en cuanto tengas tu cuenta, en
-                  la sección «Tu cuenta».
-                </p>
-              )}
             </div>
           </Seccion>
 
