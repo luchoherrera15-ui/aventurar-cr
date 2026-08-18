@@ -38,7 +38,11 @@ export type SeccionPanel = "inicio" | "catalogo" | "finanzas" | "configuracion";
 export const ALTO_PANEL_NAV = 84;
 
 type Destino = {
-  id: SeccionPanel;
+  /** "mensajes" no es una `SeccionPanel`: no tiene pantalla propia
+   *  adentro de `negocio/[id]/*`, así que nunca puede ser el valor de
+   *  `activa` -es un salto hacia AFUERA del panel, a la bandeja
+   *  compartida (`/?tab=mensajes`), no una sección más para quedarse. */
+  id: SeccionPanel | "mensajes";
   label: string;
   icono: keyof typeof Ionicons.glyphMap;
   iconoActivo: keyof typeof Ionicons.glyphMap;
@@ -115,6 +119,18 @@ export default function PanelNav({
       icono: "settings-outline",
       iconoActivo: "settings",
       ruta: `/negocio/${negocioId}/configuracion`,
+    },
+    // Único destino de esta barra que NO vive adentro de `negocio/[id]`:
+    // salta a la bandeja compartida del modo cliente (`?tab=mensajes`,
+    // el mismo mecanismo que ya usan las rutas viejas para entrar al
+    // pager). Sin esto, quien administra su negocio no tenía forma de
+    // ver un mensaje de un cliente sin salir primero de "modo negocio".
+    {
+      id: "mensajes",
+      label: "Mensajes",
+      icono: "chatbubble-outline",
+      iconoActivo: "chatbubble",
+      ruta: "/?tab=mensajes",
     },
   ];
 

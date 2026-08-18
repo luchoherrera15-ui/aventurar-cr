@@ -40,6 +40,7 @@ type Entrada = {
 export default function ConfiguracionNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useAuth();
+  const router = useRouter();
 
   const [nombre, setNombre] = useState<string | null>(null);
   const [categoria, setCategoria] = useState<string | null>(null);
@@ -180,6 +181,30 @@ export default function ConfiguracionNegocioScreen() {
             paddingBottom: ALTO_PANEL_NAV + Spacing.four,
           }}
         >
+          {/* SALIR DEL PANEL. Antes la única forma de volver al modo
+              cliente era el gesto nativo de "atrás" -nada dentro de la
+              app lo decía-. Va arriba de todo, no al final: es lo
+              primero que alguien busca cuando quiere dejar de
+              administrar y volver a explorar o revisar sus mensajes.
+              `replace` y no `push`: es un cambio de modo, no una
+              pantalla más que apilar -si fuera push, "atrás" desde el
+              modo cliente volvería a meter a la persona en el panel. */}
+          <View style={{ gap: Spacing.two }}>
+            <Micro>Modo</Micro>
+            <Lista>
+              <FilaLista primera onPress={() => router.replace("/?tab=perfil" as never)}>
+                <View style={styles.burbuja}>
+                  <Ionicons name="person-outline" size={17} color={Colors.navy} />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.titulo}>Volver a modo cliente</Text>
+                  <Text style={styles.detalle}>Explorar, reservar y tus mensajes.</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.inkMuted} />
+              </FilaLista>
+            </Lista>
+          </View>
+
           <Bloque titulo="Tu página" entradas={tuPagina} />
           <Bloque titulo="Plata" entradas={plata} />
           <Bloque titulo="Agenda" entradas={agenda} />

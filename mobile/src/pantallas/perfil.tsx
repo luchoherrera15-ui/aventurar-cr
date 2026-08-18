@@ -10,7 +10,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -516,6 +515,10 @@ type StatsPerfil = {
   resenas: number;
   favoritos: number;
   negocios: number;
+  /** Los ids en sí -no solo el conteo- para poder ir DIRECTO al panel
+   *  del único negocio sin pasar por la lista "Mis negocios" cuando
+   *  hay uno solo (0 o 2+ igual van a la lista). */
+  negocioIds: string[];
   vecesContratado: number;
   calificacion: number | null;
   /** true = alguno de sus negocios tiene el programa de lealtad. */
@@ -540,13 +543,6 @@ function PerfilVista({
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [nombreBorrador, setNombreBorrador] = useState(perfil?.nombre ?? "");
   const [guardandoNombre, setGuardandoNombre] = useState(false);
-  const [modoNegocio, setModoNegocio] = useState(false);
-
-  useEffect(() => {
-    AsyncStorage.getItem("perfil_modo_negocio")
-      .then((valor) => setModoNegocio(valor === "true"))
-      .catch(() => {});
-  }, []);
 
   // El acceso por código nunca pide el nombre, así que se pone acá.
   // Va por RPC porque la tabla `perfiles` solo deja editar al admin:
@@ -633,6 +629,7 @@ function PerfilVista({
         resenas: resenasRes.count ?? 0,
         favoritos: favoritosRes.count ?? 0,
         negocios: negocioIds.length,
+        negocioIds,
         vecesContratado,
         calificacion,
         lealtadActiva,
@@ -644,6 +641,10 @@ function PerfilVista({
   }, [activa, clienteId]);
 
   const esProveedor = (stats?.negocios ?? 0) > 0;
+  // Un solo negocio: directo a su panel. Varios: a elegir cuál -misma
+  // regla en las dos entradas al panel (la tarjeta "Tu negocio" y el
+  // botón "Administrar mi negocio"), para que no decidan cosas distintas.
+  const rutaPanel = (ids: string[]) => (ids.length === 1 ? `/negocio/${ids[0]}` : "/negocio");
 
   return (
     <View style={styles.contenedor}>
@@ -744,7 +745,10 @@ function PerfilVista({
         )}
 
         {esProveedor && stats && (
-          <Pressable style={styles.tarjetaNegocio} onPress={() => router.push("/negocio" as never)}>
+          <Pressable
+            style={styles.tarjetaNegocio}
+            onPress={() => router.push(rutaPanel(stats.negocioIds) as never)}
+          >
             <View style={styles.negocioEncabezado}>
               <Text style={styles.negocioTitulo}>Tu negocio</Text>
               <Ionicons name="chevron-forward" size={17} color={Colors.inkSoft} />
@@ -765,98 +769,63 @@ function PerfilVista({
           </Pressable>
         )}
 
+        <View style={styles.grid}>
+          <TarjetaAccion
+            icono="mail-outline"
+            titulo="Invitaciones y álbumes"
+            detalle="Tus eventos y fotos"
+            onPress={() => router.push("/invitaciones" as never)}
+          />
+          <TarjetaAccion
+            icono="globe-outline"
+            titulo="Sitio web"
+            detalle="bookea.lat"
+            onPress={() => WebBrowser.openBrowserAsync(SITIO_URL)}
+          />
+        </View>
+
         {/* ── DE QUÉ LADO VA LEALTAD ────────────────────────────────
-            Estaba en el modo CLIENTE, y ahí no le servía a nadie:
-            /lealtad es una landing de venta B2B —«quiero el programa
-            en MI negocio»— puesta enfrente de alguien que entró a ver
-            sus reservas.
-
-            No se reemplazó por «tus tarjetas» porque esa pantalla no
-            existe ni debería: la tarjeta del cliente vive en Apple
-            Wallet y Google Wallet, que es literalmente lo que el
-            producto promete («sin apps que instalar»). Una lista de
-            tarjetas dentro de Bookea sería una segunda cartera peor
-            que la del sistema operativo, contradiciendo la venta.
-
-            Ahora vive en MODO NEGOCIO, igual que en la web
-            (`cuenta/tablero-modos.tsx`), y con el mismo desvío: quien
-            YA tiene el programa entra a su panel; quien no, a la
-            pantalla que se lo explica. */}
-        {!modoNegocio ? (
-          <>
-            {/* MODO NORMAL: Invitaciones y Sitio web */}
-            <View style={styles.grid}>
-              <TarjetaAccion
-                icono="mail-outline"
-                titulo="Invitaciones y álbumes"
-                detalle="Tus eventos y fotos"
-                onPress={() => router.push("/invitaciones" as never)}
-              />
-              <TarjetaAccion
-                icono="globe-outline"
-                titulo="Sitio web"
-                detalle="bookea.lat"
-                onPress={() => WebBrowser.openBrowserAsync(SITIO_URL)}
-              />
-            </View>
-          </>
-        ) : (
-          <>
-            {/* MODO NEGOCIO: Mis publicaciones, Finanzas y Lealtad */}
-            <View style={styles.grid}>
-              <TarjetaAccion
-                icono="storefront-outline"
-                titulo="Mis publicaciones"
-                detalle="Editá y administrá"
-                acento
-                onPress={() => router.push("/negocio" as never)}
-              />
-              <TarjetaAccion
-                icono="cash-outline"
-                titulo="Finanzas"
-                detalle="Ingresos y pagos"
-                onPress={() => router.push("/negocio" as never)}
-              />
-            </View>
-            <View style={styles.grid}>
-              {/* Sale SIEMPRE, tenga o no el programa: si solo se viera
-                  una vez contratado, nadie se enteraría de que existe.
-                  Con programa abre el panel en el navegador —el panel
-                  de lealtad no tiene versión nativa todavía— y sin
-                  programa se queda adentro, en la pantalla de venta. */}
-              <TarjetaAccion
-                icono="ribbon-outline"
-                titulo="Programa de lealtad"
-                detalle={
-                  stats?.lealtadActiva ? "Sellos, puntos y pases" : "Clientes que vuelven"
-                }
-                onPress={() =>
-                  stats?.lealtadActiva
-                    ? WebBrowser.openBrowserAsync(`${SITIO_URL}/lealtad/entrar`)
-                    : router.push("/lealtad" as never)
-                }
-              />
-            </View>
-          </>
+            /lealtad es una landing de venta B2B —«quiero el programa en
+            MI negocio»— así que solo tiene sentido para quien publica,
+            no para un cliente mirando sus reservas. Sale SIEMPRE que
+            `esProveedor`, tenga o no el programa: si solo se viera una
+            vez contratado, nadie se enteraría de que existe. Con
+            programa abre el panel en el navegador —el panel de lealtad
+            no tiene versión nativa todavía— y sin programa se queda
+            adentro, en la pantalla de venta. */}
+        {esProveedor && (
+          <View style={styles.grid}>
+            <TarjetaAccion
+              icono="ribbon-outline"
+              titulo="Programa de lealtad"
+              detalle={stats?.lealtadActiva ? "Sellos, puntos y pases" : "Clientes que vuelven"}
+              onPress={() =>
+                stats?.lealtadActiva
+                  ? WebBrowser.openBrowserAsync(`${SITIO_URL}/lealtad/entrar`)
+                  : router.push("/lealtad" as never)
+              }
+            />
+          </View>
         )}
 
-        {esProveedor && (
+        {/* «MODO NEGOCIO» ya no es un toggle local que redibuja esta
+            misma pantalla -era cosmético: cambiaba dos tarjetas y el
+            resto de la app (la barra de abajo, todo lo demás) seguía
+            exactamente igual. Ahora ENTRA de verdad al panel de
+            administración -mismo lugar al que ya lleva la tarjeta "Tu
+            negocio" de arriba-, que tiene su PROPIA barra inferior
+            (`PanelNav`) dedicada a administrar, reemplazando por
+            completo a esta. Con un solo negocio va derecho a su panel;
+            con varios, a elegir cuál -misma decisión que ya tomaba "Tu
+            negocio". Volver a este modo cliente se hace desde
+            Configuración, adentro del panel. */}
+        {esProveedor && stats && (
           <Pressable
             style={styles.botonModo}
-            onPress={async () => {
-              const nuevoModo = !modoNegocio;
-              setModoNegocio(nuevoModo);
-              await AsyncStorage.setItem("perfil_modo_negocio", String(nuevoModo));
-            }}
+            onPress={() => router.push(rutaPanel(stats.negocioIds) as never)}
           >
-            <Ionicons
-              name={modoNegocio ? "person-outline" : "storefront-outline"}
-              size={16}
-              color={Colors.accent}
-            />
-            <Text style={styles.botonModoTexto}>
-              {modoNegocio ? "Volver a Mi Perfil" : "Cambiar a Modo Negocio"}
-            </Text>
+            <Ionicons name="storefront-outline" size={16} color={Colors.accent} />
+            <Text style={styles.botonModoTexto}>Administrar mi negocio</Text>
           </Pressable>
         )}
 
