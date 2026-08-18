@@ -11,6 +11,29 @@ import { hoyISOCR } from "@/lib/fechas";
  * que el evento se realiza como estaba agendado. Si un evento se
  * cancela ese mismo día, el proveedor puede revertirlo desde su panel
  * de Finanzas (revertirPagoFinal).
+ *
+ * ─────────────────────────────────────────────────────────────────
+ * ESTE CRON VA DESPUÉS DE /api/recordatorios, Y NO ES UN DETALLE
+ * ─────────────────────────────────────────────────────────────────
+ * El recordatorio «Hoy cobrás en X» busca reservas con
+ * `evento_pagado = false`. Si este cron corre primero, las marca
+ * pagadas y el correo sale a buscar destinatarios y NO ENCUENTRA
+ * NINGUNO. No falla, no avisa: simplemente el dueño deja de recibir el
+ * aviso de que tiene plata por cobrar ese día.
+ *
+ * Por eso las horas están separadas DOS horas y no media:
+ *
+ *   /api/recordatorios  13:00 UTC =  7:00 a.m. CR   (el correo)
+ *   /api/auto-cobro     15:00 UTC =  9:00 a.m. CR   (esto)
+ *
+ * En el plan Hobby de Vercel un cron NO corre a la hora exacta: tiene
+ * una ventana flexible de UNA HORA. Con 30 minutos de separación los
+ * dos podían solaparse y salir en el orden equivocado. Con dos horas,
+ * el peor caso del primero (13:59) sigue quedando antes del mejor caso
+ * del segundo (15:00).
+ *
+ * Si alguien acerca estas horas, el correo deja de mandarse en
+ * silencio. Ese es el costo, y por eso está escrito acá.
  */
 export async function GET(request: Request) {
   const noAutorizado = autorizarCron(request);

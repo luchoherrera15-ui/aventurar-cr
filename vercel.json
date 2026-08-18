@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/recordatorios",
-      "schedule": "0 14 * * *"
+      "schedule": "0 13 * * *"
     },
     {
       "path": "/api/auto-cobro",
-      "schedule": "0 5 * * *"
+      "schedule": "0 15 * * *"
     },
     {
       "path": "/api/hojas-impresas",
