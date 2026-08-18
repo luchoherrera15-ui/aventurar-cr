@@ -18,6 +18,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
+import AgendaLugar from "@/components/agenda-lugar";
 import {
   Aviso,
   AvisoAgenda,
@@ -231,7 +232,69 @@ async function avisarCitaCumplida(reservaId: string, token: string | undefined) 
   }
 }
 
+/**
+ * LA PUERTA DE ENTRADA A "Agenda completa": decide, antes de cargar
+ * nada pesado, si este negocio trabaja por HORAS (citas, proveedores
+ * de eventos — `AgendaPorHoras`, todo lo de abajo, sin tocar) o por DÍA
+ * ENTERO (`categoria === "lugares"`: ranchos, salones — `AgendaLugar`,
+ * el calendario del mes). Antes esta pantalla no distinguía y todo el
+ * mundo veía la grilla de horas, que para un rancho no significa nada.
+ *
+ * Es un componente APARTE (no un `if` adentro de `AgendaPorHoras`)
+ * porque esa función ya tiene una docena de hooks encadenados —
+ * meterle una rama condicional ahí arriba habría significado
+ * reordenar hooks según datos que llegan async, que rompe las reglas
+ * de React. Separado, cada pantalla tiene su propia cadena de hooks,
+ * simple y sin condicionar.
+ */
 export default function AgendaNegocioScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const [tipo, setTipo] = useState<"cargando" | "lugar" | "horas">("cargando");
+  const [nombreLugar, setNombreLugar] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let vigente = true;
+      supabase
+        .from("ranchos")
+        .select("nombre, categoria")
+        .eq("id", id)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (!vigente) return;
+          const fila = data as { nombre: string; categoria: string | null } | null;
+          setNombreLugar(fila?.nombre ?? null);
+          setTipo(fila?.categoria === "lugares" ? "lugar" : "horas");
+        });
+      return () => {
+        vigente = false;
+      };
+    }, [id]),
+  );
+
+  if (tipo === "cargando") {
+    return (
+      <View style={[styles.centro, { flex: 1 }]}>
+        <ActivityIndicator color={Colors.accent} />
+      </View>
+    );
+  }
+
+  if (tipo === "lugar") {
+    return (
+      <View style={styles.contenedor}>
+        <BarraSuperior kicker="Panel" titulo="Agenda del mes" subtitulo={nombreLugar ?? undefined} />
+        <ScrollView contentContainerStyle={{ gap: Spacing.three, padding: Spacing.three }}>
+          <AgendaLugar id={id} />
+        </ScrollView>
+      </View>
+    );
+  }
+
+  return <AgendaPorHoras />;
+}
+
+function AgendaPorHoras() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { session } = useAuth();

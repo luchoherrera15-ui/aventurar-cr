@@ -122,7 +122,9 @@ export default function ConfiguracionNegocioScreen() {
       titulo: "Agenda completa",
       detalle: esCitas
         ? "El día por persona, cargar una cita del mostrador y bloquear franjas."
-        : "El día hora por hora, con lo que ya está agendado.",
+        : esLugar
+          ? "El calendario del mes: confirmá o cancelá lo que ya está agendado."
+          : "El día hora por hora, con lo que ya está agendado.",
     },
     {
       ruta: `/negocio/${id}/sincronizar`,
