@@ -5,6 +5,7 @@ import { useState } from "react";
 import { ESTADO_PILDORA, type EstadoPanel } from "@/components/panel/sistema";
 import TarjetaExpandible from "@/components/tarjeta-expandible";
 import ResenaForm from "./resena-form";
+import CancelarReservaForm from "./cancelar-reserva-form";
 import { categoriaLabel } from "@/lib/categorias-vertical";
 
 /**
@@ -198,6 +199,7 @@ function TarjetaReserva({
     !!permitirResena &&
     (reserva.estado === "confirmada" || reserva.estado === "cumplida") &&
     !!reserva.rancho_id;
+  const puedeCancelar = reserva.estado === "pendiente" || reserva.estado === "confirmada";
 
   return (
     <div
@@ -252,6 +254,12 @@ function TarjetaReserva({
             ranchoId={reserva.rancho_id!}
             nombreRancho={reserva.ranchos?.nombre ?? "el proveedor"}
             resenaExistente={resena ?? null}
+          />
+        )}
+        {puedeCancelar && (
+          <CancelarReservaForm
+            reservaId={reserva.id}
+            nombreRancho={reserva.ranchos?.nombre ?? "el proveedor"}
           />
         )}
       </div>

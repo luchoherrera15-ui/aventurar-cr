@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 // El inicio de sesión y el registro viven en el cliente
@@ -112,5 +113,55 @@ export async function guardarResena(
       });
 
   if (error) return { error: "No se pudo guardar la reseña: " + error.message };
+  return { error: null };
+}
+
+/**
+ * El CLIENTE cancela su propia reserva (o cita), con motivo obligatorio.
+ *
+ * Hasta la 0185 esto solo existía del lado del negocio
+ * (mi-negocio/[id]/agenda-actions.ts, cancelarReserva). La política de
+ * UPDATE que agrega esa migración (mismo estilo que ya usa `resenas`
+ * para "el cliente edita lo suyo") es la que de verdad autoriza esto —
+ * acá no se revalida el dueño de la fila, se confía en la RLS.
+ *
+ * Sin restricción de horario a propósito: se puede cancelar el mismo
+ * día. La plata no se toca -un adelanto ya validado queda retenido por
+ * política, mismo criterio que el cancelarReserva del negocio.
+ */
+export async function cancelarReservaCliente(
+  reservaId: string,
+  motivo: string,
+): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Iniciá sesión para cancelar tu reserva." };
+
+  const motivoLimpio = motivo.trim().slice(0, 500);
+  if (!motivoLimpio) return { error: "Contanos por qué cancelás — es obligatorio." };
+
+  const { error, data } = await supabase
+    .from("reservas")
+    .update({
+      estado: "cancelada",
+      cancelada_en: new Date().toISOString(),
+      motivo_cancelacion: motivoLimpio,
+    })
+    .eq("id", reservaId)
+    .eq("cliente_id", user.id)
+    .in("estado", ["pendiente", "confirmada"])
+    .select("id");
+
+  if (error) return { error: "No se pudo cancelar: " + error.message };
+  // La RLS deja pasar el UPDATE con 0 filas tocadas cuando el filtro no
+  // matchea nada (no es un error de Postgres) — pasa si alguien ya la
+  // había cancelado en otra pestaña, o si probaron con un id ajeno.
+  if (!data || data.length === 0) {
+    return { error: "Esa reserva ya no se puede cancelar (puede que ya haya cambiado de estado)." };
+  }
+
+  revalidatePath("/cuenta/reservas");
   return { error: null };
 }
