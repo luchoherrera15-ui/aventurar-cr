@@ -1,11 +1,6 @@
 import Link from "next/link";
 import { ID_COMO_FUNCIONA } from "./como-funciona";
-import {
-  IconCalendarLine,
-  IconCelebrate,
-  IconCompass,
-  IconStore,
-} from "@/components/icons";
+import { IconCompass, IconStore } from "@/components/icons";
 
 /**
  * Los links de la nav del home. NO es un header: se le pasan al prop
@@ -26,41 +21,30 @@ import {
  */
 
 /**
- * DOS CLASES DE LINK, Y SE TIENEN QUE VER DISTINTAS.
+ * YA NO VIVEN ACÁ «CITAS Y SERVICIOS» NI «EVENTOS».
  *
- * «Citas y servicios» y «Eventos» son las dos PUERTAS del marketplace:
- * llevan a un directorio con negocios de verdad. «Cómo funciona» y
- * «Para negocios» son de acompañamiento — una baja a una sección de
- * esta misma página y la otra es para el dueño de un negocio, no para
- * quien viene a reservar.
+ * Estaban acá EN BURBUJA, repetidas un renglón más abajo como las
+ * pestañas de `BuscadorHome` — que además son las que de verdad hacen
+ * algo (cambian el formulario de búsqueda y a dónde manda el botón).
+ * Dos controles idénticos a un renglón de distancia es ruido, y el
+ * dueño lo reportó mirando la portada: «se repite abajo y arriba».
  *
- * Pintados los cuatro igual, las dos puertas se perdían entre el resto
- * y no se leían como los botones que son. Las de categoría van en
- * burbuja; las otras, en texto.
- */
-/**
- * EL ÍCONO VA ADELANTE DEL TEXTO, Y ES DECORATIVO.
+ * Se sacan de ACÁ y no de la otra, porque la otra es la funcional, ya
+ * está adaptada al móvil (colapsa a un botón compacto bajo `sm`,
+ * `buscador-home.tsx:797`) y tiene navegación de teclado con flechas
+ * (`role="tablist"`). Reconstruir eso acá para conservar la burbuja
+ * habría sido la duplicación al revés.
  *
- * Cada uno se eligió porque representa lo que hay del otro lado, no por
- * rellenar: un calendario para reservar una cita, una celebración para
- * eventos, una brújula para «cómo funciona» y una tienda para el lado
- * del negocio. Un ícono que no dice nada es peor que ninguno — le suma
- * ruido a un renglón que se lee de reojo.
- *
- * Van `aria-hidden` porque el texto de al lado ya dice lo mismo: un
- * lector de pantalla que anuncie «imagen, calendario, Citas y
- * servicios» hace más lento el recorrido sin agregar información.
+ * Quedan solo los dos links de acompañamiento, en texto — la nav ya no
+ * necesita el separador que distinguía «puerta» de «acompañamiento».
  */
 type Link = {
   href: string;
   texto: string;
   Icono: (p: { className?: string }) => React.ReactElement;
-  categoria?: true;
 };
 
 const LINKS: Link[] = [
-  { href: "/citas", texto: "Citas y servicios", Icono: IconCalendarLine, categoria: true },
-  { href: "/eventos", texto: "Eventos", Icono: IconCelebrate, categoria: true },
   // Ancla, no ruta: la sección vive en esta misma página. El id sale de
   // quien lo pinta, para que no se despareje si alguien lo renombra.
   { href: `#${ID_COMO_FUNCIONA}`, texto: "Cómo funciona", Icono: IconCompass },
@@ -75,34 +59,18 @@ const LINKS: Link[] = [
 
 export default function NavHome() {
   return (
-    <nav aria-label="Secciones de Bookea" className="hidden items-center gap-2 lg:flex">
-      {LINKS.map((link, i) => {
-        const anterior = LINKS[i - 1];
-        return (
-          <span key={link.href} className="flex items-center">
-            {/* La rayita separa las dos puertas del resto. Va donde
-                cambia el tipo de link, no en una posición fija: si
-                mañana se agrega una categoría, se corre sola. */}
-            {anterior?.categoria && !link.categoria && (
-              <span aria-hidden className="mx-2.5 h-4 w-px bg-aventurea-line" />
-            )}
-            <Link
-              href={link.href}
-              className={
-                link.categoria
-                  ? "presionable inline-flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-aventurea-line bg-white px-3.5 py-2 text-[13.5px] font-extrabold text-aventurea-navy transition-colors hover:border-aventurea-navy/40 hover:bg-aventurea-navy/[0.04]"
-                  : "inline-flex items-center gap-1.5 whitespace-nowrap px-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
-              }
-            >
-              {/* `shrink-0` para que el ícono no se aplaste cuando la
-                  nav se comprime en la columna del medio: un ícono
-                  deformado se nota más que uno chico. */}
-              <link.Icono className="h-[15px] w-[15px] shrink-0" />
-              {link.texto}
-            </Link>
-          </span>
-        );
-      })}
+    <nav aria-label="Secciones de Bookea" className="hidden items-center gap-5 lg:flex">
+      {LINKS.map((link) => (
+        <Link
+          key={link.href}
+          href={link.href}
+          className="inline-flex items-center gap-1.5 whitespace-nowrap px-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+        >
+          {/* `aria-hidden`: el texto de al lado ya dice lo mismo. */}
+          <link.Icono className="h-[15px] w-[15px] shrink-0" />
+          {link.texto}
+        </Link>
+      ))}
     </nav>
   );
 }

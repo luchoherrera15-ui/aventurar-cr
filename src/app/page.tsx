@@ -299,9 +299,15 @@ const COLLAGE: { src: string; clase: string }[] = [
 function Hero() {
   return (
     <section className="organico bg-aventurea-navy" style={COLORES_HERO}>
-      {/* El `pb` grande es el espacio donde entra la mitad de arriba del
-          buscador, que se solapa desde afuera de esta sección. */}
-      <div className="relative mx-auto grid max-w-[1200px] items-center gap-10 px-4 pb-14 pt-10 sm:px-6 sm:pb-24 sm:pt-12 lg:grid-cols-[1.12fr_0.88fr] lg:gap-12 lg:px-10">
+      {/* EL HÉROE SE ACHICÓ A PROPÓSITO, otra vez. El dueño lo pidió
+          mirando la portada en vivo: quiere más negocios a la vista sin
+          scrollear, y esto era la última franja decorativa entre el
+          logo y el primer card. `pb` sigue siendo mayor a 50px —el
+          overlap del buscador de más abajo depende de eso, ver
+          `Buscador()`— pero bajó de 96/56px a 64/40px, y el resto de
+          las medidas (título, párrafo, espaciados, collage) se
+          recortaron con él para que no quede aire suelto en el medio. */}
+      <div className="relative mx-auto grid max-w-[1200px] items-center gap-8 px-4 pb-10 pt-7 sm:px-6 sm:pb-16 sm:pt-8 lg:grid-cols-[1.12fr_0.88fr] lg:gap-12 lg:px-10">
         <div className="min-w-0">
           {/* El «eyebrow» de la maqueta: la rayita y el texto en
               mayúsculas. La rayita es decorativa. */}
@@ -313,20 +319,18 @@ function Hero() {
           {/* El único `<h1>` de la página, y visible: el del directorio
               es `sr-only` porque allá el contenido son las cards. Acá
               el titular ES la página. El acento va en naranja: es
-              texto grande (34px para arriba), donde el contraste del
-              naranja sobre navy alcanza de sobra. La escala baja
-              respecto de la portada anterior (era clamp 38-76) porque
-              la maqueta comprime el héroe a propósito. */}
-          <h1 className="titulo mt-3.5 text-balance text-[clamp(34px,5vw,60px)] leading-[1.02] text-white">
+              texto grande (28px para arriba), donde el contraste del
+              naranja sobre navy alcanza de sobra. */}
+          <h1 className="titulo mt-2.5 text-balance text-[clamp(28px,4vw,46px)] leading-[1.04] text-white">
             Encontrá. Elegí. <span className="text-aventurea-orange">Reservá.</span>
           </h1>
 
-          <p className="mt-4 max-w-[54ch] text-[14.5px] leading-relaxed text-white/75 sm:text-[16px]">
+          <p className="mt-3 max-w-[54ch] text-[13.5px] leading-relaxed text-white/75 sm:text-[15px]">
             Citas, espacios, proveedores y experiencias de Costa Rica en un solo
             lugar. Fácil de comparar, fácil de reservar.
           </p>
 
-          <ul className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2.5 text-[12px] font-semibold text-white/80">
+          <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[12px] font-semibold text-white/80">
             {HECHOS.map((hecho) => (
               <li key={hecho} className="flex items-center gap-2">
                 {/* El ícono en burbuja de la maqueta (`.proof i`). */}
@@ -345,11 +349,14 @@ function Hero() {
             buscador y los negocios fuera de la primera pantalla, que es
             justo lo que esta composición viene a evitar.
 
+            Bajó de 300 a 220px con el resto del héroe — a esa altura
+            las dos fotos rotadas siguen leyéndose, no se aplastan.
+
             El `sizes` con el `1px` de respaldo no es un truco sucio: es
             la forma de que el navegador que igual resuelve el `srcset`
             en móvil se baje el candidato más chico en vez de uno de 640
             para una caja que no se ve. */}
-        <div aria-hidden className="relative hidden h-[300px] lg:block">
+        <div aria-hidden className="relative hidden h-[220px] lg:block">
           {COLLAGE.map((foto) => (
             <div
               key={foto.src}
