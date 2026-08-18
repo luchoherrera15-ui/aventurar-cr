@@ -152,7 +152,12 @@ export default function DemoLavacarsPage() {
               className="absolute inset-0"
               style={{
                 background:
-                  "linear-gradient(90deg,rgba(0,0,0,.91) 0%,rgba(0,0,0,.70) 36%,rgba(0,0,0,.14) 72%,rgba(0,0,0,.35) 100%)," +
+                  // Oscuro en las DOS puntas -izquierda para el texto,
+                  // derecha para que el pase se recorte contra algo
+                  // sólido- con la foto asomando solo en el medio. Antes
+                  // se apagaba de golpe hacia la derecha y el pase (navy)
+                  // quedaba compitiendo con la espuma clara de fondo.
+                  "linear-gradient(90deg,rgba(0,0,0,.93) 0%,rgba(0,0,0,.72) 30%,rgba(0,0,0,.22) 54%,rgba(0,0,0,.62) 76%,rgba(0,0,0,.9) 100%)," +
                   "linear-gradient(0deg,rgba(0,0,0,.48),transparent 50%)",
               }}
             />
