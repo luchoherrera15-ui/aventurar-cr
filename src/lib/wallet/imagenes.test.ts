@@ -368,16 +368,17 @@ describe("dibujarTiraDeSellos con una IMAGEN adentro del sello (logo o ícono pr
    *
    * Lo que se prueba acá son LOS DOS ESTADOS, que es lo que separa una
    * tarjeta que se entiende de una que se ve rota a la mitad: el ganado
-   * es el disco blanco con el dibujo, y el que falta es el mismo disco
-   * tenue. Con una sola forma de dibujar los dos, no hay estado que
-   * quede sin resolver — que era el riesgo de inventarle un aro vacío a
-   * una imagen rasterizada.
+   * es el disco blanco con el dibujo a todo color, y el que falta es el
+   * MISMO disco blanco con el dibujo desaturado y oscurecido — el disco
+   * en sí no cambia, para que el sello siga llenando el círculo en los
+   * dos estados. Con una sola forma de dibujar los dos, no hay estado
+   * que quede sin resolver — que era el riesgo de inventarle un aro
+   * vacío a una imagen rasterizada.
    */
-  const BLANCO: [number, number, number] = [255, 255, 255];
   /** Un ícono de mentira: un cuadrado azul, opaco y con borde. */
   const icono = () => foto(120, 120, [["#1144aa", 120]]);
 
-  it("el ganado y el que falta se distinguen: el mismo disco, uno tenue", async () => {
+  it("el ganado y el que falta se distinguen: el mismo disco, el dibujo se apaga", async () => {
     const imagen = await icono();
     const todos = await dibujarTiraDeSellos({
       total: 10, logrados: 10, colores: COLORES, imagen, banda: null, escala: 2,
@@ -385,11 +386,18 @@ describe("dibujarTiraDeSellos con una IMAGEN adentro del sello (logo o ícono pr
     const ninguno = await dibujarTiraDeSellos({
       total: 10, logrados: 0, colores: COLORES, imagen, banda: null, escala: 2,
     });
-    // El disco es blanco cuando hay imagen (así lo hace `selloRedondo`
-    // desde que el sello era el logo). Apagado, ese blanco se va.
-    const llenos = await cuantosDe(todos, BLANCO);
-    expect(llenos).toBeGreaterThan(1000);
-    expect(await cuantosDe(ninguno, BLANCO)).toBeLessThan(llenos * 0.2);
+    // El disco de fondo es BLANCO en los dos estados a propósito — el
+    // "apagado" ya no le toca la transparencia (eso dejaba el blanco
+    // transparentándose contra el fondo del pase, no oscurecido de
+    // verdad). Lo que distingue ganado de no-ganado ahora es el color
+    // del DIBUJO: se desatura y se oscurece (`.modulate` en
+    // `selloRedondo`), así que se cuenta el azul ORIGINAL del ícono de
+    // prueba — tiene que sobrar en el ganado y casi desaparecer en el
+    // que falta, porque ya no es ese mismo azul.
+    const AZUL_ICONO: [number, number, number] = [0x11, 0x44, 0xaa];
+    const conColor = await cuantosDe(todos, AZUL_ICONO);
+    expect(conColor).toBeGreaterThan(1000);
+    expect(await cuantosDe(ninguno, AZUL_ICONO)).toBeLessThan(conColor * 0.2);
   });
 
   it("la imagen se ve adentro del círculo, no solo el disco", async () => {

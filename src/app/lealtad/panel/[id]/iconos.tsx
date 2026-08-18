@@ -467,14 +467,22 @@ export function SelloConIcono({
  *
  * Copia lo que hace `selloRedondo` del lado del servidor —que es el
  * camino que ya funciona en teléfonos de verdad desde que el sello era
- * el logo—: círculo BLANCO, la imagen adentro al 62%, y el que falta al
- * 26% de opacidad en vez de en contorno.
+ * el logo—: círculo BLANCO, la imagen adentro al 90% (el sello ES el
+ * dibujo, no un ícono chico flotando), y el que falta oscurecido y
+ * desaturado en vez de en contorno o más transparente.
  *
  * Los dos estados salen de ahí y no de una idea nueva: el aro vacío se
  * puede dibujar con un trazo, pero una imagen rasterizada no se puede
  * «vaciar» sin inventarle un recorte. Y una tarjeta donde la mitad de
  * los sellos se dibuja de una forma y la otra mitad de otra se lee como
  * si estuviera rota.
+ *
+ * El «apagado» ya NO es alfa 26% sobre el círculo entero (esa técnica
+ * hacía el dibujo más TRANSPARENTE, no más oscuro, y se veía peor sobre
+ * tarjetas claras). Ahora es `grayscale(0.75) brightness(0.45)` sobre la
+ * imagen misma —el equivalente perceptual de `.modulate({ saturation:
+ * 0.25, brightness: 0.45 })` que aplica `sharp` del lado del servidor—,
+ * con el fondo blanco del círculo intacto en los dos estados.
  *
  * El fondo es BLANCO y no el color del acento por la misma razón que en
  * el servidor: es el fondo neutro que deja ver un ícono de cualquier
@@ -494,15 +502,28 @@ export function SelloConImagen({
   return (
     <span
       aria-hidden
-      className="grid shrink-0 place-items-center overflow-hidden rounded-full bg-white transition-opacity"
-      style={{ height: lado, width: lado, opacity: encendido ? 1 : 0.26 }}
+      className="grid shrink-0 place-items-center overflow-hidden rounded-full bg-white"
+      style={{ height: lado, width: lado }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- imagen
           recién subida por el negocio; acá es una maqueta. */}
       <img
         src={url}
         alt=""
-        style={{ height: lado * 0.62, width: lado * 0.62, objectFit: "contain" }}
+        style={{
+          height: lado * 0.9,
+          width: lado * 0.9,
+          objectFit: "contain",
+          // El sello que falta no se «aclara» (eso era la técnica vieja,
+          // alfa 26% sobre el círculo entero: hacía el dibujo más
+          // TRANSPARENTE, no más oscuro). Acá se oscurece/desatura el
+          // dibujo de verdad —mismo criterio que `.modulate()` en el
+          // servidor (imagenes.ts)— y el fondo blanco del círculo se
+          // deja intacto en los dos estados, así que un sello apagado
+          // sigue siendo más visible que uno transparente sobre una
+          // tarjeta clara.
+          filter: encendido ? "none" : "grayscale(0.75) brightness(0.45)",
+        }}
       />
     </span>
   );

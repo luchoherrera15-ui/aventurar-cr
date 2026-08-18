@@ -113,12 +113,28 @@ async function selloRedondo({
   if (imagen) {
     // `trim` quita el margen vacío: los logos suelen venir en lienzos
     // muy grandes con la marca chiquita en el centro.
+    //
+    // El encaje sube a 0.90 (antes 0.62): el pedido es que el sello SEA
+    // el dibujo, no un ícono chico flotando en el círculo. La caja de
+    // encaje es cuadrada y la máscara final es un círculo, así que queda
+    // un 10% de margen a propósito — un dibujo cuadrado-ish que toque
+    // las cuatro esquinas de su propio recorte podría perder una punta
+    // contra la máscara, pero un dibujo de un solo sujeto (un vaso, una
+    // hoja, un animal) casi nunca llena así su bounding box. Se prefiere
+    // ese riesgo bajo a la certeza de un ícono que se sigue viendo chico.
     const contenido = await sharp(imagen)
       .trim()
-      .resize(Math.round(diametro * 0.62), Math.round(diametro * 0.62), {
+      .resize(Math.round(diametro * 0.9), Math.round(diametro * 0.9), {
         fit: "inside",
         background: { r: 0, g: 0, b: 0, alpha: 0 },
       })
+      // El apagado ya NO es transparencia sobre el círculo entero (eso
+      // hacía el dibujo más difícil de ver, no más oscuro): acá se
+      // desatura y se oscurece el dibujo de verdad, ANTES de componerlo
+      // en el círculo. El fondo blanco se queda igual en los dos
+      // estados — con el dibujo ocupando ~90% del círculo, oscurecerlo
+      // siempre lo hace más visible contra ese blanco, nunca menos.
+      .modulate(encendido ? {} : { saturation: 0.25, brightness: 0.45 })
       .toBuffer();
     capas.push({ input: contenido, gravity: "center" });
   }
@@ -137,7 +153,13 @@ async function selloRedondo({
     .png()
     .toBuffer();
 
-  if (encendido) return circulo;
+  // El respaldo sin logo ni ícono (disco liso en `colores.sello`) sigue
+  // el criterio viejo de alfa al 26%: no es parte de este pedido —el
+  // dueño se quejó del ícono propio, no de este disco— así que su
+  // comportamiento no cambia. Con `imagen`, el estado apagado/encendido
+  // ya quedó resuelto arriba con `.modulate()`, y `circulo` se devuelve
+  // siempre opaco.
+  if (imagen || encendido) return circulo;
 
   return sharp(circulo)
     .composite([
@@ -276,15 +298,25 @@ export async function dibujarTiraDeSellos({
 
   // Margen de seguridad: iOS recorta la tira según el ancho del
   // teléfono, y lo que toca el filo es lo primero que se pierde en una
-  // pantalla angosta.
+  // pantalla angosta. `margenX` no se toca por eso —es el único de los
+  // dos con un riesgo de producción documentado—, pero `margenY` sí
+  // baja: el recorte de iOS es un fenómeno de ANCHO, no de alto, así que
+  // el 0.1 original era una precaución simétrica de más.
   const margenX = ancho * 0.07;
-  const margenY = alto * 0.1;
+  const margenY = alto * 0.07;
   const utilX = ancho - margenX * 2;
   const utilY = alto - margenY * 2;
 
+  // Sellos más grandes (pedido del dueño): los multiplicadores suben de
+  // 0.82/0.86 a 0.88/0.90, siempre como fracción de `utilX/porFila` y
+  // `utilY/filas` — el `Math.min(...)` sigue siendo la salvaguarda que
+  // impide desbordar el ancho fijo de 375pt. Verificado a mano contra
+  // metaSellos=10 (2 filas de 5, el caso más denso): diámetro ~48pt
+  // (antes ~42pt) con ~5.3pt de respiro vertical entre filas — círculos
+  // más grandes sin quedar pegados.
   const diametro = Math.max(
     8,
-    Math.round(Math.min((utilX / porFila) * 0.82, (utilY / filas) * 0.86)),
+    Math.round(Math.min((utilX / porFila) * 0.88, (utilY / filas) * 0.9)),
   );
   const pasoX = utilX / porFila;
   const pasoY = utilY / filas;
