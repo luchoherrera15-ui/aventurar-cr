@@ -309,8 +309,10 @@ export async function leerDatosHome(): Promise<DatosHome> {
   //   · RELLENO — no alcanzan, se completa con lo último publicado →
   //               «Recién publicados», que es lo que de verdad son.
   //
-  // Y si ni así hay tres pintables, el componente devuelve `null` y la
-  // sección no existe: mejor ausente que con dos tarjetas estiradas.
+  // El componente (`NegociosDestacados`) es el único que decide si la
+  // sección se pinta o no — hoy con 1 negocio pintable alcanza (ver
+  // `MIN_DESTACADOS`, pedido explícito del dueño). Acá no se recorta
+  // por cantidad, solo por el tope de cuatro tarjetas.
   const idsCurados = new Set(destacados.map((d) => d.id));
   const curados = pintables.filter((r) => idsCurados.has(r.id));
   const vitrinaPeek = [

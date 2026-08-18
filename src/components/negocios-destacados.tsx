@@ -65,11 +65,21 @@ import { SUBCATEGORIA_LABEL, type Rancho } from "@/app/mi-negocio/types";
 export const TOPE_DESTACADOS = 4;
 
 /**
- * El piso para pintar la sección. Con dos tarjetas estiradas a 1200 px
- * la portada grita que el directorio está vacío: mejor la sección
- * ausente. Es el mismo umbral que ya aplican los rieles (MIN_CARRIL).
+ * El piso para pintar la sección.
+ *
+ * Era 3 —el mismo umbral que los rieles de más abajo (MIN_CARRIL)—
+ * bajo el argumento de que dos tarjetas sueltas en una fila de 1200 px
+ * gritan que el directorio está vacío. Ese argumento no aplica ACÁ: a
+ * diferencia de un riel, esta grilla usa `grid-cols-3` con columnas
+ * fijas — con 1 o 2 tarjetas, cada una sigue midiendo 1/3 del ancho y
+ * queda a la izquierda; no se estira ni una para llenar el resto.
+ *
+ * Y el dueño lo pidió explícito después de una limpia de la base que
+ * dejó solo 2 negocios reales: quiere que el card de Rancho Las Torres
+ * se vea SIEMPRE, aunque sea el único. La sección vacía por completo
+ * —cero negocios— sigue ocultándose: no hay nada que mostrar ahí.
  */
-export const MIN_DESTACADOS = 3;
+export const MIN_DESTACADOS = 1;
 
 /** ₡ con separador de miles costarricense — igual que las cards. */
 function fmtColones(n: number) {
