@@ -42,8 +42,18 @@ export default async function AdminRanchosPage() {
       (a, b) => (a.destacado_orden ?? Infinity) - (b.destacado_orden ?? Infinity),
     );
 
-  const pendientes = ranchos.filter((r) => r.estado === "pendiente").length;
-  const publicados = ranchos.filter((r) => r.estado === "aprobado").length;
+  // ── LOS CONTADORES SON DEL DIRECTORIO, NO DE LEALTAD ─────────────
+  // Un cliente de Bookea Lealtad también nace en `estado='pendiente'`
+  // (nunca se publica), así que sin este filtro sumaba en «N por
+  // revisar» y mandaba al equipo a aprobar algo que no se aprueba.
+  //
+  // `!== false` y no `=== true`: contra una base sin la 0187 corrida la
+  // propiedad llega `undefined`, y con `=== true` los contadores del
+  // admin quedarían todos en CERO. Así degrada al default `true` de la
+  // columna, que es el comportamiento de siempre.
+  const delDirectorio = ranchos.filter((r) => r.en_marketplace !== false);
+  const pendientes = delDirectorio.filter((r) => r.estado === "pendiente").length;
+  const publicados = delDirectorio.filter((r) => r.estado === "aprobado").length;
 
   // El tope de 10 del carrusel es de TODO el sitio, no de la sección que
   // se está viendo: se cuenta sobre la lista sin filtrar. Contarlo sobre

@@ -508,7 +508,11 @@ export default function ReservarServicioScreen() {
     );
   }
 
-  const etiquetaCatalogo = CATALOGO_LABEL[rancho.categoria];
+  // `?? "Catálogo"`: `CATALOGO_LABEL` solo cubre las 6 categorías de
+  // Eventos, pero `ranchos.categoria` también puede traer una de Citas
+  // (0058). Sin esto, un `.toLowerCase()` sobre undefined tumba la
+  // pantalla — el mismo fallo que rompía el catálogo del panel.
+  const etiquetaCatalogo = CATALOGO_LABEL[rancho.categoria] ?? "Catálogo";
   const secciones = agruparPorSeccion(items);
   let paso = 1;
   const numServicio = pasoServicio ? ++paso : 0;

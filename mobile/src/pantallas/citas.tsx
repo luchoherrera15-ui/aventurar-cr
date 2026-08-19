@@ -12,7 +12,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import ChipsVerticales from "@/components/chips-verticales";
 import Buscador from "@/components/buscador";
+import BuscadorDesplegable, { recordarBusqueda } from "@/components/buscador-desplegable";
 import TarjetaNegocio from "@/components/tarjeta-negocio";
+import { esNegocioNuevo } from "@/components/tag-nuevo";
 import { ChipCategoria, Encabezado, Vacio } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { Colors, Spacing } from "@/constants/theme";
@@ -35,6 +37,8 @@ type Negocio = {
   canton: string | null;
   foto_url: string | null;
   precio_desde: number | null;
+  /** Para el tag "NUEVO" (ver `esNegocioNuevo`). */
+  created_at: string | null;
 };
 
 type Calificacion = { promedio: number; total: number };
@@ -74,12 +78,14 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
   const [errorCarga, setErrorCarga] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState<CategoriaCita | null>(null);
+  /** El panel de atajos que se abre al tocar el buscador. */
+  const [desplegable, setDesplegable] = useState(false);
 
   const cargar = useCallback(async () => {
     const [{ data: filas, error: errorNegocios }, { data: califs }] = await Promise.all([
       supabase
         .from("ranchos")
-        .select("id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde")
+        .select("id, nombre, slug, categoria, subcategoria, descripcion, provincia, canton, foto_url, precio_desde, created_at")
         .eq("vertical", "citas")
         .eq("estado", "aprobado")
         .order("created_at", { ascending: false }),
@@ -161,6 +167,15 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
   );
   const vistaFilas = !categoriaActiva && !normalizarTexto(busqueda).trim();
 
+  // Se recuerda la búsqueda solo si DIO algo: guardar un término que no
+  // encontró nada llenaría las recientes de intentos fallidos.
+  useEffect(() => {
+    const termino = busqueda.trim();
+    if (termino.length < 2 || filtrados.length === 0) return;
+    const timer = setTimeout(() => void recordarBusqueda(termino), 1200);
+    return () => clearTimeout(timer);
+  }, [busqueda, filtrados.length]);
+
   const renderTarjeta = (n: Negocio, ancho: "riel" | "completo") => (
     <TarjetaNegocio
       ancho={ancho}
@@ -172,9 +187,8 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
       ubicacion={[n.canton, n.provincia].filter(Boolean).join(", ") || null}
       precio={n.precio_desde ? fmtColones(n.precio_desde) : null}
       textoSinPrecio="Precios en línea"
-      cta="Reservar"
-      tonoCta="navy"
       demo={n.slug?.startsWith("demo-")}
+      nuevo={esNegocioNuevo(n.created_at)}
       onPress={() => router.push(`/citas/${n.id}` as never)}
     />
   );
@@ -219,17 +233,36 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
       ) : (
         <>
           {/* El buscador de agendas — el mismo componente en las cuatro
-              verticales: filtra en memoria por nombre, zona o rubro. */}
+              verticales: filtra en memoria por nombre, zona o rubro.
+              Al enfocarlo se abre el desplegable con Cerca / Ver mapa /
+              búsquedas recientes. */}
           <View style={styles.buscadorZona}>
             <Buscador
               valor={busqueda}
-              onCambiar={setBusqueda}
+              onCambiar={(v) => {
+                setBusqueda(v);
+                // Escribir cierra los atajos: ya está buscando.
+                if (v.trim()) setDesplegable(false);
+              }}
+              onFocus={() => setDesplegable(true)}
               placeholder={'Buscá por nombre, zona o rubro — ej. "uñas"'}
+            />
+            <BuscadorDesplegable
+              visible={desplegable}
+              vertical="citas"
+              onElegirTermino={setBusqueda}
+              onCerrar={() => setDesplegable(false)}
             />
           </View>
 
-          {/* Chips de categoría con conteo: "Todos" y solo las que
-              tienen negocios. */}
+          {/* EL SLIDEBAR DE RUBROS, completo.
+              Antes solo se dibujaban las categorías CON negocios
+              (`.filter(conteo > 0)`), así que el riel cambiaba de
+              contenido según qué hubiera cargado y nunca se veía el
+              catálogo real de lo que Bookea cubre. Ahora salen todas
+              siempre, en el orden oficial: las vacías van apagadas y no
+              se pueden tocar, pero se ven — es la vitrina de rubros,
+              no un filtro de resultados. */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -242,14 +275,18 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
               activo={categoriaActiva === null}
               onPress={() => setCategoriaActiva(null)}
             />
-            {CATEGORIAS_CITAS.filter((c) => (conteo[c] ?? 0) > 0).map((c) => (
-              <ChipCategoria
-                key={c}
-                texto={`${CATEGORIA_CITA_LABEL[c]} (${conteo[c]})`}
-                activo={categoriaActiva === c}
-                onPress={() => setCategoriaActiva(categoriaActiva === c ? null : c)}
-              />
-            ))}
+            {CATEGORIAS_CITAS.map((c) => {
+              const n = conteo[c] ?? 0;
+              return (
+                <ChipCategoria
+                  key={c}
+                  texto={n > 0 ? `${CATEGORIA_CITA_LABEL[c]} (${n})` : CATEGORIA_CITA_LABEL[c]}
+                  activo={categoriaActiva === c}
+                  apagado={n === 0}
+                  onPress={() => n > 0 && setCategoriaActiva(categoriaActiva === c ? null : c)}
+                />
+              );
+            })}
           </ScrollView>
 
           {filtrados.length === 0 ? (

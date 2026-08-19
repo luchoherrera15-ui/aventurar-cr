@@ -322,15 +322,15 @@ export default function RestauranteFichaScreen() {
                     style={{ flex: 1 }}
                   />
                 )}
-                <Boton
-                  compacto
-                  tono="contorno"
-                  texto="Escribirle"
-                  icono="chatbubble-ellipses-outline"
-                  cargando={abriendo}
-                  onPress={() => escribir("consulta")}
-                  style={{ flex: 1 }}
-                />
+                {/* "Escribirle" se fue a propósito: un restaurante es
+                    una TIENDA, y el producto se movió a "lo más
+                    automatizado posible" — se reserva o se pide, no se
+                    chatea. La consulta libre quedó solo en
+                    Eventos/Ranchos, donde armar el evento sí necesita
+                    hablar (ver `rancho/[id].tsx`). Los dos botones de
+                    arriba —reservar mesa, pedir para recoger— siguen
+                    abriendo su hilo con el pedido ya escrito: eso no es
+                    "chatear", es mandar una orden concreta. */}
               </View>
               {whatsapp && (
                 <Pressable

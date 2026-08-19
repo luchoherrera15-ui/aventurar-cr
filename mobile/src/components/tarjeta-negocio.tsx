@@ -1,12 +1,13 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Fonts, Radios, Sombras, Spacing, type TonoAccion } from "@/constants/theme";
+import TagNuevo from "@/components/tag-nuevo";
+import { Colors, Fonts, Radios, Sombras, Spacing } from "@/constants/theme";
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
 /** El ancho de una tarjeta dentro de un riel horizontal. */
-export const ANCHO_RIEL = 268;
+export const ANCHO_RIEL = 186;
 
 /**
  * La tarjeta de un negocio en cualquier directorio — la misma para un
@@ -14,10 +15,16 @@ export const ANCHO_RIEL = 268;
  * el componente más duplicado de la app (cuatro copias casi idénticas
  * con estilos que se iban separando); ahora vive una sola vez.
  *
- * La estructura es la del mockup: foto arriba con el rubro rotulado en
- * micro-mayúsculas, cuerpo con nombre y línea de contexto, y un pie
- * separado por línea donde el precio va a la izquierda y la acción —
- * siempre naranja — a la derecha.
+ * ── LA FORMA: FOTO CUADRADA + PIE BLANCO, TODO MÁS CHICO ───────────
+ * La tarjeta blanca se queda (se probó sin ella y se veía peor: el
+ * texto suelto sobre el fondo perdía el agrupamiento), pero encogió:
+ * foto CUADRADA en vez de apaisada, tipografía chica y un pie de dos
+ * renglones sin línea divisoria ni fila de CTA. Así entran bastantes
+ * más por pantalla sin que se pierda la unidad visual del card.
+ *
+ * El precio y el CTA se fusionaron en un solo renglón: en un card de
+ * 186px "Desde ₡25.000" y "Reservar →" en extremos opuestos con una
+ * línea divisoria era más ruido que información.
  */
 export default function TarjetaNegocio({
   nombre,
@@ -29,10 +36,9 @@ export default function TarjetaNegocio({
   precio,
   sufijoPrecio,
   textoSinPrecio = "Consultar",
-  cta = "Reservar",
-  tonoCta = "reservar",
   distintivos,
   demo = false,
+  nuevo = false,
   pausado = false,
   ancho = "completo",
   favorito,
@@ -51,12 +57,12 @@ export default function TarjetaNegocio({
   /** Lo que sigue al monto: "por noche", "por persona"… */
   sufijoPrecio?: string;
   textoSinPrecio?: string;
-  cta?: string;
-  /** El acento de la vertical (ver `VERTICALES` en theme.ts). */
-  tonoCta?: TonoAccion;
   /** Etiquetas de lo que se puede hacer acá ("Reservá mesa"). */
   distintivos?: string[];
   demo?: boolean;
+  /** Se registró hace poco: lleva el tag "NUEVO" con su punto verde
+   *  (ver `esNegocioNuevo` en components/tag-nuevo.tsx). */
+  nuevo?: boolean;
   /**
    * En pausa (`detalles.en_configuracion`): el dueño todavía la está
    * armando. Se sigue viendo en el directorio pero NO se abre — igual
@@ -134,63 +140,57 @@ export default function TarjetaNegocio({
             </Pressable>
           )}
         </View>
+
+        {/* El tag va ABAJO de la foto, adentro — pedido textual. Es el
+            primero del sistema de tags; los que vengan se suman a esta
+            misma fila. */}
+        {nuevo && !pausado && (
+          <View style={styles.tagsFoto}>
+            <TagNuevo />
+          </View>
+        )}
       </View>
 
+      {/* El texto va SUELTO bajo la foto, sin caja blanca ni línea
+          divisoria: dos renglones chicos y nada más. */}
       <View style={styles.cuerpo}>
         <Text style={styles.nombre} numberOfLines={1}>
           {nombre}
         </Text>
 
-        {/* La línea de contexto del mockup: nota, rubro y zona juntos. */}
+        {/* Un solo renglón de contexto: nota, zona y precio. Antes
+            eran tres bloques (meta, distintivos y un pie con borde)
+            que en un card chico no cabían sin apretarse. */}
         <View style={styles.meta}>
           {calificacion && calificacion.total > 0 ? (
             <>
-              <Ionicons name="star" size={11} color={Colors.accent} />
+              <Ionicons name="star" size={10} color={Colors.accent} />
               <Text style={styles.metaFuerte}>
                 {calificacion.promedio.toFixed(1).replace(".", ",")}
               </Text>
-              <Text style={styles.metaTexto}>({calificacion.total})</Text>
             </>
-          ) : (
-            <Text style={styles.metaTexto}>Sin reseñas</Text>
-          )}
+          ) : null}
           {!!ubicacion && (
             <Text style={styles.metaTexto} numberOfLines={1}>
-              · {ubicacion}
+              {calificacion && calificacion.total > 0 ? "· " : ""}
+              {ubicacion}
             </Text>
           )}
         </View>
 
-        {!!distintivos?.length && (
-          <View style={styles.distintivos}>
-            {distintivos.map((d) => (
-              <View key={d} style={styles.distintivo}>
-                <Text style={styles.distintivoTexto}>{d}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View style={styles.pie}>
-          <Text style={styles.precio} numberOfLines={1}>
-            {precio ? (
-              <>
-                Desde <Text style={styles.precioMonto}>{precio}</Text>
-                {sufijoPrecio ? ` ${sufijoPrecio}` : ""}
-              </>
-            ) : (
-              textoSinPrecio
-            )}
-          </Text>
-          <Text
-            style={[
-              styles.cta,
-              { color: pausado ? Colors.inkMuted : tonoCta === "navy" ? Colors.navy : Colors.accent },
-            ]}
-          >
-            {pausado ? "En configuración" : `${cta} →`}
-          </Text>
-        </View>
+        <Text style={styles.precio} numberOfLines={1}>
+          {pausado ? (
+            "En configuración"
+          ) : precio ? (
+            <>
+              <Text style={styles.precioMonto}>{precio}</Text>
+              {sufijoPrecio ? ` ${sufijoPrecio}` : ""}
+            </>
+          ) : (
+            textoSinPrecio
+          )}
+          {!!distintivos?.length && ` · ${distintivos.join(" · ")}`}
+        </Text>
       </View>
     </Pressable>
   );
@@ -206,10 +206,20 @@ const styles = StyleSheet.create({
     ...Sombras.tarjeta,
   },
   fotoMarco: { backgroundColor: Colors.blueLight },
-  fotoRiel: { height: 158 },
-  fotoCompleta: { aspectRatio: 16 / 10 },
+  // Cuadrada en las dos variantes: es la forma que pidió el dueño y la
+  // que mejor aguanta una foto de negocio (un plato, una fachada, una
+  // silla de barbería) sin recortar lo importante.
+  fotoRiel: { aspectRatio: 1 },
+  fotoCompleta: { aspectRatio: 1 },
   foto: { height: "100%", width: "100%" },
   fotoVacia: { alignItems: "center", flex: 1, justifyContent: "center" },
+  tagsFoto: {
+    bottom: 8,
+    flexDirection: "row",
+    gap: 5,
+    left: 8,
+    position: "absolute",
+  },
 
   etiqueta: {
     backgroundColor: "rgba(255,255,255,0.94)",
@@ -270,32 +280,12 @@ const styles = StyleSheet.create({
     width: 30,
   },
 
-  cuerpo: { padding: Spacing.three },
-  nombre: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 16, letterSpacing: -0.3 },
-  meta: { alignItems: "center", flexDirection: "row", gap: 3, marginTop: 3 },
-  metaFuerte: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 12 },
-  metaTexto: { color: Colors.inkSoft, flexShrink: 1, fontFamily: Fonts.medium, fontSize: 12 },
-
-  distintivos: { flexDirection: "row", flexWrap: "wrap", gap: 5, marginTop: 8 },
-  distintivo: {
-    backgroundColor: Colors.blueLight,
-    borderRadius: 8,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  distintivoTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 10.5 },
-
-  pie: {
-    alignItems: "center",
-    borderTopColor: Colors.line,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    gap: Spacing.two,
-    justifyContent: "space-between",
-    marginTop: 11,
-    paddingTop: 10,
-  },
-  precio: { color: Colors.inkSoft, flex: 1, fontFamily: Fonts.medium, fontSize: 12.5 },
+  // El pie blanco, compacto: dos renglones y nada de línea divisoria.
+  cuerpo: { paddingHorizontal: Spacing.two + 2, paddingVertical: Spacing.two },
+  nombre: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 13.5, letterSpacing: -0.2 },
+  meta: { alignItems: "center", flexDirection: "row", gap: 3, marginTop: 2 },
+  metaFuerte: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 11 },
+  metaTexto: { color: Colors.inkSoft, flexShrink: 1, fontFamily: Fonts.medium, fontSize: 11 },
+  precio: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 2 },
   precioMonto: { color: Colors.ink, fontFamily: Fonts.extraBold },
-  cta: { color: Colors.accent, fontFamily: Fonts.extraBold, fontSize: 12.5 },
 });

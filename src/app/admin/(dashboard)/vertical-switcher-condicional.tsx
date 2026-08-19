@@ -19,8 +19,14 @@ import type { SeccionAdmin } from "./vertical";
  * porque el layout es un Server Component y no tiene forma de saber en
  * qué ruta está sin leer el pathname del navegador.
  */
-export default function VerticalSwitcherCondicional({ actual }: { actual: SeccionAdmin }) {
+export default function VerticalSwitcherCondicional({
+  actual,
+  variante,
+}: {
+  actual: SeccionAdmin;
+  variante?: "barra" | "rail";
+}) {
   const pathname = usePathname();
   if (pathname?.startsWith("/admin/complementos")) return null;
-  return <VerticalSwitcher actual={actual} />;
+  return <VerticalSwitcher actual={actual} variante={variante} />;
 }

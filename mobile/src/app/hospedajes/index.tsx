@@ -6,6 +6,7 @@ import BarraRapida, { BARRA_RAPIDA_ESPACIO } from "@/components/barra-rapida";
 import ChipsVerticales from "@/components/chips-verticales";
 import Buscador from "@/components/buscador";
 import TarjetaNegocio from "@/components/tarjeta-negocio";
+import { esNegocioNuevo } from "@/components/tag-nuevo";
 import { ChipCategoria, Vacio } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { Colors, Spacing } from "@/constants/theme";
@@ -28,6 +29,8 @@ type Hospedaje = {
   canton: string | null;
   foto_url: string | null;
   precio_desde: number | null;
+  /** Para el tag "NUEVO" (ver `esNegocioNuevo`). */
+  created_at: string | null;
 };
 
 type Calificacion = { promedio: number; total: number };
@@ -59,7 +62,7 @@ export default function HospedajesDirectorioScreen() {
     const [{ data: filas, error: errorHospedajes }, { data: califs }] = await Promise.all([
       supabase
         .from("ranchos")
-        .select("id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde")
+        .select("id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde, created_at")
         .eq("vertical", "hospedajes")
         .eq("estado", "aprobado")
         .order("created_at", { ascending: false }),
@@ -243,9 +246,8 @@ export default function HospedajesDirectorioScreen() {
                   ubicacion={[h.canton, h.provincia].filter(Boolean).join(", ") || null}
                   precio={h.precio_desde ? fmtColones(h.precio_desde) : null}
                   sufijoPrecio="por noche"
-                  cta="Reservar"
-                  tonoCta="navy"
                   demo={h.slug?.startsWith("demo-")}
+                  nuevo={esNegocioNuevo(h.created_at)}
                   onPress={() => router.push(`/rancho/${h.id}` as never)}
                 />
               )}

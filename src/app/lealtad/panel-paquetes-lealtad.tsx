@@ -64,7 +64,7 @@ export default function PanelPaquetesLealtad({
         cualquiera de estos — vas a ver todo antes de crear cuenta.
       </p>
 
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-5 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         {PLANES_VIGENTES.map((def) => (
           <TarjetaPlanLectura
             key={def.id}
@@ -129,7 +129,7 @@ function TarjetaPlanLectura({
 
   return (
     <div
-      className={`flex flex-col rounded-2xl border p-3.5 ${
+      className={`flex flex-col rounded-2xl border p-5 ${
         resaltado
           ? "border-bookea-azul bg-bookea-azul-suave"
           : destacado
@@ -139,31 +139,41 @@ function TarjetaPlanLectura({
     >
       {resaltado ? (
         <span
-          className="mb-1.5 self-start rounded-full px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wide"
+          className="mb-2 self-start rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide"
           style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
         >
           Con lo que elegiste
         </span>
       ) : destacado ? (
-        <span className="mb-1.5 self-start rounded-full bg-orange-50 px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-wide text-orange-700">
+        // El punto verde "en vivo" —mismo tono que el de la barra de
+        // "Armá tu tarjeta acá mismo" (configurador-lealtad.tsx)— llama
+        // la atención sin competir con el naranja de la píldora.
+        <span className="mb-2 flex w-fit items-center gap-1.5 self-start rounded-full bg-orange-50 py-1 pl-2 pr-2.5 text-[10px] font-extrabold uppercase tracking-wide text-orange-700">
+          <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
+            <span
+              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+              style={{ background: "#20ae74" }}
+            />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: "#20ae74" }} />
+          </span>
           El más popular
         </span>
       ) : (
-        <span className="mb-1.5 h-[19px]" aria-hidden />
+        <span className="mb-2 h-[21px]" aria-hidden />
       )}
 
-      <h3 className="text-[14.5px] font-extrabold text-bookea-tinta">{def.nombre}</h3>
-      <p className="mt-0.5 text-[17px] font-extrabold leading-none text-bookea-tinta">
+      <h3 className="text-[15px] font-extrabold text-bookea-tinta">{def.nombre}</h3>
+      <p className="mt-1 text-[20px] font-extrabold leading-none text-bookea-tinta">
         {precio === null ? "A convenir" : esGratis ? "Gratis" : precio}
         {!esGratis && precio !== null && (
-          <span className="text-[11px] font-bold text-bookea-gris"> /mes</span>
+          <span className="text-[11.5px] font-bold text-bookea-gris"> /mes</span>
         )}
       </p>
 
-      <ul className="mt-2.5 flex-1 space-y-1">
+      <ul className="mt-3.5 flex-1 space-y-1.5">
         {beneficios.map((b) => (
-          <li key={b} className="flex items-start gap-1.5 text-[11px] leading-snug text-bookea-gris">
-            <Icono nombre="listo" className="mt-0.5 h-3 w-3 shrink-0 text-bookea-azul" />
+          <li key={b} className="flex items-start gap-1.5 text-[11.5px] leading-snug text-bookea-gris">
+            <Icono nombre="listo" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-bookea-azul" />
             {b}
           </li>
         ))}
@@ -172,7 +182,7 @@ function TarjetaPlanLectura({
       <button
         type="button"
         onClick={onElegir}
-        className={`presionable mt-3 w-full rounded-full px-3 py-2.5 text-[12px] font-extrabold ${
+        className={`presionable mt-4 w-full rounded-full px-3 py-3 text-[12.5px] font-extrabold ${
           botonDestacado ? "" : "border border-bookea-linea text-bookea-azul"
         }`}
         style={botonDestacado ? { background: "var(--accion)", color: "var(--accion-tinta)" } : undefined}

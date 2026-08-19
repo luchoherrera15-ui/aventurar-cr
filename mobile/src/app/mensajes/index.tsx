@@ -1,7 +1,9 @@
 import { Redirect } from "expo-router";
 
-// La pestaña vive en el pager del inicio — esta ruta solo redirige
-// para que los enlaces internos viejos sigan funcionando.
+// "Mensajes" dejó de ser una pestaña del menú inferior: la bandeja es
+// ahora "Consultas" (`/consultas`), y solo se llega desde Perfil o
+// desde la barra del panel del negocio. Esta ruta se queda para que
+// cualquier enlace viejo (push, correo, deep link) siga cayendo bien.
 export default function MensajesRedirect() {
-  return <Redirect href="/?tab=mensajes" />;
+  return <Redirect href={"/consultas" as never} />;
 }

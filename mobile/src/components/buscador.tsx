@@ -14,12 +14,15 @@ export default function Buscador({
   onCambiar,
   placeholder,
   filtros,
+  onFocus,
 }: {
   valor: string;
   onCambiar: (v: string) => void;
   placeholder: string;
   /** El botón de al lado; `activos` pinta el contador. */
   filtros?: { activos: number; onPress: () => void };
+  /** Abre el desplegable de atajos (Cerca / Ver mapa / recientes). */
+  onFocus?: () => void;
 }) {
   return (
     <View style={styles.fila}>
@@ -28,6 +31,7 @@ export default function Buscador({
         <TextInput
           value={valor}
           onChangeText={onCambiar}
+          onFocus={onFocus}
           placeholder={placeholder}
           placeholderTextColor="#98a0b0"
           style={styles.input}

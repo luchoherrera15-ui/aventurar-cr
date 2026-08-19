@@ -457,13 +457,18 @@ export default function RanchoDetalleScreen() {
           </View>
         )}
 
-        {/* ---------- Dudas antes de reservar: chat de consulta ---------- */}
+        {/* ---------- Dudas antes de reservar: LA consulta ----------
+            Este es el ÚNICO lugar de la app donde se abre una
+            conversación: armar un evento (fecha, cantidad de gente,
+            qué incluye) sí necesita hablar con el proveedor. En las
+            demás verticales —citas, restaurantes, hospedajes— se
+            reserva o se pide, no se chatea. */}
         {!esPropioDueno && (
           <View style={styles.seccion}>
             <Boton
               tono="contorno"
               icono="chatbubble-ellipses-outline"
-              texto={abriendoChat ? "Abriendo chat…" : "¿Tenés dudas? Preguntá por el chat"}
+              texto={abriendoChat ? "Abriendo la consulta…" : "Consultar"}
               cargando={abriendoChat}
               onPress={preguntarPorChat}
             />
@@ -607,7 +612,7 @@ export default function RanchoDetalleScreen() {
           {!esPropioDueno && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Chateá con ${rancho.nombre}`}
+              accessibilityLabel={`Consultar a ${rancho.nombre}`}
               style={[styles.barraChat, abriendoChat && { opacity: 0.5 }]}
               disabled={abriendoChat}
               onPress={preguntarPorChat}

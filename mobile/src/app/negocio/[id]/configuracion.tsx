@@ -194,13 +194,24 @@ export default function ConfiguracionNegocioScreen() {
           <View style={{ gap: Spacing.two }}>
             <Micro>Modo</Micro>
             <Lista>
-              <FilaLista primera onPress={() => router.replace("/?tab=perfil" as never)}>
+              {/* Pasa por la MISMA pantalla de transición animada que la
+                  entrada al modo negocio (`/entrando-negocio`), con el
+                  ícono de persona en vez de la casita: el cambio de
+                  modo se siente igual en los dos sentidos. */}
+              <FilaLista
+                primera
+                onPress={() =>
+                  router.replace(
+                    "/entrando-negocio?modo=usuario&destino=%2F%3Ftab%3Dperfil" as never,
+                  )
+                }
+              >
                 <View style={styles.burbuja}>
                   <Ionicons name="person-outline" size={17} color={Colors.navy} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={styles.titulo}>Volver a modo cliente</Text>
-                  <Text style={styles.detalle}>Explorar, reservar y tus mensajes.</Text>
+                  <Text style={styles.titulo}>Modo usuario</Text>
+                  <Text style={styles.detalle}>Explorar, reservar y tus consultas.</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={Colors.inkMuted} />
               </FilaLista>

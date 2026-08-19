@@ -1,411 +1,364 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { gastoDelMesIA } from "@/lib/ia/config-ia";
-import { formatearCRC, formatearUSD } from "@/lib/ia/modelos";
 import TableroPendientes from "./pendientes";
-import { perteneceASeccion, SECCION_LABEL } from "./vertical";
+import { SECCION_LABEL } from "./vertical";
 import { seccionActiva } from "./vertical-server";
+import { datosDelTablero, type Metrica } from "./tablero/datos";
+import {
+  BarraDesglose,
+  Chispa,
+  ColumnasApiladas,
+  ColumnasDiarias,
+  mesCorto,
+} from "./tablero/graficos";
+import { IconChart, IconReserva, IconSobre, IconUsers } from "./iconos-admin";
+
+/**
+ * EL TABLERO DEL PANEL ADMIN.
+ *
+ * Antes esto era una grilla de quince tarjetas que solo decían adónde
+ * ir. Ahora ir a algún lado es trabajo de la barra lateral, y esta
+ * pantalla hace lo que una portada de panel tiene que hacer: contestar
+ * "¿cómo viene la cosa?" sin que nadie tenga que entrar a seis
+ * secciones a sumar de memoria.
+ *
+ * ── LO QUE NO SE MUESTRA ───────────────────────────────────────────
+ * Nada que no salga de una fuente real. Cada número de acá tiene su
+ * consulta en `tablero/datos.ts` y su comentario diciendo de qué tabla
+ * sale. Si falta la llave de servicio, la pantalla lo dice en rojo en
+ * vez de pintar ceros — un cero falso en un tablero hace tomar
+ * decisiones equivocadas con toda confianza.
+ */
+
+const CRC = new Intl.NumberFormat("es-CR", {
+  style: "currency",
+  currency: "CRC",
+  maximumFractionDigits: 0,
+});
+const colones = (n: number) => CRC.format(n);
+const USD = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
+const MESES_LARGOS = [
+  "enero", "febrero", "marzo", "abril", "mayo", "junio",
+  "julio", "agosto", "setiembre", "octubre", "noviembre", "diciembre",
+];
+
+function fechaLarga(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${d} de ${MESES_LARGOS[(m ?? 1) - 1]} de ${y}`;
+}
 
 export default async function AdminHubPage() {
-  const supabase = await createClient();
   const seccion = await seccionActiva();
+  const d = await datosDelTablero(seccion);
 
-  const [ranchosRes, perfilesRes] = await Promise.all([
-    supabase.from("ranchos").select("id, estado, vertical"),
-    supabase.from("perfiles").select("id"),
-  ]);
-
-  const ranchos = (ranchosRes.data ?? []).filter((r) =>
-    perteneceASeccion(r.vertical, seccion),
-  );
-
-  const ranchosPendientes = ranchos.filter((r) => r.estado === "pendiente").length;
-  const ranchosPublicados = ranchos.filter((r) => r.estado === "aprobado").length;
-  const cuentas = (perfilesRes.data ?? []).length;
-
-  // Lo que llevamos gastado en IA este mes, sumado en la base y con el
-  // mes contado en hora de Costa Rica — el mismo que muestra /admin/ia.
-  // Los colones vienen congelados de cada llamada, así que corregir el
-  // tipo de cambio no mueve un total ya cerrado. Si la migración 0078
-  // todavía no corrió, la suma vuelve en cero y la tarjeta muestra su
-  // texto genérico en vez de un ₡0 que parecería un dato.
-  const gastoIA = await gastoDelMesIA();
-  const statIA =
-    gastoIA.usd > 0
-      ? `${formatearUSD(gastoIA.usd)} · ${formatearCRC(gastoIA.crc)} este mes`
-      : "Gasto · Modelos · Conocimiento";
+  const mesEnCurso = d.libro[d.libro.length - 1];
+  const mesPrevio = d.libro[d.libro.length - 2];
+  const totalMes = mesEnCurso
+    ? mesEnCurso.reservas + mesEnCurso.modulos + mesEnCurso.invitaciones
+    : 0;
+  const totalPrevio = mesPrevio
+    ? mesPrevio.reservas + mesPrevio.modulos + mesPrevio.invitaciones
+    : 0;
 
   return (
-    <div className="relative isolate">
-      <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
-        Panel Admin{seccion !== "todas" ? ` · ${SECCION_LABEL[seccion]}` : ""}
-      </p>
-      <h1 className="titulo mt-1 text-2xl text-aventurea-ink">
-        ¿Qué querés gestionar?
-      </h1>
-      <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
-        Todas las secciones del panel en un solo lugar: elegí una para entrar.
-      </p>
+    <div className="flex flex-col gap-6">
+      <div>
+        <p className="flex items-center gap-2 text-[11px] font-light tracking-[0.16em] text-aventurea-navy uppercase before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
+          Panel Admin{seccion !== "todas" ? ` · ${SECCION_LABEL[seccion]}` : ""}
+        </p>
+        <h1 className="titulo mt-1 text-2xl text-aventurea-ink">{fechaLarga(d.hasta)}</h1>
+        <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
+          Los últimos 30 días, contados en hora de Costa Rica.
+        </p>
+      </div>
 
-      {/* El aviso suelto de "tenés N publicaciones por aprobar" lo
-          reemplaza el tablero: contaba una sola cosa de las seis que
-          pueden estar esperando. */}
+      {d.sinLlave && (
+        <p
+          role="alert"
+          className="rounded-2xl border border-red-300 bg-red-50 px-4 py-3.5 text-[13px] font-bold leading-relaxed text-red-900"
+        >
+          Falta <code>SUPABASE_SERVICE_ROLE_KEY</code>. Sin esa llave, los pases, los cobros de
+          módulos y los pedidos de invitación devuelven cero sin dar error — así que el tablero
+          NO muestra números en vez de mostrarlos mal.
+        </p>
+      )}
+
       <TableroPendientes seccion={seccion} />
 
-      {/* Las secciones que antes vivían en el menú del header, como
-          cards compactas: icono y título en una línea para que quepan
-          hasta cuatro por fila. */}
-      <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        <HubCard
-          href="/admin/ranchos"
-          title="Publicaciones"
-          descripcion="Aprobá o rechazá los negocios que se registran, editá los publicados o dá de alta uno vos mismo."
-          stat={`${ranchosPublicados} publicada${ranchosPublicados === 1 ? "" : "s"}`}
-          alerta={ranchosPendientes > 0 ? `${ranchosPendientes} por revisar` : null}
-          icon={<IconNegocio />}
-        />
-        <HubCard
-          href="/admin/eventos"
-          title="Reservas"
-          descripcion="Todas las reservas de la plataforma: estado, fechas y detalle de cada una."
-          stat={null}
-          alerta={null}
-          icon={<IconReserva />}
-        />
-        <HubCard
-          href="/admin/agenda"
-          title="Agenda"
-          descripcion="Los próximos eventos confirmados de todos los negocios, ordenados por fecha."
-          stat={null}
-          alerta={null}
-          icon={<IconCalendario />}
-        />
-        <HubCard
-          href="/admin/finanzas"
-          title="Finanzas"
-          descripcion="Las comisiones y gastos de los alquileres, y lo que entra por invitaciones digitales."
-          stat="Alquileres · Promoción · Invitaciones"
-          alerta={null}
-          icon={<IconChart />}
-        />
-        <HubCard
-          href="/admin/auditoria"
-          title="Auditoría del dinero"
-          descripcion="El recorrido completo de cada reserva: adelanto, saldo y la comisión que devengó y cobró Bookea."
-          stat="Depósitos · Cobros · Descuadres"
-          alerta={null}
-          icon={<IconLupa />}
-        />
-        <HubCard
-          href="/admin/invitaciones"
-          title="Invitaciones digitales"
-          descripcion="Creá la invitación, asignásela a un cliente y seguí en vivo las confirmaciones."
-          stat="Producto propio de Bookea"
-          alerta={null}
-          icon={<IconSobre />}
-        />
-        <HubCard
-          href="/admin/usuarios"
-          title="Cuentas y accesos"
-          descripcion="Cuentas nuevas, correos y contraseñas de los dueños, y permisos de administrador."
-          stat={`${cuentas} cuenta${cuentas === 1 ? "" : "s"} registrada${cuentas === 1 ? "" : "s"}`}
-          alerta={null}
-          icon={<IconUsers />}
-        />
-        <HubCard
-          href="/admin/complementos"
-          title="Complementos"
-          descripcion="Los módulos y add-ons que cada negocio tiene activos en su panel."
-          stat={null}
-          alerta={null}
-          icon={<IconComplemento />}
-        />
-        {/* Soporte general del sitio (bookea.lat/ayuda): cualquiera que
-            visite, tenga o no negocio, le escribe acá a Bookea. Aparte
-            de Complementos a propósito — ver el comentario de cabecera
-            de admin/ayuda/page.tsx. */}
-        <HubCard
-          href="/admin/ayuda"
-          title="Hablá con Bookea"
-          descripcion="Los mensajes de soporte de quien escribe desde bookea.lat/ayuda, tenga o no cuenta."
-          stat={null}
-          alerta={null}
-          icon={<IconChat />}
-        />
-        {/* La cola de la API de Lealtad va APARTE de Complementos: acá
-            no se decide un plan ni un cobro, se decide a quién se le
-            permite existir como integrador de datos de terceros. */}
-        <HubCard
-          href="/admin/developers"
-          title="Developers de la API"
-          descripcion="Quién pide acceso a la API de Lealtad, con qué permisos y para qué. Aprobar no abre datos: eso lo decide cada negocio."
-          stat={null}
-          alerta={null}
-          icon={<IconComplemento />}
-        />
-        <HubCard
-          href="/admin/modulos"
-          title="Ingresos de los módulos"
-          descripcion="Cuánto se cobra por los paquetes de Lealtad y los complementos, separado por SINPE y por Stripe."
-          stat="SINPE · Stripe · Cortesías"
-          alerta={null}
-          icon={<IconLibro />}
-        />
-        <HubCard
-          href="/admin/campanas"
-          title="Campañas"
-          descripcion="Campañas de correo para dueños y clientes de la plataforma."
-          stat={null}
-          alerta={null}
-          icon={<IconCampana />}
-        />
-        <HubCard
-          href="/admin/eventos/precios"
-          title="Precios"
-          descripcion="Los precios y servicios que se muestran en las publicaciones de eventos."
-          stat={null}
-          alerta={null}
-          icon={<IconEtiqueta />}
-        />
-        <HubCard
-          href="/admin/almacenamiento"
-          title="Almacenamiento"
-          descripcion="Quién está pesando más en storage y cuánto cuesta guardarlo y servirlo."
-          stat={null}
-          alerta={null}
-          icon={<IconAlmacen />}
-        />
-        <HubCard
-          href="/admin/ia"
-          title="Inteligencia artificial"
-          descripcion="Cuánto gastan los asistentes, con qué modelo trabaja cada uno y qué sabe el chat."
-          stat={statIA}
-          alerta={null}
-          icon={<IconIA />}
-        />
-      </div>
+      {!d.sinLlave && (
+        <>
+          {/* ── Los cuatro números ───────────────────────────────── */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <TarjetaMetrica
+              rotulo="Reservas creadas"
+              metrica={d.reservas}
+              icono={<IconReserva />}
+              pie="Sin los bloqueos ni lo importado del calendario"
+            />
+            <TarjetaMetrica
+              rotulo="Cuentas nuevas"
+              metrica={d.clientes}
+              icono={<IconUsers />}
+              pie={
+                seccion === "todas"
+                  ? "De toda la plataforma"
+                  : "De toda la plataforma — no se parte por sección"
+              }
+            />
+            <TarjetaMetrica
+              rotulo="Pases emitidos"
+              metrica={d.pases}
+              icono={<IconChart />}
+              pie={`${d.pasesPorPlataforma.apple} Apple · ${d.pasesPorPlataforma.google} Google`}
+            />
+            <TarjetaMetrica
+              rotulo="Pedidos de invitación"
+              metrica={d.pedidos}
+              icono={<IconSobre />}
+              pie="Producto propio — no se parte por sección"
+            />
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+            {/* ── Lo que entra ──────────────────────────────────── */}
+            <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-[15px] font-bold text-aventurea-ink">Lo que entra</h2>
+                  <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
+                    Comisión de reservas, paquetes de Lealtad e invitaciones.
+                  </p>
+                </div>
+                <Link
+                  href="/admin/finanzas"
+                  className="shrink-0 text-[12.5px] font-bold text-aventurea-navy hover:text-aventurea-orange"
+                >
+                  Finanzas →
+                </Link>
+              </div>
+
+              <p className="mt-4 text-[38px] leading-none font-extrabold text-aventurea-ink">
+                {colones(totalMes)}
+              </p>
+              <p className="mt-1.5 text-[12.5px] text-aventurea-ink-soft">
+                {mesEnCurso ? `En ${mesCorto(mesEnCurso.mes)}, hasta hoy.` : "Sin datos."}
+                {totalPrevio > 0 && ` El mes pasado completo: ${colones(totalPrevio)}.`}
+              </p>
+
+              <div className="mt-5">
+                <ColumnasApiladas
+                  columnas={d.libro.map((m) => ({
+                    etiqueta: mesCorto(m.mes),
+                    partes: [
+                      { nombre: "Reservas", valor: m.reservas, clase: "bg-aventurea-navy" },
+                      { nombre: "Módulos", valor: m.modulos, clase: "bg-aventurea-sky" },
+                      { nombre: "Invitaciones", valor: m.invitaciones, clase: "bg-aventurea-green" },
+                    ],
+                  }))}
+                  formato={colones}
+                />
+              </div>
+
+              {mesEnCurso && (
+                <div className="mt-5 flex flex-col gap-3 border-t border-aventurea-line pt-4">
+                  <BarraDesglose
+                    nombre="Comisión de reservas"
+                    valor={mesEnCurso.reservas}
+                    total={totalMes}
+                    clase="bg-aventurea-navy"
+                    formato={colones}
+                  />
+                  <BarraDesglose
+                    nombre="Paquetes y complementos"
+                    valor={mesEnCurso.modulos}
+                    total={totalMes}
+                    clase="bg-aventurea-sky"
+                    formato={colones}
+                  />
+                  <BarraDesglose
+                    nombre="Invitaciones digitales"
+                    valor={mesEnCurso.invitaciones}
+                    total={totalMes}
+                    clase="bg-aventurea-green"
+                    formato={colones}
+                  />
+                </div>
+              )}
+
+              {d.dolaresDelMes > 0 && (
+                <p className="mt-3.5 border-t border-aventurea-line pt-3 text-[12.5px] text-aventurea-ink-soft">
+                  Además, en dólares: <strong>{USD.format(d.dolaresDelMes)}</strong>. Va aparte
+                  porque no guardamos el tipo de cambio de cada cobro — sumarlo a los colones
+                  sería inventar la cifra.
+                </p>
+              )}
+            </section>
+
+            {/* ── Estado de las fuentes ─────────────────────────── */}
+            <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
+              <h2 className="text-[15px] font-bold text-aventurea-ink">Estado de las fuentes</h2>
+              <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
+                Lo que hace confiables a los números de arriba.
+              </p>
+
+              <ul className="mt-4 flex flex-col gap-2.5">
+                <Chequeo
+                  ok
+                  texto="Llave de servicio presente — se leen todas las tablas."
+                />
+                <VigiaDelCron ultimo={d.ultimoDevengo} hoy={d.hasta} />
+                <Chequeo
+                  ok={d.seriesTruncadas.length === 0}
+                  texto={
+                    d.seriesTruncadas.length === 0
+                      ? "Ninguna serie tocó el techo de 1000 filas."
+                      : `La serie de ${d.seriesTruncadas.join(" y ")} tocó el techo de 1000 filas: los días más nuevos pueden estar cortados.`
+                  }
+                />
+              </ul>
+
+              <div className="mt-5 border-t border-aventurea-line pt-4">
+                <p className="text-[11px] font-bold tracking-[0.12em] text-aventurea-ink-soft uppercase">
+                  Publicaciones
+                </p>
+                <div className="mt-2 flex items-baseline gap-4">
+                  <span className="text-[26px] leading-none font-extrabold text-aventurea-ink">
+                    {d.publicaciones.publicadas}
+                  </span>
+                  <span className="text-[12.5px] text-aventurea-ink-soft">publicadas</span>
+                  {d.publicaciones.pendientes > 0 && (
+                    <Link
+                      href="/admin/ranchos"
+                      className="ml-auto rounded-lg bg-aventurea-orange px-2.5 py-1 text-[11.5px] font-extrabold text-aventurea-ink"
+                    >
+                      {d.publicaciones.pendientes} por revisar
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* ── La serie diaria ──────────────────────────────────── */}
+          <section className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-[15px] font-bold text-aventurea-ink">
+                  Reservas creadas, día por día
+                </h2>
+                <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
+                  {d.reservas.total} en los últimos 30 días.
+                </p>
+              </div>
+              <Link
+                href="/admin/eventos"
+                className="shrink-0 text-[12.5px] font-bold text-aventurea-navy hover:text-aventurea-orange"
+              >
+                Ver reservas →
+              </Link>
+            </div>
+            <div className="mt-4">
+              <ColumnasDiarias serie={d.reservas.serie} titulo="Reservas creadas por día" />
+            </div>
+          </section>
+
+          <p className="text-[12px] leading-relaxed text-aventurea-ink-soft">
+            Las publicaciones y las reservas se cuentan según la sección elegida en la barra;
+            las invitaciones y las cuentas nuevas son de toda la plataforma y se cuentan
+            siempre. Las reservas y los depósitos los aprueba cada proveedor desde su panel:
+            no son pendientes de Bookea.
+          </p>
+        </>
+      )}
     </div>
   );
 }
 
-function HubCard({
-  href,
-  title,
-  descripcion,
-  stat,
-  alerta,
-  icon,
+function TarjetaMetrica({
+  rotulo,
+  metrica,
+  icono,
+  pie,
 }: {
-  href: string;
-  title: string;
-  descripcion: string;
-  stat: string | null;
-  alerta: string | null;
-  icon: React.ReactNode;
+  rotulo: string;
+  metrica: Metrica;
+  icono: React.ReactNode;
+  pie: string;
 }) {
-  return (
-    <Link
-      href={href}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-aventurea-line bg-aventurea-surface p-4 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.5)] transition-all duration-200 hover:-translate-y-0.5 hover:border-aventurea-navy/40 hover:shadow-[0_14px_32px_-16px_rgba(22,41,94,0.35)]"
-    >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-7 -right-5 hidden h-24 w-24 rounded-full bg-aventurea-sky/10 sm:block"
-      />
+  const diferencia =
+    metrica.semanaPrevia === null ? null : metrica.semana - metrica.semanaPrevia;
 
-      <div className="relative z-10 flex items-center gap-2.5">
-        {/* Navy, no naranja: el admin es sobrio; el naranja queda solo
-            para las alertas de pendientes. */}
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-[18px] [&_svg]:w-[18px]">
-          {icon}
+  return (
+    <div className="flex min-w-0 flex-col rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
+      <div className="flex items-center justify-between gap-2">
+        <span
+          aria-hidden="true"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-aventurea-navy/10 text-aventurea-navy [&_svg]:h-[16px] [&_svg]:w-[16px]"
+        >
+          {icono}
         </span>
-        <h2 className="min-w-0 flex-1 truncate text-[14.5px] font-bold text-aventurea-ink">
-          {title}
-        </h2>
-        {alerta && (
-          <span className="shrink-0 rounded-md bg-aventurea-sky px-2 py-0.5 text-[10.5px] font-bold text-white">
-            {alerta}
+        {/* La comparación va en ABSOLUTO, no en porcentaje: "+4 que la
+            semana pasada" se entiende; "+400%" sobre una base de 1 no
+            dice nada y sobre una base de 0 no existe. */}
+        {diferencia !== null && diferencia !== 0 && (
+          <span
+            className={`text-[11.5px] font-bold ${diferencia > 0 ? "text-aventurea-green" : "text-aventurea-ink-soft"}`}
+          >
+            {diferencia > 0 ? "+" : ""}
+            {diferencia}
           </span>
         )}
       </div>
-
-      <p className="relative z-10 mb-3 mt-2.5 line-clamp-2 text-[12px] leading-snug text-aventurea-ink-soft">
-        {descripcion}
+      <p className="mt-3 truncate text-[11.5px] font-bold tracking-wide text-aventurea-ink-soft uppercase">
+        {rotulo}
       </p>
-
-      {/* mt-auto deja el pie alineado entre cards aunque el texto varíe. */}
-      <div className="relative z-10 mt-auto flex items-center justify-between gap-2 border-t border-aventurea-line pt-2.5">
-        <span className="min-w-0 truncate text-[11px] font-bold text-aventurea-ink-soft">
-          {stat ?? "Entrar"}
-        </span>
-        <svg
-          viewBox="0 0 20 20"
-          fill="none"
-          className="h-3.5 w-3.5 shrink-0 text-aventurea-navy transition-transform duration-200 group-hover:translate-x-1"
-        >
-          <path
-            d="M4 10h12m0 0-5-5m5 5-5 5"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </div>
-    </Link>
+      <p className="mt-1 text-[28px] leading-none font-extrabold text-aventurea-ink tabular-nums">
+        {metrica.semana}
+      </p>
+      <p className="mt-1 text-[11.5px] text-aventurea-ink-soft">
+        esta semana · {metrica.total} en 30 días
+      </p>
+      <Chispa serie={metrica.serie} />
+      <p className="mt-1.5 text-[11px] leading-snug text-aventurea-ink-muted">{pie}</p>
+    </div>
   );
 }
 
-function IconChat() {
+function Chequeo({ ok, texto }: { ok: boolean; texto: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M21 12a7.5 7.5 0 0 1-11.4 6.4L4 20l1.3-4.8A7.5 7.5 0 1 1 21 12Z"
+    <li className="flex items-start gap-2.5">
+      <span
+        aria-hidden="true"
+        className={`mt-[3px] h-2 w-2 shrink-0 rounded-full ${ok ? "bg-aventurea-green" : "bg-aventurea-orange"}`}
       />
-      <path strokeLinecap="round" d="M8.5 11h7M8.5 14h4.5" />
-    </svg>
+      <span className="text-[12.5px] leading-snug text-aventurea-ink-soft">{texto}</span>
+    </li>
   );
 }
 
-function IconSobre() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="m3 7.5 9 6 9-6" />
-    </svg>
+/**
+ * El vigía del cron de cobros.
+ *
+ * Sin esto, el cron de /api/cobro-plataforma caído se ve EXACTAMENTE
+ * igual que un mes sin ventas: cero cobros, cero alarma. Tres días sin
+ * un solo devengo es raro incluso en temporada baja.
+ */
+function VigiaDelCron({ ultimo, hoy }: { ultimo: string | null; hoy: string }) {
+  if (!ultimo) {
+    return (
+      <Chequeo ok={false} texto="No hay ningún cobro devengado en los últimos 6 meses." />
+    );
+  }
+  const dias = Math.round(
+    (Date.parse(`${hoy}T00:00:00Z`) - Date.parse(`${ultimo}T00:00:00Z`)) / 86_400_000,
   );
-}
-
-function IconNegocio() {
+  if (dias <= 3) {
+    return <Chequeo ok texto={`El cron de cobros corrió el ${ultimo}.`} />;
+  }
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10v9a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-9" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9.5 4.6 4.7a1 1 0 0 1 .95-.7h12.9a1 1 0 0 1 .95.7L21 9.5a2.6 2.6 0 0 1-5.2.6 2.6 2.6 0 0 1-5.2 0 2.6 2.6 0 0 1-5.2 0" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.8 20v-4.6h4.4V20" />
-    </svg>
-  );
-}
-
-function IconLupa() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <circle cx="10.5" cy="10.5" r="6.5" />
-      <path strokeLinecap="round" d="m15.5 15.5 5 5" />
-      <path strokeLinecap="round" d="M8 11.5h5M8 8.8h5M8 14.2h3" />
-    </svg>
-  );
-}
-
-function IconChart() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <path strokeLinecap="round" d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
-    </svg>
-  );
-}
-
-function IconIA() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <rect x="7" y="7" width="10" height="10" rx="2" />
-      <path
-        strokeLinecap="round"
-        d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"
-      />
-    </svg>
-  );
-}
-
-function IconUsers() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <circle cx="9" cy="8" r="3.5" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 20a6.5 6.5 0 0 1 13 0" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16 5.2a3.5 3.5 0 0 1 0 5.6M17.5 14.2A6.5 6.5 0 0 1 21.5 20" />
-    </svg>
-  );
-}
-
-function IconReserva() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 9V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a3 3 0 0 0 0 6v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a3 3 0 0 0 0-6Z"
-      />
-      <path strokeLinecap="round" d="M15 5v2.5M15 10.5v3M15 16.5V19" />
-    </svg>
-  );
-}
-
-function IconCalendario() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path strokeLinecap="round" d="M3 10h18M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
-function IconComplemento() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <path strokeLinecap="round" d="M17.5 14v7M14 17.5h7" />
-    </svg>
-  );
-}
-
-function IconCampana() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M22 2 11 13" />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M22 2 15 22l-4-9-9-4 20-7Z"
-      />
-    </svg>
-  );
-}
-
-function IconEtiqueta() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M3 3h7.6a2 2 0 0 1 1.4.6l8.4 8.4a2 2 0 0 1 0 2.8l-5.6 5.6a2 2 0 0 1-2.8 0L3.6 12A2 2 0 0 1 3 10.6V3Z"
-      />
-      <circle cx="7.5" cy="7.5" r="1.3" />
-    </svg>
-  );
-}
-
-function IconAlmacen() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <ellipse cx="12" cy="5.5" rx="8" ry="3" />
-      <path d="M4 5.5V18.5c0 1.66 3.58 3 8 3s8-1.34 8-3V5.5" />
-      <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
-    </svg>
-  );
-}
-
-function IconLibro() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M4 5.5A1.5 1.5 0 0 1 5.5 4H19v14H5.5A1.5 1.5 0 0 0 4 19.5V5.5Z"
-      />
-      <path strokeLinecap="round" d="M19 18v2H5.5A1.5 1.5 0 0 1 4 18.5M8 8h7M8 11.5h7" />
-    </svg>
+    <Chequeo
+      ok={false}
+      texto={`El último cobro devengado es del ${ultimo}, hace ${dias} días. Puede que el cron de /api/cobro-plataforma no esté corriendo.`}
+    />
   );
 }

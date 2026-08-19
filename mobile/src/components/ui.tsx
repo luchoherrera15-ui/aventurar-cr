@@ -272,28 +272,45 @@ export function ChipCategoria({
   texto,
   activo,
   icono,
+  apagado,
   onPress,
 }: {
   texto: string;
   activo: boolean;
   icono?: IconoNombre;
+  /** El rubro existe en el catálogo pero todavía no tiene negocios:
+   *  se ve (es vitrina) pero no responde al toque. */
+  apagado?: boolean;
   onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityState={{ selected: activo }}
+      accessibilityState={{ selected: activo, disabled: apagado }}
+      disabled={apagado}
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
         activo && styles.chipActivo,
+        apagado && styles.chipApagado,
         pressed && { opacity: 0.85 },
       ]}
     >
       {icono ? (
-        <Ionicons name={icono} size={14} color={activo ? "#ffffff" : Colors.accent} />
+        <Ionicons
+          name={icono}
+          size={14}
+          color={activo ? "#ffffff" : apagado ? Colors.inkMuted : Colors.accent}
+        />
       ) : null}
-      <Text numberOfLines={1} style={[styles.chipTexto, activo && styles.chipTextoActivo]}>
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.chipTexto,
+          activo && styles.chipTextoActivo,
+          apagado && styles.chipTextoApagado,
+        ]}
+      >
         {texto}
       </Text>
     </Pressable>
@@ -792,8 +809,13 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   chipActivo: { backgroundColor: Colors.navy, borderColor: Colors.navy },
+  // El rubro sin negocios todavía: se ve, no se toca. Fondo hundido y
+  // letra apagada — nunca `opacity`, que le bajaría el contraste al
+  // texto por debajo de AA.
+  chipApagado: { backgroundColor: Colors.cream2, borderColor: Colors.line },
   chipTexto: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 12.5 },
   chipTextoActivo: { color: "#ffffff" },
+  chipTextoApagado: { color: Colors.inkMuted },
 
   avatar: { alignItems: "center", backgroundColor: Colors.navy, justifyContent: "center" },
   avatarTexto: { color: "#ffffff", fontFamily: Fonts.extraBold, letterSpacing: 0.3 },

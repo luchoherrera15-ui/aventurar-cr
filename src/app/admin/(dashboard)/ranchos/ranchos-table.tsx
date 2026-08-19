@@ -72,7 +72,21 @@ export default function RanchosTable({
             (r.provincia ?? "").toLowerCase().includes(q) ||
             (r.duenoEmail ?? "").toLowerCase().includes(q),
       )
-      .filter((r) => filtro === "todos" || r.estado === filtro);
+      // ── LEALTAD APARTE DEL DIRECTORIO (0187) ──────────────────
+      // Los clientes de Bookea Lealtad NO se sacan de la pantalla: acá
+      // es el único lugar con `borrarRancho` y con la vista completa
+      // de la ficha, así que esconderlos cambiaría una fuga por un
+      // punto ciego. Se separan: por defecto no salen, y hay un filtro
+      // propio para verlos cuando hace falta.
+      //
+      // `!== false` y no `=== true`: sin la 0187 corrida la propiedad
+      // llega `undefined` y la tabla entera quedaría vacía.
+      .filter((r) =>
+        filtro === "solo_lealtad"
+          ? r.en_marketplace === false
+          : r.en_marketplace !== false,
+      )
+      .filter((r) => filtro === "todos" || filtro === "solo_lealtad" || r.estado === filtro);
   }, [ranchos, query, filtro]);
 
   // Puesto de cada destacado (1, 2, 3...) sin los huecos que dejan

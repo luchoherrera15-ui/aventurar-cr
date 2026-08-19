@@ -4,9 +4,8 @@ import PagerView from "react-native-pager-view";
 import { useLocalSearchParams } from "expo-router";
 import TabBar, { TABS } from "@/components/tab-bar";
 import Citas from "@/pantallas/citas";
-import Favoritos from "@/pantallas/favoritos";
+import Promos from "@/pantallas/promos";
 import Reservas from "@/pantallas/reservas";
-import Mensajes from "@/pantallas/mensajes";
 import Perfil from "@/pantallas/perfil";
 
 /**
@@ -27,6 +26,7 @@ const AnimatedPagerView = Animated.createAnimatedComponent(PagerView);
 
 export default function TabsScreen() {
   const { tab } = useLocalSearchParams<{ tab?: string }>();
+
   const [activa, setActiva] = useState(() => {
     const i = TABS.findIndex((t) => t.id === tab);
     return i >= 0 ? i : 0;
@@ -80,16 +80,13 @@ export default function TabsScreen() {
           <Citas activa={activa === 0} />
         </View>
         <View key="favoritos" style={{ flex: 1 }}>
-          <Favoritos activa={activa === 1} />
+          <Promos activa={activa === 1} />
         </View>
         <View key="reservas" style={{ flex: 1 }}>
           <Reservas activa={activa === 2} />
         </View>
-        <View key="mensajes" style={{ flex: 1 }}>
-          <Mensajes activa={activa === 3} />
-        </View>
         <View key="perfil" style={{ flex: 1 }}>
-          <Perfil activa={activa === 4} />
+          <Perfil activa={activa === 3} />
         </View>
       </AnimatedPagerView>
       <TabBar activa={activa} desplazamiento={desplazamiento} onCambiar={irA} />

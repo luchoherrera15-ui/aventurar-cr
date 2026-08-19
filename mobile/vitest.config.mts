@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -16,6 +17,13 @@ import { defineConfig } from "vitest/config";
  * React Native adentro de vitest.
  */
 export default defineConfig({
+  // El alias `@` del `tsconfig.json`. Sin esto, un módulo de `src/lib`
+  // que importe a otro con `@/lib/...` —como lo hace todo el resto del
+  // app— revienta la prueba con "Cannot find package", y la salida
+  // culpa al import en vez de al runner.
+  resolve: {
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
   test: {
     include: ["src/lib/**/*.test.ts"],
     environment: "node",

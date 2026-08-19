@@ -121,16 +121,15 @@ export default function PanelNav({
       ruta: `/negocio/${negocioId}/configuracion`,
     },
     // Único destino de esta barra que NO vive adentro de `negocio/[id]`:
-    // salta a la bandeja compartida del modo cliente (`?tab=mensajes`,
-    // el mismo mecanismo que ya usan las rutas viejas para entrar al
-    // pager). Sin esto, quien administra su negocio no tenía forma de
-    // ver un mensaje de un cliente sin salir primero de "modo negocio".
+    // la bandeja de consultas (`/consultas`), compartida con el modo
+    // cliente. Sin esto, quien administra su negocio no tenía forma de
+    // ver la consulta de un cliente sin salir de "modo negocio".
     {
       id: "mensajes",
-      label: "Mensajes",
+      label: "Consultas",
       icono: "chatbubble-outline",
       iconoActivo: "chatbubble",
-      ruta: "/?tab=mensajes",
+      ruta: "/consultas",
     },
   ];
 

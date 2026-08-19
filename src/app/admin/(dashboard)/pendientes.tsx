@@ -1,4 +1,5 @@
-﻿import Link from "next/link";
+﻿import { cache } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ESTADOS_PEDIDO_ABIERTOS } from "./invitaciones/pestanas";
@@ -48,7 +49,7 @@ type Pendiente = {
  * Esconderlos al elegir "Agendas y citas" sería justo el error que este
  * tablero existe para evitar.
  */
-async function contarPendientes(
+export const contarPendientes = cache(async function contarPendientes(
   seccion: SeccionAdmin,
 ): Promise<{ pendientes: Pendiente[]; sinLlave: boolean }> {
   const supabase = await createClient();
@@ -56,7 +57,13 @@ async function contarPendientes(
 
   // No se consultan `reservas`: son del proveedor, no de Bookea.
   const [ranchosRes, pedidosRes, invitacionesRes] = await Promise.all([
-    supabase.from("ranchos").select("id, estado, vertical"),
+    // Con la llave de servicio y `select("*")`: desde la 0155 el
+    // permiso sobre `ranchos` es COLUMNA POR COLUMNA, y Postgres exige
+    // privilegio sobre toda columna nombrada —incluidas las del WHERE—.
+    // Pedir `en_marketplace` por nombre con la sesión daría 42501 y el
+    // `?? []` lo convertiría en un cero silencioso: el tablero diría
+    // que no hay nada pendiente.
+    (admin ?? supabase).from("ranchos").select("*"),
     // Los pedidos van con la llave de servicio: la RLS de la 0075 solo
     // deja ver a cada cliente los suyos, así que con la sesión del admin
     // esta consulta vuelve VACÍA — parecería que no hay nada pendiente.
@@ -74,11 +81,20 @@ async function contarPendientes(
     id: string;
     estado: string | null;
     vertical: string | null;
+    /** 0187. `undefined` si la migración no está corrida. */
+    en_marketplace?: boolean | null;
   }[];
 
   const ranchosDeLaSeccion = ranchos.filter((r) => perteneceASeccion(r.vertical, seccion));
+  // «Publicaciones esperando aprobación» es del DIRECTORIO. Un cliente
+  // de Lealtad también nace en `pendiente` y nunca se publica: contarlo
+  // acá mandaba al equipo a aprobar algo que no se aprueba, y ese ruido
+  // es lo que enseña a ignorar el tablero entero.
+  //
+  // `!== false` y no `=== true`: sin la 0187 corrida la propiedad llega
+  // `undefined` y el contador quedaría en cero.
   const publicacionesPorAprobar = ranchosDeLaSeccion.filter(
-    (r) => r.estado === "pendiente",
+    (r) => r.estado === "pendiente" && r.en_marketplace !== false,
   ).length;
 
   const pedidos = (pedidosRes.data ?? []) as { estado: string }[];
@@ -141,6 +157,31 @@ async function contarPendientes(
   return {
     pendientes: pendientes.filter((p) => p.cuenta > 0),
     sinLlave: !admin,
+  };
+});
+
+/**
+ * Los dos contadores que la barra lateral pinta como badge.
+ *
+ * Son los ÚNICOS dos con badge, y a propósito: son los que salen de
+ * una fuente de verdad — `ranchos.estado` y los estados abiertos de
+ * `pedidos_invitacion`. Un badge sobre un número inventado enseña a
+ * ignorar todos los badges, incluidos los que sí importan.
+ *
+ * `contarPendientes` va envuelta en `cache()` de React: el layout la
+ * pide para los badges y la portada la pide para el tablero, y sin el
+ * cache serían las mismas cuatro consultas dos veces por pantalla.
+ */
+export async function pendientesDeLaBarra(
+  seccion: SeccionAdmin,
+): Promise<{ publicaciones: number; invitaciones: number }> {
+  const { pendientes } = await contarPendientes(seccion);
+  const de = (id: string) => pendientes.find((p) => p.id === id)?.cuenta ?? 0;
+  return {
+    publicaciones: de("publicaciones"),
+    // Los tres contadores de invitaciones se suman en uno: en una fila
+    // de 13px no entra el desglose, y quien ve el número entra igual.
+    invitaciones: de("pedidos") + de("pedidos-sin-pagar") + de("sin-dueno"),
   };
 }
 

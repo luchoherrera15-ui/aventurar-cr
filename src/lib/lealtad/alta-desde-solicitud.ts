@@ -83,6 +83,11 @@ export async function crearNegocioDesdeSolicitud(
       vertical,
       categoria: "otros",
       estado: "pendiente",
+      // Nace FUERA del directorio publico (0187). Un cliente de Lealtad
+      // no se ofrecio como proveedor del marketplace: sin esta linea
+      // aparece en la cola de aprobacion del admin, y un clic en
+      // "Aprobar" lo publica en un directorio donde no tiene ficha.
+      en_marketplace: false,
       // Aceptar el alta ES la aprobación de lealtad (0129): no tendría
       // sentido volver a ponerlo en hold recién nacido.
       lealtad_aprobado_en: new Date().toISOString(),

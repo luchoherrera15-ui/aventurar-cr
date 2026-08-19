@@ -6,8 +6,10 @@ import {
   type HorarioBloqueConfig,
 } from "@/app/mi-negocio/types";
 import { modeloDe, motivoParaNoGastar } from "@/lib/ia/config-ia";
-import { registrarDesdeUsage, registrarFalloIA } from "@/lib/ia/registrar-uso";
+import { registrarDesdeUsage, registrarFalloIA, type UsageAnthropic } from "@/lib/ia/registrar-uso";
 import { MODELOS, type ModeloIA } from "@/lib/ia/modelos";
+import { ClaudeProvider } from "@/lib/ia/claude-provider";
+import type { AIProvider, UsoIAProveedor } from "@/lib/ia/ai-provider";
 import {
   cupoDelNegocio,
   expandirRangos,
@@ -891,38 +893,16 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
       info.salidaMaxima,
     );
 
-    const inicio = Date.now();
-    const respuesta = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: modelo,
-        max_tokens: maxTokens,
-        system,
-        messages: turnos,
-      }),
-    });
-    if (!respuesta.ok) {
-      console.error(`[asistente-ia] API ${respuesta.status}: ${await respuesta.text()}`);
-      return;
-    }
+    // El proveedor de IA: hoy solo Claude, pero ni esta función ni nada
+    // de lo que sigue conoce ya la URL de Anthropic, sus headers, ni la
+    // forma de su respuesta — eso quedó encapsulado en ClaudeProvider
+    // (ver ai-provider.ts). Cambiar de proveedor, cuando toque, es
+    // cambiar esta única línea.
+    const provider: AIProvider = new ClaudeProvider(apiKey);
 
-    const cuerpo = (await respuesta.json()) as {
-      content?: { type: string; text?: string }[];
-      stop_reason?: string | null;
-      usage?: {
-        input_tokens?: number;
-        output_tokens?: number;
-        cache_creation_input_tokens?: number;
-        cache_read_input_tokens?: number;
-      };
-    };
+    const inicio = Date.now();
+    const resultado = await provider.generar({ modelo, maxTokens, system, turnos });
     const tiempoMs = Date.now() - inicio;
-    const usage = cuerpo.usage;
 
     const base = {
       agente: "asistente_negocio" as const,
@@ -938,49 +918,55 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
      * conteo de llamadas del panel. Cuando sí hubo gasto pero el cliente
      * no recibe nada, queda como fallo con el motivo real para que el
      * panel sirva de diagnóstico.
+     *
+     * `registrar-uso.ts` todavía espera el `usage` con los nombres de
+     * campo de Anthropic (`UsageAnthropic`) — abstraer esa capa de
+     * costeo/logging es trabajo de otra fase, así que acá se traduce
+     * de vuelta desde la forma genérica que devuelve el proveedor.
      */
-    const registrarFallo = async (motivo: string): Promise<void> => {
+    const registrarFallo = async (motivo: string, usage: UsoIAProveedor | null): Promise<void> => {
       console.error(`[asistente-ia] ${motivo}`);
       if (!usage) return;
       await registrarFalloIA({
         ...base,
-        tokensInput: usage.input_tokens ?? 0,
-        tokensOutput: usage.output_tokens ?? 0,
-        tokensCacheWrite: usage.cache_creation_input_tokens ?? 0,
-        tokensCacheRead: usage.cache_read_input_tokens ?? 0,
+        tokensInput: usage.tokensEntrada,
+        tokensOutput: usage.tokensSalida,
+        // `?? undefined`: mismo motivo que en comoUsageAnthropic() más
+        // abajo — un proveedor sin ese concepto manda `null`, nunca un
+        // 0 inventado.
+        tokensCacheWrite: usage.tokensCacheEscritura ?? undefined,
+        tokensCacheRead: usage.tokensCacheLectura ?? undefined,
         error: motivo,
       });
     };
 
-    // stop_reason antes que content: un "refusal" y un "max_tokens"
-    // llegan con HTTP 200 y sin texto, y sin mirarlo los dos se
-    // confundían con "no hubo respuesta" y desaparecían sin rastro.
-    const stop = typeof cuerpo.stop_reason === "string" ? cuerpo.stop_reason : null;
-    if (stop === "refusal") {
-      await registrarFallo("El modelo declinó responder (stop_reason: refusal)");
+    if (resultado.outcome === "provider_error") {
+      console.error(`[asistente-ia] ${resultado.mensaje}`);
       return;
     }
-    if (stop === "max_tokens") {
+    if (resultado.outcome === "refused") {
+      await registrarFallo("El modelo declinó responder (stop_reason: refusal)", resultado.usage);
+      return;
+    }
+    if (resultado.outcome === "max_output") {
       await registrarFallo(
         `La respuesta se cortó por max_tokens (tope ${maxTokens} con ${modelo})`,
+        resultado.usage,
       );
       return;
     }
-
-    const texto = (cuerpo.content ?? [])
-      .filter((b) => b.type === "text" && typeof b.text === "string")
-      .map((b) => b.text as string)
-      .join("\n")
-      .trim();
-    if (!texto) {
+    if (resultado.outcome === "empty_response") {
       await registrarFallo(
-        `El modelo no devolvió texto (stop_reason: ${stop ?? "desconocido"})`,
+        `El modelo no devolvió texto (stop_reason: ${resultado.detalleProveedor ?? "desconocido"})`,
+        resultado.usage,
       );
       return;
     }
 
     // Recién acá se sabe que la llamada sirvió: se registra como éxito.
-    if (usage) await registrarDesdeUsage(usage, base);
+    if (resultado.usage) {
+      await registrarDesdeUsage(comoUsageAnthropic(resultado.usage), base);
+    }
 
     // La respuesta entra al hilo como el negocio (el dueño), con el
     // prefijo del asistente para que quede claro quién habló — el mismo
@@ -988,9 +974,27 @@ export async function responderConAsistente(mensajeId: string): Promise<void> {
     await db.from("mensajes").insert({
       conversacion_id: conversacion.id,
       autor_id: rancho.owner_id,
-      texto: `${PREFIJO_ASISTENTE}${texto}`,
+      texto: `${PREFIJO_ASISTENTE}${resultado.texto}`,
     });
   } catch (e) {
     console.error("[asistente-ia] Falló la respuesta automática:", e);
   }
+}
+
+/**
+ * `registrar-uso.ts` (fuera del alcance de esta fase) todavía pide el
+ * `usage` con los nombres de campo de Anthropic — este es el único
+ * lugar de `asistente-ia.ts` que conoce esa forma, y solo para volver
+ * a traducirla desde `UsoIAProveedor` (la que devuelve `AIProvider`).
+ */
+function comoUsageAnthropic(usage: UsoIAProveedor): UsageAnthropic {
+  return {
+    input_tokens: usage.tokensEntrada,
+    output_tokens: usage.tokensSalida,
+    // `?? undefined`: un proveedor sin ese concepto (Gemini) manda
+    // `null`, y `registrar-uso.ts` cuenta lo ausente como 0 igual que
+    // lo haría con `undefined` — nunca se inventa un cero acá.
+    cache_creation_input_tokens: usage.tokensCacheEscritura ?? undefined,
+    cache_read_input_tokens: usage.tokensCacheLectura ?? undefined,
+  };
 }

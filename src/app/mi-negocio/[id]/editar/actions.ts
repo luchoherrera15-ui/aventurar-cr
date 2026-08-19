@@ -202,7 +202,25 @@ export async function actualizarRancho(
   // los botones de "Cómo llegar". Si no se pudo leer, se guarda igual el
   // link y los botones caen en la dirección escrita.
   const mapaUrl = texto("mapa_url");
-  const coords = mapaUrl ? await extraerCoordenadas(mapaUrl) : null;
+  const coordsDelLink = mapaUrl ? await extraerCoordenadas(mapaUrl) : null;
+
+  // EL PIN DEL MAPA MANDA sobre el link.
+  // `SelectorUbicacion` manda `latitud`/`longitud` en dos campos
+  // ocultos. Si la persona puso el pin a mano, eso es lo que quiso
+  // decir — el link de Google Maps puede ser viejo, de otra sucursal, o
+  // apuntar al centro del cantón. Solo si no hay pin se cae al link.
+  const pinLat = num("latitud");
+  const pinLng = num("longitud");
+  const hayPin =
+    pinLat !== null &&
+    pinLng !== null &&
+    pinLat >= -90 &&
+    pinLat <= 90 &&
+    pinLng >= -180 &&
+    pinLng <= 180;
+  const coords = hayPin
+    ? { lat: pinLat as number, lng: pinLng as number }
+    : coordsDelLink;
 
   const fotoUrl = String(formData.get("foto_url") || "");
 

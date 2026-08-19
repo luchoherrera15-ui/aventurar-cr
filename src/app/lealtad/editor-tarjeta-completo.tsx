@@ -202,8 +202,24 @@ export default function EditorTarjetaCompleto({
     telefonoListo;
 
   function irAlPlanPago() {
-    // El borrador ya está guardado (el padre lo escribe en cada
-    // cambio): /lealtad/nuevo lo restaura con la misma llave.
+    // El padre ya escribe `estado` en esta misma llave en cada cambio
+    // (CLAVE_SESION en configurador-lealtad.tsx === CLAVE_SESION_RESPALDO
+    // acá, cuando no hay rancho) — pero eso solo, sin más, hacía que
+    // /lealtad/nuevo abriera igual en "Paso 1 de 5" pidiendo de nuevo
+    // el negocio/tipo/beneficio/apariencia que esta pantalla ya
+    // resolvió (el "proceso redundante al pagar" que se reportó): el
+    // respaldo no traía ningún `camino` ni `paso`, así que el wizard
+    // arrancaba de cero sin saberlo. Acá se suma esa marca explícita
+    // ANTES de navegar, para que /lealtad/nuevo salte directo a
+    // "Revisar y publicar".
+    try {
+      sessionStorage.setItem(
+        CLAVE_SESION_RESPALDO,
+        JSON.stringify({ ...estado, camino: "prellenado", tipoNegocio: "citas" }),
+      );
+    } catch {
+      /* sin storage: /lealtad/nuevo arranca de cero, como antes de este cambio */
+    }
     iniciar(() => router.push(`/lealtad/nuevo?plan=${planDestino}`));
   }
 

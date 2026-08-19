@@ -80,6 +80,8 @@ export default function InvitacionesScreen() {
   const [albumes, setAlbumes] = useState<Album[] | null>(null);
   const [refrescando, setRefrescando] = useState(false);
   const [pidiendo, setPidiendo] = useState<string | null>(null);
+  /** El plegable de "Invitaciones recibidas" — cerrado por defecto. */
+  const [recibidasAbierto, setRecibidasAbierto] = useState(false);
   // La pestaña de la vitrina: arranca en la primera que tenga ejemplos.
   const [categoria, setCategoria] = useState<CategoriaInvitacion>(
     () =>
@@ -233,10 +235,74 @@ export default function InvitacionesScreen() {
           </View>
         ) : (
           <>
-            {invitaciones && invitaciones.length > 0 && (
-              <View style={styles.seccion}>
-                <Text style={styles.seccionTitulo}>Tus invitaciones</Text>
-                {invitaciones.map((inv) => (
+            {/* ── 1. LA PUERTA AL PRODUCTO ─────────────────────────
+                Un card que explica qué son las invitaciones digitales
+                y lleva a la página de información. Va primero porque
+                es lo único que le sirve a quien todavía no tiene
+                ninguna — que es casi todo el mundo la primera vez. */}
+            <View style={styles.seccion}>
+              <Pressable
+                accessibilityRole="link"
+                onPress={() =>
+                  void WebBrowser.openBrowserAsync(`${SITIO_URL}/invitaciones`)
+                }
+                style={({ pressed }) => [styles.cardProducto, pressed && { opacity: 0.92 }]}
+              >
+                <View style={styles.cardProductoIcono}>
+                  <Ionicons name="mail-open" size={24} color="#ffffff" />
+                </View>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.cardProductoTitulo}>Invitaciones digitales</Text>
+                  <Text style={styles.cardProductoTexto}>
+                    Una invitación que se vive en el teléfono, con confirmación de
+                    asistencia y álbum de fotos.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.75)" />
+              </Pressable>
+            </View>
+
+            {/* ── 2. INVITACIONES RECIBIDAS, plegable ──────────────
+                Las que te mandaron a VOS. Hoy la base no las sabe
+                relacionar con tu cuenta: `invitacion_rsvp` guarda el
+                nombre que escribió el invitado, sin `cliente_id` ni
+                correo (migración 0066), así que no hay forma honesta
+                de decir "estas son tuyas". Se deja el lugar hecho y
+                se dice la verdad en vez de inventar una lista. */}
+            <View style={styles.seccion}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded: recibidasAbierto }}
+                onPress={() => setRecibidasAbierto((v) => !v)}
+                style={({ pressed }) => [styles.plegable, pressed && { opacity: 0.9 }]}
+              >
+                <View style={styles.iconoBurbuja}>
+                  <Ionicons name="download-outline" size={18} color={Colors.navy} />
+                </View>
+                <Text style={styles.plegableTitulo}>Invitaciones recibidas</Text>
+                <Ionicons
+                  name={recibidasAbierto ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color={Colors.inkSoft}
+                />
+              </Pressable>
+              {recibidasAbierto && (
+                <View style={styles.plegableCuerpo}>
+                  <Text style={styles.sinNada}>
+                    Todavía no tenemos cómo saber cuáles te mandaron a vos: cuando
+                    confirmás asistencia se guarda tu nombre, no tu cuenta. Estamos
+                    conectándolo — mientras tanto, abrí la invitación con el link que
+                    te compartieron.
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* ── 3. MIS INVITACIONES ─────────────────────────────── */}
+            <View style={styles.seccion}>
+              <Text style={styles.seccionTitulo}>Mis invitaciones</Text>
+              {invitaciones && invitaciones.length > 0 ? (
+                invitaciones.map((inv) => (
                   <View key={inv.id} style={styles.tarjeta}>
                     <View style={styles.tarjetaFila}>
                       <View style={styles.iconoBurbuja}>
@@ -261,7 +327,7 @@ export default function InvitacionesScreen() {
                         style={({ pressed }) => [styles.botonNavyChico, pressed && { opacity: 0.9 }]}
                       >
                         <Ionicons name="eye-outline" size={14} color="#ffffff" />
-                        <Text style={styles.botonNavyChicoTexto}>Ver invitación</Text>
+                        <Text style={styles.botonNavyChicoTexto}>Ver</Text>
                       </Pressable>
                       <Pressable
                         onPress={() => compartirInvitacion(inv)}
@@ -273,16 +339,42 @@ export default function InvitacionesScreen() {
                         <Ionicons name="share-social-outline" size={14} color={Colors.navy} />
                         <Text style={styles.botonContornoChicoTexto}>Compartir</Text>
                       </Pressable>
+                      {/* Administrar: la lista de asistencia y el resto
+                          viven en `/cuenta/evento/[id]` de la web — es
+                          el panel real de la invitación (confirmados,
+                          acompañantes, mensajes), no una pantalla nueva
+                          acá. Va por id, no por slug: esa ruta es
+                          privada y el slug es el link público. */}
+                      <Pressable
+                        onPress={() =>
+                          void WebBrowser.openBrowserAsync(
+                            `${SITIO_URL}/cuenta/evento/${inv.id}`,
+                          )
+                        }
+                        style={({ pressed }) => [
+                          styles.botonContornoChico,
+                          pressed && { opacity: 0.85 },
+                        ]}
+                      >
+                        <Ionicons name="people-outline" size={14} color={Colors.navy} />
+                        <Text style={styles.botonContornoChicoTexto}>Administrar</Text>
+                      </Pressable>
                     </View>
                   </View>
-                ))}
-              </View>
-            )}
+                ))
+              ) : (
+                <Text style={styles.sinNada}>
+                  Todavía no tenés ninguna. Cuando el equipo termine la tuya, aparece
+                  acá para verla, compartirla y ver quién confirmó.
+                </Text>
+              )}
+            </View>
 
-            {albumes && albumes.length > 0 && (
-              <View style={styles.seccion}>
-                <Text style={styles.seccionTitulo}>Tus álbumes</Text>
-                {albumes.map((alb) => (
+            {/* ── 4. ÁLBUMES DIGITALES ────────────────────────────── */}
+            <View style={styles.seccion}>
+              <Text style={styles.seccionTitulo}>Álbumes digitales</Text>
+              {albumes && albumes.length > 0 ? (
+                albumes.map((alb) => (
                   <View key={alb.id} style={styles.tarjeta}>
                     <View style={styles.tarjetaFila}>
                       <View style={styles.iconoBurbuja}>
@@ -292,7 +384,7 @@ export default function InvitacionesScreen() {
                         <Text style={styles.tarjetaTitulo} numberOfLines={1}>
                           {alb.titulo}
                         </Text>
-                        <Text style={styles.tarjetaDetalle}>Álbum de fotos del evento</Text>
+                        <Text style={styles.tarjetaDetalle}>Fotos del evento</Text>
                       </View>
                       <Pressable
                         onPress={() =>
@@ -301,22 +393,18 @@ export default function InvitacionesScreen() {
                         style={({ pressed }) => [styles.botonNavyChico, pressed && { opacity: 0.9 }]}
                       >
                         <Ionicons name="eye-outline" size={14} color="#ffffff" />
-                        <Text style={styles.botonNavyChicoTexto}>Ver álbum</Text>
+                        <Text style={styles.botonNavyChicoTexto}>Ver</Text>
                       </Pressable>
                     </View>
                   </View>
-                ))}
-              </View>
-            )}
-
-            {invitaciones?.length === 0 && albumes?.length === 0 && (
-              <View style={styles.seccion}>
+                ))
+              ) : (
                 <Text style={styles.sinNada}>
-                  Todavía no tenés invitaciones ni álbumes. Cuando el equipo
-                  termine la tuya, aparece acá para verla y compartirla.
+                  Los álbumes que adquieras para tus eventos aparecen acá, con todas
+                  las fotos que suban tus invitados.
                 </Text>
-              </View>
-            )}
+              )}
+            </View>
           </>
         )}
 
@@ -476,6 +564,50 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.extraBold,
     fontSize: 17,
     letterSpacing: -0.3,
+  },
+  // El card de arriba: navy sólido, es la puerta al producto.
+  cardProducto: {
+    alignItems: "center",
+    backgroundColor: Colors.navy,
+    borderRadius: 18,
+    flexDirection: "row",
+    gap: Spacing.three,
+    padding: Spacing.three,
+  },
+  cardProductoIcono: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderRadius: 14,
+    height: 46,
+    justifyContent: "center",
+    width: 46,
+  },
+  cardProductoTitulo: { color: "#ffffff", fontFamily: Fonts.extraBold, fontSize: 15.5 },
+  cardProductoTexto: {
+    color: "rgba(255,255,255,0.78)",
+    fontFamily: Fonts.medium,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  // El plegable de "Invitaciones recibidas".
+  plegable: {
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.two + 2,
+    padding: Spacing.three,
+  },
+  plegableTitulo: { color: Colors.ink, flex: 1, fontFamily: Fonts.extraBold, fontSize: 14.5 },
+  plegableCuerpo: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: Spacing.three,
   },
   seccionSubtitulo: {
     color: Colors.inkSoft,

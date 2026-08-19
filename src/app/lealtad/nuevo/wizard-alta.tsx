@@ -93,7 +93,12 @@ export type RanchoWizard = {
   tarjetasLlenas: boolean;
 };
 
-type Camino = "creador" | "personalizado";
+// "prellenado": llega desde editor-tarjeta-completo.tsx (Modo 3 del
+// configurador sin cuenta) con tipo/beneficio/apariencia YA resueltos
+// — antes este wizard los volvía a pedir desde cero (mismo formulario
+// de PasoBeneficio, mismos selectores de color), el "proceso
+// redundante al pagar" que se reportó. Salta directo a "revisar".
+type Camino = "creador" | "personalizado" | "prellenado";
 
 type Pantalla = "nombre" | "negocio" | "beneficio" | "apariencia" | "descripcion" | "revisar";
 
@@ -167,7 +172,13 @@ function sanearGuardado(crudo: unknown, plan: string | null, topePasos: number):
   limpio.telefono = texto(c.telefono, 30);
   limpio.descripcion = texto(c.descripcion, 500);
   if (c.camino === "personalizado") limpio.camino = "personalizado";
+  if (c.camino === "prellenado") limpio.camino = "prellenado";
   if (esRubro(c.tipoNegocio)) limpio.tipoNegocio = c.tipoNegocio;
+  // El camino "prellenado" nace de editor-tarjeta-completo.tsx, que no
+  // tiene paso de rubro (mismo criterio que ya usa ese archivo en su
+  // propio `publicar()`) — se fuerza "citas" sin importar qué haya en
+  // el respaldo.
+  if (limpio.camino === "prellenado") limpio.tipoNegocio = "citas";
 
   // El tipo se restaura SOLO si el paquete actual lo incluye: volver de
   // un F5 con un tipo bloqueado dejaría el candado saltado en silencio.
@@ -187,6 +198,10 @@ function sanearGuardado(crudo: unknown, plan: string | null, topePasos: number):
   if (typeof c.paso === "number" && Number.isInteger(c.paso)) {
     limpio.paso = Math.min(Math.max(0, c.paso), topePasos - 1);
   }
+  // Forzado al final, después del saneo genérico de arriba: "prellenado"
+  // tiene una sola pantalla ("revisar"), así que cualquier `paso`
+  // restaurado de otro camino no tiene a dónde apuntar.
+  if (limpio.camino === "prellenado") limpio.paso = 0;
   return limpio;
 }
 
@@ -232,7 +247,9 @@ export default function WizardAlta({
   const pantallas: Pantalla[] =
     estado.camino === "creador"
       ? ["nombre", "negocio", "beneficio", "apariencia", "revisar"]
-      : ["nombre", "negocio", "descripcion", "revisar"];
+      : estado.camino === "prellenado"
+        ? ["revisar"]
+        : ["nombre", "negocio", "descripcion", "revisar"];
   const paso = Math.min(estado.paso, pantallas.length - 1);
   const pantalla = pantallas[paso];
 

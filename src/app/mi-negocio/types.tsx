@@ -685,6 +685,20 @@ export type Rancho = {
   fotos: string[];
   /** Qué vertical del marketplace es (0055): eventos es el default. */
   vertical?: "eventos" | "citas" | "hospedajes";
+  /**
+   * ¿Es una ficha del directorio público? (0187)
+   *
+   * `false` = el negocio nació en Bookea Lealtad y nunca se ofreció
+   * como proveedor: no va en la cola de aprobación del admin ni bajo
+   * «Marketplace de ranchos». Es un eje APARTE de `estado` (publicado
+   * o no) y de `lealtad_aprobado_en` (0129, aprobado PARA lealtad).
+   *
+   * OPCIONAL a propósito, como el resto de las columnas que pueden
+   * faltar: si la 0187 no está corrida llega `undefined`, y hay que
+   * tratarlo como `true` (el default de la columna). Por eso en el
+   * código se pregunta `!== false`, nunca `=== true`.
+   */
+  en_marketplace?: boolean;
   estado: EstadoRancho;
   created_at: string;
   slug: string | null;

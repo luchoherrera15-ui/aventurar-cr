@@ -382,6 +382,11 @@ async function crearGratisAlInstante(d: {
       vertical,
       categoria: "otros",
       estado: "pendiente",
+      // Nace FUERA del directorio público (0187). Un cliente de Lealtad
+      // no se ofreció como proveedor del marketplace: sin esta línea
+      // aparece en la cola de aprobación del admin, y un clic en
+      // «Aprobar» lo publica en un directorio donde no tiene ficha.
+      en_marketplace: false,
       lealtad_aprobado_en: new Date().toISOString(),
       lealtad_aprobado_por: null, // el sistema
       // Una sola de las dos columnas del paquete, por la misma razón

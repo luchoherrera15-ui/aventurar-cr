@@ -14,6 +14,7 @@ import * as WebBrowser from "expo-web-browser";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import { useAuth, type Perfil } from "@/lib/auth-context";
@@ -536,9 +537,13 @@ function PerfilVista({
   activa: boolean;
 }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { refrescarPerfil } = useAuth();
   const inicial = (perfil?.nombre || correo || "?").trim().charAt(0).toUpperCase();
   const [stats, setStats] = useState<StatsPerfil | null>(null);
+  /** Mensajes sin leer en todas tus consultas — la burbujita de la
+   *  fila "Consultas". */
+  const [consultasSinLeer, setConsultasSinLeer] = useState(0);
   const [editandoNombre, setEditandoNombre] = useState(false);
   const [nombreBorrador, setNombreBorrador] = useState(perfil?.nombre ?? "");
   const [guardandoNombre, setGuardandoNombre] = useState(false);
@@ -633,6 +638,45 @@ function PerfilVista({
         calificacion,
         lealtadActiva,
       });
+
+      // ── La burbujita de "Consultas" ──────────────────────────────
+      // Mismo criterio que la bandeja: un mensaje cuenta como sin leer
+      // si NO lo escribiste vos y es posterior a tu marca de lectura
+      // de esa conversación. La RLS ya acota `conversaciones` y
+      // `mensajes` a las tuyas, así que no hace falta filtrar por
+      // dueño acá.
+      const [{ data: convs }, { data: lecturas }] = await Promise.all([
+        supabase.from("conversaciones").select("id"),
+        supabase
+          .from("conversacion_lecturas")
+          .select("conversacion_id, leido_hasta")
+          .eq("usuario_id", clienteId),
+      ]);
+      const idsConv = (convs ?? []).map((c) => c.id as string);
+      if (idsConv.length === 0) {
+        if (vigente) setConsultasSinLeer(0);
+        return;
+      }
+      const marca = new Map(
+        ((lecturas ?? []) as { conversacion_id: string; leido_hasta: string }[]).map((l) => [
+          l.conversacion_id,
+          l.leido_hasta,
+        ]),
+      );
+      const { data: msgs } = await supabase
+        .from("mensajes")
+        .select("conversacion_id, autor_id, created_at")
+        .in("conversacion_id", idsConv)
+        .neq("autor_id", clienteId)
+        .order("created_at", { ascending: false })
+        .limit(500);
+      const sinLeer = ((msgs ?? []) as { conversacion_id: string; created_at: string }[]).filter(
+        (m) => {
+          const leido = marca.get(m.conversacion_id);
+          return !leido || m.created_at > leido;
+        },
+      ).length;
+      if (vigente) setConsultasSinLeer(sinLeer);
     })();
     return () => {
       vigente = false;
@@ -647,110 +691,74 @@ function PerfilVista({
 
   return (
     <View style={styles.contenedor}>
-      <TituloPantalla titulo="Perfil" />
-      <ScrollView contentContainerStyle={{ padding: Spacing.four, paddingBottom: TAB_BAR_ESPACIO, gap: Spacing.three }}>
+      <ScrollView
+        contentContainerStyle={{
+          paddingTop: insets.top + Spacing.three,
+          paddingHorizontal: Spacing.four,
+          paddingBottom: TAB_BAR_ESPACIO,
+          gap: Spacing.three,
+        }}
+      >
+        {/* ── ENCABEZADO: nombre grande a la izquierda, avatar a la
+            derecha. Sin tarjeta ni borde — el nombre ES el título de la
+            pantalla, así que ya no hace falta un "Perfil" encima
+            repitiendo dónde está uno. */}
+        <View style={styles.encabezado}>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            {editandoNombre ? (
+              <View style={styles.editorNombre}>
+                <TextInput
+                  value={nombreBorrador}
+                  onChangeText={setNombreBorrador}
+                  placeholder="Tu nombre"
+                  placeholderTextColor={Colors.inkSoft}
+                  style={styles.inputNombre}
+                  autoFocus
+                  maxLength={60}
+                />
+                <Pressable
+                  style={styles.guardarNombre}
+                  disabled={guardandoNombre}
+                  onPress={guardarNombre}
+                >
+                  {guardandoNombre ? (
+                    <ActivityIndicator color="#ffffff" size="small" />
+                  ) : (
+                    <Ionicons name="checkmark" size={18} color="#ffffff" />
+                  )}
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                style={styles.filaNombre}
+                onPress={() => {
+                  setNombreBorrador(perfil?.nombre ?? "");
+                  setEditandoNombre(true);
+                }}
+              >
+                <Text style={styles.nombreTitular} numberOfLines={1}>
+                  {perfil?.nombre || "Poné tu nombre"}
+                </Text>
+                <Ionicons name="pencil" size={14} color={Colors.inkSoft} />
+              </Pressable>
+            )}
+            <Text style={styles.subtituloRol}>
+              {esProveedor ? "Perfil de proveedor" : "Perfil personal"}
+            </Text>
+          </View>
+          <View style={styles.avatarGrande}>
+            <Text style={styles.avatarGrandeTexto}>{inicial}</Text>
+          </View>
+        </View>
+
         {/* Cuentas viejas sin nombre o teléfono: se completan acá una
             sola vez y las reservas quedan llenándose solas. */}
         <CompletarPerfilCard
           nombrePerfil={perfil?.nombre ?? null}
           refrescarPerfil={refrescarPerfil}
         />
-        {/* Identidad: foto al lado (no centrada arriba) y el Balance a
-            la derecha — el balance interno todavía no existe como
-            sistema (llega después), esto es el lugar donde va a vivir
-            cuando lo tenga. Sin el riel de reservas/reseñas/favoritos
-            de antes: esos números ya se ven en sus propias tarjetas
-            (Historial, Reservas) más abajo. */}
-        <View style={styles.tarjetaIdentidad}>
-          <View style={styles.filaIdentidad}>
-            <View style={styles.avatarChico}>
-              <Text style={styles.avatarChicoTexto}>{inicial}</Text>
-            </View>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              {editandoNombre ? (
-                <View style={styles.editorNombre}>
-                  <TextInput
-                    value={nombreBorrador}
-                    onChangeText={setNombreBorrador}
-                    placeholder="Tu nombre"
-                    placeholderTextColor={Colors.inkSoft}
-                    style={styles.inputNombre}
-                    autoFocus
-                    maxLength={60}
-                  />
-                  <Pressable
-                    style={styles.guardarNombre}
-                    disabled={guardandoNombre}
-                    onPress={guardarNombre}
-                  >
-                    {guardandoNombre ? (
-                      <ActivityIndicator color="#ffffff" size="small" />
-                    ) : (
-                      <Ionicons name="checkmark" size={18} color="#ffffff" />
-                    )}
-                  </Pressable>
-                </View>
-              ) : (
-                <Pressable
-                  style={styles.filaNombre}
-                  onPress={() => {
-                    setNombreBorrador(perfil?.nombre ?? "");
-                    setEditandoNombre(true);
-                  }}
-                >
-                  <Text style={styles.nombreGrande} numberOfLines={1}>
-                    {perfil?.nombre || "Poné tu nombre"}
-                  </Text>
-                  <Ionicons name="pencil" size={13} color={Colors.inkSoft} />
-                </Pressable>
-              )}
-              <Text style={styles.correoPerfil} numberOfLines={1}>
-                {correo}
-              </Text>
-            </View>
 
-            {/* Placeholder a propósito: todavía no hay ledger detrás.
-                Cuando exista el balance interno, este número sale de
-                ahí — el lugar ya queda listo. */}
-            <View style={styles.balanceBloque}>
-              <Text style={styles.balanceEtiqueta}>Balance</Text>
-              <Text style={styles.balanceMonto}>₡0</Text>
-            </View>
-          </View>
-
-          <View style={[styles.chipRol, esProveedor && styles.chipRolProveedor]}>
-            <Ionicons
-              name={esProveedor ? "storefront" : "person"}
-              size={12}
-              color={esProveedor ? Colors.accent : Colors.navy}
-            />
-            <Text style={[styles.chipRolTexto, esProveedor && styles.chipRolTextoProveedor]}>
-              {esProveedor ? "Proveedor" : "Cliente"}
-            </Text>
-          </View>
-        </View>
-
-        {/* Historial: las citas ya atendidas y cuánto llevás invertido
-            en ellas — vive en su propia pantalla porque la consulta
-            (estado "cumplida", solo vertical "citas") es distinta de
-            "Reservas" (que mezcla las cuatro verticales, activas e
-            historial). */}
-        <Pressable style={styles.tarjetaHistorial} onPress={() => router.push("/historial" as never)}>
-          <View style={[styles.iconoBurbuja, styles.iconoBurbujaAcento]}>
-            <Ionicons name="time-outline" size={20} color={Colors.accent} />
-          </View>
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <Text style={styles.negocioTitulo}>Historial</Text>
-            <Text style={styles.accionDetalle} numberOfLines={1}>
-              Tus citas atendidas y cuánto invertiste
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={17} color={Colors.inkSoft} />
-        </Pressable>
-
-        {/* La entrada al Panel Admin, solo para el equipo de Bookea —
-            espejo del hub /admin de la web, adaptado: la grilla vive
-            en su propia pantalla. */}
+        {/* La entrada al Panel Admin, solo para el equipo de Bookea. */}
         {perfil?.rol === "admin" && (
           <Pressable
             style={styles.tarjetaAdmin}
@@ -770,102 +778,97 @@ function PerfilVista({
           </Pressable>
         )}
 
-        {esProveedor && stats && (
-          <Pressable
-            style={styles.tarjetaNegocio}
-            onPress={() => router.push(rutaPanel(stats.negocioIds) as never)}
-          >
-            <View style={styles.negocioEncabezado}>
-              <Text style={styles.negocioTitulo}>Tu negocio</Text>
-              <Ionicons name="chevron-forward" size={17} color={Colors.inkSoft} />
-            </View>
-            <View style={styles.filaStats}>
-              <Stat valor={String(stats.negocios)} etiqueta={stats.negocios === 1 ? "publicación" : "publicaciones"} />
-              <View style={styles.statDivisor} />
-              <Stat
-                valor={String(stats.vecesContratado)}
-                etiqueta={stats.vecesContratado === 1 ? "contratación" : "contrataciones"}
-              />
-              <View style={styles.statDivisor} />
-              <Stat
-                valor={stats.calificacion !== null ? `★ ${stats.calificacion.toFixed(1)}` : "—"}
-                etiqueta="calificación"
-              />
-            </View>
-          </Pressable>
-        )}
+        {/* ── GRUPO 1: lo que la persona TIENE en Bookea ───────────── */}
+        <Grupo>
+          <FilaMenu
+            icono="person-outline"
+            texto="Perfil"
+            onPress={() => {
+              setNombreBorrador(perfil?.nombre ?? "");
+              setEditandoNombre(true);
+            }}
+          />
+          <FilaMenu icono="heart-outline" texto="Favoritos" onPress={() => router.push("/favoritos" as never)} />
+          {/* "Consultas" reemplaza a la pestaña Mensajes del menú
+              inferior: la conversación se abre desde el botón
+              "Consultar" de un negocio de Eventos/Ranchos, y desde acá
+              se lee. El contador es el de mensajes sin leer. */}
+          <FilaMenu
+            icono="chatbubble-ellipses-outline"
+            texto="Consultas"
+            insignia={consultasSinLeer}
+            onPress={() => router.push("/consultas" as never)}
+          />
+          <FilaMenu icono="calendar-outline" texto="Mis reservas" onPress={() => router.push("/reservas" as never)} />
+          <FilaMenu icono="time-outline" texto="Historial" onPress={() => router.push("/historial" as never)} />
+          {/* "Nivel" ya no es un Alert de "muy pronto": abre las
+              tarjetas de lealtad reales de esta persona (los negocios
+              donde está afiliada, con su avance). */}
+          <FilaMenu icono="ribbon-outline" texto="Nivel" onPress={() => router.push("/nivel" as never)} />
+          <FilaMenu
+            icono="mail-outline"
+            texto="Invitaciones y álbumes"
+            onPress={() => router.push("/invitaciones" as never)}
+          />
+          <FilaMenu
+            icono="settings-outline"
+            texto="Ajustes"
+            onPress={() => router.push("/ajustes" as never)}
+            ultima
+          />
+        </Grupo>
 
-        {/* ── DE QUÉ LADO VA LEALTAD ────────────────────────────────
-            /lealtad es una landing de venta B2B —«quiero el programa en
-            MI negocio»— así que solo tiene sentido para quien publica,
-            no para un cliente mirando sus reservas. Sale SIEMPRE que
-            `esProveedor`, tenga o no el programa: si solo se viera una
-            vez contratado, nadie se enteraría de que existe. Con
-            programa abre el panel en el navegador —el panel de lealtad
-            no tiene versión nativa todavía— y sin programa se queda
-            adentro, en la pantalla de venta.
-            Va pegado a "Tu negocio" (arriba de la grilla genérica) a
-            propósito: es una tarjeta de proveedor, no un accesorio más. */}
+        {/* ── GRUPO 2: lo de proveedor, solo si publica ─────────────
+            /lealtad es venta B2B —«quiero el programa en MI negocio»—
+            así que solo tiene sentido para quien publica. Sale SIEMPRE
+            que `esProveedor`, tenga o no el programa: si solo se viera
+            una vez contratado, nadie se enteraría de que existe. */}
         {esProveedor && (
-          <View style={styles.grid}>
-            <TarjetaAccion
+          <Grupo>
+            <FilaMenu
               icono="ribbon-outline"
-              titulo="Programa de lealtad"
+              texto="Programa de lealtad"
               detalle={stats?.lealtadActiva ? "Sellos, puntos y pases" : "Clientes que vuelven"}
               onPress={() =>
                 stats?.lealtadActiva
                   ? WebBrowser.openBrowserAsync(`${SITIO_URL}/lealtad/entrar`)
                   : router.push("/lealtad" as never)
               }
+              ultima
             />
-          </View>
+          </Grupo>
         )}
 
-        <View style={styles.grid}>
-          <TarjetaAccion
-            icono="mail-outline"
-            titulo="Invitaciones y álbumes"
-            detalle="Tus eventos y fotos"
-            onPress={() => router.push("/invitaciones" as never)}
+        {/* ── GRUPO 3: ayuda ──────────────────────────────────────── */}
+        <Grupo>
+          <FilaMenu
+            icono="help-buoy-outline"
+            texto="Ayuda"
+            onPress={() => WebBrowser.openBrowserAsync(`${SITIO_URL}/ayuda`)}
+            ultima
           />
-          <TarjetaAccion
-            icono="trophy-outline"
-            titulo="Nivel"
-            detalle="Insignias muy pronto"
-            onPress={() =>
-              Alert.alert("Nivel", "Muy pronto vas a ver tu nivel y tus insignias acá.")
-            }
-          />
-        </View>
+        </Grupo>
 
-        {/* «MODO NEGOCIO» ya no es un toggle local que redibuja esta
-            misma pantalla -era cosmético: cambiaba dos tarjetas y el
-            resto de la app (la barra de abajo, todo lo demás) seguía
-            exactamente igual. Ahora ENTRA de verdad al panel de
-            administración -mismo lugar al que ya lleva la tarjeta "Tu
-            negocio" de arriba-, que tiene su PROPIA barra inferior
-            (`PanelNav`) dedicada a administrar, reemplazando por
-            completo a esta. Con un solo negocio va derecho a su panel;
-            con varios, a elegir cuál -misma decisión que ya tomaba "Tu
-            negocio". Volver a este modo cliente se hace desde
-            Configuración, adentro del panel. */}
+        {/* «MODO NEGOCIO» entra de verdad al panel de administración,
+            que tiene su PROPIA barra inferior (`PanelNav`) dedicada a
+            administrar. Pasa por la pantalla de transición animada
+            (`/entrando-negocio`) que pidió el dueño: la casita entra al
+            centro con tres puntitos rebotando, 1,5 s, y ya está adentro.
+            Con un solo negocio va derecho a su panel; con varios, a
+            elegir cuál. */}
         {esProveedor && stats && (
           <Pressable
-            style={styles.botonModo}
-            onPress={() => router.push(rutaPanel(stats.negocioIds) as never)}
+            style={styles.botonModoNegocio}
+            onPress={() =>
+              router.push(
+                `/entrando-negocio?destino=${encodeURIComponent(rutaPanel(stats.negocioIds))}` as never,
+              )
+            }
           >
-            <Ionicons name="storefront-outline" size={16} color={Colors.accent} />
-            <Text style={styles.botonModoTexto}>Administrar mi negocio</Text>
+            <Ionicons name="storefront" size={17} color="#ffffff" />
+            <Text style={styles.botonModoNegocioTexto}>Modo negocio</Text>
           </Pressable>
         )}
-
-        {/* Cerrar sesión y eliminar la cuenta se mudaron a Ajustes —
-            junto con notificaciones y los links legales, en vez de
-            sueltos al fondo del perfil. */}
-        <Pressable style={styles.botonModo} onPress={() => router.push("/ajustes" as never)}>
-          <Ionicons name="settings-outline" size={16} color={Colors.navy} />
-          <Text style={[styles.botonModoTexto, { color: Colors.navy }]}>Ajustes</Text>
-        </Pressable>
 
         <PieLegal />
       </ScrollView>
@@ -873,54 +876,54 @@ function PerfilVista({
   );
 }
 
-/**
- * Un número del perfil con su etiqueta. Va siempre sobre tarjeta
- * clara — antes tenía una variante para el bloque navy y el color por
- * defecto era blanco, lo que dejaba los números invisibles cuando la
- * tarjeta pasó a ser blanca.
- */
-function Stat({ valor, etiqueta }: { valor: string; etiqueta: string }) {
-  return (
-    <View style={stylesStat.contenedor}>
-      <Text style={stylesStat.valor}>{valor}</Text>
-      <Text style={stylesStat.etiqueta} numberOfLines={1}>
-        {etiqueta}
-      </Text>
-    </View>
-  );
+/** Un bloque de filas con fondo blanco y esquinas redondeadas — el
+ * agrupador del menú, igual que el de la referencia. */
+function Grupo({ children }: { children: React.ReactNode }) {
+  return <View style={styles.grupo}>{children}</View>;
 }
 
-const stylesStat = StyleSheet.create({
-  contenedor: { flex: 1, alignItems: "center", gap: 1 },
-  valor: { fontSize: 19, fontFamily: Fonts.extraBold, letterSpacing: -0.3, color: Colors.ink },
-  etiqueta: { fontSize: 10.5, fontFamily: Fonts.semiBold, color: Colors.inkSoft },
-});
-
-/** Un acceso del perfil como tarjeta, en vez de la vieja fila de
- * lista con chevron. */
-function TarjetaAccion({
+/** Una fila del menú: ícono, texto y chevron. */
+function FilaMenu({
   icono,
-  titulo,
+  texto,
   detalle,
+  insignia,
   onPress,
-  acento,
+  ultima,
 }: {
   icono: keyof typeof Ionicons.glyphMap;
-  titulo: string;
-  detalle: string;
+  texto: string;
+  detalle?: string;
+  /** La burbujita con un número — 0 o ausente no dibuja nada. */
+  insignia?: number;
   onPress: () => void;
-  /** true = el ícono va en naranja (la acción principal). */
-  acento?: boolean;
+  /** La última del grupo no lleva la línea separadora de abajo. */
+  ultima?: boolean;
 }) {
   return (
-    <Pressable style={styles.tarjetaAccion} onPress={onPress}>
-      <View style={[styles.iconoBurbuja, acento && styles.iconoBurbujaAcento]}>
-        <Ionicons name={icono} size={20} color={acento ? Colors.accent : Colors.navy} />
+    <Pressable
+      style={({ pressed }) => [
+        styles.filaMenu,
+        !ultima && styles.filaMenuSeparador,
+        pressed && { backgroundColor: Colors.cream2 },
+      ]}
+      onPress={onPress}
+    >
+      <Ionicons name={icono} size={21} color={Colors.ink} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.filaMenuTexto}>{texto}</Text>
+        {!!detalle && (
+          <Text style={styles.filaMenuDetalle} numberOfLines={1}>
+            {detalle}
+          </Text>
+        )}
       </View>
-      <Text style={styles.accionTitulo}>{titulo}</Text>
-      <Text style={styles.accionDetalle} numberOfLines={1}>
-        {detalle}
-      </Text>
+      {!!insignia && insignia > 0 && (
+        <View style={styles.insignia}>
+          <Text style={styles.insigniaTexto}>{insignia > 99 ? "99+" : insignia}</Text>
+        </View>
+      )}
+      <Ionicons name="chevron-forward" size={17} color={Colors.inkMuted} />
     </Pressable>
   );
 }
@@ -1008,25 +1011,20 @@ const styles = StyleSheet.create({
   enlace: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13, textAlign: "center", marginTop: Spacing.two },
   enlaceSecundario: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 13, textAlign: "center", marginTop: Spacing.one },
   avisoReenvio: { color: Colors.green, fontFamily: Fonts.bold, fontSize: 12.5 },
-  tarjetaIdentidad: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 22,
-    paddingVertical: Spacing.four,
-    paddingHorizontal: Spacing.three,
-    gap: Spacing.two + 2,
-    shadowColor: "#101a2c",
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+  // El encabezado: el nombre ES el título de la pantalla (no hay
+  // "Perfil" encima repitiéndolo) y el avatar va a la derecha.
+  encabezado: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.three,
+    marginBottom: Spacing.one,
   },
-  filaIdentidad: { alignItems: "center", flexDirection: "row", gap: Spacing.two + 2 },
-  avatarChico: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  nombreTitular: { fontSize: 27, fontFamily: Fonts.extraBold, letterSpacing: -0.7, color: Colors.ink },
+  subtituloRol: { fontSize: 13.5, color: Colors.inkSoft, fontFamily: Fonts.medium, marginTop: 2 },
+  avatarGrande: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     backgroundColor: Colors.navy,
     alignItems: "center",
     justifyContent: "center",
@@ -1034,18 +1032,47 @@ const styles = StyleSheet.create({
     borderWidth: 2.5,
     borderColor: Colors.sky,
   },
-  avatarChicoTexto: { color: "#ffffff", fontSize: 21, fontFamily: Fonts.extraBold },
-  balanceBloque: { alignItems: "flex-end", gap: 1 },
-  balanceEtiqueta: {
-    color: Colors.inkMuted,
-    fontFamily: Fonts.extraBold,
-    fontSize: 9,
-    letterSpacing: 0.9,
-    textTransform: "uppercase",
+  avatarGrandeTexto: { color: "#ffffff", fontSize: 23, fontFamily: Fonts.extraBold },
+  // Los grupos del menú: bloque blanco con filas adentro, como la
+  // referencia. La línea separadora solo entre filas, nunca al final.
+  grupo: {
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: "hidden",
   },
-  balanceMonto: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 18, letterSpacing: -0.3 },
+  filaMenu: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.three,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 15,
+  },
+  filaMenuSeparador: { borderBottomColor: Colors.line, borderBottomWidth: 1 },
+  filaMenuTexto: { color: Colors.ink, fontFamily: Fonts.semiBold, fontSize: 15.5 },
+  filaMenuDetalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 1 },
+  insignia: {
+    alignItems: "center",
+    backgroundColor: Colors.accent,
+    borderRadius: 11,
+    justifyContent: "center",
+    minWidth: 22,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  insigniaTexto: { color: "#ffffff", fontFamily: Fonts.extraBold, fontSize: 11 },
+  botonModoNegocio: {
+    alignItems: "center",
+    backgroundColor: Colors.navy,
+    borderRadius: 16,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    paddingVertical: 15,
+  },
+  botonModoNegocioTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 15 },
   filaNombre: { flexDirection: "row", alignItems: "center", gap: 6 },
-  nombreGrande: { fontSize: 19, fontFamily: Fonts.extraBold, letterSpacing: -0.3, color: Colors.ink },
   editorNombre: { flexDirection: "row", alignItems: "center", gap: Spacing.two, alignSelf: "stretch" },
   inputNombre: {
     flex: 1,
@@ -1067,49 +1094,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  correoPerfil: { fontSize: 12.5, color: Colors.inkSoft, fontFamily: Fonts.medium },
-  chipRol: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 5,
-    borderRadius: 8,
-    backgroundColor: Colors.blueLight,
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-  },
-  chipRolProveedor: { backgroundColor: Colors.skyLight },
-  chipRolTexto: { fontSize: 11.5, fontFamily: Fonts.bold, color: Colors.navy },
-  chipRolTextoProveedor: { color: Colors.accent },
-  filaStats: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "stretch",
-    marginTop: Spacing.three,
-    borderTopWidth: 1,
-    borderTopColor: Colors.line,
-    paddingTop: Spacing.three,
-  },
-  statDivisor: { width: 1, height: 26, backgroundColor: Colors.line },
-  tarjetaNegocio: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 18,
-    paddingHorizontal: Spacing.three,
-    paddingTop: Spacing.three,
-    paddingBottom: Spacing.two,
-  },
-  tarjetaHistorial: {
-    alignItems: "center",
-    backgroundColor: Colors.surface,
-    borderColor: Colors.line,
-    borderRadius: 18,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: Spacing.two + 2,
-    padding: Spacing.three,
-  },
   // Navy sólido: el admin es sobrio y se distingue de las tarjetas
   // blancas del perfil sin gritar.
   tarjetaAdmin: {
@@ -1130,38 +1114,4 @@ const styles = StyleSheet.create({
   },
   adminTitulo: { color: "#ffffff", fontFamily: Fonts.extraBold, fontSize: 14.5 },
   adminDetalle: { color: "rgba(255,255,255,0.72)", fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 1 },
-  negocioEncabezado: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  negocioTitulo: { fontSize: 14.5, fontFamily: Fonts.extraBold, color: Colors.ink },
-  grid: { flexDirection: "row", gap: Spacing.three },
-  tarjetaAccion: {
-    flex: 1,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.line,
-    borderRadius: 18,
-    padding: Spacing.three,
-    gap: 3,
-  },
-  iconoBurbuja: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: Colors.blueLight,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 6,
-  },
-  iconoBurbujaAcento: { backgroundColor: Colors.skyLight },
-  accionTitulo: { fontSize: 14, fontFamily: Fonts.extraBold, color: Colors.ink },
-  accionDetalle: { fontSize: 11.5, color: Colors.inkSoft, fontFamily: Fonts.medium },
-  botonModo: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: Spacing.three,
-    borderTopWidth: 1,
-    borderTopColor: Colors.line,
-  },
-  botonModoTexto: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13.5 },
 });

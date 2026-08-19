@@ -176,7 +176,6 @@ export default function RestaurantesDirectorioScreen() {
         precio={null}
         textoSinPrecio={rangoPrecio !== null ? RANGO_PRECIO_LABEL[rangoPrecio] : "Ver el menú"}
         distintivos={distintivos}
-        cta={aceptaReservaMesa ? "Reservar" : "Ver"}
         demo={n.slug?.startsWith("demo-")}
         onPress={() => router.push(`/restaurantes/${n.id}` as never)}
       />

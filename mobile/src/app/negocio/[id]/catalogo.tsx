@@ -24,6 +24,7 @@ import { agendaPorHoras, esCitas as esVerticalCitas } from "@/lib/agenda-negocio
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import {
   CATALOGO_LABEL,
+  CATEGORIAS,
   fmtColones,
   type Categoria,
   type LugarServicio,
@@ -220,7 +221,20 @@ export default function CatalogoNegocioScreen() {
     ]);
     if (ranchoRes.data) {
       setNombreNegocio(ranchoRes.data.nombre as string);
-      setCategoria(ranchoRes.data.categoria as Categoria);
+      // `ranchos.categoria` NO es siempre una de las 6 de Eventos:
+      // desde la 0058 también vale 'barberia', 'unas', 'belleza',
+      // 'spa' y 'consultorio' (las de Citas). `CATALOGO_LABEL` solo
+      // tiene las de Eventos, así que un `as Categoria` a ciegas
+      // dejaba `etiqueta` en undefined y el `.toLowerCase()` de más
+      // abajo tumbaba la pantalla entera al renderizar — una barbería
+      // no podía abrir su propio catálogo. Mismo fallback que ya usan
+      // la web (`mi-negocio/[id]/page.tsx`) y `negocio/nuevo.tsx`.
+      const categoriaCruda = (ranchoRes.data.categoria as string) ?? "";
+      setCategoria(
+        (CATEGORIAS as readonly string[]).includes(categoriaCruda)
+          ? (categoriaCruda as Categoria)
+          : "otros",
+      );
       setVertical((ranchoRes.data.vertical as string) ?? null);
     }
     setItems((itemsRes.data ?? []) as RanchoItem[]);

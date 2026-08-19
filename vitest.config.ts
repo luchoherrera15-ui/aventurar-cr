@@ -17,6 +17,14 @@ export default defineConfig({
   // se le pone `pool: "forks"` a ESE archivo, no a toda la suite.
   test: {
     pool: "threads",
+    // La app móvil tiene su PROPIO vitest (mobile/vitest.config.mts),
+    // con su propio alias `@` apuntando a `mobile/src`. Si esta corrida
+    // levanta esos archivos, el alias de acá los manda a `src/` del
+    // sitio y revientan con "Cannot find package '@/lib/...'" — un
+    // fallo que no dice nada de los tests y sí confunde a quien lo lee.
+    //
+    // Se corren aparte:  cd mobile && npx vitest run
+    exclude: ["**/node_modules/**", "**/dist/**", "mobile/**"],
   },
   resolve: {
     alias: {

@@ -97,28 +97,52 @@ export default async function MiRanchoHubPage() {
   }
 
   const propios = (data ?? []) as Rancho[];
-  const ranchos = [...propios, ...colaborados];
+  const todos = [...propios, ...colaborados];
   const idsPropios = new Set(propios.map((r) => r.id));
 
   // Nadie llega acá sin publicar nada todavía: el primer servicio se
   // arma con el formulario completo de onboarding, no con una card vacía.
-  if (ranchos.length === 0) redirect("/mi-negocio/nuevo");
+  //
+  // El corte se hace sobre la lista COMPLETA, incluidos los de Lealtad:
+  // si se hiciera sobre los del directorio, un dueño que solo tiene
+  // Lealtad caería en el alta del marketplace y terminaría creando un
+  // negocio duplicado.
+  if (todos.length === 0) redirect("/mi-negocio/nuevo");
+
+  // ── LOS DE LEALTAD VAN AL FINAL, NO ESCONDIDOS (0187) ─────────────
+  // Un negocio que nació en Bookea Lealtad no es un proveedor del
+  // directorio: no tiene ficha, ni provincia, ni reservas. Verlo
+  // primero, bajo el título «Marketplace de ranchos» y con el badge
+  // «Pendiente», le decía a su dueño que estaba esperando una
+  // aprobación que nunca va a llegar — porque nunca la pidió.
+  //
+  // `!== false` y no `=== true`: sin la 0187 corrida la propiedad llega
+  // `undefined` y todo queda exactamente como estaba.
+  const soloLealtad = todos.every((r) => r.en_marketplace === false);
+  const ranchos = [
+    ...todos.filter((r) => r.en_marketplace !== false),
+    ...todos.filter((r) => r.en_marketplace === false),
+  ];
 
   return (
     <main className="mx-auto max-w-[1000px] px-5 py-12">
       <RevealOnScroll />
       <div className="mb-8 flex items-start justify-between gap-4 border-b border-aventurea-line pb-7">
         <div>
+          {/* Quien solo tiene negocios de Lealtad NO está en el
+              marketplace, y decirle que sí lo manda a esperar una
+              aprobación que nadie le va a dar. El encabezado dice la
+              verdad de cada caso. */}
           <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
-            Marketplace de ranchos
+            {soloLealtad ? "Bookea Lealtad" : "Marketplace de ranchos"}
           </p>
           <h1 className="titulo mt-2.5 text-[28px] text-aventurea-ink">
-            Tus servicios y espacios
+            {soloLealtad ? "Tu negocio" : "Tus servicios y espacios"}
           </h1>
           <p className="mt-1.5 max-w-[52ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
-            Una misma cuenta puede ofrecer varias cosas — tu rancho, tu
-            catering, un coffee bar. Cada uno con sus propias reservas y
-            finanzas.
+            {soloLealtad
+              ? "Acá entrás a tu panel: tu tarjeta de lealtad, tus clientes y tus promos. No estás publicado en el directorio de Bookea, y no hace falta que lo estés."
+              : "Una misma cuenta puede ofrecer varias cosas — tu rancho, tu catering, un coffee bar. Cada uno con sus propias reservas y finanzas."}
           </p>
         </div>
         <form action={logoutDueno}>
@@ -165,9 +189,21 @@ export default async function MiRanchoHubPage() {
                   {CATEGORIA_ICONO[categoriaEventos]}
                 </span>
               )}
+              {/* Un negocio de Lealtad NO está «pendiente» de nada: no
+                  se postuló al directorio. El badge de estado es del
+                  marketplace y ahí no aplica — decirle «Pendiente» lo
+                  deja esperando una aprobación que nunca va a llegar. */}
               <span className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/35 px-2.5 py-1.5 text-[10.5px] font-bold uppercase tracking-wide text-white shadow-sm backdrop-blur-md">
-                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
-                {ESTADO_LABEL[rancho.estado]}
+                {rancho.en_marketplace === false ? (
+                  "Lealtad"
+                ) : (
+                  <>
+                    <span
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[rancho.estado]}`}
+                    />
+                    {ESTADO_LABEL[rancho.estado]}
+                  </>
+                )}
               </span>
             </div>
             <div className="p-4.5">

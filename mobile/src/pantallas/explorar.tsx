@@ -28,6 +28,7 @@ import BarraRapida, { BARRA_RAPIDA_ESPACIO } from "@/components/barra-rapida";
 import ChipsVerticales from "@/components/chips-verticales";
 import Buscador, { ChipFiltro } from "@/components/buscador";
 import TarjetaNegocio from "@/components/tarjeta-negocio";
+import { esNegocioNuevo } from "@/components/tag-nuevo";
 import { Boton, ChipCategoria, Encabezado, Micro, Vacio } from "@/components/ui";
 import {
   CANTONES,
@@ -77,6 +78,9 @@ export type Fila = Pick<
   /** Opcional por lo mismo: acá vive `en_configuracion`, la pausa que
    * el dueño le pone a su publicación. Ver `enConfiguracion`. */
   detalles?: Record<string, unknown> | null;
+  /** Opcional también: el tag "NUEVO" lo usa cuando el select lo trae
+   * (COLUMNAS_CARD sí; favoritos.tsx no). Ver `esNegocioNuevo`. */
+  created_at?: string | null;
 };
 
 /**
@@ -286,11 +290,12 @@ export default function DirectorioScreen() {
 
   const listaFiltrada = useMemo(() => {
     if (!ranchos) return [];
-    return ranchos
+    const base = ranchos
       .filter((r) => filtro === "todos" || r.categoria === filtro)
       .filter((r) => !subcategoria || r.subcategoria === subcategoria)
       .filter(coincide)
       .filter(pasaFiltros);
+    return base;
   }, [ranchos, filtro, subcategoria, coincide, pasaFiltros]);
 
   // Conteos para el panel de filtros: cuántos proveedores hay por
@@ -362,9 +367,9 @@ export default function DirectorioScreen() {
         calificacion={calificaciones[item.id] ?? null}
         ubicacion={[item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica"}
         precio={item.precio_desde !== null ? fmtColones(item.precio_desde) : null}
-        cta={item.categoria === "lugares" ? "Reservar fecha" : "Reservar"}
         // En pausa: se ve, no se abre — igual que la card de la web.
         pausado={enConfiguracion(item.detalles)}
+        nuevo={esNegocioNuevo(item.created_at)}
         favorito={favoritos.has(item.id)}
         onToggleFavorito={() => alternarFavorito(item.id)}
         onPress={() => router.push(`/rancho/${item.id}`)}

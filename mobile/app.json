@@ -53,6 +53,15 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 240
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Bookea usa tu ubicación solo para mostrarte los negocios que tenés cerca en el mapa.",
+          "locationWhenInUsePermission": "Bookea usa tu ubicación solo para mostrarte los negocios que tenés cerca en el mapa.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isIosBackgroundLocationEnabled": false
+        }
       ]
     ],
     "experiments": {

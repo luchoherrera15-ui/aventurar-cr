@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,8 +22,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
-import TituloPantalla from "@/components/titulo-pantalla";
-import ExplorarChat from "@/components/explorar-chat";
+import BarraSuperior from "@/components/barra-superior";
 import { ChipCategoria } from "@/components/ui";
 import { PREFIJO_ASISTENTE } from "@/lib/asistente-prefijo";
 import { normalizarTexto } from "@/lib/busqueda";
@@ -44,6 +44,19 @@ import {
  *   borran de verdad (diseño de la migración 0034) — se oculta solo
  *   para esta persona (conversacion_ocultas) y reaparece sola si
  *   llega un mensaje nuevo, para no perder una posible venta.
+ *
+ * ------------------------------------------------------------------
+ * YA NO SE EMPIEZA UNA CONVERSACIÓN DESDE ACÁ
+ * ------------------------------------------------------------------
+ * Esta pantalla dejó de ser una pestaña del menú inferior y dejó de
+ * tener buscador de negocios: el producto se movió a "lo más
+ * automatizado posible", y nadie le escribe a una tienda por gusto.
+ *
+ * La ÚNICA puerta para abrir una conversación es el botón "Consultar"
+ * de un negocio de Eventos/Ranchos, mientras se arma una reserva. Acá
+ * solo se LEE lo que ya existe: por eso el buscador de arriba volvió a
+ * ser lo que era —un filtro de tus propias consultas— y el "+" solo
+ * cambia de bandeja (Solicitudes / Archivados), nunca crea nada.
  */
 
 type ConversacionRow = {
@@ -93,6 +106,10 @@ type Fila = {
   /** true = esta cuenta es la CLIENTE de la conversación; false = es
    *  el NEGOCIO destinatario ("Solicitudes" solo muestra las false). */
   soyCliente: boolean;
+  /** true = está oculta para esta persona (deslizada a "eliminar") y
+   *  nadie escribió desde entonces — vive en "Archivados", no en la
+   *  bandeja normal. */
+  archivada: boolean;
 };
 
 function fechaCorta(iso: string) {
@@ -121,18 +138,18 @@ function tagDeChat(c: ConversacionRow): TagChat {
 
 export default function BandejaMensajesScreen({ activa = true }: { activa?: boolean }) {
   const router = useRouter();
+
   const { session } = useAuth();
   const [filas, setFilas] = useState<Fila[] | null>(null);
   /** true = tiene al menos un negocio propio — solo esas cuentas ven
    *  "Solicitudes". */
   const [esProveedor, setEsProveedor] = useState(false);
-  // La sección de arriba del todo: la bandeja de chats o el buscador
-  // de negocios para empezar una conversación (paridad con la web).
-  const [modo, setModo] = useState<"lista" | "explorar">("lista");
   /** "mis" = mis conversaciones como cliente; "solicitudes" = los
-   *  mensajes que le llegan a MI negocio. Dos bandejas separadas — ver
-   *  el comentario grande más abajo de por qué hacía falta. */
-  const [vistaLista, setVistaLista] = useState<"mis" | "solicitudes">("mis");
+   *  mensajes que le llegan a MI negocio; "archivados" = lo que
+   *  deslizaste a eliminar y nadie reactivó todavía. Se elige desde el
+   *  menú "+" (Solicitudes/Archivados son destinos, no un toggle). */
+  const [vista, setVista] = useState<"mis" | "solicitudes" | "archivados">("mis");
+  const [menuAbierto, setMenuAbierto] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [tab, setTab] = useState<"activas" | "resueltas">("activas");
   const [categoria, setCategoria] = useState<CategoriaChat | "todas">("todas");
@@ -212,6 +229,13 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
         .map((c) => {
           const soyCliente = c.cliente_id === miId;
           const ult = ultimo.get(c.id) ?? null;
+          const actividad = ult?.created_at ?? c.created_at;
+          const ocultaTs = ocultaDesde.get(c.id);
+          // Archivada = tiene marca de "eliminada" y nadie escribió
+          // después de esa marca. Si hay actividad nueva, vuelve sola a
+          // la bandeja normal (mismo criterio de siempre, ver comentario
+          // grande de arriba).
+          const archivada = !!ocultaTs && !(actividad > ocultaTs);
           return {
             id: c.id,
             href: c.reserva_id
@@ -234,10 +258,11 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
             ultimoTexto: ult
               ? `${ult.autor_id === miId ? "Vos: " : ""}${ult.texto}`
               : "Sin mensajes todavía — escribí el primero.",
-            actividad: ult?.created_at ?? c.created_at,
+            actividad,
             pendientes: sinLeer.get(c.id) ?? 0,
             resuelta: c.resuelta,
             soyCliente,
+            archivada,
             tag: tagDeChat(c),
             categoria: categorizarConversacion({
               proveedorId: c.proveedor_id,
@@ -247,13 +272,6 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
               categoria: c.ranchos?.categoria ?? "otros",
             }),
           };
-        })
-        // Un chat eliminado se queda oculto mientras no pase nada
-        // nuevo; si su última actividad es posterior al momento en que
-        // se ocultó, vuelve a la bandeja.
-        .filter((f) => {
-          const oculta = ocultaDesde.get(f.id);
-          return !oculta || f.actividad > oculta;
         })
         .sort((a, b) => (a.actividad < b.actividad ? 1 : -1)),
     );
@@ -285,7 +303,9 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     async (ids: string[]) => {
       if (!session || ids.length === 0) return;
       const ahora = new Date().toISOString();
-      setFilas((prev) => (prev ?? []).filter((f) => !ids.includes(f.id)));
+      setFilas((prev) =>
+        (prev ?? []).map((f) => (ids.includes(f.id) ? { ...f, archivada: true } : f)),
+      );
       await supabase.from("conversacion_ocultas").upsert(
         ids.map((id) => ({
           conversacion_id: id,
@@ -308,6 +328,23 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
   );
 
   const eliminarChat = useCallback((fila: Fila) => ocultar([fila.id]), [ocultar]);
+
+  /** El swipe "restaurar" de Archivados — vuelve a la bandeja normal
+   *  quitando la marca de `conversacion_ocultas`. */
+  const restaurar = useCallback(
+    async (fila: Fila) => {
+      if (!session) return;
+      setFilas((prev) =>
+        (prev ?? []).map((f) => (f.id === fila.id ? { ...f, archivada: false } : f)),
+      );
+      await supabase
+        .from("conversacion_ocultas")
+        .delete()
+        .eq("conversacion_id", fila.id)
+        .eq("usuario_id", session.user.id);
+    },
+    [session],
+  );
 
   /** Vaciar de un golpe todo lo archivado — el caso real de una bandeja
    *  saturada, sin tener que deslizar hilo por hilo. */
@@ -366,10 +403,11 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     [session],
   );
 
+  const hayTermino = normalizarTexto(busqueda).trim().length > 0;
+
   if (!session) {
     return (
       <View style={styles.contenedor}>
-        <TituloPantalla kicker="Tu actividad" titulo="Mensajes" />
         <View style={styles.centro}>
           <Text style={styles.vacioTitulo}>Iniciá sesión</Text>
           <Text style={styles.vacioTexto}>
@@ -386,7 +424,6 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
   if (filas === null) {
     return (
       <View style={styles.contenedor}>
-        <TituloPantalla kicker="Tu actividad" titulo="Mensajes" />
         <View style={styles.centro}>
           <ActivityIndicator color={Colors.accent} />
         </View>
@@ -396,9 +433,14 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
 
   // La bandeja de base: "mis" son las conversaciones donde ESTA cuenta
   // es la clienta (le escribió a un negocio); "solicitudes" son las
-  // que le llegan a SU negocio (es la proveedora). Antes era una sola
-  // lista mezclada — separarla es el punto central del rediseño.
-  const base = filas.filter((f) => (vistaLista === "solicitudes" ? !f.soyCliente : f.soyCliente));
+  // que le llegan a SU negocio (es la proveedora); "archivados" es lo
+  // que se deslizó a eliminar en cualquiera de las dos, todavía sin
+  // reactivar.
+  const base = filas.filter((f) => {
+    if (vista === "archivados") return f.archivada;
+    if (f.archivada) return false;
+    return vista === "solicitudes" ? !f.soyCliente : f.soyCliente;
+  });
   const porCategoria =
     categoria === "todas" ? base : base.filter((f) => f.categoria === categoria);
   const aguja = normalizarTexto(busqueda).trim();
@@ -407,90 +449,117 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     : porCategoria;
   const activas = porBusqueda.filter((f) => !f.resuelta);
   const resueltas = porBusqueda.filter((f) => f.resuelta);
-  const visibles = tab === "activas" ? activas : resueltas;
+  const visibles = vista === "archivados" ? porBusqueda : tab === "activas" ? activas : resueltas;
 
   // Solo se muestran chips de las categorías que de verdad tienen
   // chats — no tiene sentido ofrecer "Citas" si esta persona nunca
   // tuvo un chat de esa vertical. Se cuenta sobre `base` (la bandeja
   // activa), no sobre `filas` entero: los chips no deberían ofrecer
-  // categorías que solo existen del otro lado (mis / solicitudes).
+  // categorías que solo existen del otro lado.
   const categoriasConDatos = ORDEN_CATEGORIAS_CHAT.filter((cat) =>
     base.some((f) => f.categoria === cat),
   );
 
+  const placeholder =
+    vista === "solicitudes"
+      ? "Buscar en solicitudes"
+      : vista === "archivados"
+        ? "Buscar en archivados"
+        : "Buscar en tus consultas";
+
   return (
     <View style={styles.contenedor}>
-      <TituloPantalla
-        kicker="Tu actividad"
-        titulo={vistaLista === "solicitudes" ? "Solicitudes" : "Mensajes"}
-        subtitulo={
-          modo === "explorar"
-            ? "Buscá un negocio y empezá la conversación."
-            : "Deslizá un chat: derecha lo marca leído, izquierda lo elimina."
-        }
-      />
+      {/* Ya no es una pestaña del pager: lleva su propia barra con la
+          flecha de volver, porque se entra desde Perfil o desde el
+          panel del negocio. */}
+      <BarraSuperior titulo="Consultas" />
 
-      {/* La barra de arriba: buscar entre TUS chats a la izquierda, y
-          si tenés negocio propio, Solicitudes a la derecha — es la
-          bandeja de lo que le llega a TU negocio, separada de tus
-          propias conversaciones como cliente. */}
+      {/* El buscador de lado a lado. El "+" despliega
+          Solicitudes/Archivados — nunca "chatear con un negocio": eso
+          solo existe en la página de un negocio de Eventos/Ranchos. */}
       <View style={styles.barraSuperior}>
-        <Pressable
-          style={styles.buscador}
-          onPress={() => modo === "explorar" && setModo("lista")}
-        >
+        <View style={styles.buscador}>
           <Ionicons name="search-outline" size={16} color={Colors.inkMuted} />
           <TextInput
             value={busqueda}
-            onChangeText={(v) => {
-              setBusqueda(v);
-              if (modo === "explorar") setModo("lista");
-            }}
-            onFocus={() => setModo("lista")}
-            placeholder="Buscar en tus chats"
+            onChangeText={setBusqueda}
+            placeholder={placeholder}
             placeholderTextColor={Colors.inkMuted}
             style={styles.buscadorInput}
           />
+          {busqueda.length > 0 && (
+            <Pressable onPress={() => setBusqueda("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={16} color={Colors.inkMuted} />
+            </Pressable>
+          )}
+        </View>
+        <Pressable
+          style={[styles.masBoton, vista !== "mis" && styles.masBotonActivo]}
+          onPress={() => setMenuAbierto(true)}
+          hitSlop={6}
+        >
+          <Ionicons name="add" size={22} color={vista !== "mis" ? "#ffffff" : Colors.navy} />
         </Pressable>
-        {esProveedor && (
-          <Pressable
-            style={[styles.solicitudesBoton, vistaLista === "solicitudes" && styles.solicitudesBotonActivo]}
-            onPress={() => {
-              setModo("lista");
-              setVistaLista((v) => (v === "solicitudes" ? "mis" : "solicitudes"));
-              setTab("activas");
-            }}
-          >
-            <Ionicons
-              name="briefcase-outline"
-              size={14}
-              color={vistaLista === "solicitudes" ? "#ffffff" : Colors.navy}
-            />
-            <Text
-              style={[
-                styles.solicitudesTexto,
-                vistaLista === "solicitudes" && styles.solicitudesTextoActivo,
-              ]}
-            >
-              Solicitudes
-            </Text>
-          </Pressable>
-        )}
       </View>
 
-      {/* Reemplaza al viejo botón "Explorar": solo puede chatearse con
-          negocios (ExplorarChat busca únicamente en `ranchos`, nunca
-          personas), así que esta es la única puerta para empezar un
-          chat nuevo. */}
-      {modo === "lista" && (
-        <Pressable style={styles.chatearBoton} onPress={() => setModo("explorar")}>
-          <Ionicons name="add-circle" size={16} color={Colors.navy} />
-          <Text style={styles.chatearTexto}>Chatear con algún negocio</Text>
-        </Pressable>
+      {vista !== "mis" && (
+        <View style={styles.vistaActivaFila}>
+          <Ionicons
+            name={vista === "solicitudes" ? "briefcase" : "archive"}
+            size={12}
+            color={Colors.navy}
+          />
+          <Text style={styles.vistaActivaTexto}>
+            {vista === "solicitudes" ? "Solicitudes" : "Archivados"}
+          </Text>
+          <Pressable onPress={() => setVista("mis")} hitSlop={8}>
+            <Text style={styles.vistaActivaCerrar}>Volver a mis chats</Text>
+          </Pressable>
+        </View>
       )}
 
-      {modo === "explorar" && <ExplorarChat miId={session.user.id} />}
-      {modo === "lista" && categoriasConDatos.length > 1 && (
+      <Modal
+        transparent
+        visible={menuAbierto}
+        animationType="fade"
+        onRequestClose={() => setMenuAbierto(false)}
+      >
+        <Pressable style={styles.menuFondo} onPress={() => setMenuAbierto(false)}>
+          <View style={styles.menuCaja}>
+            {esProveedor && (
+              <Pressable
+                style={styles.menuItem}
+                onPress={() => {
+                  setVista((v) => (v === "solicitudes" ? "mis" : "solicitudes"));
+                  setTab("activas");
+                  setMenuAbierto(false);
+                }}
+              >
+                <Ionicons name="briefcase-outline" size={17} color={Colors.ink} />
+                <Text style={styles.menuItemTexto}>Solicitudes</Text>
+                {vista === "solicitudes" && (
+                  <Ionicons name="checkmark" size={16} color={Colors.accent} style={{ marginLeft: "auto" }} />
+                )}
+              </Pressable>
+            )}
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                setVista((v) => (v === "archivados" ? "mis" : "archivados"));
+                setMenuAbierto(false);
+              }}
+            >
+              <Ionicons name="archive-outline" size={17} color={Colors.ink} />
+              <Text style={styles.menuItemTexto}>Archivados</Text>
+              {vista === "archivados" && (
+                <Ionicons name="checkmark" size={16} color={Colors.accent} style={{ marginLeft: "auto" }} />
+              )}
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {vista === "mis" && categoriasConDatos.length > 1 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -507,7 +576,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
           ))}
         </ScrollView>
       )}
-      {modo === "lista" && base.length > 0 && (
+      {vista !== "archivados" && base.length > 0 && (
         <View style={styles.tabsFila}>
           <Pressable
             style={[styles.tabBoton, tab === "activas" && styles.tabBotonActivo]}
@@ -533,28 +602,35 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
           )}
         </View>
       )}
-      {modo === "lista" && (
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: Spacing.three, paddingBottom: TAB_BAR_ESPACIO }}
         data={visibles}
-        keyExtractor={(f) => f.id}
+        keyExtractor={(fila) => fila.id}
         onRefresh={cargar}
         refreshing={false}
         ListEmptyComponent={
           <View style={styles.centro}>
             <Text style={styles.vacioTitulo}>
-              {tab !== "activas"
-                ? "No hay chats resueltos"
-                : vistaLista === "solicitudes"
-                  ? "Todavía no te escribió nadie"
-                  : "Todavía no tenés conversaciones"}
+              {vista === "archivados"
+                ? "No tenés nada archivado"
+                : tab !== "activas"
+                  ? "No hay consultas resueltas"
+                  : vista === "solicitudes"
+                    ? "Todavía no te escribió nadie"
+                    : hayTermino
+                      ? "No encontramos nada"
+                      : "Todavía no tenés consultas"}
             </Text>
-            {tab === "activas" && (
+            {vista === "mis" && tab === "activas" && !hayTermino && (
               <Text style={styles.vacioTexto}>
-                {vistaLista === "solicitudes"
-                  ? "Cuando alguien le escriba a tu negocio, aparece acá primero."
-                  : "Cuando reservés un lugar o pidás una cotización, el chat con el proveedor aparece acá."}
+                Cuando tengas una duda armando una reserva de eventos, tocá
+                &quot;Consultar&quot; en la página del negocio y la conversación aparece acá.
+              </Text>
+            )}
+            {vista === "solicitudes" && tab === "activas" && (
+              <Text style={styles.vacioTexto}>
+                Cuando alguien consulte por tu negocio, aparece acá primero.
               </Text>
             )}
           </View>
@@ -562,29 +638,36 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
         renderItem={({ item }) => (
           <FilaChat
             fila={item}
+            modoArchivado={vista === "archivados"}
             onAbrir={() => router.push(item.href as never)}
             onLeido={() => marcarLeido(item)}
             onEliminar={() => eliminarChat(item)}
+            onRestaurar={() => restaurar(item)}
             onResuelto={() => alternarResuelto(item)}
           />
         )}
       />
-      )}
     </View>
   );
 }
 
 function FilaChat({
   fila,
+  modoArchivado,
   onAbrir,
   onLeido,
   onEliminar,
+  onRestaurar,
   onResuelto,
 }: {
   fila: Fila;
+  /** true = esta fila vive en "Archivados": el swipe izquierdo pasa a
+   *  ser "Restaurar" en vez de "Eliminar" (ya está eliminada). */
+  modoArchivado: boolean;
   onAbrir: () => void;
   onLeido: () => void;
   onEliminar: () => void;
+  onRestaurar: () => void;
   onResuelto: () => void;
 }) {
   const swipeRef = useRef<SwipeableMethods | null>(null);
@@ -605,16 +688,25 @@ function FilaChat({
           <Text style={styles.accionTexto}>Leído</Text>
         </View>
       )}
-      renderRightActions={() => (
-        <View style={[styles.accion, styles.accionEliminar]}>
-          <Ionicons name="trash-outline" size={22} color="#ffffff" />
-          <Text style={styles.accionTexto}>Eliminar</Text>
-        </View>
-      )}
+      renderRightActions={() =>
+        modoArchivado ? (
+          <View style={[styles.accion, styles.accionRestaurar]}>
+            <Ionicons name="arrow-undo-outline" size={22} color="#ffffff" />
+            <Text style={styles.accionTexto}>Restaurar</Text>
+          </View>
+        ) : (
+          <View style={[styles.accion, styles.accionEliminar]}>
+            <Ionicons name="trash-outline" size={22} color="#ffffff" />
+            <Text style={styles.accionTexto}>Eliminar</Text>
+          </View>
+        )
+      }
       onSwipeableOpen={(direccion) => {
         if (direccion === SwipeDirection.LEFT) {
           onLeido();
           swipeRef.current?.close();
+        } else if (modoArchivado) {
+          onRestaurar();
         } else {
           onEliminar();
         }
@@ -680,25 +772,39 @@ function FilaChat({
               {fechaCorta(fila.actividad)}
             </Text>
           </View>
-          <Pressable
-            onPress={(e) => {
-              e.stopPropagation();
-              onResuelto();
-            }}
-            style={styles.botonResuelto}
-            hitSlop={8}
-          >
-            <Ionicons
-              name={fila.resuelta ? "checkmark-circle" : "checkmark-circle-outline"}
-              size={13}
-              color={fila.resuelta ? Colors.green : Colors.navy}
-            />
-            <Text
-              style={[styles.botonResueltoTexto, fila.resuelta && { color: Colors.green }]}
+          {modoArchivado ? (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                onRestaurar();
+              }}
+              style={styles.botonResuelto}
+              hitSlop={8}
             >
-              {fila.resuelta ? "Resuelto" : "Marcar resuelto"}
-            </Text>
-          </Pressable>
+              <Ionicons name="arrow-undo-outline" size={13} color={Colors.navy} />
+              <Text style={styles.botonResueltoTexto}>Restaurar</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                onResuelto();
+              }}
+              style={styles.botonResuelto}
+              hitSlop={8}
+            >
+              <Ionicons
+                name={fila.resuelta ? "checkmark-circle" : "checkmark-circle-outline"}
+                size={13}
+                color={fila.resuelta ? Colors.green : Colors.navy}
+              />
+              <Text
+                style={[styles.botonResueltoTexto, fila.resuelta && { color: Colors.green }]}
+              >
+                {fila.resuelta ? "Resuelto" : "Marcar resuelto"}
+              </Text>
+            </Pressable>
+          )}
         </View>
       </Pressable>
     </Swipeable>
@@ -736,13 +842,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
   },
-  // La barra de arriba: el buscador (se estira) y, si aplica,
-  // "Solicitudes" a la derecha — mismo alto, un solo renglón.
+  // La barra de arriba: el buscador se estira de punta a punta, con un
+  // "+" chico al final — es lo primero que se ve, sin título encima.
   barraSuperior: {
     alignItems: "center",
     flexDirection: "row",
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
+    paddingTop: Spacing.two,
     paddingBottom: Spacing.two,
   },
   buscador: {
@@ -755,32 +862,80 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 10,
   },
   buscadorInput: { color: Colors.ink, flex: 1, fontFamily: Fonts.medium, fontSize: 13.5, padding: 0 },
-  solicitudesBoton: {
+  masBoton: {
     alignItems: "center",
     backgroundColor: Colors.surface,
     borderColor: Colors.navy,
     borderRadius: 12,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
   },
-  solicitudesBotonActivo: { backgroundColor: Colors.navy },
-  solicitudesTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
-  solicitudesTextoActivo: { color: "#ffffff" },
-  chatearBoton: {
+  masBotonActivo: { backgroundColor: Colors.navy },
+  vistaActivaFila: {
     alignItems: "center",
-    alignSelf: "flex-start",
     flexDirection: "row",
     gap: 6,
-    marginHorizontal: Spacing.three,
-    marginBottom: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingBottom: Spacing.two,
   },
-  chatearTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
+  vistaActivaTexto: { fontFamily: Fonts.bold, fontSize: 12.5, color: Colors.navy },
+  vistaActivaCerrar: {
+    marginLeft: "auto",
+    fontFamily: Fonts.bold,
+    fontSize: 11.5,
+    color: Colors.inkSoft,
+    textDecorationLine: "underline",
+  },
+  menuFondo: { flex: 1, backgroundColor: "rgba(10,15,30,0.25)" },
+  menuCaja: {
+    position: "absolute",
+    right: Spacing.three,
+    top: 56,
+    backgroundColor: Colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.line,
+    paddingVertical: 6,
+    minWidth: 180,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  menuItem: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  menuItemTexto: { fontFamily: Fonts.bold, fontSize: 13.5, color: Colors.ink },
+  cabeceraNegocios: {
+    fontFamily: Fonts.extraBold,
+    fontSize: 10.5,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
+    color: Colors.inkMuted,
+    marginTop: Spacing.two,
+    marginBottom: Spacing.one,
+  },
+  filaNegocio: {
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.two,
+    marginBottom: Spacing.two,
+    padding: Spacing.two,
+  },
   tabsFila: {
     flexDirection: "row",
     gap: Spacing.two,
@@ -821,6 +976,7 @@ const styles = StyleSheet.create({
   },
   accionLeido: { backgroundColor: Colors.navy, marginRight: Spacing.two },
   accionEliminar: { backgroundColor: Colors.danger, marginLeft: Spacing.two },
+  accionRestaurar: { backgroundColor: Colors.accent, marginLeft: Spacing.two },
   accionTexto: { color: "#ffffff", fontFamily: Fonts.bold, fontSize: 11 },
   fila: {
     flexDirection: "row",

@@ -4,25 +4,32 @@ import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Fonts } from "@/constants/theme";
+import type { IdPestana } from "@/lib/pestanas";
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
-/** Las cinco secciones raíz: citas/servicios (la de aterrizaje), lo
- * guardado, lo reservado, las conversaciones y la cuenta. El orden
- * acá ES el orden de las páginas del pager. El id "explorar" quedó
- * como identificador interno (lo usan `?tab=explorar` y los botones
- * "Explorar" de los estados vacíos) aunque la pestaña ahora muestre
- * Citas/Servicios — Eventos pasó a pantalla aparte (`/eventos`). */
+/** Las CUATRO secciones raíz: inicio (la de aterrizaje), las promos,
+ * lo reservado y la cuenta. El orden acá ES el orden de las páginas
+ * del pager. El id "explorar" quedó como identificador interno (lo
+ * usan `?tab=explorar` y los botones "Explorar" de los estados
+ * vacíos) aunque la pestaña se llame Inicio — Eventos pasó a pantalla
+ * aparte (`/eventos`).
+ *
+ * ── POR QUÉ YA NO ESTÁ "MENSAJES" ──────────────────────────────────
+ * El producto se mueve a "lo más automatizado posible": nadie le
+ * escribe a una tienda por gusto. La única conversación que queda es
+ * la CONSULTA de una reserva de Eventos/Ranchos, y se abre desde el
+ * botón "Consultar" de la página de ese negocio — no desde una bandeja
+ * general. Las consultas abiertas se leen en Perfil › Consultas. */
 export const TABS: {
-  id: "explorar" | "favoritos" | "reservas" | "mensajes" | "perfil";
+  id: IdPestana;
   label: string;
   icono: IconoNombre;
   iconoActivo: IconoNombre;
 }[] = [
-  { id: "explorar", label: "Servicios", icono: "time-outline", iconoActivo: "time" },
-  { id: "favoritos", label: "Promos", icono: "pricetag-outline", iconoActivo: "pricetag" },
+  { id: "explorar", label: "Inicio", icono: "home-outline", iconoActivo: "home" },
+  { id: "promos", label: "Promos", icono: "pricetag-outline", iconoActivo: "pricetag" },
   { id: "reservas", label: "Reservas", icono: "calendar-outline", iconoActivo: "calendar" },
-  { id: "mensajes", label: "Mensajes", icono: "chatbubble-outline", iconoActivo: "chatbubble" },
   { id: "perfil", label: "Perfil", icono: "person-circle-outline", iconoActivo: "person-circle" },
 ];
 

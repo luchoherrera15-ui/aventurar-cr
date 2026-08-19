@@ -9,6 +9,7 @@ import { Lightbox } from "@/components/galeria-lightbox";
 import { actualizarRancho, type EditarRanchoState } from "./actions";
 import DetallesServicioForm from "@/components/detalles-servicio-form";
 import SeccionPlegable from "@/components/seccion-plegable";
+import SelectorUbicacion from "@/components/selector-ubicacion";
 import { CAMPOS_POR_CATEGORIA, COBERTURA, type DetallesServicio } from "../../campos-servicio";
 import {
   AMENIDADES,
@@ -545,33 +546,41 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             </div>
           )}
 
-          {esLugar && (
-            <div>
-              <label className={labelCls}>Ubicación en el mapa</label>
-              <input
-                type="text"
-                name="mapa_url"
-                placeholder="Pegá acá el link de Google Maps de tu lugar"
-                defaultValue={rancho.mapa_url ?? ""}
-                className={inputCls}
-              />
-              <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-500">
-                Abrí Google Maps, buscá tu lugar, tocá <strong>Compartir</strong> y
-                pegá acá el link. Con eso tu página muestra los botones de{" "}
-                <strong>Google Maps</strong> y <strong>Waze</strong> para que el
-                cliente llegue sin preguntar. También podés pegar las coordenadas
-                directo (ej. <code>9.9281, -84.0907</code>).
-                {rancho.latitud !== null && rancho.longitud !== null && (
-                  <>
-                    {" "}
-                    <span className="font-bold text-aventurea-green">
-                      ✓ Ubicación guardada ({rancho.latitud}, {rancho.longitud}).
-                    </span>
-                  </>
-                )}
-              </p>
-            </div>
-          )}
+          {/* LA UBICACIÓN, PARA TODOS LOS NEGOCIOS.
+              Antes esto solo salía para `esLugar` (ranchos y salones),
+              así que una barbería o un restaurante no tenían forma de
+              decir dónde quedan — y sin coordenadas no entran al mapa
+              ni al "cerca de vos". Ahora se pide siempre: el mapa con
+              el pin arriba, y el link de Google Maps abajo como atajo
+              para quien ya lo tenga a mano. */}
+          <div>
+            <label className={labelCls}>¿Dónde queda tu negocio?</label>
+            <p className="mb-2 text-[11.5px] leading-relaxed text-zinc-500">
+              Tocá el mapa donde estás. Con esto tu negocio aparece en el mapa de
+              la app y en las búsquedas de &quot;cerca de mí&quot;.
+            </p>
+            <SelectorUbicacion
+              latitudInicial={rancho.latitud}
+              longitudInicial={rancho.longitud}
+            />
+
+            <label className={`${labelCls} mt-4`}>
+              O pegá el link de Google Maps (opcional)
+            </label>
+            <input
+              type="text"
+              name="mapa_url"
+              placeholder="https://maps.app.goo.gl/..."
+              defaultValue={rancho.mapa_url ?? ""}
+              className={inputCls}
+            />
+            <p className="mt-1.5 text-[11.5px] leading-relaxed text-zinc-500">
+              Si ya tenés el link, pegalo y las coordenadas salen de ahí. Con
+              cualquiera de los dos, tu página muestra los botones de{" "}
+              <strong>Google Maps</strong> y <strong>Waze</strong> para que el
+              cliente llegue sin preguntar.
+            </p>
+          </div>
 
           {esLugarEventos && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

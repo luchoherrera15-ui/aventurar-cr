@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
-import TituloPantalla from "@/components/titulo-pantalla";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ResenaModal from "@/components/resena-modal";
 import CancelarReservaModal from "@/components/cancelar-reserva-modal";
 import { Estado, Micro, Tarjeta, Vacio, type TonoEstado } from "@/components/ui";
@@ -144,7 +144,7 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
   if (!session) {
     return (
       <View style={styles.raiz}>
-        <TituloPantalla kicker="Tu actividad" titulo="Reservas" />
+        <EspacioBarraEstado />
         <View style={styles.centrado}>
           <Vacio
             icono="calendar-outline"
@@ -178,11 +178,7 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
 
   return (
     <View style={styles.raiz}>
-      <TituloPantalla
-        kicker="Tu actividad"
-        titulo="Reservas"
-        subtitulo="Lo que tenés en curso y lo que ya pasó."
-      />
+      <EspacioBarraEstado />
       {reservas === null ? (
         <View style={styles.centro}>
           <ActivityIndicator color={Colors.accent} />
@@ -369,6 +365,22 @@ function TarjetaReserva({
       </View>
     </Tarjeta>
   );
+}
+
+/**
+ * El único aire de arriba: el de la barra de estado del teléfono.
+ *
+ * Antes acá iba `TituloPantalla` con «Tu actividad · Reservas · Lo que
+ * tenés en curso y lo que ya pasó». El dueño lo sacó para aprovechar
+ * la pantalla, y tiene razón: la pestaña de abajo ya dice «Reservas»,
+ * así que el título repetía el rótulo y se comía los primeros 90px —
+ * en un teléfono, media reserva.
+ *
+ * Sin ESTE hueco el contenido queda debajo de la hora y la batería.
+ */
+function EspacioBarraEstado() {
+  const insets = useSafeAreaInsets();
+  return <View style={{ height: insets.top + 8 }} />;
 }
 
 const styles = StyleSheet.create({

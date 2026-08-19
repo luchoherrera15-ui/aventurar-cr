@@ -33,6 +33,7 @@ import {
   relojDeVencimiento,
 } from "@/lib/lealtad/vencimiento-sellos";
 import { avisarCambioDeDiseno } from "@/lib/wallet/aviso-de-diseno";
+import { refrescarClaseGoogle } from "@/lib/wallet/google";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
 
 /**
@@ -50,8 +51,25 @@ import type { ModoPrograma } from "@/lib/wallet/tarjeta";
  * Google). `avisarCambioDeDiseno` hace el trabajo pesado por tandas
  * (aviso-de-diseno.ts) y nunca lanza.
  */
-function avisarEdicionDeTarjeta(programaId: string): void {
+function avisarEdicionDeTarjeta(programaId: string, ranchoId: string): void {
   after(() => avisarCambioDeDiseno(programaId));
+  // ── ANDROID NECESITA LA OTRA MITAD ───────────────────────────────
+  // `avisarCambioDeDiseno` empuja el OBJETO de cada cliente. Pero en
+  // Google el nombre que sale arriba, el logo y el color de fondo no
+  // viven en el objeto: viven en la CLASE, que es una sola por negocio
+  // y que hasta ahora solo se escribía al emitir el pase de alguien
+  // NUEVO. O sea que un negocio con todos sus clientes ya adentro
+  // podía cambiar el color de su tarjeta y no verlo nunca en un
+  // Android.
+  //
+  // Falla en silencio a propósito: si Google no contesta, el diseño ya
+  // quedó guardado en la base y la próxima edición —o la próxima
+  // afiliación— lo vuelve a intentar. Tirar el guardado entero porque
+  // un servicio externo se cayó sería peor.
+  after(async () => {
+    const r = await refrescarClaseGoogle(ranchoId);
+    if (!r.ok) console.warn(`[google-wallet] no se refrescó la clase de ${ranchoId}: ${r.motivo}`);
+  });
 }
 
 /**
@@ -471,7 +489,7 @@ export async function guardarPrograma(
   // `avisarEdicionDeTarjeta` no hace nada si `previo` es null (una
   // tarjeta recién creada no tiene pases todavía que avisar).
   const programaGuardado = data as ProgramaFila;
-  if (previo) avisarEdicionDeTarjeta(programaGuardado.id);
+  if (previo) avisarEdicionDeTarjeta(programaGuardado.id, ranchoId);
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/admin/lealtad/${ranchoId}`);
@@ -796,7 +814,7 @@ export async function guardarBeneficio(
   // meta de sellos, el % del cupón, el valor de la gift card, la
   // vigencia. Cambiar esto sin avisar deja a un pase ya instalado
   // mostrando una promesa vieja.
-  avisarEdicionDeTarjeta(programaId);
+  avisarEdicionDeTarjeta(programaId, ranchoId);
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/lealtad/panel/${ranchoId}/editar/${programaId}`);
