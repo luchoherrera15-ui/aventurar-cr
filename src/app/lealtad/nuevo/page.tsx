@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { datosDePagoBookea } from "@/lib/pagos-bookea";
 import { definicionDe, esPlanOfrecido, PLANES, precioDe } from "@/lib/lealtad/planes";
@@ -90,16 +91,26 @@ export default async function NuevoNegocioLealtadPage({
       // rebotar al final.
       let tarjetasLlenas = false;
       const tope = definicionDe(planRancho)?.limites.programas ?? null;
-      if (tope !== null) {
-        const { data: filas } = await supabase
+      let filas: Record<string, unknown>[] = [];
+      if (tope !== null || planRancho === null) {
+        const { data: filasDb } = await supabase
           .from("programa_lealtad")
           .select("*")
           .eq("rancho_id", data.id as string);
-        const ocupadas = lasQueOcupanCupo(
-          ((filas ?? []) as Record<string, unknown>[]).map(tarjetaDelCupo),
-          minutoISOCR(),
-        );
+        filas = (filasDb ?? []) as Record<string, unknown>[];
+      }
+      if (tope !== null) {
+        const ocupadas = lasQueOcupanCupo(filas.map(tarjetaDelCupo), minutoISOCR());
         tarjetasLlenas = cupoLleno({ ocupadas: ocupadas.length, tope });
+      }
+
+      // SIN PLAN Y SIN NINGÚN PROGRAMA TODAVÍA: nunca contrató lealtad
+      // -no es un negocio que ya es cliente y el campo se desincronizó
+      // (ese caso SÍ sigue de largo, mismo criterio que `crear-actions.ts`).
+      // Se rebota a elegir un paquete en vez de dejarlo llenar el
+      // asistente entero para recién enterarse al final.
+      if (planRancho === null && filas.length === 0) {
+        redirect("/lealtad/planes");
       }
 
       rancho = {

@@ -268,6 +268,30 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     { planRancho: (rancho?.plan_lealtad as string | null) ?? null },
   );
 
+  // ── SIN PLAN, ¿NUNCA TUVO NADA O SOLO SE DESINCRONIZÓ EL CAMPO? ──
+  // `tiposDelPlan(null)` (planes.ts) devuelve los 8 tipos A PROPÓSITO
+  // para no dejar sin poder tocar SU PROPIA tarjeta a un negocio que
+  // YA es cliente y cuyo `plan_lealtad` quedó sin sincronizar -esa
+  // doctrina protege al que YA tiene algo. Pero acá, crear la PRIMERA
+  // tarjeta con `plan === null`, casi siempre significa que el negocio
+  // nunca contrató lealtad -es el valor por defecto de TODO negocio
+  // del marketplace (0124)-, y dejarlo seguir regalaría el paquete
+  // Ilimitado gratis a cualquier negocio publicado, sin Stripe, sin
+  // SINPE, sin aprobación de nadie. La distinción es simple: si no
+  // tiene NINGÚN programa todavía, no hay nada que proteger.
+  if (plan === null) {
+    const { count } = await db
+      .from("programa_lealtad")
+      .select("id", { count: "exact", head: true })
+      .eq("rancho_id", datos.ranchoId);
+    if (!count) {
+      return {
+        ok: false,
+        motivo: "Este negocio todavía no tiene un paquete de lealtad — elegí uno en /lealtad/planes antes de crear una tarjeta.",
+      };
+    }
+  }
+
   // EL TIPO, SEGÚN EL PAQUETE (0142). La Prueba arma sellos, puntos y
   // cashback; Arranque suma cupón y descuento; de Impulso para arriba,
   // los ocho. El mensaje dice CUÁL paquete lo abre: un «no podés» a
