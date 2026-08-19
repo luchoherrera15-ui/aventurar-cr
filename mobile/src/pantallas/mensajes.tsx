@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -24,6 +25,7 @@ import TituloPantalla from "@/components/titulo-pantalla";
 import ExplorarChat from "@/components/explorar-chat";
 import { ChipCategoria } from "@/components/ui";
 import { PREFIJO_ASISTENTE } from "@/lib/asistente-prefijo";
+import { normalizarTexto } from "@/lib/busqueda";
 import {
   ORDEN_CATEGORIAS_CHAT,
   CATEGORIA_CHAT_LABEL,
@@ -88,6 +90,9 @@ type Fila = {
   resuelta: boolean;
   tag: TagChat;
   categoria: CategoriaChat;
+  /** true = esta cuenta es la CLIENTE de la conversación; false = es
+   *  el NEGOCIO destinatario ("Solicitudes" solo muestra las false). */
+  soyCliente: boolean;
 };
 
 function fechaCorta(iso: string) {
@@ -118,9 +123,17 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
   const router = useRouter();
   const { session } = useAuth();
   const [filas, setFilas] = useState<Fila[] | null>(null);
+  /** true = tiene al menos un negocio propio — solo esas cuentas ven
+   *  "Solicitudes". */
+  const [esProveedor, setEsProveedor] = useState(false);
   // La sección de arriba del todo: la bandeja de chats o el buscador
   // de negocios para empezar una conversación (paridad con la web).
-  const [seccion, setSeccion] = useState<"chats" | "explorar">("chats");
+  const [modo, setModo] = useState<"lista" | "explorar">("lista");
+  /** "mis" = mis conversaciones como cliente; "solicitudes" = los
+   *  mensajes que le llegan a MI negocio. Dos bandejas separadas — ver
+   *  el comentario grande más abajo de por qué hacía falta. */
+  const [vistaLista, setVistaLista] = useState<"mis" | "solicitudes">("mis");
+  const [busqueda, setBusqueda] = useState("");
   const [tab, setTab] = useState<"activas" | "resueltas">("activas");
   const [categoria, setCategoria] = useState<CategoriaChat | "todas">("todas");
 
@@ -128,11 +141,17 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     if (!session) return;
     const miId = session.user.id;
 
-    const { data: convData } = await supabase
-      .from("conversaciones")
-      .select(
-        "id, reserva_id, cliente_id, proveedor_id, created_at, resuelta, ranchos(nombre, foto_url, vertical, categoria, slug), reservas(fecha, nombre, estado)",
-      );
+    const [{ data: convData }, { count: negociosCount }] = await Promise.all([
+      supabase
+        .from("conversaciones")
+        .select(
+          "id, reserva_id, cliente_id, proveedor_id, created_at, resuelta, ranchos(nombre, foto_url, vertical, categoria, slug), reservas(fecha, nombre, estado)",
+        ),
+      // ¿Tiene al menos un negocio propio? Decide si ve "Solicitudes" —
+      // misma consulta que usa Perfil para lo mismo.
+      supabase.from("ranchos").select("id", { count: "exact", head: true }).eq("owner_id", miId),
+    ]);
+    setEsProveedor((negociosCount ?? 0) > 0);
 
     const conversaciones = (convData ?? []) as unknown as ConversacionRow[];
     const ids = conversaciones.map((c) => c.id);
@@ -218,6 +237,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
             actividad: ult?.created_at ?? c.created_at,
             pendientes: sinLeer.get(c.id) ?? 0,
             resuelta: c.resuelta,
+            soyCliente,
             tag: tagDeChat(c),
             categoria: categorizarConversacion({
               proveedorId: c.proveedor_id,
@@ -374,60 +394,103 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
     );
   }
 
+  // La bandeja de base: "mis" son las conversaciones donde ESTA cuenta
+  // es la clienta (le escribió a un negocio); "solicitudes" son las
+  // que le llegan a SU negocio (es la proveedora). Antes era una sola
+  // lista mezclada — separarla es el punto central del rediseño.
+  const base = filas.filter((f) => (vistaLista === "solicitudes" ? !f.soyCliente : f.soyCliente));
   const porCategoria =
-    categoria === "todas" ? filas : filas.filter((f) => f.categoria === categoria);
-  const activas = porCategoria.filter((f) => !f.resuelta);
-  const resueltas = porCategoria.filter((f) => f.resuelta);
+    categoria === "todas" ? base : base.filter((f) => f.categoria === categoria);
+  const aguja = normalizarTexto(busqueda).trim();
+  const porBusqueda = aguja
+    ? porCategoria.filter((f) => normalizarTexto(`${f.titulo} ${f.subtitulo}`).includes(aguja))
+    : porCategoria;
+  const activas = porBusqueda.filter((f) => !f.resuelta);
+  const resueltas = porBusqueda.filter((f) => f.resuelta);
   const visibles = tab === "activas" ? activas : resueltas;
 
   // Solo se muestran chips de las categorías que de verdad tienen
   // chats — no tiene sentido ofrecer "Citas" si esta persona nunca
-  // tuvo un chat de esa vertical.
+  // tuvo un chat de esa vertical. Se cuenta sobre `base` (la bandeja
+  // activa), no sobre `filas` entero: los chips no deberían ofrecer
+  // categorías que solo existen del otro lado (mis / solicitudes).
   const categoriasConDatos = ORDEN_CATEGORIAS_CHAT.filter((cat) =>
-    filas.some((f) => f.categoria === cat),
+    base.some((f) => f.categoria === cat),
   );
 
   return (
     <View style={styles.contenedor}>
       <TituloPantalla
         kicker="Tu actividad"
-        titulo="Mensajes"
+        titulo={vistaLista === "solicitudes" ? "Solicitudes" : "Mensajes"}
         subtitulo={
-          seccion === "explorar"
+          modo === "explorar"
             ? "Buscá un negocio y empezá la conversación."
             : "Deslizá un chat: derecha lo marca leído, izquierda lo elimina."
         }
       />
-      <View style={styles.seccionesFila}>
+
+      {/* La barra de arriba: buscar entre TUS chats a la izquierda, y
+          si tenés negocio propio, Solicitudes a la derecha — es la
+          bandeja de lo que le llega a TU negocio, separada de tus
+          propias conversaciones como cliente. */}
+      <View style={styles.barraSuperior}>
         <Pressable
-          style={[styles.seccionBoton, seccion === "chats" && styles.seccionBotonActivo]}
-          onPress={() => setSeccion("chats")}
+          style={styles.buscador}
+          onPress={() => modo === "explorar" && setModo("lista")}
         >
-          <Ionicons
-            name="chatbubbles-outline"
-            size={15}
-            color={seccion === "chats" ? "#ffffff" : Colors.inkSoft}
+          <Ionicons name="search-outline" size={16} color={Colors.inkMuted} />
+          <TextInput
+            value={busqueda}
+            onChangeText={(v) => {
+              setBusqueda(v);
+              if (modo === "explorar") setModo("lista");
+            }}
+            onFocus={() => setModo("lista")}
+            placeholder="Buscar en tus chats"
+            placeholderTextColor={Colors.inkMuted}
+            style={styles.buscadorInput}
           />
-          <Text style={[styles.seccionTexto, seccion === "chats" && styles.seccionTextoActivo]}>
-            Chats
-          </Text>
         </Pressable>
-        <Pressable
-          style={[styles.seccionBoton, seccion === "explorar" && styles.seccionBotonActivo]}
-          onPress={() => setSeccion("explorar")}
-        >
-          <Ionicons
-            name="search-outline"
-            size={15}
-            color={seccion === "explorar" ? "#ffffff" : Colors.inkSoft}
-          />
-          <Text style={[styles.seccionTexto, seccion === "explorar" && styles.seccionTextoActivo]}>
-            Explorar
-          </Text>
-        </Pressable>
+        {esProveedor && (
+          <Pressable
+            style={[styles.solicitudesBoton, vistaLista === "solicitudes" && styles.solicitudesBotonActivo]}
+            onPress={() => {
+              setModo("lista");
+              setVistaLista((v) => (v === "solicitudes" ? "mis" : "solicitudes"));
+              setTab("activas");
+            }}
+          >
+            <Ionicons
+              name="briefcase-outline"
+              size={14}
+              color={vistaLista === "solicitudes" ? "#ffffff" : Colors.navy}
+            />
+            <Text
+              style={[
+                styles.solicitudesTexto,
+                vistaLista === "solicitudes" && styles.solicitudesTextoActivo,
+              ]}
+            >
+              Solicitudes
+            </Text>
+          </Pressable>
+        )}
       </View>
-      {seccion === "explorar" && <ExplorarChat miId={session.user.id} />}
-      {seccion === "chats" && categoriasConDatos.length > 1 && (
+
+      {/* Reemplaza al viejo botón "Explorar": solo puede chatearse con
+          negocios (ExplorarChat busca únicamente en `ranchos`, nunca
+          personas), así que esta es la única puerta para empezar un
+          chat nuevo. */}
+      {modo === "lista" && (
+        <Pressable style={styles.chatearBoton} onPress={() => setModo("explorar")}>
+          <Ionicons name="add-circle" size={16} color={Colors.navy} />
+          <Text style={styles.chatearTexto}>Chatear con algún negocio</Text>
+        </Pressable>
+      )}
+
+      {modo === "explorar" && <ExplorarChat miId={session.user.id} />}
+      {modo === "lista" && categoriasConDatos.length > 1 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -444,7 +507,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
           ))}
         </ScrollView>
       )}
-      {seccion === "chats" && filas.length > 0 && (
+      {modo === "lista" && base.length > 0 && (
         <View style={styles.tabsFila}>
           <Pressable
             style={[styles.tabBoton, tab === "activas" && styles.tabBotonActivo]}
@@ -470,7 +533,7 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
           )}
         </View>
       )}
-      {seccion === "chats" && (
+      {modo === "lista" && (
       <FlatList
         style={{ flex: 1 }}
         contentContainerStyle={{ padding: Spacing.three, paddingBottom: TAB_BAR_ESPACIO }}
@@ -481,12 +544,17 @@ export default function BandejaMensajesScreen({ activa = true }: { activa?: bool
         ListEmptyComponent={
           <View style={styles.centro}>
             <Text style={styles.vacioTitulo}>
-              {tab === "activas" ? "Todavía no tenés conversaciones" : "No hay chats resueltos"}
+              {tab !== "activas"
+                ? "No hay chats resueltos"
+                : vistaLista === "solicitudes"
+                  ? "Todavía no te escribió nadie"
+                  : "Todavía no tenés conversaciones"}
             </Text>
             {tab === "activas" && (
               <Text style={styles.vacioTexto}>
-                Cuando reservés un lugar o pidás una cotización, el chat con el
-                proveedor aparece acá.
+                {vistaLista === "solicitudes"
+                  ? "Cuando alguien le escriba a tu negocio, aparece acá primero."
+                  : "Cuando reservés un lugar o pidás una cotización, el chat con el proveedor aparece acá."}
               </Text>
             )}
           </View>
@@ -621,12 +689,14 @@ function FilaChat({
             hitSlop={8}
           >
             <Ionicons
-              name={fila.resuelta ? "refresh-outline" : "checkmark-circle-outline"}
+              name={fila.resuelta ? "checkmark-circle" : "checkmark-circle-outline"}
               size={13}
-              color={Colors.navy}
+              color={fila.resuelta ? Colors.green : Colors.navy}
             />
-            <Text style={styles.botonResueltoTexto}>
-              {fila.resuelta ? "Reabrir" : "Resuelto"}
+            <Text
+              style={[styles.botonResueltoTexto, fila.resuelta && { color: Colors.green }]}
+            >
+              {fila.resuelta ? "Resuelto" : "Marcar resuelto"}
             </Text>
           </Pressable>
         </View>
@@ -666,29 +736,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
   },
-  // Chats | Explorar — el conmutador de arriba del todo. Lo activo va
-  // en sky (el acento de relleno del sistema), no en navy, para que no
-  // compita con los tabs Activas/Resueltas de la bandeja.
-  seccionesFila: {
+  // La barra de arriba: el buscador (se estira) y, si aplica,
+  // "Solicitudes" a la derecha — mismo alto, un solo renglón.
+  barraSuperior: {
+    alignItems: "center",
     flexDirection: "row",
     gap: Spacing.two,
     paddingHorizontal: Spacing.three,
     paddingBottom: Spacing.two,
   },
-  seccionBoton: {
+  buscador: {
     alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.line,
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  buscadorInput: { color: Colors.ink, flex: 1, fontFamily: Fonts.medium, fontSize: 13.5, padding: 0 },
+  solicitudesBoton: {
+    alignItems: "center",
     backgroundColor: Colors.surface,
+    borderColor: Colors.navy,
+    borderRadius: 12,
+    borderWidth: 1,
     flexDirection: "row",
     gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
   },
-  seccionBotonActivo: { backgroundColor: Colors.sky, borderColor: Colors.sky },
-  seccionTexto: { fontFamily: Fonts.bold, fontSize: 13, color: Colors.inkSoft },
-  seccionTextoActivo: { color: "#ffffff" },
+  solicitudesBotonActivo: { backgroundColor: Colors.navy },
+  solicitudesTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
+  solicitudesTextoActivo: { color: "#ffffff" },
+  chatearBoton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    gap: 6,
+    marginHorizontal: Spacing.three,
+    marginBottom: Spacing.two,
+  },
+  chatearTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
   tabsFila: {
     flexDirection: "row",
     gap: Spacing.two,
