@@ -15,7 +15,6 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { supabase } from "@/lib/supabase";
-import { desregistrarPush } from "@/lib/push";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import { useAuth, type Perfil } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -656,52 +655,69 @@ function PerfilVista({
           nombrePerfil={perfil?.nombre ?? null}
           refrescarPerfil={refrescarPerfil}
         />
-        {/* Identidad: tarjeta clara con el avatar centrado y los
-            números debajo — sin el bloque navy pesado de antes. */}
+        {/* Identidad: foto al lado (no centrada arriba) y el Balance a
+            la derecha — el balance interno todavía no existe como
+            sistema (llega después), esto es el lugar donde va a vivir
+            cuando lo tenga. Sin el riel de reservas/reseñas/favoritos
+            de antes: esos números ya se ven en sus propias tarjetas
+            (Historial, Reservas) más abajo. */}
         <View style={styles.tarjetaIdentidad}>
-          <View style={styles.avatarGrande}>
-            <Text style={styles.avatarGrandeTexto}>{inicial}</Text>
-          </View>
-          {editandoNombre ? (
-            <View style={styles.editorNombre}>
-              <TextInput
-                value={nombreBorrador}
-                onChangeText={setNombreBorrador}
-                placeholder="Tu nombre"
-                placeholderTextColor={Colors.inkSoft}
-                style={styles.inputNombre}
-                autoFocus
-                maxLength={60}
-              />
-              <Pressable
-                style={styles.guardarNombre}
-                disabled={guardandoNombre}
-                onPress={guardarNombre}
-              >
-                {guardandoNombre ? (
-                  <ActivityIndicator color="#ffffff" size="small" />
-                ) : (
-                  <Ionicons name="checkmark" size={18} color="#ffffff" />
-                )}
-              </Pressable>
+          <View style={styles.filaIdentidad}>
+            <View style={styles.avatarChico}>
+              <Text style={styles.avatarChicoTexto}>{inicial}</Text>
             </View>
-          ) : (
-            <Pressable
-              style={styles.filaNombre}
-              onPress={() => {
-                setNombreBorrador(perfil?.nombre ?? "");
-                setEditandoNombre(true);
-              }}
-            >
-              <Text style={styles.nombreGrande} numberOfLines={1}>
-                {perfil?.nombre || "Poné tu nombre"}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              {editandoNombre ? (
+                <View style={styles.editorNombre}>
+                  <TextInput
+                    value={nombreBorrador}
+                    onChangeText={setNombreBorrador}
+                    placeholder="Tu nombre"
+                    placeholderTextColor={Colors.inkSoft}
+                    style={styles.inputNombre}
+                    autoFocus
+                    maxLength={60}
+                  />
+                  <Pressable
+                    style={styles.guardarNombre}
+                    disabled={guardandoNombre}
+                    onPress={guardarNombre}
+                  >
+                    {guardandoNombre ? (
+                      <ActivityIndicator color="#ffffff" size="small" />
+                    ) : (
+                      <Ionicons name="checkmark" size={18} color="#ffffff" />
+                    )}
+                  </Pressable>
+                </View>
+              ) : (
+                <Pressable
+                  style={styles.filaNombre}
+                  onPress={() => {
+                    setNombreBorrador(perfil?.nombre ?? "");
+                    setEditandoNombre(true);
+                  }}
+                >
+                  <Text style={styles.nombreGrande} numberOfLines={1}>
+                    {perfil?.nombre || "Poné tu nombre"}
+                  </Text>
+                  <Ionicons name="pencil" size={13} color={Colors.inkSoft} />
+                </Pressable>
+              )}
+              <Text style={styles.correoPerfil} numberOfLines={1}>
+                {correo}
               </Text>
-              <Ionicons name="pencil" size={13} color={Colors.inkSoft} />
-            </Pressable>
-          )}
-          <Text style={styles.correoPerfil} numberOfLines={1}>
-            {correo}
-          </Text>
+            </View>
+
+            {/* Placeholder a propósito: todavía no hay ledger detrás.
+                Cuando exista el balance interno, este número sale de
+                ahí — el lugar ya queda listo. */}
+            <View style={styles.balanceBloque}>
+              <Text style={styles.balanceEtiqueta}>Balance</Text>
+              <Text style={styles.balanceMonto}>₡0</Text>
+            </View>
+          </View>
+
           <View style={[styles.chipRol, esProveedor && styles.chipRolProveedor]}>
             <Ionicons
               name={esProveedor ? "storefront" : "person"}
@@ -711,14 +727,6 @@ function PerfilVista({
             <Text style={[styles.chipRolTexto, esProveedor && styles.chipRolTextoProveedor]}>
               {esProveedor ? "Proveedor" : "Cliente"}
             </Text>
-          </View>
-
-          <View style={styles.filaStats}>
-            <Stat valor={stats ? String(stats.reservas) : "—"} etiqueta={stats?.reservas === 1 ? "reserva" : "reservas"} />
-            <View style={styles.statDivisor} />
-            <Stat valor={stats ? String(stats.resenas) : "—"} etiqueta={stats?.resenas === 1 ? "reseña" : "reseñas"} />
-            <View style={styles.statDivisor} />
-            <Stat valor={stats ? String(stats.favoritos) : "—"} etiqueta="favoritos" />
           </View>
         </View>
 
@@ -851,67 +859,17 @@ function PerfilVista({
           </Pressable>
         )}
 
-        <Pressable
-          style={styles.botonSalir}
-          onPress={async () => {
-            // El token push se suelta ANTES del signOut: la política
-            // RLS solo deja borrarlo mientras la sesión sigue viva.
-            await desregistrarPush();
-            await supabase.auth.signOut();
-          }}
-        >
-          <Ionicons name="log-out-outline" size={16} color={Colors.danger} />
-          <Text style={styles.botonSalirTexto}>Cerrar sesión</Text>
-        </Pressable>
-
-        {/* App Store exige poder borrar la cuenta desde la app
-            (guideline 5.1.1) — y además es lo correcto. */}
-        <Pressable style={styles.botonEliminar} onPress={confirmarEliminarCuenta}>
-          <Text style={styles.botonEliminarTexto}>Eliminar mi cuenta</Text>
+        {/* Cerrar sesión y eliminar la cuenta se mudaron a Ajustes —
+            junto con notificaciones y los links legales, en vez de
+            sueltos al fondo del perfil. */}
+        <Pressable style={styles.botonModo} onPress={() => router.push("/ajustes" as never)}>
+          <Ionicons name="settings-outline" size={16} color={Colors.navy} />
+          <Text style={[styles.botonModoTexto, { color: Colors.navy }]}>Ajustes</Text>
         </Pressable>
 
         <PieLegal />
       </ScrollView>
     </View>
-  );
-}
-
-/**
- * Borrar la cuenta es irreversible, así que se confirma dos veces.
- * La función de la base borra el usuario y todo lo suyo en cascada;
- * las reservas que hizo quedan (anónimas) porque son parte de la
- * historia del negocio que las recibió.
- */
-function confirmarEliminarCuenta() {
-  Alert.alert(
-    "¿Eliminar tu cuenta?",
-    "Se borran tu perfil, tus favoritos, tus reseñas, tus chats y tus negocios publicados. Esto no se puede deshacer.",
-    [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Sí, continuar",
-        style: "destructive",
-        onPress: () =>
-          Alert.alert("Última confirmación", "¿Seguro que querés eliminar tu cuenta para siempre?", [
-            { text: "No, conservarla", style: "cancel" },
-            {
-              text: "Eliminar definitivamente",
-              style: "destructive",
-              onPress: async () => {
-                const { error } = await supabase.rpc("eliminar_mi_cuenta");
-                if (error) {
-                  Alert.alert(
-                    "No se pudo eliminar",
-                    "Intentá de nuevo en un momento o escribinos a hola@bookea.lat.",
-                  );
-                  return;
-                }
-                await supabase.auth.signOut();
-              },
-            },
-          ]),
-      },
-    ],
   );
 }
 
@@ -1051,33 +1009,41 @@ const styles = StyleSheet.create({
   enlaceSecundario: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 13, textAlign: "center", marginTop: Spacing.one },
   avisoReenvio: { color: Colors.green, fontFamily: Fonts.bold, fontSize: 12.5 },
   tarjetaIdentidad: {
-    alignItems: "center",
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.line,
     borderRadius: 22,
     paddingVertical: Spacing.four,
     paddingHorizontal: Spacing.three,
-    gap: 3,
+    gap: Spacing.two + 2,
     shadowColor: "#101a2c",
     shadowOpacity: 0.06,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
   },
-  avatarGrande: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+  filaIdentidad: { alignItems: "center", flexDirection: "row", gap: Spacing.two + 2 },
+  avatarChico: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: Colors.navy,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 6,
     // Aro naranja: el guiño al punto del logo.
-    borderWidth: 3,
+    borderWidth: 2.5,
     borderColor: Colors.sky,
   },
-  avatarGrandeTexto: { color: "#ffffff", fontSize: 34, fontFamily: Fonts.extraBold },
+  avatarChicoTexto: { color: "#ffffff", fontSize: 21, fontFamily: Fonts.extraBold },
+  balanceBloque: { alignItems: "flex-end", gap: 1 },
+  balanceEtiqueta: {
+    color: Colors.inkMuted,
+    fontFamily: Fonts.extraBold,
+    fontSize: 9,
+    letterSpacing: 0.9,
+    textTransform: "uppercase",
+  },
+  balanceMonto: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 18, letterSpacing: -0.3 },
   filaNombre: { flexDirection: "row", alignItems: "center", gap: 6 },
   nombreGrande: { fontSize: 19, fontFamily: Fonts.extraBold, letterSpacing: -0.3, color: Colors.ink },
   editorNombre: { flexDirection: "row", alignItems: "center", gap: Spacing.two, alignSelf: "stretch" },
@@ -1105,8 +1071,8 @@ const styles = StyleSheet.create({
   chipRol: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "flex-start",
     gap: 5,
-    marginTop: 6,
     borderRadius: 8,
     backgroundColor: Colors.blueLight,
     paddingHorizontal: 11,
@@ -1198,19 +1164,4 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.line,
   },
   botonModoTexto: { color: Colors.accent, fontFamily: Fonts.bold, fontSize: 13.5 },
-  botonSalir: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: Spacing.three,
-  },
-  botonSalirTexto: { color: Colors.danger, fontFamily: Fonts.bold, fontSize: 13.5 },
-  botonEliminar: { alignItems: "center", paddingBottom: Spacing.two },
-  botonEliminarTexto: {
-    color: Colors.inkSoft,
-    fontFamily: Fonts.semiBold,
-    fontSize: 12,
-    textDecorationLine: "underline",
-  },
 });
