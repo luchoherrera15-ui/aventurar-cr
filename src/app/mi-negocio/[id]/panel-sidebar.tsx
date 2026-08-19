@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Fragment, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { IconChevronDown } from "@/components/icons";
-import { RAIL_GRUPO, RAIL_ITEM } from "@/components/panel/sistema";
+import { RADIO_PILDORA, RAIL_GRUPO, RAIL_ITEM, RAIL_TARJETA } from "@/components/panel/sistema";
 import { GRUPO_LABEL, type GrupoId } from "@/lib/business/modulos";
 
 /** Con `href` el ítem es un link a otra pantalla (sin contenido acá). */
@@ -172,12 +172,16 @@ export default function PanelSidebar({
           // contraste; acá solo se decide QUÉ estado tiene cada uno.
           //
           // SE FUERON LOS ALFAS. El reposo era `text-white/60` y el
-          // hover `bg-white/5`: como la columna es un DEGRADÉ, el mismo
-          // estado terminaba viéndose de dos colores según a qué altura
-          // del menú cayera el ítem, y su contraste no se podía medir
-          // una vez y darlo por bueno. Ahora los dos son sólidos —
-          // `--color-aventurea-rail` (4,93:1 arriba, 6,33:1 abajo) y
-          // `navy-3` con letra blanca (8,31:1).
+          // hover `bg-white/5`: en ese momento la columna era un
+          // degradé y el mismo estado terminaba viéndose de dos colores
+          // según a qué altura del menú cayera el ítem, sin un
+          // contraste que se pudiera medir una vez y dar por bueno. La
+          // columna después se aplanó a un solo navy plano
+          // (`--color-aventurea-rail-fondo`, ver globals.css), así que
+          // hoy ese problema puntual ya no existe — pero los sólidos se
+          // quedan igual: son más simples de medir y no hay motivo para
+          // volver a un alfa. `--color-aventurea-rail` da 7,06:1 sobre
+          // el fondo plano y `navy-3` con letra blanca da 8,31:1.
           const base = RAIL_ITEM;
           const cls = t.proximamente
             ? `${base} cursor-default text-aventurea-rail`
@@ -199,15 +203,16 @@ export default function PanelSidebar({
           // barrita desaparecería para los acentos azul y navy, que
           // caen encima del propio fondo del rail. Un relleno sólido
           // del rubro se ve de lejos, se mide una vez (≥5,18:1 en los
-          // ocho acentos, `identidad.test.ts`) y no depende del degradé.
+          // ocho acentos, `identidad.test.ts`) y no depende de dónde
+          // caiga en la columna.
           //
           // El `border-l-[3px] border-transparent` de `RAIL_ITEM` se
           // queda igual: reserva los 3px para que el texto no se corra
           // al pasar de reposo a activo.
           const estilo: CSSProperties | undefined = activa
             ? {
-                background: "var(--acento-solido, #2f4a94)",
-                color: "var(--acento-sobre, white)",
+                background: "var(--acento-solido, var(--color-aventurea-navy-3))",
+                color: "var(--acento-sobre, #ffffff)",
               }
             : undefined;
           const contenidoItem = (
@@ -218,7 +223,9 @@ export default function PanelSidebar({
                   ítem con href (Citas) quedaba corrido a la izquierda. */}
               <span className="flex-1 truncate text-center">{t.label}</span>
               {t.proximamente && (
-                <span className="shrink-0 rounded-lg border border-aventurea-navy-3 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-aventurea-rail">
+                <span
+                  className={`${RADIO_PILDORA} shrink-0 border border-aventurea-navy-3 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-aventurea-rail`}
+                >
                   Pronto
                 </span>
               )}
@@ -228,7 +235,9 @@ export default function PanelSidebar({
                   casi no se despegaba del fondo. El contador es lo único
                   que tiene que saltar del menú. */}
               {!!t.badge && t.badge > 0 && (
-                <span className="shrink-0 rounded-lg bg-white px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none text-aventurea-navy">
+                <span
+                  className={`${RADIO_PILDORA} shrink-0 bg-white px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none text-aventurea-navy`}
+                >
                   {t.badge}
                 </span>
               )}
@@ -313,12 +322,19 @@ export default function PanelSidebar({
           página: no hay rail que pintar. */}
       <div className="px-4 pt-6 sm:px-6 lg:sticky lg:top-16 lg:h-[calc(100svh-4rem)] lg:overflow-y-auto lg:bg-aventurea-rail-fondo lg:px-4 lg:pb-6 lg:pt-5">
         {identidad && (
-          /* En el teléfono la identidad es su propia tarjeta navy; en el
-             rail ya ESTÁ sobre navy, así que ahí se queda sin tarjeta
-             (una tarjeta navy sobre una columna navy es un rectángulo
-             invisible) y la separa del menú una línea sólida de la misma
-             familia — `navy-3`, no un blanco con alfa. */
-          <div className="mb-3 rounded-3xl bg-aventurea-rail-fondo p-4 text-white shadow-lg lg:mb-4 lg:rounded-none lg:border-b lg:border-aventurea-navy-3 lg:bg-none lg:p-0 lg:pb-4 lg:shadow-none">
+          /* LA TARJETA DE IDENTIDAD usa `RAIL_TARJETA` — el mismo token
+             que ya se reusó esta noche para la cabecera de FOOD.BOOKEA:
+             borde y fondo blancos al 10%/7%, calibrados justo para una
+             superficie decorativa ENCIMA de un fondo sólido y conocido
+             (el rail, ya aplanado a `--color-aventurea-rail-fondo`). No
+             es el mismo caso que antes descartaba una tarjeta acá: esa
+             alternativa era una tarjeta NAVY PLANA sobre columna NAVY
+             PLANA —el mismo color exacto, de verdad invisible— mientras
+             que el tinte blanco de `RAIL_TARJETA` sí se despega, aunque
+             sea sutil a propósito. En el teléfono, donde la identidad
+             flota sobre el lienzo crema y no sobre el rail, se le suma
+             sombra para que no quede pegada al fondo. */
+          <div className={`${RAIL_TARJETA} mb-3 text-white shadow-lg lg:mb-4 lg:shadow-none`}>
             {identidad}
           </div>
         )}
@@ -376,10 +392,15 @@ export default function PanelSidebar({
               />
               {/* Alto tope + scroll propio: en el teléfono el menú
                   completo de un tipo con muchos módulos se pasaba de
-                  pantalla y los últimos ítems quedaban inalcanzables. */}
+                  pantalla y los últimos ítems quedaban inalcanzables.
+                  `bg-aventurea-rail-fondo` y no `bg-aventurea-navy`: son
+                  dos navys distintos (#0b2447 contra #16295e) y con el
+                  segundo el desplegable se abría de otro azul que el
+                  botón que lo dispara, justo arriba — la misma columna
+                  cambiando de color al abrirse. */}
               <div
                 id={idMenuMovil}
-                className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-[65svh] overflow-y-auto rounded-2xl bg-aventurea-navy p-3 shadow-2xl"
+                className="absolute left-0 right-0 top-full z-20 mt-1.5 max-h-[65svh] overflow-y-auto rounded-2xl bg-aventurea-rail-fondo p-3 shadow-2xl"
               >
                 {/* Acá NO se devuelve el foco, y no es un olvido:
                     `alCerrar` solo lo usan los ítems con `href`, que

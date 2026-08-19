@@ -75,6 +75,10 @@ type Miembro = {
   activo: boolean;
   orden: number;
   tipo: TipoMiembro | null;
+  // Bio pública (0192): "sobre mí" y títulos/acreditaciones que ve el
+  // cliente al tocar a esta persona en la ficha del negocio.
+  bio: string | null;
+  titulos: string | null;
 };
 
 type Giftcard = {
@@ -196,7 +200,12 @@ export default function CitasNegocioScreen() {
   const [confPropio, setConfPropio] = useState(false);
   const [confDias, setConfDias] = useState<DiaConf[]>(() => diasDesdeFilas([]));
   const [confMarcados, setConfMarcados] = useState<Set<string>>(new Set());
-  const [guardandoConf, setGuardandoConf] = useState<"horario" | "servicios" | null>(null);
+  // La bio pública (0192): sobre mí y títulos/acreditaciones.
+  const [confBio, setConfBio] = useState("");
+  const [confTitulos, setConfTitulos] = useState("");
+  const [guardandoConf, setGuardandoConf] = useState<"horario" | "servicios" | "bio" | null>(
+    null,
+  );
   const [confError, setConfError] = useState<string | null>(null);
   const [confMensaje, setConfMensaje] = useState<string | null>(null);
 
@@ -222,7 +231,7 @@ export default function CitasNegocioScreen() {
         .maybeSingle(),
       supabase
         .from("equipo_rancho")
-        .select("id, nombre, rol, activo, orden, tipo")
+        .select("id, nombre, rol, activo, orden, tipo, bio, titulos")
         .eq("rancho_id", id)
         .order("orden"),
       supabase
@@ -398,6 +407,8 @@ export default function CitasNegocioScreen() {
           .map((s) => s.id),
       ),
     );
+    setConfBio(miembro.bio ?? "");
+    setConfTitulos(miembro.titulos ?? "");
     setConfError(null);
     setConfMensaje(null);
     setConfigurando(miembro.id);
@@ -517,6 +528,34 @@ export default function CitasNegocioScreen() {
     }
     if (resp.advertencia) Alert.alert("Guardado, pero ojo", resp.advertencia);
     setConfMensaje("Servicios guardados.");
+    await cargar();
+  }
+
+  /**
+   * La bio pública (0192) se escribe directo a `equipo_rancho`, igual
+   * que el nombre y el rol al agregar a alguien: son columnas simples,
+   * sin la semántica delicada de horarios_recurso/servicios_recurso que
+   * justifica pasar por /api/citas/equipo. La RLS de la 0055 ya deja
+   * al dueño administrar todo su equipo.
+   */
+  async function guardarConfBio(miembroId: string) {
+    setConfError(null);
+    setConfMensaje(null);
+    setGuardandoConf("bio");
+    const { error: err } = await supabase
+      .from("equipo_rancho")
+      .update({
+        bio: confBio.trim().slice(0, 1000) || null,
+        titulos: confTitulos.trim().slice(0, 600) || null,
+      })
+      .eq("id", miembroId)
+      .eq("rancho_id", id);
+    setGuardandoConf(null);
+    if (err) {
+      setConfError("No se pudo guardar: " + err.message);
+      return;
+    }
+    setConfMensaje("Bio guardada.");
     await cargar();
   }
 
@@ -924,6 +963,47 @@ export default function CitasNegocioScreen() {
                             </Pressable>
                           </>
                         )}
+
+                        <Text style={styles.configEtiqueta}>Bio pública (perfil del cliente)</Text>
+                        <Text style={styles.bloqueAyuda}>
+                          Esto lo ve el cliente al tocar a {m.nombre.split(" ")[0]} en la ficha
+                          del negocio.
+                        </Text>
+                        <TextInput
+                          value={confBio}
+                          onChangeText={(v) => {
+                            setConfBio(v);
+                            setConfMensaje(null);
+                          }}
+                          placeholder="Sobre mí: experiencia, especialidad, años en el oficio..."
+                          placeholderTextColor={Colors.inkMuted}
+                          multiline
+                          maxLength={1000}
+                          style={[styles.input, styles.inputLargo]}
+                        />
+                        <TextInput
+                          value={confTitulos}
+                          onChangeText={(v) => {
+                            setConfTitulos(v);
+                            setConfMensaje(null);
+                          }}
+                          placeholder={"Títulos o acreditaciones, uno por línea"}
+                          placeholderTextColor={Colors.inkMuted}
+                          multiline
+                          maxLength={600}
+                          style={[styles.input, styles.inputLargo]}
+                        />
+                        <Pressable
+                          style={styles.botonPrimario}
+                          disabled={guardandoConf !== null}
+                          onPress={() => guardarConfBio(m.id)}
+                        >
+                          {guardandoConf === "bio" ? (
+                            <ActivityIndicator color="#ffffff" size="small" />
+                          ) : (
+                            <Text style={styles.botonPrimarioTexto}>Guardar bio</Text>
+                          )}
+                        </Pressable>
 
                         {confError && <Text style={styles.error}>{confError}</Text>}
                         {confMensaje && <Text style={styles.exito}>{confMensaje}</Text>}
@@ -1460,6 +1540,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: 10,
   },
+  inputLargo: { height: 84, textAlignVertical: "top" },
   error: {
     backgroundColor: Colors.dangerLight,
     borderRadius: Radios.sm,

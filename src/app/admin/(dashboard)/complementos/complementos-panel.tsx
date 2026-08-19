@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import {
   ADDONS,
   DURACIONES,
@@ -27,6 +27,7 @@ import { perteneceASeccion, SECCION_CORTA, SECCION_LABEL, type SeccionAdmin } fr
 import { haceCuanto } from "@/lib/fechas";
 import VerPaseModal from "./ver-pase-modal";
 import VerClientesModal from "./ver-clientes-modal";
+import VerAuditoriaModal from "./ver-auditoria-modal";
 
 export type FilaAddon = {
   rancho_id: string;
@@ -78,12 +79,6 @@ export type NegocioConAddons = {
   /** Estado de la suscripción de Stripe (0143). null = no tiene. */
   stripe: string | null;
   movimiento: MovimientoPlan | null;
-};
-
-const CHIP: Record<EstadoAddon, string> = {
-  activo: "bg-aventurea-green-light text-aventurea-green",
-  vencido: "bg-aventurea-sky-light text-aventurea-orange-dark",
-  apagado: "bg-aventurea-cream-2 text-aventurea-ink-soft",
 };
 
 const ETIQUETA: Record<EstadoAddon, string> = {
@@ -234,6 +229,7 @@ export default function ComplementosPanel({
   // nuevo en `negocios` al renderizar el modal.
   const [verPase, setVerPase] = useState<{ id: string; nombre: string } | null>(null);
   const [verClientes, setVerClientes] = useState<{ id: string; nombre: string } | null>(null);
+  const [verAuditoria, setVerAuditoria] = useState<{ id: string; nombre: string } | null>(null);
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -303,8 +299,6 @@ export default function ComplementosPanel({
   const paginas = Math.max(1, Math.ceil(ordenados.length / POR_PAGINA));
   const paginaSegura = Math.min(pagina, paginas - 1);
   const visibles = ordenados.slice(paginaSegura * POR_PAGINA, (paginaSegura + 1) * POR_PAGINA);
-
-  const negocio = negocios.find((n) => n.id === elegido) ?? null;
 
   function ordenarPor(nuevo: Campo) {
     if (nuevo === campo) setDesc((d) => !d);
@@ -429,18 +423,39 @@ export default function ComplementosPanel({
                   Cliente desde
                 </Encabezado>
                 <th className="px-3 py-2.5 font-bold">Pase</th>
+                <th className="px-3 py-2.5 font-bold">Auditoría</th>
               </tr>
             </thead>
             <tbody>
               {visibles.map((n) => (
-                <Fila
-                  key={n.id}
-                  negocio={n}
-                  elegido={elegido === n.id}
-                  onElegir={() => setElegido(elegido === n.id ? null : n.id)}
-                  onVerPase={() => setVerPase({ id: n.id, nombre: n.nombre })}
-                  onVerClientes={() => setVerClientes({ id: n.id, nombre: n.nombre })}
-                />
+                // El detalle se abre PEGADO a su fila, no al final de la
+                // página: con 50 filas, tocar la tercera y que el panel
+                // apareciera abajo del todo obligaba a scrollear a
+                // ciegas para ver qué se había abierto (y a volver para
+                // comprobar cuál estaba marcada).
+                <Fragment key={n.id}>
+                  <Fila
+                    negocio={n}
+                    elegido={elegido === n.id}
+                    onElegir={() => setElegido(elegido === n.id ? null : n.id)}
+                    onVerPase={() => setVerPase({ id: n.id, nombre: n.nombre })}
+                    onVerClientes={() => setVerClientes({ id: n.id, nombre: n.nombre })}
+                    onVerAuditoria={() => setVerAuditoria({ id: n.id, nombre: n.nombre })}
+                  />
+                  {elegido === n.id && (
+                    <tr>
+                      <td colSpan={10} className="bg-aventurea-cream-2/40 p-0">
+                        <div className="px-3 py-3">
+                          <Detalle
+                            negocio={n}
+                            onCerrar={() => setElegido(null)}
+                            faltaLaBitacora={faltaLaBitacora}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -482,10 +497,8 @@ export default function ComplementosPanel({
         </div>
       )}
 
-      {/* ── El detalle del elegido ────────────────────────────────── */}
-      {negocio && (
-        <Detalle negocio={negocio} onCerrar={() => setElegido(null)} faltaLaBitacora={faltaLaBitacora} />
-      )}
+      {/* El detalle ya no va acá abajo: se abre dentro de la tabla,
+          pegado a la fila que se tocó (ver el `Fragment` de arriba). */}
 
       {/* ── Los dos modales de solo-lectura, uno a la vez ──────────── */}
       {verPase && (
@@ -500,6 +513,13 @@ export default function ComplementosPanel({
           ranchoId={verClientes.id}
           nombre={verClientes.nombre}
           onCerrar={() => setVerClientes(null)}
+        />
+      )}
+      {verAuditoria && (
+        <VerAuditoriaModal
+          ranchoId={verAuditoria.id}
+          nombre={verAuditoria.nombre}
+          onCerrar={() => setVerAuditoria(null)}
         />
       )}
     </div>
@@ -548,6 +568,7 @@ function Fila({
   onElegir,
   onVerPase,
   onVerClientes,
+  onVerAuditoria,
 }: {
   negocio: NegocioConAddons;
   elegido: boolean;
@@ -556,6 +577,8 @@ function Fila({
   onVerPase: () => void;
   /** Abre el modal de solo-lectura con los clientes inscritos. */
   onVerClientes: () => void;
+  /** Abre el modal de solo-lectura con quién le dio qué sello a quién. */
+  onVerAuditoria: () => void;
 }) {
   const activos = n.addons.filter((a) => estadoDeAddon(a) === "activo");
   const vencidos = n.addons.filter((a) => estadoDeAddon(a) === "vencido");
@@ -723,6 +746,23 @@ function Fila({
           className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1 text-[11.5px] font-bold text-aventurea-navy"
         >
           Ver pase
+        </button>
+      </td>
+
+      <td className="px-3 py-2.5">
+        {/* Igual que "Ver pase": siempre habilitado. El modal ya resuelve
+            con honestidad los casos "sin programa" y "sin miembros" —
+            deshabilitar el botón acá sería un segundo lugar donde ese
+            criterio puede desalinearse. */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onVerAuditoria();
+          }}
+          className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1 text-[11.5px] font-bold text-aventurea-navy"
+        >
+          Auditoría
         </button>
       </td>
     </tr>
@@ -1236,8 +1276,20 @@ function etiquetaConcepto(concepto: string): string {
   return c ? CONCEPTO_LABEL[c].split(" — ")[0] : concepto;
 }
 
-/** Los complementos sueltos del negocio: activar, regalar y quitar. */
+/**
+ * Los complementos sueltos del negocio: activar, regalar y quitar.
+ *
+ * Antes era una grilla de tarjetas grandes, una por complemento, cada
+ * una con su select de duración, su checkbox de regalía y su nota
+ * SIEMPRE visibles aunque el complemento estuviera apagado — mucho
+ * "desmadre" para lo que en el 90% de los casos es solo "¿está
+ * prendido o no?". Ahora es una lista de una línea por fila con un
+ * check; los controles de activar (duración/regalía/nota) solo
+ * aparecen cuando de verdad se está prendiendo uno, en la fila que se
+ * tocó — nunca los cuatro a la vez.
+ */
 function Complementos({ negocio }: { negocio: NegocioConAddons }) {
+  const [expandido, setExpandido] = useState<AddonId | null>(null);
   const [duracion, setDuracion] = useState<Record<string, string>>({});
   const [nota, setNota] = useState<Record<string, string>>({});
   const [regalo, setRegalo] = useState<Record<string, boolean>>({});
@@ -1266,6 +1318,7 @@ function Complementos({ negocio }: { negocio: NegocioConAddons }) {
       else {
         setNota((prev) => ({ ...prev, [k]: "" }));
         setAviso(res.aviso ?? null);
+        setExpandido(null);
       }
     });
   }
@@ -1286,6 +1339,16 @@ function Complementos({ negocio }: { negocio: NegocioConAddons }) {
     });
   }
 
+  /** El check de la fila: apagado→prendido abre los controles de
+   *  activar; prendido→apagado pide confirmación y quita directo. */
+  function alTocarCheck(def: (typeof ADDONS)[number], estado: EstadoAddon) {
+    if (estado === "apagado") {
+      setExpandido((e) => (e === def.id ? null : def.id));
+    } else {
+      quitar(def.id);
+    }
+  }
+
   return (
     <>
       <p className="mt-5 mb-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft">
@@ -1301,7 +1364,7 @@ function Complementos({ negocio }: { negocio: NegocioConAddons }) {
         </p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <ul className="divide-y divide-aventurea-line rounded-xl border border-aventurea-line bg-white">
         {ADDONS.map((def) => {
           const fila = negocio.addons.find((a) => a.addon === def.id) ?? null;
           const estado = estadoDeAddon(fila);
@@ -1309,139 +1372,120 @@ function Complementos({ negocio }: { negocio: NegocioConAddons }) {
           const vence = fechaCorta(fila?.vence_en ?? null);
           const dias = diasPara(fila?.vence_en ?? null);
           // Lealtad se separó del resto del sitio (14 ago 2026): ya no se
-          // activa acá — nace aislado desde /lealtad/planes. Esta tarjeta
-          // se queda solo para poder VER un caso viejo y quitarlo.
+          // activa acá — nace aislado desde /lealtad/planes. Esta fila se
+          // queda solo para poder VER un caso viejo y quitarlo.
           const esLealtad = def.id === "lealtad";
+          const abierta = expandido === def.id;
 
           return (
-            <div
-              key={def.id}
-              className="rounded-xl border border-aventurea-line bg-aventurea-cream-2/40 p-3.5"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[13px] font-bold text-aventurea-ink">{def.nombre}</span>
-                <span className="flex items-center gap-1.5">
+            <li key={def.id} className="px-3.5 py-2.5">
+              <label
+                className={`flex items-center gap-2.5 ${esLealtad && estado === "apagado" ? "" : "cursor-pointer"}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={estado !== "apagado"}
+                  disabled={pendiente || (esLealtad && estado === "apagado")}
+                  onChange={() => alTocarCheck(def, estado)}
+                  className="h-4 w-4 shrink-0 accent-aventurea-navy disabled:opacity-40"
+                  title={esLealtad && estado === "apagado" ? "Se activa desde /lealtad/planes" : undefined}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="text-[13px] font-bold text-aventurea-ink">{def.nombre}</span>
+                  {fila?.notas && (
+                    <span className="ml-2 text-[11.5px] italic text-aventurea-ink-soft">
+                      {fila.notas}
+                    </span>
+                  )}
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5">
                   {fila?.es_cortesia && estado !== "apagado" && (
                     <span className="rounded-full bg-aventurea-navy/10 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-navy">
                       Regalado
                     </span>
                   )}
-                  <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ${CHIP[estado]}`}>
-                    {ETIQUETA[estado]}
+                  <span
+                    className={`text-[11.5px] ${
+                      estado === "vencido" ? "font-bold text-aventurea-orange-dark" : "text-aventurea-ink-soft"
+                    }`}
+                  >
+                    {estado === "apagado"
+                      ? ETIQUETA[estado]
+                      : vence
+                        ? estado === "vencido"
+                          ? `Venció ${vence}`
+                          : `Vence ${vence}${dias !== null && dias <= 15 ? ` · ${dias}d` : ""}`
+                        : "Sin vencimiento"}
                   </span>
                 </span>
-              </div>
+              </label>
 
-              <p className="mt-1 text-[11.5px] leading-snug text-aventurea-ink-soft">
-                {def.resumen}
-              </p>
-
-              {estado !== "apagado" && (
-                <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">
-                  {vence
-                    ? estado === "vencido"
-                      ? `Venció el ${vence}`
-                      : `Vence el ${vence}${dias !== null && dias <= 15 ? ` · faltan ${dias} días` : ""}`
-                    : "Sin vencimiento"}
-                </p>
-              )}
-              {fila?.notas && (
-                <p className="mt-1 text-[11.5px] italic text-aventurea-ink-soft">{fila.notas}</p>
-              )}
-
-              {esLealtad ? (
-                <>
-                  <p className="mt-2.5 text-[11.5px] leading-snug text-aventurea-ink-soft">
-                    {estado === "apagado" ? (
-                      <>Ya no se activa acá — cada negocio de lealtad nace aparte desde /lealtad/planes.</>
-                    ) : (
-                      <>Caso de antes de separar lealtad del resto del sitio. Se puede quitar, pero ya no se renueva desde acá.</>
-                    )}
-                  </p>
-                  {estado !== "apagado" && (
-                    <button
-                      type="button"
-                      onClick={() => quitar(def.id)}
-                      disabled={pendiente}
-                      className="mt-2.5 w-full rounded-lg border border-aventurea-line bg-white px-3 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-40"
+              {/* Los controles de activar: solo en la fila que se tocó,
+                  y solo mientras está apagada — nunca las cuatro tarjetas
+                  a la vez con esto adentro. */}
+              {abierta && !esLealtad && (
+                <div className="mt-2.5 ml-[26px] space-y-2 border-l-2 border-aventurea-line pl-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={duracion[k] ?? "1"}
+                      onChange={(e) => setDuracion((prev) => ({ ...prev, [k]: e.target.value }))}
+                      className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] text-aventurea-ink"
                     >
-                      Quitar
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <select
-                    value={duracion[k] ?? "1"}
-                    onChange={(e) => setDuracion((prev) => ({ ...prev, [k]: e.target.value }))}
-                    className="mt-2.5 w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] text-aventurea-ink"
-                  >
-                    {DURACIONES.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  {/* LA CASILLA QUE HACE LA DIFERENCIA. Antes había una
-                      duración llamada «1 mes (cortesía)» que escribía
-                      exactamente lo mismo que una venta de un mes: el
-                      regalo y el cobro quedaban indistinguibles. */}
-                  <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-lg border border-aventurea-line bg-white px-2.5 py-2 text-[12px]">
-                    <input
-                      type="checkbox"
-                      checked={regalo[k] === true}
-                      onChange={(e) => setRegalo((prev) => ({ ...prev, [k]: e.target.checked }))}
-                      className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-aventurea-navy"
-                    />
-                    <span>
-                      <span className="block font-bold text-aventurea-ink">
-                        Es una regalía (no entró plata)
-                      </span>
-                      <span className="block text-[11px] leading-snug text-aventurea-ink-soft">
-                        Queda marcado para que ninguna auditoría lo cuente como ingreso.
-                      </span>
-                    </span>
-                  </label>
-
+                      {DURACIONES.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.label}
+                        </option>
+                      ))}
+                    </select>
+                    <label className="flex cursor-pointer items-center gap-1.5 text-[11.5px] font-bold text-aventurea-ink">
+                      <input
+                        type="checkbox"
+                        checked={regalo[k] === true}
+                        onChange={(e) => setRegalo((prev) => ({ ...prev, [k]: e.target.checked }))}
+                        className="h-3.5 w-3.5 accent-aventurea-navy"
+                      />
+                      Regalo (no entró plata)
+                    </label>
+                  </div>
                   <input
                     value={nota[k] ?? ""}
                     maxLength={300}
                     onChange={(e) => setNota((prev) => ({ ...prev, [k]: e.target.value }))}
                     placeholder={
-                      regalo[k]
-                        ? "Por qué se regala (obligatorio)"
-                        : "Nota (ej. pagó SINPE 2/8)"
+                      regalo[k] ? "Por qué se regala (obligatorio)" : "Nota (ej. pagó SINPE 2/8)"
                     }
-                    className="mt-2 w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] text-aventurea-ink placeholder:text-zinc-400"
+                    className="w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] text-aventurea-ink placeholder:text-zinc-400"
                   />
-
-                  <div className="mt-2.5 flex gap-2">
+                  <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={() => activar(def.id)}
                       disabled={pendiente}
-                      className="flex-1 rounded-lg bg-aventurea-navy px-3 py-2 text-[12.5px] font-bold text-white disabled:opacity-40"
+                      className="rounded-lg bg-aventurea-navy px-3 py-1.5 text-[12px] font-bold text-white disabled:opacity-40"
                     >
-                      {estado === "apagado" ? "Activar" : "Renovar"}
+                      Activar
                     </button>
-                    {estado !== "apagado" && (
-                      <button
-                        type="button"
-                        onClick={() => quitar(def.id)}
-                        disabled={pendiente}
-                        className="rounded-lg border border-aventurea-line bg-white px-3 py-2 text-[12.5px] font-bold text-aventurea-ink-soft disabled:opacity-40"
-                      >
-                        Quitar
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setExpandido(null)}
+                      disabled={pendiente}
+                      className="rounded-lg border border-aventurea-line bg-white px-3 py-1.5 text-[12px] font-bold text-aventurea-ink-soft disabled:opacity-40"
+                    >
+                      Cancelar
+                    </button>
                   </div>
-                </>
+                </div>
               )}
-            </div>
+              {esLealtad && estado !== "apagado" && (
+                <p className="mt-1.5 ml-[26px] text-[11px] leading-snug text-aventurea-ink-soft">
+                  Caso de antes de separar lealtad del resto del sitio — ya no se renueva desde
+                  acá, solo se puede quitar (destildá el check).
+                </p>
+              )}
+            </li>
           );
         })}
-      </div>
+      </ul>
     </>
   );
 }
