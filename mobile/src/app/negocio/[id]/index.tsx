@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -22,7 +23,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
 import { fechaISOLocal } from "@/lib/citas";
-import { saldoPendiente } from "@/lib/finanzas";
+import { saldoPendiente, totalEvento } from "@/lib/finanzas";
 import { esCitas as esVerticalCitas, esLugarPorDia } from "@/lib/agenda-negocio";
 import {
   avisosDe,
@@ -74,6 +75,15 @@ const FILTROS = [
 
 type Filtro = (typeof FILTROS)[number]["id"];
 
+/** Las tres cards del resumen de pagos, arriba del histórico. */
+const CARDS_PAGO = [
+  { id: "pagadas", icono: "checkmark-circle" as const, color: Colors.green, fondo: Colors.greenLight, titulo: "Reservas pagadas" },
+  { id: "pendientes", icono: "time-outline" as const, color: Colors.sky, fondo: Colors.skyLight, titulo: "Reservas pendientes" },
+  { id: "canceladas", icono: "close-circle-outline" as const, color: Colors.inkMuted, fondo: Colors.cream2, titulo: "Canceladas" },
+] as const;
+
+type CategoriaPago = (typeof CARDS_PAGO)[number]["id"];
+
 export default function PanelNegocioScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -92,6 +102,8 @@ export default function PanelNegocioScreen() {
   const [filtro, setFiltro] = useState<Filtro>("todas");
   const [verTodoHistorico, setVerTodoHistorico] = useState(false);
   const [fichaAbierta, setFichaAbierta] = useState<string | null>(null);
+  const [categoriaModal, setCategoriaModal] = useState<CategoriaPago | null>(null);
+  const [fichaModalAbierta, setFichaModalAbierta] = useState<string | null>(null);
   const listaRef = useRef<FlatList<ReservaPanel>>(null);
 
   const cargar = useCallback(async () => {
@@ -272,6 +284,63 @@ export default function PanelNegocioScreen() {
     WebBrowser.openBrowserAsync(data.signedUrl);
   }
 
+  /**
+   * Cierra el cobro del evento (el RESTO, no el adelanto) — portado tal
+   * cual de finanzas.tsx (pestaña "Cobros"): se pregunta el monto final
+   * porque casi nunca es el cotizado (más invitados, se pasaron de
+   * hora). Android no tiene `Alert.prompt`: ahí se cobra por el monto
+   * cotizado y el ajuste fino queda para la web.
+   */
+  function cobrarEvento(reserva: ReservaPanel) {
+    Alert.prompt?.(
+      "¿Cuánto cobraste?",
+      `Cotizado: ${fmtColones(totalEvento(reserva))}. Dejalo vacío si cobraste eso mismo.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Registrar cobro", onPress: (valor?: string) => void registrarCobro(reserva, valor) },
+      ],
+      "plain-text",
+      "",
+      "numeric",
+    );
+    if (!Alert.prompt) {
+      Alert.alert(
+        "Registrar el cobro",
+        `Se va a registrar ${fmtColones(totalEvento(reserva))} como cobrado. Si el monto final fue otro, corregilo desde bookea.lat.`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Registrar", onPress: () => void registrarCobro(reserva, undefined) },
+        ],
+      );
+    }
+  }
+
+  async function registrarCobro(reserva: ReservaPanel, valor?: string) {
+    const limpio = (valor ?? "").replace(/[^\d]/g, "");
+    const montoFinal = limpio ? Number(limpio) : null;
+    if (montoFinal !== null && (!Number.isFinite(montoFinal) || montoFinal < 0)) {
+      Alert.alert("Monto inválido", "El monto cobrado no puede ser negativo.");
+      return;
+    }
+    setOcupado(reserva.id);
+    const update: Record<string, unknown> = {
+      evento_pagado: true,
+      saldo_pagado_en: new Date().toISOString(),
+    };
+    if (montoFinal !== null) update.monto_cobrado_final = montoFinal;
+    const { error } = await supabase
+      .from("reservas")
+      .update(update)
+      .eq("id", reserva.id)
+      .eq("rancho_id", id);
+    setOcupado(null);
+    if (error) {
+      Alert.alert("No se pudo guardar", error.message);
+      return;
+    }
+    await cargar();
+  }
+
   const todas = useMemo(() => reservas ?? [], [reservas]);
   const avisos = useMemo(() => avisosDe(todas), [todas]);
   const dias = useMemo(() => diasDeAgenda(todas, DIAS_AGENDA), [todas]);
@@ -292,6 +361,25 @@ export default function PanelNegocioScreen() {
     }
     return lista;
   }, [todas, filtro]);
+
+  // Las tres cards de arriba del histórico: cuentan sobre TODAS las
+  // reservas del negocio, no solo sobre las 40 del histórico visible
+  // (`historial`) — así el número no queda corto por el techo.
+  const listasPorCategoria = useMemo<Record<CategoriaPago, ReservaPanel[]>>(
+    () => ({
+      pagadas: todas.filter((r) => r.evento_pagado === true),
+      pendientes: todas.filter(
+        (r) =>
+          (r.estado === "confirmada" || r.estado === "pendiente" || r.estado === "cumplida") &&
+          saldoPendiente(r) > 0,
+      ),
+      canceladas: todas.filter(
+        (r) => r.estado === "rechazada" || r.estado === "cancelada" || r.estado === "no_asistio",
+      ),
+    }),
+    [todas],
+  );
+  const listaModal = categoriaModal ? listasPorCategoria[categoriaModal] : [];
 
   /**
    * Tocar algo de la agenda abre SU ficha en el histórico y desplaza
@@ -453,6 +541,29 @@ export default function PanelNegocioScreen() {
                 Cada una con cuándo se hizo, quién la hizo, cuánto depositó y cuánto queda
                 pendiente. Tocá una para ver el detalle completo.
               </Text>
+
+              {/* Las tres cards de pago: un vistazo rápido que abre la
+                  auditoría de esa categoría en una ventana aparte, sin
+                  perder el lugar en el histórico de abajo. */}
+              <View style={styles.cardsPago}>
+                {CARDS_PAGO.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    accessibilityRole="button"
+                    onPress={() => setCategoriaModal(c.id)}
+                    style={[styles.cardPago, { backgroundColor: c.fondo }]}
+                  >
+                    <Ionicons name={c.icono} size={17} color={c.color} />
+                    <Text style={[styles.cardPagoNumero, { color: c.color }]}>
+                      {listasPorCategoria[c.id].length}
+                    </Text>
+                    <Text style={styles.cardPagoEtiqueta} numberOfLines={1}>
+                      {c.titulo}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
               <View style={styles.filtros}>
                 {FILTROS.map((f) => (
                   <ChipCategoria
@@ -489,6 +600,7 @@ export default function PanelNegocioScreen() {
             onValidarAdelanto={alternarAdelanto}
             onVerComprobante={verComprobante}
             onQuitarConfirmacion={quitarConfirmacion}
+            onRegistrarCobro={cobrarEvento}
           />
         )}
         ListFooterComponent={
@@ -510,6 +622,52 @@ export default function PanelNegocioScreen() {
         mostrarCatalogo={mostrarCatalogo}
         etiquetaCatalogo={esVerticalCitas({ vertical, categoria }) ? "Servicios" : "Catálogo"}
       />
+
+      {/* La ventana de auditoría de una categoría de pago: se abre al
+          tocar una de las tres cards, con la misma ficha expandible
+          que el histórico de abajo, así que las acciones (adelanto
+          recibido, resto pagado) son las mismas en los dos lugares. */}
+      <Modal
+        visible={categoriaModal !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCategoriaModal(null)}
+      >
+        <Pressable style={styles.hojaFondo} onPress={() => setCategoriaModal(null)}>
+          <Pressable style={styles.hoja} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.hojaEncabezado}>
+              <Text style={styles.hojaTitulo}>
+                {categoriaModal ? CARDS_PAGO.find((c) => c.id === categoriaModal)?.titulo : ""}
+              </Text>
+              <Pressable onPress={() => setCategoriaModal(null)} hitSlop={10}>
+                <Ionicons name="close" size={22} color={Colors.ink} />
+              </Pressable>
+            </View>
+            <FlatList
+              data={listaModal}
+              keyExtractor={(r) => r.id}
+              contentContainerStyle={{ gap: Spacing.two, paddingBottom: Spacing.four }}
+              ListEmptyComponent={
+                <Text style={styles.modalVacio}>No hay reservas en esta categoría.</Text>
+              }
+              renderItem={({ item }) => (
+                <ReservaAuditoria
+                  reserva={item}
+                  abierta={fichaModalAbierta === item.id}
+                  ocupada={ocupado === item.id}
+                  onAlternar={() =>
+                    setFichaModalAbierta((abierta) => (abierta === item.id ? null : item.id))
+                  }
+                  onValidarAdelanto={alternarAdelanto}
+                  onVerComprobante={verComprobante}
+                  onQuitarConfirmacion={quitarConfirmacion}
+                  onRegistrarCobro={cobrarEvento}
+                />
+              )}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -723,6 +881,12 @@ const styles = StyleSheet.create({
   avisoDetalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 1 },
 
   explicacion: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12, lineHeight: 17 },
+
+  cardsPago: { flexDirection: "row", gap: Spacing.two },
+  cardPago: { borderRadius: Radios.md, flex: 1, gap: 2, padding: Spacing.two + 2 },
+  cardPagoNumero: { fontFamily: Fonts.extraBold, fontSize: 19, marginTop: 4 },
+  cardPagoEtiqueta: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 10.5 },
+
   filtros: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
 
   verMas: {
@@ -734,4 +898,27 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   verMasTexto: { color: Colors.navy, fontFamily: Fonts.bold, fontSize: 12.5 },
+
+  hojaFondo: { backgroundColor: "rgba(10,16,32,0.45)", flex: 1, justifyContent: "flex-end" },
+  hoja: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: Radios.xl,
+    borderTopRightRadius: Radios.xl,
+    maxHeight: "88%",
+    padding: Spacing.three,
+  },
+  hojaEncabezado: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingBottom: Spacing.three,
+  },
+  hojaTitulo: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 17 },
+  modalVacio: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.medium,
+    fontSize: 13,
+    paddingVertical: Spacing.five,
+    textAlign: "center",
+  },
 });

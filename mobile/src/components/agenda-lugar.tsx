@@ -54,13 +54,19 @@ const ETIQUETA: Record<string, { texto: string; tono: TonoEstado }> = {
   bloqueada: { texto: "Bloqueado", tono: "gris" },
 };
 
-/** Misma piel que ya usa `estiloBloque` en la agenda por horas, para
- *  que confirmada/pendiente/bloqueada se lean igual en las dos vistas. */
+/**
+ * La piel de una celda del mes — espejo del arreglo que ya se hizo en
+ * la web (`ocupacion-calendario.tsx`): antes cada celda ocupada se
+ * rellenaba entera con un borde grueso del mismo color, y un mes lleno
+ * se leía como un semáforo. Ahora el color va en una barrita de 3px
+ * debajo del número (`marca`, ver `celdaMarca` en los estilos) y el
+ * relleno es apenas un tinte — el número manda, no el bloque.
+ */
 function pielDelDia(estado: string | null) {
-  if (estado === "confirmada") return { fondo: Colors.blueLight, borde: Colors.navy };
-  if (estado === "pendiente") return { fondo: Colors.skyLight, borde: Colors.sky };
-  if (estado === "bloqueada") return { fondo: Colors.cream2, borde: Colors.line };
-  return { fondo: "transparent", borde: Colors.line };
+  if (estado === "confirmada") return { fondo: Colors.blueLight, marca: Colors.navy, texto: Colors.ink };
+  if (estado === "pendiente") return { fondo: Colors.skyLight, marca: Colors.sky, texto: Colors.ink };
+  if (estado === "bloqueada") return { fondo: Colors.cream2, marca: Colors.inkMuted, texto: Colors.inkSoft };
+  return { fondo: "transparent", marca: null, texto: Colors.ink };
 }
 
 function iso(y: number, m: number, d: number) {
@@ -268,23 +274,29 @@ export default function AgendaLugar({ id }: { id: string }) {
                     accessibilityLabel={`${fechaLarga(fecha)}${lista ? ` — ${lista.length} reserva${lista.length === 1 ? "" : "s"}` : " — libre"}`}
                     style={[
                       styles.celda,
-                      { backgroundColor: elegida ? Colors.navy : piel.fondo, borderColor: elegida ? Colors.navy : piel.borde },
+                      {
+                        backgroundColor: elegida ? Colors.navy : piel.fondo,
+                        borderColor: elegida ? Colors.navy : Colors.line,
+                      },
                     ]}
                   >
                     <Text
                       style={[
                         styles.celdaNumero,
-                        { color: elegida ? "#ffffff" : esHoy ? Colors.accent : Colors.ink },
+                        { color: elegida ? "#ffffff" : esHoy ? Colors.accent : piel.texto },
                         esHoy && styles.celdaNumeroHoy,
                       ]}
                     >
                       {d}
                       {lista && lista.length > 1 ? ` ×${lista.length}` : ""}
                     </Text>
-                    {esHoy && (
-                      <Text style={[styles.celdaHoyTexto, { color: elegida ? "#ffffff" : Colors.accent }]}>
-                        Hoy
-                      </Text>
+                    {esHoy && !elegida && (
+                      <Text style={[styles.celdaHoyTexto, { color: Colors.accent }]}>Hoy</Text>
+                    )}
+                    {/* La barrita del estado — nunca sobre la celda ya
+                        elegida (navy sólido), ahí no aporta nada. */}
+                    {piel.marca && !elegida && (
+                      <View style={[styles.celdaMarca, { backgroundColor: piel.marca }]} />
                     )}
                   </Pressable>
                 );
@@ -417,6 +429,7 @@ const styles = StyleSheet.create({
   celdaVacia: { height: 46, width: `${100 / 7}%` },
   celda: {
     alignItems: "center",
+    borderColor: Colors.line,
     borderRadius: Radios.md,
     borderWidth: 1,
     height: 46,
@@ -427,6 +440,19 @@ const styles = StyleSheet.create({
   celdaNumero: { fontFamily: Fonts.semiBold, fontSize: 12.5 },
   celdaNumeroHoy: { fontFamily: Fonts.extraBold },
   celdaHoyTexto: { fontFamily: Fonts.extraBold, fontSize: 8, letterSpacing: 0.5, marginTop: 1, textTransform: "uppercase" },
+  // La barrita de estado: 3px, pegada abajo — el color dice el estado
+  // sin necesitar rellenar la celda entera. Centrada a mano (`left:
+  // 50% + marginLeft` en vez de `alignSelf`): un hijo con position
+  // absolute no lo respeta el `alignItems` del padre.
+  celdaMarca: {
+    borderRadius: 2,
+    bottom: 5,
+    height: 3,
+    left: "50%",
+    marginLeft: -7,
+    position: "absolute",
+    width: 14,
+  },
   leyenda: {
     backgroundColor: Colors.cream2,
     borderRadius: Radios.md,

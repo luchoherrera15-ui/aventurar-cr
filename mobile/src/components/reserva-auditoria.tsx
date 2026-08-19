@@ -34,6 +34,7 @@ export default function ReservaAuditoria({
   onValidarAdelanto,
   onVerComprobante,
   onQuitarConfirmacion,
+  onRegistrarCobro,
   ocupada = false,
 }: {
   reserva: ReservaPanel;
@@ -44,6 +45,8 @@ export default function ReservaAuditoria({
   onVerComprobante?: (path: string) => void;
   /** Devolver una confirmada a "por aceptar". */
   onQuitarConfirmacion?: (reserva: ReservaPanel) => void;
+  /** Cerrar el cobro del evento (el resto, no el adelanto). */
+  onRegistrarCobro?: (reserva: ReservaPanel) => void;
   ocupada?: boolean;
 }) {
   const { adelanto, pendiente, total } = montosDe(reserva);
@@ -189,6 +192,23 @@ export default function ReservaAuditoria({
               >
                 <Ionicons name="document-attach-outline" size={16} color={Colors.navy} />
                 <Text style={styles.accionTexto}>Ver comprobante</Text>
+              </Pressable>
+            )}
+
+            {onRegistrarCobro && !reserva.evento_pagado && pendiente > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                disabled={ocupada}
+                onPress={() => onRegistrarCobro(reserva)}
+                style={({ pressed }) => [
+                  styles.accion,
+                  (pressed || ocupada) && { opacity: 0.6 },
+                ]}
+              >
+                <Ionicons name="cash-outline" size={16} color={Colors.green} />
+                <Text style={[styles.accionTexto, { color: Colors.green }]}>
+                  Marcar resto pagado
+                </Text>
               </Pressable>
             )}
 
