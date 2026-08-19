@@ -83,6 +83,10 @@ const TESTIGOS = [
   // complemento regalado se ve igual que uno vendido.
   ["0173", "tabla", "historial_plan_lealtad", null, "quién cambió el paquete, cuándo y por qué"],
   ["0173", "columna", "addons_negocio", "es_cortesia", "las regalías marcadas como regalías"],
+  // Primer testigo sobre `ranchos`: sin él no había forma de saber si la
+  // 0187 quedó pegada, y de esa columna depende que los negocios de
+  // Lealtad no caigan en la cola de aprobación del directorio.
+  ["0187", "columna", "ranchos", "en_marketplace", "el directorio y Lealtad separados"],
 ];
 
 console.log("\n  MIG   OBJETO                                 ESTADO");

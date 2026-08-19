@@ -79,39 +79,51 @@ const META: MetaRecompensa = { nombre: "Tu bebida favorita gratis", costo_puntos
  * Se comparan los dos y no solo Apple porque el corte toca las dos
  * plataformas, y porque un cambio en `camposSegunModo` se filtra a
  * Google por abajo (el objeto se arma con la misma función).
+ *
+ * ── LOS OCHO DE GOOGLE CAMBIARON UNA VEZ, A PROPÓSITO ──────────────
+ * El dueño abrió su Android y vio la tarjeta de Pura Matcha con el
+ * logo y el nombre de BOOKEA arriba, y "Tarjeta Bookea" debajo del
+ * código. Eran tres campos nuestros metidos en la tarjeta de otro
+ * negocio. Se sacó `barcode.alternateText` del objeto (y en la CLASE,
+ * que este test no cubre, `issuerName` pasó a ser el nombre del
+ * negocio y el logo de respaldo dejó de ser el de Bookea).
+ *
+ * Estos ocho hashes se regeneraron por ESE cambio y por ninguno más.
+ * Si vuelven a fallar sin que nadie haya tocado el pase a propósito,
+ * es una regresión: no los actualices sin saber qué campo se movió.
  */
 const BYTES_DE_ANTES: Record<TipoTarjeta, { apple: string; google: string }> = {
   sellos: {
     apple: "4d0564a58835d508b2d7afec821edde6fbfc98aaf7410c5b923056fed84ec979",
-    google: "d0d755ee3e611d34ac0ce43a301b56a8892181636cfdc1a4c3c636dbd7aab888",
+    google: "15f117638dd2f47108d18f6a270aaae380833e5fb4236c359c1a25aef9aa4af3",
   },
   puntos: {
     apple: "da13217711d3ec0ca196d0ba87681260ef8ea3a176530a72bbec93398e5e6a7b",
-    google: "44a8c6d0ba4bfec502ea0e4389fe3ca7fab928adcda0842ed33affda8043cb74",
+    google: "3af16f1f8f4c8f8ddcc1c9cd859d85a0959ec57844ec6d5f1054f3d00d625775",
   },
   cupon: {
     apple: "d89ae2be0b91104800bebd4d58b13d8fc602ba68fa5d7f72f7d49e6bd706df35",
-    google: "400b95d1b1d5541b6799c4f9494c0f10387d215ff830483715a11ed0e3938a34",
+    google: "ad62c190b46f051ac79a8d9d299b5a2394f57cc61ada00e38ed80f20e4eca14e",
   },
   descuento: {
     apple: "f2c087f9d4bb60e26e652b6ca411f5417c7ef9fcff3bac8a379a951f2bb61775",
-    google: "28c97396e5585157da8426ce7ce56b095a4b1014ac921538f75bd82eda68f5bd",
+    google: "6332b462ef9b89174756fe5119a73f747c2fc60604d8dccaba50cc5b22864c5c",
   },
   membresia: {
     apple: "6ad81082ab3f48a9b29165e5fd68419b18c20b060760186fd99047056418e0da",
-    google: "b4a613b70c16c5230a7bb71597ca129405c7c0be0640ed62593acad49024db53",
+    google: "11b2d1a0ce872c75f2bfe1bf921d021e3034e8bb0f9460c759cb4fff966038b2",
   },
   giftcard: {
     apple: "3bf37486e30bcc52da97df35ee97b5fb977744ab101005ca77871da8ce47c9c2",
-    google: "34e1eb41369d80467763ffb5432a2b5bc3a60ac6827d4b0427f23e51daf617f2",
+    google: "990f5a2b10c36317ccbaa329e505478e15f3aca526f1ac8355e8029234da92df",
   },
   evento: {
     apple: "e1eb507c4dac5304f1c548134b8ea157cefdc5404bf559ec552e1278662c722c",
-    google: "4f8ca4041c4deec9247f22e2b45ce455dcfb1758c932610e8ea630b4278575c7",
+    google: "4161d762f11e36afe8776e68c57e28611c0aee7f70e225ef41276943b3ea7ebc",
   },
   cashback: {
     apple: "899952ea483babce8420c5093c69c4faec0712c8d6e0d7cfb87bb62a48e1ced8",
-    google: "2c26464bf6388759e79cc48ed288f03a94fe240f22686c4328a98d5c3d90c834",
+    google: "96016d46fa073b7cd91aa6f65ec9fdd813e69326302c10159d5b48dfa755bd0a",
   },
 };
 

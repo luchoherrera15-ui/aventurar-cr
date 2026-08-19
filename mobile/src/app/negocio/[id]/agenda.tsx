@@ -295,7 +295,15 @@ export default function AgendaNegocioScreen() {
 }
 
 function AgendaPorHoras() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // `fecha` viene de las notificaciones: el recordatorio de mañana y el
+  // aviso de "citas de ayer sin marcar" abren la agenda parada en EL
+  // DÍA del que avisan. Sin esto, los dos abrían en hoy y había que
+  // buscar el día a mano — que en el de ayer significa moverse para
+  // atrás justo después de que te avisaron.
+  const { id, fecha: fechaPedida } = useLocalSearchParams<{
+    id: string;
+    fecha?: string;
+  }>();
   const router = useRouter();
   const { session } = useAuth();
 
@@ -341,9 +349,14 @@ function AgendaPorHoras() {
   const [borradorBloqueo, setBorradorBloqueo] = useState(BLOQUEO_VACIO);
 
   const hoyISO = useMemo(() => fechaISOLocal(new Date()), []);
-  const [fecha, setFecha] = useState(hoyISO);
+  // Solo se acepta una fecha con forma de fecha. El parámetro viene de
+  // una URL, y un `?fecha=cualquier-cosa` dejaría la agenda pidiéndole
+  // a la base un día que no existe.
+  const fechaInicial =
+    fechaPedida && /^\d{4}-\d{2}-\d{2}$/.test(fechaPedida) ? fechaPedida : hoyISO;
+  const [fecha, setFecha] = useState(fechaInicial);
   // Si el dueño cambia de día rápido, solo interesa la última consulta.
-  const ultimaFecha = useRef(hoyISO);
+  const ultimaFecha = useRef(fechaInicial);
   const tiraCentrada = useRef(false);
   const tiraRef = useRef<ScrollView | null>(null);
 

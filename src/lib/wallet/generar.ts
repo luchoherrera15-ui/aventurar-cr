@@ -333,10 +333,21 @@ export async function generarPaseDeLealtad({
   // se lee de la config con la misma función que usa la vista previa.
   const sello = selloDeLaConfig(config);
 
+  // El ícono del pase es el cuadradito que el iPhone pone al lado de
+  // CADA aviso: el sello acreditado, el anuncio del negocio, el cambio
+  // de diseño. Era el de Bookea, así que al cliente le llegaba un
+  // anuncio de Pura Matcha con nuestro logo al lado. Va el del negocio
+  // —o sus iniciales sobre su color— porque el aviso es de ellos.
+  const marcaDelNegocio = {
+    nombre: negocio.nombre,
+    logo: logoNegocio,
+    colorFondo: colores.fondo,
+  };
+
   const archivos: Record<string, Buffer> = {
-    "icon.png": await dibujarIcono(29),
-    "icon@2x.png": await dibujarIcono(58),
-    "icon@3x.png": await dibujarIcono(87),
+    "icon.png": await dibujarIcono(29, marcaDelNegocio),
+    "icon@2x.png": await dibujarIcono(58, marcaDelNegocio),
+    "icon@3x.png": await dibujarIcono(87, marcaDelNegocio),
     // El logo de arriba del pase es SIEMPRE el logo del negocio: el
     // ícono propio vive adentro de los sellos, no le quita el lugar a
     // la marca.

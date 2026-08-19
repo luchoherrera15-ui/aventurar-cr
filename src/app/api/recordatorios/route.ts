@@ -170,6 +170,20 @@ export async function GET(request: Request) {
         : "Todo listo para mañana. Cualquier duda, escribí por el chat.",
       data: { url: "/?tab=reservas" },
     });
+    // ── EL RECORDATORIO DEL NEGOCIO VA A SU AGENDA ─────────────────
+    // Iba a "/?tab=reservas", que es la pestaña del CLIENTE: consulta
+    // reservas con `cliente_id = mi usuario`, así que al dueño le
+    // mostraba las reservas que él hizo como cliente — casi siempre
+    // ninguna. Le sonaba el teléfono por su propio evento de mañana y
+    // aterrizaba en una lista vacía.
+    //
+    // El día del evento va en la URL para que abra parado ahí. Si
+    // faltara el id del negocio se manda a la raíz, nunca a
+    // "/negocio/undefined/agenda".
+    const agendaDelNegocio = r.rancho_id
+      ? `/negocio/${r.rancho_id}/agenda?fecha=${r.fecha}`
+      : "/";
+
     await enviarPush({
       usuarios: [r.ranchos?.owner_id],
       titulo: esCita
@@ -178,7 +192,7 @@ export async function GET(request: Request) {
       cuerpo: esCita
         ? `${r.nombre || "Un cliente"} — ${r.tipo_evento ?? "servicio"} a las ${hora}.`
         : `${r.nombre || "Un cliente"}${r.invitados ? ` — ${r.invitados} invitados` : ""}. Revisá tu agenda.`,
-      data: { url: "/?tab=reservas" },
+      data: { url: agendaDelNegocio },
     });
 
     await admin
@@ -334,14 +348,20 @@ export async function GET(request: Request) {
       });
     }
 
-    // El teléfono no tiene una pestaña "finanzas" propia (ver
-    // mobile/src/app/index.tsx) — el mismo destino que ya usan los
-    // demás push al dueño sobre una reserva.
+    // A las FINANZAS de su negocio, que es donde se registra el cobro.
+    //
+    // El comentario que estaba acá decía «el teléfono no tiene una
+    // pestaña finanzas propia» y por eso mandaba a "/?tab=reservas".
+    // Era cierto lo de la pestaña y falso lo que se concluía: la app SÍ
+    // tiene `/negocio/[id]/finanzas`. Y la pestaña a la que mandaba es
+    // la del CLIENTE —filtra por `cliente_id = mi usuario`—, así que al
+    // dueño le abría una lista vacía en vez de la plata que tiene que
+    // cobrar hoy.
     await enviarPush({
       usuarios: [r.ranchos.owner_id],
       titulo: `Hoy cobrás — ${nombreRancho}`,
       cuerpo: `Faltan ${fmtColones(saldo)} por cobrar${r.nombre ? ` de ${r.nombre}` : ""}.`,
-      data: { url: "/?tab=reservas" },
+      data: { url: r.rancho_id ? `/negocio/${r.rancho_id}/finanzas` : "/" },
     });
     cobrosAvisados++;
   }
@@ -468,7 +488,19 @@ export async function GET(request: Request) {
           info.sinMarcar.length > 0
             ? "Marcá si vinieron o no — así tu asistencia y tus clientes quedan al día."
             : "Hay clientes que te fallaron dos veces seguidas. Mandales una promo desde tu panel.",
-        data: { url: "/?tab=reservas" },
+        // Dos avisos distintos, dos destinos distintos. Antes los dos
+        // iban a "/?tab=reservas", la pestaña del cliente, donde el
+        // dueño no puede marcar ni escribirle a nadie.
+        //
+        //  · Citas sin marcar → la agenda de AYER, que es el día que
+        //    hay que cerrar. La de hoy no tiene nada que marcar.
+        //  · Clientes por recuperar → su lista de clientes.
+        data: {
+          url:
+            info.sinMarcar.length > 0
+              ? `/negocio/${ranchoId}/agenda?fecha=${ayer}`
+              : `/negocio/${ranchoId}/clientes`,
+        },
       });
       avisosAgendaEnviados++;
     }

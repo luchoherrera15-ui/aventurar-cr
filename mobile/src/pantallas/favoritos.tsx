@@ -4,20 +4,29 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/auth-context";
 import { Colors, Spacing } from "@/constants/theme";
-import TituloPantalla from "@/components/titulo-pantalla";
+import BarraSuperior from "@/components/barra-superior";
 import TarjetaNegocio from "@/components/tarjeta-negocio";
 import { Vacio } from "@/components/ui";
-import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import { CATEGORIA_LABEL, SUBCATEGORIAS, enConfiguracion, fmtColones } from "@/lib/types";
 import { type Fila } from "@/pantallas/explorar";
 
 /**
- * Pestaña de favoritos: todo lo que la persona marcó con el corazón en
- * el directorio, en un solo lugar. Se recarga cada vez que la pestaña
- * gana foco, porque los corazones se tocan desde Explorar y el detalle.
- * Usa la misma `TarjetaNegocio` que los cuatro directorios.
+ * FAVORITOS — lo que esta persona guardó con el corazón.
+ *
+ * ── POR QUÉ YA NO ES UNA PESTAÑA ───────────────────────────────────
+ * Esta pantalla compartía la segunda pestaña con las promos, y el
+ * dueño lo cortó: «Promos es una cosa y Favoritos es otra». Tenía
+ * razón — una es lo que los negocios ofrecen (les sirve a ellos) y la
+ * otra es lo que esta persona guardó (le sirve a ella). Mezcladas, la
+ * pestaña no era de ninguna de las dos.
+ *
+ * Ahora es pantalla propia y se entra por Perfil › Favoritos, que es
+ * donde ya estaba la puerta (`perfil.tsx`, la fila del corazón).
+ *
+ * Por eso lleva `BarraSuperior` con su flecha de volver: una pantalla
+ * a la que se ENTRA necesita salida, cosa que una pestaña no.
  */
-export default function FavoritosScreen({ activa = true }: { activa?: boolean }) {
+export default function FavoritosScreen() {
   const router = useRouter();
   const { session, cargando } = useAuth();
   const [favoritos, setFavoritos] = useState<Fila[] | null>(null);
@@ -46,13 +55,14 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
     };
   }, [session]);
 
-  // Recarga al ganar foco (volver de una pantalla de detalle) y al
-  // deslizar hasta esta página del pager — los corazones se tocan
-  // desde Explorar y tienen que reflejarse acá al instante.
+  // Recarga al ganar foco: los corazones se tocan desde el directorio
+  // y desde la ficha de cada negocio, y al volver acá tienen que estar
+  // reflejados.
   useFocusEffect(cargar);
+
   useEffect(() => {
-    if (activa) return cargar();
-  }, [activa, cargar]);
+    return cargar();
+  }, [cargar]);
 
   async function quitar(ranchoId: string) {
     if (!session) return;
@@ -66,21 +76,24 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
 
   if (cargando) {
     return (
-      <View style={styles.centro}>
-        <ActivityIndicator color={Colors.accent} />
+      <View style={estilos.raiz}>
+        <BarraSuperior titulo="Favoritos" />
+        <View style={estilos.centro}>
+          <ActivityIndicator color={Colors.accent} />
+        </View>
       </View>
     );
   }
 
   if (!session) {
     return (
-      <View style={styles.raiz}>
-        <TituloPantalla kicker="Guardados" titulo="Promos" />
-        <View style={styles.centro}>
+      <View style={estilos.raiz}>
+        <BarraSuperior titulo="Favoritos" />
+        <View style={estilos.centro}>
           <Vacio
             icono="heart-outline"
             titulo="Iniciá sesión"
-            texto="Entrá a tu cuenta para guardar y ver tus proveedores favoritos."
+            texto="Entrá a tu cuenta para guardar y ver tus negocios favoritos."
             accion={{
               texto: "Ir a mi perfil",
               onPress: () => router.replace("/?tab=perfil" as never),
@@ -92,28 +105,24 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
   }
 
   return (
-    <View style={styles.raiz}>
-      <TituloPantalla
-        kicker="Guardados"
-        titulo="Promos"
-        subtitulo="Los proveedores que guardaste con el corazón."
-      />
+    <View style={estilos.raiz}>
+      <BarraSuperior titulo="Favoritos" />
       {favoritos === null ? (
-        <View style={styles.centro}>
+        <View style={estilos.centro}>
           <ActivityIndicator color={Colors.accent} />
         </View>
       ) : (
         <FlatList
           data={favoritos}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={[styles.lista, favoritos.length === 0 && styles.listaVacia]}
+          contentContainerStyle={[estilos.lista, favoritos.length === 0 && estilos.listaVacia]}
           ListEmptyComponent={
             <Vacio
               icono="heart-outline"
-              titulo="Todavía no hay favoritos"
+              titulo="Todavía no guardaste ninguno"
               texto="Tocá el corazón en cualquier tarjeta del directorio y aparece acá."
               accion={{
-                texto: "Explorar proveedores",
+                texto: "Ver negocios",
                 onPress: () => router.replace("/?tab=explorar" as never),
               }}
             />
@@ -127,9 +136,10 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
                 nombre={item.nombre}
                 foto={item.foto_url}
                 etiqueta={subLabel ?? CATEGORIA_LABEL[item.categoria]}
-                ubicacion={[item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica"}
+                ubicacion={
+                  [item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica"
+                }
                 precio={item.precio_desde !== null ? fmtColones(item.precio_desde) : null}
-                cta="Reservar"
                 pausado={enConfiguracion(item.detalles)}
                 favorito
                 onToggleFavorito={() => quitar(item.id)}
@@ -143,19 +153,9 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
   );
 }
 
-const styles = StyleSheet.create({
+const estilos = StyleSheet.create({
   raiz: { backgroundColor: Colors.canvas, flex: 1 },
-  centro: { flex: 1, justifyContent: "center", paddingHorizontal: Spacing.three },
-  lista: {
-    flexGrow: 1,
-    gap: Spacing.three,
-    padding: Spacing.three,
-    paddingBottom: TAB_BAR_ESPACIO,
-  },
-  // Solo entra cuando la lista está vacía (ver `contentContainerStyle`
-  // arriba): centra el `Vacio` en la pantalla en vez de dejarlo pegado
-  // al título. Con la lista cargada NO se aplica — si no, una lista
-  // corta de 1-2 favoritos quedaría flotando a la mitad de la pantalla
-  // en vez de empezar arriba, como cualquier lista normal.
-  listaVacia: { justifyContent: "center" },
+  centro: { alignItems: "center", flex: 1, justifyContent: "center", padding: Spacing.three },
+  lista: { gap: Spacing.three, padding: Spacing.three },
+  listaVacia: { flexGrow: 1, justifyContent: "center" },
 });

@@ -1,6 +1,6 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Stack, useRouter, type Href } from "expo-router";
+import { Stack, useRootNavigationState, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import * as Notifications from "expo-notifications";
@@ -15,6 +15,7 @@ import {
   Figtree_800ExtraBold,
 } from "@expo-google-fonts/figtree";
 import { AuthProvider } from "@/lib/auth-context";
+import { rutaDeNotificacion } from "@/lib/abrir-notificacion";
 import { Colors } from "@/constants/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -33,17 +34,74 @@ Notifications.setNotificationHandler({
 export default function RootLayout() {
   const router = useRouter();
 
-  // Tocar la notificación abre la pantalla que el servidor indicó en
-  // data.url (ej. "/?tab=reservas" o "/?tab=mensajes").
+  /**
+   * ═════════════════════════════════════════════════════════════════
+   *  TOCAR UNA NOTIFICACIÓN TIENE QUE LLEVAR A LO QUE HAY QUE HACER
+   * ═════════════════════════════════════════════════════════════════
+   *
+   * ── EL BUG QUE ESTO ARREGLA ────────────────────────────────────
+   * Antes acá solo estaba `addNotificationResponseReceivedListener`,
+   * que avisa cuando alguien toca una notificación CON LA APP VIVA.
+   * Si la app estaba cerrada —que es el caso normal: llega el aviso,
+   * el teléfono está en el bolsillo— el sistema la levantaba, y para
+   * cuando este listener quedaba registrado el toque YA HABÍA PASADO.
+   * Nadie se lo contaba a nadie. La app abría en la pantalla de
+   * siempre y la persona quedaba buscando a mano de qué le habían
+   * avisado.
+   *
+   * `getLastNotificationResponseAsync()` es lo que faltaba: pregunta
+   * "¿la app se abrió porque alguien tocó algo?" y devuelve ese toque
+   * aunque haya ocurrido antes de que existiera el listener.
+   *
+   * ── Y HAY QUE ESPERAR AL ROUTER ────────────────────────────────
+   * En arranque en frío esto corre antes de que el árbol de
+   * navegación exista, y navegar ahí tira "Attempted to navigate
+   * before mounting the Root Layout". `useRootNavigationState()` no
+   * tiene `key` hasta que el router está listo: por eso el efecto
+   * depende de él y se vuelve a correr cuando lo está.
+   *
+   * ── SIN NAVEGAR DOS VECES ──────────────────────────────────────
+   * El toque que abrió la app puede aparecer POR LOS DOS CAMINOS. Se
+   * recuerda el identificador del último atendido y se ignora el
+   * repetido — sin esto, la app abre la pantalla, y encima abre otra
+   * igual.
+   */
+  const navegacionLista = useRootNavigationState()?.key;
+  const atendida = useRef<string | null>(null);
+
+  const abrirNotificacion = useCallback(
+    (respuesta: Notifications.NotificationResponse | null) => {
+      if (!respuesta) return;
+      const id = respuesta.notification.request.identifier;
+      if (atendida.current === id) return;
+
+      const destino = rutaDeNotificacion(respuesta.notification.request.content.data?.url);
+      if (!destino) return;
+
+      atendida.current = id;
+      router.push(destino);
+    },
+    [router],
+  );
+
+  // El toque que ABRIÓ la app (venía cerrada).
   useEffect(() => {
-    const suscripcion = Notifications.addNotificationResponseReceivedListener(
-      (respuesta) => {
-        const url = respuesta.notification.request.content.data?.url;
-        if (typeof url === "string") router.push(url as Href);
-      },
-    );
+    if (!navegacionLista) return;
+    let vivo = true;
+    Notifications.getLastNotificationResponseAsync().then((r) => {
+      if (vivo) abrirNotificacion(r);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [navegacionLista, abrirNotificacion]);
+
+  // Los toques con la app ya abierta.
+  useEffect(() => {
+    const suscripcion =
+      Notifications.addNotificationResponseReceivedListener(abrirNotificacion);
     return () => suscripcion.remove();
-  }, [router]);
+  }, [abrirNotificacion]);
 
   // El rescate del login social. En Android, expo-web-browser resuelve
   // con un Promise.race que a veces pierde la URL de vuelta (Expo Go

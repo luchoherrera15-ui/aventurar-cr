@@ -16,7 +16,13 @@ const ID = "11111111-2222-3333-4444-555555555555";
  * hace contra esta lista y no contra un regex: si mañana alguien inventa
  * `/mi-negocio/[id]/clientes` sin construir la pantalla, esto falla.
  */
-const RUTAS_REALES = [`/mi-negocio/${ID}`, `/mi-negocio/${ID}/citas`];
+const RUTAS_REALES = [
+  `/mi-negocio/${ID}`,
+  `/mi-negocio/${ID}/citas`,
+  // Promos: pantalla propia, para TODO tipo de negocio. No es un
+  // módulo justamente por eso — anunciar lo puede hacer cualquiera.
+  `/mi-negocio/${ID}/promos`,
+];
 
 /** Las pestañas que `page.tsx` monta de verdad. */
 const TABS_REALES = ["inicio", "catalogo", "finanzas", "config"];

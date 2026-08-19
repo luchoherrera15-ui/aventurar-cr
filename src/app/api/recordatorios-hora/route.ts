@@ -134,7 +134,11 @@ export async function GET(request: Request) {
       usuarios: [r.cliente_id],
       titulo: `Hoy a las ${hora}: ${nombreNegocio}`,
       cuerpo: `${r.tipo_evento ?? "Tu cita"} es en unas horas. Si no podés llegar, avisá por el chat.`,
-      data: { url: "/?tab=reservas" },
+      // El cuerpo dice «avisá por el chat», así que el toque abre EL
+      // CHAT de esta cita. Antes abría la lista de reservas: el aviso
+      // pedía una cosa y el toque llevaba a otra, y quien no puede
+      // llegar tenía que buscar la reserva y después el botón.
+      data: { url: `/mensajes/${r.id}` },
     });
     avisadas++;
   }

@@ -95,11 +95,27 @@ export async function notificarMensajeNuevo(
     const texto =
       m.texto.length > 120 ? m.texto.slice(0, 117) + "…" : m.texto;
 
+    // ── DIRECTO AL HILO ──────────────────────────────────────────
+    // Antes esto mandaba a "/?tab=mensajes", una pestaña que ya no
+    // existe: la app la resolvía como la pestaña 0 y el aviso de un
+    // mensaje terminaba abriendo la pantalla de Inicio. La app ahora
+    // traduce esa URL vieja a la bandeja (`abrir-notificacion.ts`),
+    // pero la bandeja tampoco es la respuesta — el mensaje está en UN
+    // hilo, y hay que abrir ESE.
+    //
+    // Las conversaciones de una reserva se abren por el id de la
+    // reserva; las que no cuelgan de ninguna, por el id del hilo. Las
+    // dos pantallas verifican que quien entra sea el cliente o el
+    // dueño, así que el receptor —que es uno de los dos— pasa.
+    const hilo = conv.reserva_id
+      ? `/mensajes/${conv.reserva_id}`
+      : `/mensajes/hilo/${conv.id}`;
+
     await enviarPush({
       usuarios: [receptor],
       titulo: `Mensaje nuevo — ${nombreNegocio}`,
       cuerpo: texto,
-      data: { url: "/?tab=mensajes" },
+      data: { url: hilo },
     });
 
     // Independiente del push a propósito: que Expo falle no puede

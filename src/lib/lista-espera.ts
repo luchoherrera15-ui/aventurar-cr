@@ -80,7 +80,17 @@ export async function avisarListaEspera(ranchoId: string, fecha: string): Promis
         usuarios: [a.cliente_id],
         titulo: `¡Se liberó un espacio en ${rancho.nombre}!`,
         cuerpo: `Estabas en lista de espera para el ${fechaLarga}. Reserva quien llegue primero.`,
-        data: { url: "/?tab=reservas" },
+        // ── DIRECTO A APARTAR LA FRANJA ──────────────────────────
+        // El aviso dice "reserva quien llegue primero", así que cada
+        // toque de más es una carrera perdida. Antes mandaba a la
+        // pestaña de reservas de esta persona — que está VACÍA por
+        // definición: si tuviera la reserva no estaría en lista de
+        // espera. Ahora abre la pantalla que de verdad aparta la hora.
+        //
+        // Va el UUID y no el slug: la pantalla de reservar busca el
+        // negocio por `id` y le pasa ese mismo valor al RPC que crea
+        // la cita; con un slug no encuentra nada.
+        data: { url: `/citas/${ranchoId}/reservar` },
       });
       // Si había correo y NO salió (Resend caído, key ausente), se
       // devuelve el claim: la fila queda re-avisable en la próxima

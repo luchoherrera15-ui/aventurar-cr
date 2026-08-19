@@ -55,7 +55,29 @@ import {
 
 const API = "https://walletobjects.googleapis.com/walletobjects/v1";
 const SCOPE = "https://www.googleapis.com/auth/wallet_object.issuer";
-const LOGO_BOOKEA = "https://www.bookea.lat/logo-bookea-v4.png";
+
+/**
+ * EL PASE ES DEL NEGOCIO, NO DE BOOKEA.
+ *
+ * Google exige un `programLogo` en la clase: sin él la rechaza. Cuando
+ * el negocio no subió logo, esto le dibuja uno —su inicial sobre el
+ * color de su tarjeta— en vez de poner el de Bookea.
+ *
+ * Antes acá había una constante con el logo de Bookea, y el resultado
+ * era el que vio el dueño en un Android real: la tarjeta de Pura
+ * Matcha con el logo y el nombre de Bookea arriba. El cliente que abre
+ * su Wallet tiene que ver a SU negocio; nosotros somos la cañería, no
+ * la marca del mostrador.
+ *
+ * Es una URL pública porque Google la baja desde sus servidores: no
+ * puede llevar sesión ni cookie.
+ */
+function logoGenerado(nombreNegocio: string, colorFondo: string | null): string {
+  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
+  const params = new URLSearchParams({ nombre: nombreNegocio });
+  if (colorFondo) params.set("color", colorFondo);
+  return `${base}/api/pases-google/logo?${params.toString()}`;
+}
 
 export type CredencialesGoogle = {
   issuerId: string;
@@ -175,9 +197,21 @@ export function construirClase({
   const colores = coloresDe(config);
   return {
     id: idDeClase(issuerId, ranchoId),
-    issuerName: "Bookea",
+    // `issuerName` es el texto que Android dibuja arriba, al lado del
+    // logo. Decía "Bookea" y por eso la tarjeta de un negocio se veía
+    // como una tarjeta nuestra. Va el nombre del negocio: es su
+    // programa de lealtad, sus clientes y su marca.
+    //
+    // Se puede: Google pide que `issuerName` identifique a quien emite
+    // el programa, y quien lo emite es el negocio. Nosotros somos la
+    // plataforma —eso se dice en el módulo de texto del objeto, no
+    // ocupando el encabezado de la tarjeta.
+    issuerName: nombreNegocio,
     programName: nombreNegocio,
-    programLogo: imagenGoogle(config.pase_logo_url || LOGO_BOOKEA, `Logo de ${nombreNegocio}`),
+    programLogo: imagenGoogle(
+      config.pase_logo_url || logoGenerado(nombreNegocio, colores.fondo),
+      `Logo de ${nombreNegocio}`,
+    ),
     hexBackgroundColor: colores.fondo,
     countryCode: "CR",
     reviewStatus: "UNDER_REVIEW",
@@ -445,9 +479,14 @@ export function construirObjeto({
     accountId: miembroId,
     accountName: nombreCliente,
     barcode: {
+      // Sin `alternateText`. Ese campo es el renglón que Android pinta
+      // DEBAJO del código, y decía "Tarjeta Bookea" — la segunda marca
+      // nuestra metida en la tarjeta de otro. Está pensado para
+      // mostrar el código en texto por si el lector falla, y acá el
+      // valor es un serial largo que a nadie le sirve leer ni tipear.
+      // Omitirlo deja el código limpio.
       type: "QR_CODE",
       value: serial,
-      alternateText: "Tarjeta Bookea",
     },
     ...contenidoDelObjeto({ negocioNombre: nombreNegocio, saldo, config, meta, beneficio }),
   };
@@ -499,6 +538,73 @@ async function asegurarRecurso(
   const parche = await llamarApi(cred, "PATCH", `/${coleccion}/${recurso.id}`, recurso);
   if (parche.status >= 300) {
     throw new Error(`Google no aceptó actualizar el ${coleccion}: ${JSON.stringify(parche.json).slice(0, 300)}`);
+  }
+}
+
+export type ResultadoClase = { ok: true } | { ok: false; motivo: string };
+
+/**
+ * Reescribe en Google la CLASE de un negocio: su nombre, su logo y el
+ * color de su tarjeta.
+ *
+ * ── POR QUÉ HACE FALTA UNA FUNCIÓN APARTE ──────────────────────────
+ * La clase se armaba en un solo lugar: cuando se emite el pase de un
+ * cliente nuevo. O sea que si el negocio cambiaba el color de su
+ * tarjeta —o le arreglábamos el nombre que sale arriba, como ahora—
+ * los Android de sus clientes actuales seguían mostrando lo viejo
+ * hasta que se afiliara alguien más. En un negocio que ya tiene todos
+ * sus clientes adentro, eso es «nunca».
+ *
+ * El refresco del saldo (`refrescarPaseGoogleDeMiembro`) no alcanza:
+ * ese hace PATCH del OBJETO, que es del cliente. El nombre, el logo y
+ * el color viven en la CLASE, que es del negocio.
+ *
+ * Un solo PATCH de la clase arregla de una vez todas las tarjetas de
+ * ese negocio: Google las vuelve a dibujar en los teléfonos solo.
+ */
+export async function refrescarClaseGoogle(ranchoId: string): Promise<ResultadoClase> {
+  const cred = credencialesGoogleDelEntorno();
+  if (!cred) return { ok: false, motivo: "Google Wallet no está configurado." };
+
+  const db = createAdminClient();
+  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+
+  const { data: negocio } = await db
+    .from("ranchos")
+    .select("nombre")
+    .eq("id", ranchoId)
+    .maybeSingle();
+  if (!negocio) return { ok: false, motivo: "Ese negocio no existe." };
+
+  // La apariencia sale del programa que EMITE, elegido con la misma
+  // función que usa la emisión y que muestra el panel: un negocio puede
+  // tener más de una tarjeta (la 0134 quitó el `unique(rancho_id)`) y
+  // la clase de Google es una sola por negocio.
+  const { data: filasPrograma } = await db
+    .from("programa_lealtad")
+    .select("*")
+    .eq("rancho_id", ranchoId);
+  const emisora = emisoraDeFilasCrudas(
+    (filasPrograma ?? []) as Record<string, unknown>[],
+    minutoISOCR(),
+  );
+  if (!emisora) return { ok: false, motivo: "Este negocio no tiene una tarjeta activa." };
+  const { config } = tarjetaDesdeFila(emisora);
+
+  try {
+    await asegurarRecurso(
+      cred,
+      "loyaltyClass",
+      construirClase({
+        issuerId: cred.issuerId,
+        ranchoId,
+        nombreNegocio: (negocio.nombre as string | null) ?? "",
+        config,
+      }),
+    );
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, motivo: e instanceof Error ? e.message : "Google rechazó el cambio." };
   }
 }
 

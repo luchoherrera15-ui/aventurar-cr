@@ -214,15 +214,40 @@ export function EsqueletoPanelVertical() {
  * sale de la pantalla a propósito, pero un esqueleto deslizable no
  * tiene a dónde ir.
  */
-export function EsqueletoDestacados({ cantidad = 4 }: { cantidad?: number }) {
+/**
+ * LA TIRA «NEGOCIOS DESTACADOS» de la portada mientras la base
+ * contesta (src/components/negocios-destacados.tsx).
+ *
+ * Mide EXACTAMENTE lo mismo que la tira real —150 px en teléfono, 152 /
+ * 168 / 176 según el ancho, mismo `flex-wrap` de dos por fila, mismo
+ * `gap-5`— porque esta sección es lo primero que se ve debajo del
+ * buscador y el CLS del sitio es 0,000.
+ *
+ * ⚠️ `cantidad = 2` NO es un número decorativo: es el conteo de negocios
+ * publicados. El esqueleto se pinta ANTES de que `datosDeLaPortada()`
+ * resuelva (vive en el fallback del <Suspense> de page.tsx), así que el
+ * conteo no se puede saber acá. Con 2 publicados, esqueleto y tira real
+ * miden una fila y coinciden al píxel en TODO ancho. El día que se
+ * publique el tercero hay que subir este número a 4, o el primer paint
+ * meterá un salto de ~196 px. Antes esto estaba en 4 contra una grilla
+ * real de `grid-cols-3` y la portada YA saltaba entre 640 y 1024 px.
+ *
+ * En teléfono va con `overflow-hidden` y no con scroll: la tira real se
+ * sale de la pantalla a propósito, pero un esqueleto deslizable no
+ * tiene a dónde ir.
+ */
+export function EsqueletoDestacados({ cantidad = 2 }: { cantidad?: number }) {
   return (
     <div>
       <Bloque className="h-3 w-28" />
       <Bloque className="mt-2.5 h-6 w-[min(260px,60%)]" />
       <Bloque className="mt-2.5 h-3 w-[min(380px,80%)]" />
-      <div className="-mr-4 mt-5 grid auto-cols-[84%] grid-flow-col gap-2.5 overflow-hidden pb-1.5 pt-0.5 sm:mr-0 sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 sm:gap-3 lg:grid-cols-4">
+      <div className="-mr-4 mt-5 grid auto-cols-[88%] grid-flow-col gap-2.5 overflow-hidden pb-1.5 pt-0.5 sm:mr-0 sm:flex sm:flex-wrap sm:gap-5">
         {Array.from({ length: cantidad }, (_, i) => (
-          <Bloque key={i} className="h-[124px] rounded-2xl sm:h-[132px]" />
+          <Bloque
+            key={i}
+            className="h-[150px] w-full rounded-2xl sm:h-[152px] sm:w-[calc(50%-10px)] lg:h-[168px] xl:h-[176px]"
+          />
         ))}
       </div>
     </div>

@@ -47,13 +47,19 @@ export async function notificarCitaConfirmada(
 
   const { data } = await consulta
     .select(
-      "id, nombre, correo, fecha, hora_inicio, duracion_minutos, tipo_evento, monto_total, deposito_monto, miembro_id, cliente_id, ranchos(nombre, owner_id, direccion_exacta, canton, provincia, sinpe_numero, sinpe_titular)",
+      // `rancho_id` va acá para que el push del negocio pueda llevarlo
+      // a SU agenda. Sin él, la notificación de una cita nueva no tiene
+      // con qué armar la ruta y termina cayendo en una pestaña que le
+      // muestra al dueño sus propias reservas como cliente — vacía.
+      "id, rancho_id, nombre, correo, fecha, hora_inicio, duracion_minutos, tipo_evento, monto_total, deposito_monto, miembro_id, cliente_id, ranchos(nombre, owner_id, direccion_exacta, canton, provincia, sinpe_numero, sinpe_titular)",
     )
     .maybeSingle();
   if (!data) return;
 
   const r = data as unknown as {
     id: string;
+    /** El negocio, para que el push del dueño abra SU agenda. */
+    rancho_id: string | null;
     nombre: string | null;
     correo: string | null;
     fecha: string;
@@ -163,11 +169,28 @@ export async function notificarCitaConfirmada(
   // El push acompaña al correo: al negocio le suena la cita nueva en
   // el teléfono, y el cliente (si reservó con cuenta) recibe la
   // confirmación. La bandera del update de arriba evita repetidos.
+  // ── ADÓNDE LLEVA EL AVISO DEL NEGOCIO ────────────────────────────
+  // A su AGENDA del día de la cita, que es donde se atiende: ahí sale
+  // en la grilla con el cliente y el servicio, y desde ahí se marca
+  // cumplida, se cancela o se abre el chat.
+  //
+  // Antes iba a "/?tab=reservas", y eso estaba mal de una forma que no
+  // se veía: esa pestaña consulta reservas con `cliente_id = mi
+  // usuario`, o sea que al DUEÑO le mostraba las reservas que él hizo
+  // como cliente — casi siempre ninguna. Le sonaba el teléfono por una
+  // cita y aterrizaba en una lista vacía.
+  //
+  // Si por lo que sea faltara el id del negocio, se manda a la raíz en
+  // vez de armar "/negocio/undefined/agenda".
+  const agendaDelNegocio = r.rancho_id
+    ? `/negocio/${r.rancho_id}/agenda?fecha=${r.fecha}`
+    : "/";
+
   await enviarPush({
     usuarios: [r.ranchos?.owner_id],
     titulo: `Cita nueva en ${nombreNegocio}`,
     cuerpo: `${r.nombre || "Un cliente"} — ${r.tipo_evento ?? "un servicio"}, ${fechaLarga}, ${hora}.`,
-    data: { url: "/?tab=reservas" },
+    data: { url: agendaDelNegocio },
   });
   await enviarPush({
     usuarios: [r.cliente_id],

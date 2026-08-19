@@ -23,14 +23,22 @@ import { SUBCATEGORIA_LABEL, type Rancho } from "@/app/mi-negocio/types";
  * la portada (los rieles) ya tiene controles; esta tira vive de que se
  * lea de un vistazo.
  *
- * ── POR QUÉ UNA TARJETA NUEVA Y NO `RanchoCard` ──────────────────
- * `RanchoCard` es vertical, con la foto en 4:3 arriba: cuatro de esas
- * en fila miden ~330 px de alto y empujan la sección fuera de la
- * primera pantalla, que es exactamente lo que esta sección viene a
- * evitar. Esta es HORIZONTAL —foto en una columna fija de 112 px— y
- * mide 132 px. Es otra forma, no otra versión: agregarle un modo
- * «horizontal» a un componente de 336 líneas con favoritos, cinco
- * insignias y velo de pausa lo haría peor para las dos.
+ * ── POR QUÉ UNA TARJETA PROPIA Y NO `RanchoCard` ─────────────────
+ * Dos razones, y la primera es dura: `RanchoCard` es `"use client"`
+ * (useState, useTransition, useRouter y el import de `alternarFavorito`
+ * para el corazón). Reusarla acá mandaría JavaScript a la PRIMERA
+ * pantalla del sitio, que es justo lo que esta sección no hace.
+ * La segunda es de composición: `RanchoCard` ya se ve seis veces más
+ * abajo en los rieles de esta misma portada. Si esta tira también fuera
+ * vertical, la página mostraría el mismo objeto tres veces seguidas y
+ * la sección perdería registro propio. Es HORIZONTAL a propósito: dos
+ * por fila, foto en el 42 % de la tarjeta, 176 px de alto — la sección
+ * sigue asomando debajo del buscador con los negocios que hay hoy.
+ * Lo que sí se comparte son las clases: radio, borde, sombra, hover,
+ * insignias y pie con `border-t` son los LITERALES de `RanchoCard`.
+ * Que las dos familias de tarjeta del sitio usen la misma elevación y
+ * las mismas insignias es lo que se lee como profesional; el tamaño de
+ * la foto viene después.
  *
  * Lo que sí se comparte se IMPORTA, nunca se copia: `rutaDeNegocio`
  * (para no comerse el 307 de `/{slug}` en Citas y Restaurantes),
@@ -109,10 +117,6 @@ export default function NegociosDestacados({
 
   const lista = negocios.slice(0, TOPE_DESTACADOS);
 
-  // Con tres, tres columnas: cuatro columnas con una celda vacía se lee
-  // como un error de carga.
-  const columnas = lista.length >= 4 ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3";
-
   return (
     <section aria-labelledby="negocios-destacados" className="px-4 pb-10 pt-7 sm:px-6 sm:pb-12 sm:pt-9 lg:px-10">
       <div className="mx-auto max-w-[1200px]">
@@ -147,18 +151,25 @@ export default function NegociosDestacados({
           </Link>
         </div>
 
-        {/* Grilla en escritorio, RIEL en teléfono — las dos cosas, como
-            la maqueta. El `-mr-4` deja que la segunda tarjeta sangre
-            contra el borde: es lo que dice «esto se desliza» sin poner
-            una flecha de 32 px que en un dedo no se acierta.
+        {/* RIEL en teléfono, DOS POR FILA de `sm` para arriba. El `-mr-4`
+            deja que la segunda tarjeta sangre contra el borde: es lo que
+            dice «esto se desliza» sin poner una flecha de 32 px que en un
+            dedo no se acierta.
 
-            `sm:justify-items-start`: con 1 o 2 negocios cada tarjeta
-            sigue ocupando su columna de `grid-cols-3`, pero sin
-            estirarse a llenarla — la tarjeta tiene su propio ancho fijo
-            (ver `TarjetaDestacada`) y deja de arrastrar una franja
-            blanca vacía a la derecha del precio. */}
+            De `sm` para arriba NO es una grilla, es `flex-wrap` con base
+            del 50 %. La grilla de columnas fijas era el problema que el
+            dueño señaló: con 2 negocios, `grid-cols-3` reservaba una
+            tercera columna que nadie ocupaba y las tarjetas no quedaban
+            separadas entre sí, quedaban separadas de un hueco. Con
+            `flex-wrap` entre tarjeta y tarjeta solo hay `gap`, y la regla
+            vale igual para 1, 2, 3 o 4 — sin condicionales por conteo,
+            que es lo que rompería el esqueleto (ver `EsqueletoDestacados`).
+
+            `has-[>*:only-child]:justify-center`: con UN solo negocio
+            (MIN_DESTACADOS es 1) media fila quedaría vacía; centrada se
+            lee deliberada. Es CSS, no un branch de datos. */}
         <div
-          className={`mt-5 grid auto-cols-[84%] grid-flow-col gap-2.5 overflow-x-auto pb-1.5 pt-0.5 snap-x snap-mandatory -mr-4 sm:mr-0 sm:auto-cols-auto sm:grid-flow-row sm:justify-items-start sm:gap-3 sm:overflow-visible ${columnas}`}
+          className="-mr-4 mt-5 grid auto-cols-[88%] grid-flow-col gap-2.5 snap-x snap-mandatory overflow-x-auto pb-1.5 pt-0.5 sm:mr-0 sm:flex sm:flex-wrap sm:gap-5 sm:overflow-visible sm:has-[>*:only-child]:justify-center"
           style={{ scrollbarWidth: "none" }}
         >
           {lista.map((negocio, i) => (
@@ -176,6 +187,17 @@ export default function NegociosDestacados({
             />
           ))}
         </div>
+
+        {/* El «Ver todos» del encabezado está en `sm:inline-flex`: en
+            teléfono no existe. Y el riel termina en la última tarjeta sin
+            puerta a ningún lado. Esta es esa puerta, y solo en teléfono. */}
+        <Link
+          href={verTodoHref}
+          className="mt-3.5 flex items-center justify-center gap-1.5 rounded-xl border border-aventurea-line bg-white py-2.5 text-[13px] font-bold text-aventurea-navy sm:hidden"
+        >
+          Ver todos los negocios
+          <IconChevronRight className="h-3.5 w-3.5" />
+        </Link>
       </div>
     </section>
   );
@@ -205,13 +227,22 @@ function TarjetaDestacada({
 
   // eslint-disable-next-line react-hooks/purity -- «nuevo» es una etiqueta de vitrina; no pasa nada si queda desactualizada un instante entre renders
   const esNuevo = Date.now() - new Date(negocio.created_at).getTime() < 1000 * 60 * 60 * 24 * 30;
+  const destacado = negocio.destacado_orden != null;
 
   return (
     <Link
       href={rutaDeNegocio(negocio)}
       data-reveal
       style={estiloRevelado(indice, 70)}
-      className="group grid h-[124px] snap-start grid-cols-[104px_1fr] overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_5px_18px_-6px_rgba(22,41,94,0.16)] transition-all hover:-translate-y-[3px] hover:border-aventurea-navy/40 hover:shadow-[0_14px_30px_-14px_rgba(22,41,94,0.35)] sm:h-[132px] sm:w-[280px] sm:grid-cols-[112px_1fr]"
+      // La foto es el 42 % de la tarjeta a TODO ancho: una sola regla en
+      // vez de columnas en píxeles que se descalibran por breakpoint. Da
+      // 138×150 en un teléfono de 390, 194×168 en 1024 y 248×176 en 1280
+      // — de 1,2 a 3,0 veces el área de la miniatura de 112×132 de antes,
+      // y nunca menos que ella.
+      // Sombra, hover y radio son los LITERALES de `RanchoCard`: las dos
+      // familias de tarjeta se ven en la misma pantalla y hasta hoy
+      // hablaban dos idiomas de elevación distintos.
+      className="group grid h-[150px] w-full snap-start grid-cols-[42%_1fr] overflow-hidden rounded-2xl border border-aventurea-line bg-white shadow-[0_10px_36px_-20px_rgba(22,41,94,0.3)] transition-all duration-300 hover:-translate-y-1 hover:border-aventurea-navy/50 hover:shadow-[0_20px_44px_-20px_rgba(22,41,94,0.4)] sm:h-[152px] sm:w-[calc(50%-10px)] lg:h-[168px] xl:h-[176px]"
     >
       <div
         className="relative overflow-hidden bg-aventurea-blue-light"
@@ -231,66 +262,85 @@ function TarjetaDestacada({
             // el preload cuando hay varias listas en la página.
             loading={prioritaria ? "eager" : undefined}
             fetchPriority={prioritaria ? "high" : undefined}
-            // La columna mide 104-112 px; con DPR2 el candidato útil es
-            // el de 256. Sin este `sizes` el navegador se bajaría uno de
-            // 640 para pintar 112.
-            sizes="120px"
+            // La columna ya no mide 112 px: mide 42 % de media fila. El
+            // `sizes="120px"` de antes serviría un candidato de 128
+            // estirado a 248 y la foto LCP de la portada saldría lavada.
+            sizes="(max-width: 640px) 37vw, (max-width: 1280px) 20vw, 248px"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <span className="absolute inset-0 flex items-center justify-center text-white/25 [&_svg]:h-8 [&_svg]:w-8">
+          <span className="absolute inset-0 flex items-center justify-center text-white/25 [&_svg]:h-10 [&_svg]:w-10 lg:[&_svg]:h-12 lg:[&_svg]:w-12">
             {categoriaIcono(vertical, negocio.categoria)}
           </span>
         )}
 
-        {/* El aviso de muestra va ENCIMA de la foto y no en una esquina
-            del cuerpo: hay demos sembrados en producción que parecen
-            negocios reales (Café Oscuro, SILENCE BARBER SHOP) y esta es
-            la primera tira que se ve del sitio. */}
-        {demo && (
-          <span className="absolute left-1.5 top-1.5 rounded-md bg-amber-400 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm">
-            Demo
-          </span>
-        )}
-
-        {/* «Nuevo» va sobre la foto y no en el cuerpo: es lo primero
-            que se lee de la tarjeta, no algo que compite con el precio
-            por una esquina de 11px. En la esquina opuesta a «Demo» —
-            un negocio sembrado y uno recién publicado no chocan. */}
-        {esNuevo && negocio.destacado_orden == null && (
-          <span className="insignia-nueva absolute right-1.5 top-1.5 rounded-md bg-aventurea-blue px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white shadow-sm">
-            Nuevo
-          </span>
-        )}
+        {/* Una sola columna de insignias, arriba a la derecha, con las
+            clases y el ORDEN de `RanchoCard`: Demo siempre (hay demos
+            sembrados en producción que parecen negocios reales), y
+            «★ Destacado» le gana el puesto a «Nuevo» — un negocio que el
+            admin eligió a mano no necesita anunciar que es reciente.
+            «★ Destacado» estaba en el pie de la tarjeta y se sube acá:
+            ese hueco del pie ahora lo ocupa el CTA. */}
+        <span className="absolute right-2.5 top-2.5 flex flex-col items-end gap-1.5 lg:right-3 lg:top-3">
+          {demo && (
+            <span className="rounded-lg bg-amber-400 px-2 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-zinc-900 shadow-sm lg:px-2.5">
+              Demo
+            </span>
+          )}
+          {destacado ? (
+            <span className="rounded-lg bg-aventurea-sky px-2 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm lg:px-2.5">
+              ★ Destacado
+            </span>
+          ) : esNuevo ? (
+            <span className="insignia-nueva rounded-lg bg-white/90 px-2 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-ink shadow-sm backdrop-blur lg:px-2.5">
+              Nuevo
+            </span>
+          ) : null}
+        </span>
       </div>
 
-      <div className="flex min-w-0 flex-col p-3">
-        <span className="truncate text-[10.5px] font-extrabold uppercase tracking-[0.07em] text-bookea-naranja-fuerte">
+      <div className="flex min-w-0 flex-col px-3.5 py-3 sm:px-4 sm:py-3.5 lg:px-5 lg:py-4">
+        {/* El rubro se queda de kicker en el cuerpo y NO se muda a un chip
+            sobre la foto como en `RanchoCard`. Motivo medido: la columna
+            de foto es el 42 % de media fila, o sea 122 px a 640 px de
+            viewport — «Ranchos para fiestas» truncaría a la mitad justo
+            en tablet. Acá tiene entre 169 y 342 px y entra siempre. De
+            paso la tarjeta conserva el único color de marca que tiene. */}
+        <span className="truncate text-[10.5px] font-extrabold uppercase tracking-[0.07em] text-bookea-naranja-fuerte lg:text-[11px] lg:tracking-[0.09em]">
           {rubro}
         </span>
 
-        <h3 className="mt-1 truncate text-[13.5px] font-extrabold leading-tight text-aventurea-ink">
+        {/* El nombre pasa de 13,5 px a 15-17: antes el nombre del negocio
+            pesaba lo mismo que su precio y que su rubro —cuatro tamaños
+            dentro de 3 px— y eso es lo que se leía como amateur. Ahora la
+            distancia entre el dato más grande y el más chico es de 6,5 px.
+            `line-clamp-2` y no `truncate`: con 169 px de columna a 768,
+            «SILENCE BARBER SHOP» se cortaba. */}
+        <h3 className="mt-0.5 line-clamp-2 text-[15px] font-extrabold leading-tight text-aventurea-ink lg:text-[16.5px] xl:text-[17px]">
           {negocio.nombre}
         </h3>
 
         {zona && (
-          <p className="mt-1 flex min-w-0 items-center gap-1 text-[11px] text-aventurea-ink-soft">
-            <IconPin className="h-3 w-3 shrink-0 text-aventurea-navy" />
+          <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] text-aventurea-ink-soft lg:text-[12.5px]">
+            <IconPin className="h-3.5 w-3.5 shrink-0 text-aventurea-navy" />
             <span className="truncate">{zona}</span>
           </p>
         )}
 
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+        {/* El `border-t` convierte esta línea en un pie de tarjeta de
+            verdad, que es el recurso de `RanchoCard` y lo que más se lee
+            como «catálogo serio» sin agregar ni un dato inventado. */}
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-aventurea-line/70 pt-2.5">
           {/* El precio SIN la unidad: esta tira mezcla verticales y
               `unidad_precio` arrastra el 'evento' por defecto de la
               0033, así que «desde ₡8.000 por evento» en una barbería
               sería falso. El monto sí es cierto; la unidad está en la
               ficha, donde el dueño la puede corregir. */}
-          <span className="min-w-0 truncate text-[11.5px] text-aventurea-ink-soft">
+          <span className="min-w-0 truncate text-[12px] text-aventurea-ink-soft lg:text-[12.5px]">
             {typeof negocio.precio_desde === "number" && negocio.precio_desde > 0 ? (
               <>
                 Desde{" "}
-                <strong className="font-extrabold text-aventurea-ink">
+                <strong className="text-[13.5px] font-extrabold text-aventurea-ink lg:text-[14.5px]">
                   {fmtColones(negocio.precio_desde)}
                 </strong>
               </>
@@ -299,15 +349,12 @@ function TarjetaDestacada({
             )}
           </span>
 
-          {/* En el lugar donde la maqueta pone `★ 4.9`. Acá va lo único
-              que la base sostiene: la marca a mano del admin. «Nuevo»
-              se mudó a la foto (ver arriba); si un día `resenas` deja
-              de estar en cero, este es el hueco donde entra la nota. */}
-          {negocio.destacado_orden != null && (
-            <span className="shrink-0 rounded-md bg-aventurea-sky px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
-              ★ Destacado
-            </span>
-          )}
+          {/* Mismo lugar y mismo tono donde `RanchoCard` pone «Reservar →».
+              Oculto en teléfono: en 329 px de tarjeta le pelearía el
+              espacio al precio, y ahí la tarjeta entera ya es el botón. */}
+          <span className="hidden shrink-0 text-[12.5px] font-extrabold text-bookea-naranja-fuerte sm:inline lg:text-[13px]">
+            Ver negocio →
+          </span>
         </div>
       </div>
     </Link>

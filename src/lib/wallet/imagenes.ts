@@ -430,6 +430,124 @@ export async function dibujarLogo({
  * emisor y se ve en notificaciones y pantalla bloqueada, no en la
  * tarjeta. Sin él el iPhone descarta el pase en silencio.
  */
-export async function dibujarIcono(lado: number): Promise<Buffer> {
-  return sharp(join(ASSETS, "icono-emisor.png")).resize(lado, lado).png().toBuffer();
+/**
+ * La INICIAL de un negocio, para el ícono de respaldo.
+ *
+ * `[...nombre]` y no `nombre[0]`: partir por índice corta a la mitad
+ * los emojis y los caracteres fuera del plano básico, y un negocio que
+ * se llama "🌿 Pura Matcha" terminaría con medio símbolo roto.
+ *
+ * Hasta DOS letras: las iniciales de las dos primeras palabras
+ * ("Pura Matcha" → "PM"), que es como la gente abrevia un negocio. Con
+ * una sola palabra, una sola letra — "PU" de "Pura" no lo abrevia
+ * nadie.
+ */
+export function inicialesDe(nombre: string): string {
+  const palabras = nombre
+    .trim()
+    .split(/\s+/)
+    .filter((p) => /\p{L}|\p{N}/u.test(p));
+  if (palabras.length === 0) return "B";
+  if (palabras.length === 1) return [...palabras[0]][0].toUpperCase();
+  return (
+    [...palabras[0]][0].toUpperCase() + [...palabras[1]][0].toUpperCase()
+  );
+}
+
+/**
+ * EL ÍCONO DEL PASE DE APPLE.
+ *
+ * ── QUÉ ES ESTA IMAGEN, QUE NO ES OBVIO ────────────────────────────
+ * No es el logo grande de la tarjeta (eso es `logo.png`). Es el
+ * cuadradito de 29px que el iPhone pone al lado de CADA AVISO del
+ * pase: cuando le acreditan un sello, cuando el negocio manda un
+ * anuncio, cuando el pase cambia. Es lo que la persona ve en la
+ * pantalla bloqueada.
+ *
+ * ── POR QUÉ CAMBIÓ ─────────────────────────────────────────────────
+ * Acá había una sola línea que siempre devolvía `icono-emisor.png`, el
+ * ícono de Bookea. Resultado: al negocio le llegaba su propio anuncio
+ * con NUESTRO logo al lado. El dueño lo vio en un teléfono real: «sale
+ * el logo de Bookea y luego el anuncio de Pura Matcha».
+ *
+ * Ahora es del negocio: su logo si lo subió, y si no, sus iniciales
+ * sobre el color de su tarjeta. Bookea es la cañería, no la marca del
+ * mostrador.
+ *
+ * Nunca lanza: si el logo del negocio viene roto o sharp no lo puede
+ * leer, cae al ícono de siempre. Un pase sin `icon.png` lo RECHAZA el
+ * iPhone entero (ver `empaquetar.ts`), así que acá no hay lugar para
+ * que una imagen mala deje a alguien sin pase.
+ */
+export async function dibujarIcono(
+  lado: number,
+  negocio?: { nombre: string; logo: Buffer | null; colorFondo?: string | null },
+): Promise<Buffer> {
+  if (!negocio) {
+    return sharp(join(ASSETS, "icono-emisor.png")).resize(lado, lado).png().toBuffer();
+  }
+
+  if (negocio.logo) {
+    try {
+      // `contain` y no `cover`: un logo recortado deja de ser el logo.
+      // El fondo va blanco porque el ícono se ve sobre la superficie
+      // del sistema, que en modo claro también es blanca.
+      return await sharp(negocio.logo)
+        .trim()
+        .resize(lado, lado, {
+          fit: "contain",
+          background: { r: 255, g: 255, b: 255, alpha: 1 },
+        })
+        .flatten({ background: "#ffffff" })
+        .png()
+        .toBuffer();
+    } catch {
+      // Sigue abajo con las iniciales.
+    }
+  }
+
+  const fondo = /^#[0-9a-fA-F]{6}$/.test(negocio.colorFondo ?? "")
+    ? negocio.colorFondo!
+    : "#10203a";
+  const iniciales = inicialesDe(negocio.nombre);
+
+  try {
+    const texto = await sharp({
+      text: {
+        text: iniciales,
+        fontfile: FUENTE,
+        // Las iniciales ocupan poco más de la mitad del lado: pegadas
+        // al borde se ven apretadas a 29px, que es el tamaño real.
+        font: `Montserrat Bold ${Math.round(lado * 0.52)}`,
+        rgba: true,
+        dpi: 72 * 4,
+      },
+    })
+      .png()
+      .toBuffer();
+
+    const blanco = await sharp(texto)
+      .composite([
+        {
+          input: Buffer.from([255, 255, 255, 255]),
+          raw: { width: 1, height: 1, channels: 4 },
+          tile: true,
+          blend: "in",
+        },
+      ])
+      .toBuffer();
+
+    const encajado = await sharp(blanco)
+      .resize(Math.round(lado * 0.62), Math.round(lado * 0.62), { fit: "inside" })
+      .toBuffer();
+
+    return await sharp({
+      create: { width: lado, height: lado, channels: 4, background: fondo },
+    })
+      .composite([{ input: encajado, gravity: "center" }])
+      .png()
+      .toBuffer();
+  } catch {
+    return sharp(join(ASSETS, "icono-emisor.png")).resize(lado, lado).png().toBuffer();
+  }
 }

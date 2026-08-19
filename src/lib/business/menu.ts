@@ -39,6 +39,7 @@
  *
  *   /mi-negocio/[id]              el panel, con ?tab= y ?seccion=
  *   /mi-negocio/[id]/citas        la agenda del día (y sus secciones)
+ *   /mi-negocio/[id]/promos       las promos que salen en la app
  *
  * Módulo NEUTRAL (sin "use client" y sin JSX): lo lee la página del
  * panel en el servidor y también el menú en el navegador.
@@ -216,6 +217,11 @@ function peso(item: ItemMenu): number {
  * El orden no se elige acá: sale de `GRUPOS` y del orden de `MODULOS`,
  * para que agregar un módulo nuevo lo ponga solo donde corresponde.
  */
+/** La raíz del panel de este negocio. */
+function panelDe(p: ParametrosMenu): string {
+  return `/mi-negocio/${p.ranchoId}`;
+}
+
 export function itemsMenuNegocio(p: ParametrosMenu): ItemMenu[] {
   const items: ItemMenu[] = [
     {
@@ -256,6 +262,24 @@ export function itemsMenuNegocio(p: ParametrosMenu): ItemMenu[] {
       destino: PROXIMAMENTE,
     });
   }
+
+  // ── PROMOS ────────────────────────────────────────────────────────
+  // `modulo: null`, igual que Inicio y Configuración, y a propósito:
+  // los módulos se prenden y apagan según el TIPO de negocio, y
+  // anunciar una promo lo puede hacer cualquiera —un rancho, una
+  // barbería, un restaurante—. Atarla a un módulo dejaría a la mitad
+  // de los negocios sin poder publicar.
+  //
+  // Va en "crecimiento" porque es de conseguir clientes, no de
+  // atenderlos: vive al lado de Marketing, no de la agenda.
+  items.push({
+    id: "promos",
+    modulo: null,
+    label: "Promos",
+    resumen: "Lo que estás ofreciendo, para que salga en la app.",
+    grupo: "crecimiento",
+    destino: { clase: "ruta", href: `${panelDe(p)}/promos` },
+  });
 
   items.push({
     id: "config",
