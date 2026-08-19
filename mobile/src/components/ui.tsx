@@ -653,7 +653,15 @@ export function Vacio({
           tono="contorno"
           texto={accion.texto}
           onPress={accion.onPress}
-          style={{ marginTop: Spacing.three }}
+          // `botonCompacto` trae `alignSelf: "flex-start"` -pensado
+          // para hileras de botones lado a lado, donde ese campo
+          // controla el eje vertical, no el horizontal- pero acá
+          // `vacio` es una columna centrada: ese mismo campo empuja el
+          // botón contra el borde izquierdo en vez de dejarlo centrado
+          // bajo el texto. Se pisa puntual con `alignSelf: "center"`
+          // en vez de tocar el estilo compartido, que a los demás
+          // botones compactos (todos en hileras) les sigue sirviendo.
+          style={{ marginTop: Spacing.three, alignSelf: "center" }}
         />
       )}
     </View>
