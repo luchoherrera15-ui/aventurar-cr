@@ -3,17 +3,18 @@ import { Animated, View } from "react-native";
 import PagerView from "react-native-pager-view";
 import { useLocalSearchParams } from "expo-router";
 import TabBar, { TABS } from "@/components/tab-bar";
-import Explorar from "@/pantallas/explorar";
+import Citas from "@/pantallas/citas";
 import Favoritos from "@/pantallas/favoritos";
 import Reservas from "@/pantallas/reservas";
 import Mensajes from "@/pantallas/mensajes";
 import Perfil from "@/pantallas/perfil";
 
 /**
- * La app abre directo en las pestañas, con Explorar (eventos) activa —
- * sin portada de por medio: cambiar de vertical se hace con los chips
- * de Explorar. La portada sigue existiendo como ruta (/portada) para
- * los enlaces que la pidan.
+ * La app abre directo en las pestañas, con Citas/Servicios activa —
+ * sin portada de por medio: cambiar a Eventos se hace con los chips de
+ * `ChipsVerticales`, que llevan a `/eventos` (pantalla aparte, ya
+ * fuera del pager). La portada sigue existiendo como ruta (/portada)
+ * para los enlaces que la pidan.
  *
  * Las cinco pestañas viven en un pager horizontal: se cambia tocando
  * la barra inferior O deslizando la pantalla hacia los lados, como
@@ -76,7 +77,7 @@ export default function TabsScreen() {
         onPageSelected={(e) => setActiva(e.nativeEvent.position)}
       >
         <View key="explorar" style={{ flex: 1 }}>
-          <Explorar activa={activa === 0} />
+          <Citas activa={activa === 0} />
         </View>
         <View key="favoritos" style={{ flex: 1 }}>
           <Favoritos activa={activa === 1} />

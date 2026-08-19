@@ -7,17 +7,20 @@ import { Colors, Fonts } from "@/constants/theme";
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
-/** Las cinco secciones raíz: descubrir, lo guardado, lo reservado,
- * las conversaciones y la cuenta. El orden acá ES el orden de las
- * páginas del pager. */
+/** Las cinco secciones raíz: citas/servicios (la de aterrizaje), lo
+ * guardado, lo reservado, las conversaciones y la cuenta. El orden
+ * acá ES el orden de las páginas del pager. El id "explorar" quedó
+ * como identificador interno (lo usan `?tab=explorar` y los botones
+ * "Explorar" de los estados vacíos) aunque la pestaña ahora muestre
+ * Citas/Servicios — Eventos pasó a pantalla aparte (`/eventos`). */
 export const TABS: {
   id: "explorar" | "favoritos" | "reservas" | "mensajes" | "perfil";
   label: string;
   icono: IconoNombre;
   iconoActivo: IconoNombre;
 }[] = [
-  { id: "explorar", label: "Explorar", icono: "search-outline", iconoActivo: "search" },
-  { id: "favoritos", label: "Favoritos", icono: "heart-outline", iconoActivo: "heart" },
+  { id: "explorar", label: "Servicios", icono: "time-outline", iconoActivo: "time" },
+  { id: "favoritos", label: "Promos", icono: "pricetag-outline", iconoActivo: "pricetag" },
   { id: "reservas", label: "Reservas", icono: "calendar-outline", iconoActivo: "calendar" },
   { id: "mensajes", label: "Mensajes", icono: "chatbubble-outline", iconoActivo: "chatbubble" },
   { id: "perfil", label: "Perfil", icono: "person-circle-outline", iconoActivo: "person-circle" },

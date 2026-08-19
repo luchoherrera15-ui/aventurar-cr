@@ -722,6 +722,24 @@ function PerfilVista({
           </View>
         </View>
 
+        {/* Historial: las citas ya atendidas y cuánto llevás invertido
+            en ellas — vive en su propia pantalla porque la consulta
+            (estado "cumplida", solo vertical "citas") es distinta de
+            "Reservas" (que mezcla las cuatro verticales, activas e
+            historial). */}
+        <Pressable style={styles.tarjetaHistorial} onPress={() => router.push("/historial" as never)}>
+          <View style={[styles.iconoBurbuja, styles.iconoBurbujaAcento]}>
+            <Ionicons name="time-outline" size={20} color={Colors.accent} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={styles.negocioTitulo}>Historial</Text>
+            <Text style={styles.accionDetalle} numberOfLines={1}>
+              Tus citas atendidas y cuánto invertiste
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={17} color={Colors.inkSoft} />
+        </Pressable>
+
         {/* La entrada al Panel Admin, solo para el equipo de Bookea —
             espejo del hub /admin de la web, adaptado: la grilla vive
             en su propia pantalla. */}
@@ -769,21 +787,6 @@ function PerfilVista({
           </Pressable>
         )}
 
-        <View style={styles.grid}>
-          <TarjetaAccion
-            icono="mail-outline"
-            titulo="Invitaciones y álbumes"
-            detalle="Tus eventos y fotos"
-            onPress={() => router.push("/invitaciones" as never)}
-          />
-          <TarjetaAccion
-            icono="globe-outline"
-            titulo="Sitio web"
-            detalle="bookea.lat"
-            onPress={() => WebBrowser.openBrowserAsync(SITIO_URL)}
-          />
-        </View>
-
         {/* ── DE QUÉ LADO VA LEALTAD ────────────────────────────────
             /lealtad es una landing de venta B2B —«quiero el programa en
             MI negocio»— así que solo tiene sentido para quien publica,
@@ -792,7 +795,9 @@ function PerfilVista({
             vez contratado, nadie se enteraría de que existe. Con
             programa abre el panel en el navegador —el panel de lealtad
             no tiene versión nativa todavía— y sin programa se queda
-            adentro, en la pantalla de venta. */}
+            adentro, en la pantalla de venta.
+            Va pegado a "Tu negocio" (arriba de la grilla genérica) a
+            propósito: es una tarjeta de proveedor, no un accesorio más. */}
         {esProveedor && (
           <View style={styles.grid}>
             <TarjetaAccion
@@ -807,6 +812,23 @@ function PerfilVista({
             />
           </View>
         )}
+
+        <View style={styles.grid}>
+          <TarjetaAccion
+            icono="mail-outline"
+            titulo="Invitaciones y álbumes"
+            detalle="Tus eventos y fotos"
+            onPress={() => router.push("/invitaciones" as never)}
+          />
+          <TarjetaAccion
+            icono="trophy-outline"
+            titulo="Nivel"
+            detalle="Insignias muy pronto"
+            onPress={() =>
+              Alert.alert("Nivel", "Muy pronto vas a ver tu nivel y tus insignias acá.")
+            }
+          />
+        </View>
 
         {/* «MODO NEGOCIO» ya no es un toggle local que redibuja esta
             misma pantalla -era cosmético: cambiaba dos tarjetas y el
@@ -1111,6 +1133,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingTop: Spacing.three,
     paddingBottom: Spacing.two,
+  },
+  tarjetaHistorial: {
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderColor: Colors.line,
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.two + 2,
+    padding: Spacing.three,
   },
   // Navy sólido: el admin es sobrio y se distingue de las tarjetas
   // blancas del perfil sin gritar.

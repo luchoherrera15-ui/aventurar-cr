@@ -6,8 +6,8 @@ import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
 const VERTICALES = [
-  { id: "eventos", icono: "sparkles-outline", label: "Eventos", ruta: "/" },
-  { id: "citas", icono: "time-outline", label: "Servicios", ruta: "/citas" },
+  { id: "eventos", icono: "sparkles-outline", label: "Eventos", ruta: "/eventos" },
+  { id: "citas", icono: "time-outline", label: "Servicios", ruta: "/" },
 ] as const satisfies { id: string; icono: IconoNombre; label: string; ruta: string }[];
 
 export type VerticalActiva = (typeof VERTICALES)[number]["id"];
@@ -16,7 +16,8 @@ export type VerticalActiva = (typeof VERTICALES)[number]["id"];
  * La fila de chips para saltar de vertical (Eventos / Citas) — el
  * mismo menú superior en ambas pantallas. El activo va en navy y no
  * navega; `router.navigate` reutiliza la pantalla si ya está en la
- * pila (volver de Citas a Eventos no apila un Explorar nuevo).
+ * pila (ir y volver entre Citas y Eventos no acumula pantallas
+ * repetidas).
  *
  * Hospedajes y Restaurantes ya no aparecen acá — se resumió a las dos
  * verticales principales. Sus pantallas siguen vivas; solo se sacaron

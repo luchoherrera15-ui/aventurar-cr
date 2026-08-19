@@ -376,6 +376,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.medium,
     fontSize: 12.5,
     padding: Spacing.three,
+    textAlign: "center",
   },
 
   tarjetaReserva: {

@@ -23,7 +23,8 @@ import {
   normalizarTexto,
 } from "@/lib/busqueda";
 import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
-import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
+import BarraSuperior from "@/components/barra-superior";
+import BarraRapida, { BARRA_RAPIDA_ESPACIO } from "@/components/barra-rapida";
 import ChipsVerticales from "@/components/chips-verticales";
 import Buscador, { ChipFiltro } from "@/components/buscador";
 import TarjetaNegocio from "@/components/tarjeta-negocio";
@@ -78,9 +79,17 @@ export type Fila = Pick<
   detalles?: Record<string, unknown> | null;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- el pager pasa `activa` a todas las pestañas; Explorar no la necesita (carga al montar y con pull-refresh)
-export default function DirectorioScreen({ activa = true }: { activa?: boolean }) {
+/**
+ * Eventos pasó a ser pantalla aparte (antes era la pestaña de
+ * aterrizaje del pager — se invirtió con Citas/Servicios, que ahora
+ * abre primero, ver `pantallas/citas.tsx`): se llega acá con el chip
+ * "Eventos" de `ChipsVerticales` desde Citas/Servicios, con su propia
+ * barra superior (volver) y `BarraRapida` en vez del dock del pager.
+ */
+export default function DirectorioScreen() {
   const router = useRouter();
+  // Solo para el padding inferior del panel de filtros (hoja modal); el
+  // superior ahora lo resuelve `BarraSuperior` sola.
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const [ranchos, setRanchos] = useState<Fila[] | null>(null);
@@ -365,9 +374,13 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
 
   return (
     <View style={styles.contenedor}>
-      {/* Sin barra nativa en las pestañas: el buscador arranca justo
-          debajo del notch. */}
-      <View style={[styles.busquedaArea, { paddingTop: insets.top + Spacing.three }]}>
+      <BarraSuperior
+        kicker="Eventos"
+        titulo="Explorá eventos"
+        subtitulo="Lugares, alimentación, animación y más"
+        onVolver={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+      />
+      <View style={styles.busquedaArea}>
         {/* Cambio de vertical al toque, sin pasar por la portada. */}
         <ChipsVerticales activo="eventos" />
 
@@ -665,6 +678,10 @@ export default function DirectorioScreen({ activa = true }: { activa?: boolean }
           </View>
         </View>
       </Modal>
+
+      {/* El dock de atajos: desde el directorio siempre se puede
+          saltar a cualquiera de las cinco pestañas de la app. */}
+      <BarraRapida />
     </View>
   );
 }
@@ -727,9 +744,9 @@ const styles = StyleSheet.create({
   listaVertical: {
     gap: Spacing.three,
     padding: Spacing.three,
-    paddingBottom: TAB_BAR_ESPACIO,
+    paddingBottom: BARRA_RAPIDA_ESPACIO,
   },
-  rieles: { gap: Spacing.five, paddingBottom: TAB_BAR_ESPACIO, paddingTop: Spacing.four },
+  rieles: { gap: Spacing.five, paddingBottom: BARRA_RAPIDA_ESPACIO, paddingTop: Spacing.four },
   riel: { gap: Spacing.three },
   rielEncabezado: { paddingHorizontal: Spacing.three },
   rielLista: { gap: Spacing.three, paddingHorizontal: Spacing.three },

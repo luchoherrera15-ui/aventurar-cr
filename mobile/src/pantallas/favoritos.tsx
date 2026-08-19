@@ -75,7 +75,7 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
   if (!session) {
     return (
       <View style={styles.raiz}>
-        <TituloPantalla kicker="Guardados" titulo="Favoritos" />
+        <TituloPantalla kicker="Guardados" titulo="Promos" />
         <View style={styles.centro}>
           <Vacio
             icono="heart-outline"
@@ -95,7 +95,7 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
     <View style={styles.raiz}>
       <TituloPantalla
         kicker="Guardados"
-        titulo="Favoritos"
+        titulo="Promos"
         subtitulo="Los proveedores que guardaste con el corazón."
       />
       {favoritos === null ? (
@@ -106,7 +106,7 @@ export default function FavoritosScreen({ activa = true }: { activa?: boolean })
         <FlatList
           data={favoritos}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.lista}
+          contentContainerStyle={[styles.lista, favoritos.length === 0 && styles.listaVacia]}
           ListEmptyComponent={
             <Vacio
               icono="heart-outline"
@@ -152,4 +152,10 @@ const styles = StyleSheet.create({
     padding: Spacing.three,
     paddingBottom: TAB_BAR_ESPACIO,
   },
+  // Solo entra cuando la lista está vacía (ver `contentContainerStyle`
+  // arriba): centra el `Vacio` en la pantalla en vez de dejarlo pegado
+  // al título. Con la lista cargada NO se aplica — si no, una lista
+  // corta de 1-2 favoritos quedaría flotando a la mitad de la pantalla
+  // en vez de empezar arriba, como cualquier lista normal.
+  listaVacia: { justifyContent: "center" },
 });
