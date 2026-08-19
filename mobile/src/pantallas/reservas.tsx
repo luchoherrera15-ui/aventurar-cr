@@ -13,6 +13,7 @@ import CancelarReservaModal from "@/components/cancelar-reserva-modal";
 import { Estado, Micro, Tarjeta, Vacio, type TonoEstado } from "@/components/ui";
 import { CATEGORIA_LABEL, fmtColones } from "@/lib/types";
 import { CATEGORIA_CITA_LABEL, DIAS_CORTO, MESES_CORTO, horaBonita } from "@/lib/citas";
+import { hoyISOLocal } from "@/lib/busqueda";
 import { CATEGORIA_HOSPEDAJE_LABEL } from "@/lib/hospedajes";
 
 /**
@@ -159,7 +160,15 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
     );
   }
 
-  const hoy = new Date().toISOString().slice(0, 10);
+  // OJO: nunca `new Date().toISOString().slice(0, 10)` acá — eso da la
+  // fecha en UTC, y entre las 6pm y medianoche hora CR ya es "mañana"
+  // en UTC. La política de la base habilita reseñar una reserva
+  // confirmada recién AL DÍA SIGUIENTE (hora de Costa Rica): con la
+  // fecha en UTC, esas horas mostraban el botón de reseña un día antes
+  // de que la base lo fuera a aceptar, y el guardado fallaba con un
+  // error de RLS. `hoyISOLocal` (mismo helper que ya usa Explorar) lee
+  // el reloj del teléfono, no UTC.
+  const hoy = hoyISOLocal();
   const activas = (reservas ?? []).filter(
     (r) => !ESTADOS_FINALES.has(r.estado) && r.fecha >= hoy,
   );
