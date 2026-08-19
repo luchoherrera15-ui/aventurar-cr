@@ -873,6 +873,11 @@
   --color-aventurea-ink: var(--text);
   --color-aventurea-ink-soft: var(--muted);
   --color-aventurea-line: var(--line);
+  /* La variante marcada del borde: el marco punteado de un estado
+     vacío necesita leerse más que un separador de fila, o se confunde
+     con `currentColor` (visto en varios estados vacíos que usaban esta
+     clase sin que existiera). Mismo tono que --line, un paso más oscuro. */
+  --color-aventurea-line-fuerte: #b9c4d6;
 
   /* Paleta de Puntaleona (casa vacacional) — producto aparte, fuera
      del alcance de este rediseño. */

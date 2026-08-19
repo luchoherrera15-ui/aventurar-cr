@@ -32,6 +32,11 @@ export default function robots(): MetadataRoute.Robots {
         "/cuenta",
         "/mensajes",
         "/lealtad/panel",
+        // FOOD.BOOKEA: el panel del restaurante y las reservas de cada
+        // cliente son privados, igual criterio que /cuenta arriba.
+        "/food/negocio",
+        "/food/mis-reservas",
+        "/food/reserva",
         // Endpoints y flujos que no son páginas.
         "/api/",
         "/auth",

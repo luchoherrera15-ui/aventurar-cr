@@ -42,10 +42,19 @@ export default async function CuentaPage({
   // negocio no debería ver el tablero genérico — entra derecho a su
   // panel. `/lealtad/entrar` YA sabe resolver "cero/uno/varios negocios
   // con programa" (ver ese archivo); acá solo se reusa.
+  //
+  // `volver=food:{slug}`: mismo mecanismo, para quien venía reservando
+  // en FOOD.BOOKEA y tuvo que loguearse a mitad de camino — sin esto
+  // caía en el tablero genérico y perdía la franja/cantidad de personas
+  // que ya había elegido en /food/restaurante/{slug}.
   searchParams: Promise<{ volver?: string }>;
 }) {
   const { volver } = await searchParams;
   const destinoLealtad = volver === "lealtad" ? "/lealtad/entrar" : null;
+  const destinoFood = volver?.startsWith("food:")
+    ? `/food/restaurante/${volver.slice("food:".length)}`
+    : null;
+  const destino = destinoLealtad ?? destinoFood;
 
   const supabase = await createClient();
   const {
@@ -103,7 +112,7 @@ export default async function CuentaPage({
                 tampoco se pinta el divisor). Acá solo cambian el título
                 y la bajada. */}
             <FormularioAuth
-              destino={destinoLealtad ?? undefined}
+              destino={destino ?? undefined}
               titulo={destinoLealtad ? "Entrá a tu programa de lealtad" : "Entrá a Bookea"}
               intro={
                 destinoLealtad
@@ -118,9 +127,10 @@ export default async function CuentaPage({
   }
 
   // Ya tenía sesión (venía de un click en "Entrar" en /lealtad estando
-  // logueado, o de una guarda interna del panel): directo al panel, sin
-  // mostrarle primero el tablero de cliente.
-  if (destinoLealtad) redirect(destinoLealtad);
+  // logueado, de un "Iniciá sesión" en FOOD.BOOKEA, o de una guarda
+  // interna del panel): directo al destino, sin mostrarle primero el
+  // tablero de cliente.
+  if (destino) redirect(destino);
 
   const [
     { data: perfil },

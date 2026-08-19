@@ -58,6 +58,11 @@ const SECCIONES: { ruta: string; prioridad: number; frecuencia: "daily" | "weekl
     { ruta: "/citas", prioridad: 0.9, frecuencia: "daily" },
     { ruta: "/hospedajes", prioridad: 0.8, frecuencia: "weekly" },
     { ruta: "/restaurantes", prioridad: 0.8, frecuencia: "weekly" },
+    // FOOD.BOOKEA es un producto aparte (no vive en `ranchos`, no
+    // aparece en la navegación principal) pero SÍ quiere clientes
+    // reales por buscador — por eso va acá con sus propias fichas
+    // abajo, igual criterio que /restaurantes.
+    { ruta: "/food", prioridad: 0.7, frecuencia: "daily" },
     { ruta: "/lealtad", prioridad: 0.7, frecuencia: "weekly" },
     { ruta: "/invitaciones", prioridad: 0.7, frecuencia: "weekly" },
     { ruta: "/publicar", prioridad: 0.6, frecuencia: "monthly" },
@@ -126,5 +131,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     fichas = [];
   }
 
-  return [...secciones, ...fichas];
+  // Las fichas de FOOD.BOOKEA: tabla propia (food_businesses), no
+  // `ranchos` — misma lógica de "sin esto no falla, sale sin ellas".
+  let fichasFood: MetadataRoute.Sitemap = [];
+  try {
+    const supabase = createAnonClient();
+    const { data } = await supabase
+      .from("food_businesses")
+      .select("slug, created_at")
+      .eq("activo", true)
+      .limit(MAX_FICHAS);
+
+    fichasFood = ((data ?? []) as { slug: string; created_at: string | null }[]).map((f) => ({
+      url: urlSitio(`/food/restaurante/${f.slug}`),
+      lastModified: f.created_at ? new Date(f.created_at) : ahora,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    }));
+  } catch {
+    fichasFood = [];
+  }
+
+  return [...secciones, ...fichas, ...fichasFood];
 }
