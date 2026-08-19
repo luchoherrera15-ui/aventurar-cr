@@ -7,8 +7,10 @@ import { selloParaGuardar, type SelloElegido } from "@/lib/lealtad/iconos-sello"
 import {
   cambiarEstadoPrograma,
   eliminarRecompensa,
+  guardarBeneficio,
   guardarPrograma,
   guardarRecompensa,
+  type EdicionTarjeta,
   type FormatoCodigo,
   type ProgramaFila,
   type ProgramaInput,
@@ -111,6 +113,25 @@ type ContextoPrograma = {
   guardado: boolean;
   ocupado: boolean;
   guardar: () => void;
+  /**
+   * EL "GUARDAR CAMBIOS" ÚNICO del editor unificado (antes: dos botones
+   * en dos pestañas separadas, "Qué se gana" con `guardarBeneficio` y
+   * "Cómo se ve" con `guardar()`/`guardarPrograma` — dos guardados
+   * independientes de la MISMA fila, que es exactamente lo que hacía
+   * que el editor se sintiera distinto del creador). Encadena las dos
+   * acciones que ya existían, sin duplicar su lógica: primero el
+   * beneficio (nombre/tipo/beneficio/reglas/vencimiento), y con esa
+   * respuesta ya sincronizada, el diseño (colores/logo/banda/ícono/
+   * estado) — mismo orden que un guardado manual de las dos pestañas
+   * viejas, una detrás de la otra.
+   */
+  guardarTodo: (datos: {
+    nombre: string;
+    tipo: EdicionTarjeta["tipo"];
+    beneficio: EdicionTarjeta["beneficio"];
+    reglas: EdicionTarjeta["reglas"];
+    vencenMeses: number | null;
+  }) => void;
   agregarRecompensa: (datos: RecompensaInput) => void;
   /**
    * CORREGIR una recompensa que ya existe.
@@ -213,6 +234,62 @@ export function ProveedorPrograma({
     });
   }
 
+  function guardarTodo(datos: {
+    nombre: string;
+    tipo: EdicionTarjeta["tipo"];
+    beneficio: EdicionTarjeta["beneficio"];
+    reglas: EdicionTarjeta["reglas"];
+    vencenMeses: number | null;
+  }) {
+    if (!programa) {
+      setError("Esta tarjeta todavía no existe.");
+      return;
+    }
+    setError(null);
+    setGuardado(false);
+    iniciar(async () => {
+      const r1 = await guardarBeneficio(ranchoId, programa.id, {
+        nombre: datos.nombre,
+        tipo: datos.tipo,
+        beneficio: datos.beneficio,
+        reglas: datos.reglas,
+        sellosVencenMeses: datos.vencenMeses,
+      });
+      if (r1.error) {
+        setError(r1.error);
+        return;
+      }
+      // El diseño se manda con el MISMO nombre/tipo que se acaba de
+      // guardar — nunca el que traía el borrador antes de este guardado
+      // — para que las dos escrituras de la misma fila nunca se
+      // contradigan entre sí.
+      const entrada: ProgramaInput = {
+        nombre: datos.nombre,
+        modo: datos.tipo,
+        puntosPorVisita: Math.round(num(borrador.puntosPorVisita)),
+        puntosPorColon: num(borrador.puntosPorColon),
+        colorFondo: borrador.colorFondo,
+        colorSello: borrador.colorSello,
+        logoUrl: borrador.logoUrl,
+        bannerUrl: borrador.bannerUrl,
+        iconoSello: datos.tipo === "sellos" ? borrador.iconoSello : null,
+        iconoUrl: datos.tipo === "sellos" ? borrador.iconoUrl : "",
+        codigoFormato: borrador.codigoFormato,
+        textoReverso: borrador.textoReverso,
+        mostrarSaldo: borrador.mostrarSaldo,
+        mostrarProgreso: borrador.mostrarProgreso,
+        activo: borrador.activo,
+      };
+      const r2 = await guardarPrograma(ranchoId, entrada, programa.id);
+      if (r2.error) {
+        setError(r2.error);
+        return;
+      }
+      if (r2.programa) sincronizarPrograma(r2.programa, r1.recompensas);
+      setGuardado(true);
+    });
+  }
+
   function agregarRecompensa(datos: RecompensaInput) {
     if (!programa) {
       setError("Guardá el programa antes de agregar recompensas.");
@@ -306,6 +383,7 @@ export function ProveedorPrograma({
         guardado,
         ocupado,
         guardar,
+        guardarTodo,
         agregarRecompensa,
         editarRecompensa,
         borrarRecompensa,

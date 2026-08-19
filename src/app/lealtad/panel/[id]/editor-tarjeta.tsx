@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   configPorDefecto,
   metaDe,
@@ -11,19 +11,23 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
+import { contraste } from "@/lib/invitaciones/paleta";
 import { avisoDeMeta, puedeCambiarTipo, puedeEditarse, type SituacionTarjeta } from "@/lib/lealtad/editable";
 import { Icono, type NombreIcono } from "./iconos";
 import SelectorTipo from "@/components/lealtad/selector-tipo";
 import PasoBeneficio from "@/components/lealtad/paso-beneficio";
 import PasoReglas, { resumenDeReglas, type Reglas } from "./paso-reglas";
 import EditorRecompensas from "./editor-recompensas";
+import SubirImagen from "@/components/subir-imagen";
+import CampoColor from "@/components/campo-color";
+import PlantillasColor from "@/components/lealtad/plantillas-color";
+import SelectorIconoSello from "@/components/lealtad/selector-icono-sello";
 import VistaPase from "@/components/lealtad/vista-pase";
 import { BloqueEstado } from "./pases-panel";
-import { BloqueDiseno } from "./seccion-tarjeta-digital";
-import { AvisoError, AvisoGuardado, BarraGuardar, NotaCercania, usePrograma } from "./programa-contexto";
+import { AvisoError, AvisoGuardado, usePrograma } from "./programa-contexto";
+import { contextoDeLaTarjeta } from "./pases-actions";
 import AyudaDeDiseno from "./ayuda-diseno";
 import type { HiloAyuda } from "@/lib/lealtad/ayuda-hilo";
-import { guardarBeneficio } from "./pases-actions";
 
 /**
  * EL EDITOR DE UNA TARJETA QUE YA EXISTE.
@@ -51,11 +55,18 @@ import { guardarBeneficio } from "./pases-actions";
  * no pasa por este archivo.
  */
 
-type Pestana = "beneficio" | "diseno" | "recompensas" | "estado";
+type Pestana = "configurar" | "recompensas" | "estado";
 
+// «Qué se gana» y «Cómo se ve» eran dos pestañas con DOS guardados
+// independientes de la misma fila — exactamente lo que hacía que
+// editar se sintiera distinto de crear, donde todo se publica de una
+// sola vez. Se unen en «Configurar», con el mismo panel (mismos
+// componentes: SelectorTipo, PlantillasColor, PasoBeneficio,
+// PasoReglas...) que usa el creador. Regalías y Estado siguen aparte
+// porque no existen al crear una tarjeta nueva — no hay nada que
+// unificar ahí.
 const PESTANAS: { id: Pestana; etiqueta: string; icono: NombreIcono }[] = [
-  { id: "beneficio", etiqueta: "Qué se gana", icono: "recompensas" },
-  { id: "diseno", etiqueta: "Cómo se ve", icono: "tarjeta" },
+  { id: "configurar", etiqueta: "Configurar", icono: "tarjeta" },
   { id: "recompensas", etiqueta: "Regalías", icono: "listo" },
   { id: "estado", etiqueta: "Estado", icono: "inicio" },
 ];
@@ -101,7 +112,7 @@ export default function EditorTarjeta({
   /** El hilo de ayuda con el equipo, si ya hay uno abierto (0149). */
   ayudaInicial?: HiloAyuda | null;
 }) {
-  const [pestana, setPestana] = useState<Pestana>("beneficio");
+  const [pestana, setPestana] = useState<Pestana>("configurar");
   const { borrador } = usePrograma();
 
   const editable = puedeEditarse(situacion);
@@ -148,8 +159,8 @@ export default function EditorTarjeta({
       <AvisoError />
       <AvisoGuardado />
 
-      {pestana === "beneficio" && (
-        <PanelBeneficio
+      {pestana === "configurar" && (
+        <PanelConfigurar
           ranchoId={ranchoId}
           programaId={programaId}
           negocioNombre={negocioNombre}
@@ -162,14 +173,6 @@ export default function EditorTarjeta({
           vencimientoInicial={vencimientoInicial}
           metaActual={metaActual}
         />
-      )}
-
-      {pestana === "diseno" && (
-        <div className="space-y-5">
-          <BloqueDiseno />
-          <BarraGuardar />
-          <NotaCercania />
-        </div>
       )}
 
       {pestana === "recompensas" && <EditorRecompensas />}
@@ -215,9 +218,18 @@ export default function EditorTarjeta({
   );
 }
 
-// ── «Qué se gana»: tipo, beneficio y reglas ────────────────────────
+// ── «Configurar»: tipo, diseño, beneficio y reglas — EL MISMO PANEL
+// que usa el creador, con el mismo orden y los mismos componentes,
+// pero con lo ya guardado adentro y un único "Guardar cambios" que
+// escribe la fila entera de una vez (`guardarTodo`, en
+// programa-contexto.tsx). ─────────────────────────────────────────
 
-function PanelBeneficio({
+/** WCAG AA para texto — mismo umbral que usaba `seccion-tarjeta-digital.tsx`. */
+const CONTRASTE_TEXTO = 4.5;
+/** Los sellos son formas grandes, no texto: el umbral de gráficos alcanza. */
+const CONTRASTE_SELLO = 2.2;
+
+function PanelConfigurar({
   ranchoId,
   programaId,
   negocioNombre,
@@ -242,22 +254,38 @@ function PanelBeneficio({
   vencimientoInicial: number | null;
   metaActual: number | null;
 }) {
-  const { borrador, sincronizarPrograma } = usePrograma();
+  const { borrador, cambiar, ocupado, guardarTodo } = usePrograma();
 
   const [nombre, setNombre] = useState(nombreInicial);
   const [tipo, setTipo] = useState<TipoTarjeta>(situacion.tipo);
   const [beneficio, setBeneficio] = useState<ConfigBeneficio>(beneficioInicial);
   const [reglas, setReglas] = useState<Reglas>(reglasIniciales);
   // El vencimiento de sellos (0180). Abre con lo que la tarjeta tiene
-  // guardado: si abriera apagado, el primer «Guardar» de cualquier otro
-  // campo le apagaría la regla al dueño sin que la haya tocado.
+  // guardado: si abriera apagado, el primer «Guardar» le apagaría la
+  // regla al dueño sin que la haya tocado.
   const [vencenMeses, setVencenMeses] = useState<number | null>(vencimientoInicial);
-  const [error, setError] = useState<string | null>(null);
-  const [listo, setListo] = useState(false);
-  const [guardando, guardar] = useTransition();
+
+  // El nombre del negocio (para el reverso del pase) y cuántos ya están
+  // instalados — igual que hacía `BloqueDiseno`, con el mismo pedido.
+  const [nombreNegocioReal, setNombreNegocioReal] = useState(negocioNombre);
+  const [emitidos, setEmitidos] = useState(0);
+  useEffect(() => {
+    let vivo = true;
+    void contextoDeLaTarjeta(ranchoId, programaId).then((r) => {
+      if (!vivo) return;
+      setNombreNegocioReal(r.negocioNombre);
+      setEmitidos(r.pasesEmitidos);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, [ranchoId, programaId]);
 
   const cambio = puedeCambiarTipo(situacion);
   const motivoBeneficio = validarBeneficio(beneficio);
+  const esSellos = tipo === "sellos";
+  const contrasteTexto = contraste(borrador.colorFondo, "#ffffff");
+  const contrasteSello = contraste(borrador.colorSello, borrador.colorFondo);
 
   const aviso = useMemo(
     () =>
@@ -278,30 +306,11 @@ function PanelBeneficio({
   function elegirTipo(nuevo: TipoTarjeta) {
     setTipo(nuevo);
     setBeneficio(configPorDefecto(nuevo));
-    setError(null);
-    setListo(false);
+    if (nuevo !== "sellos") cambiar({ iconoSello: null, iconoUrl: "" });
   }
 
   function aplicar() {
-    setError(null);
-    setListo(false);
-    guardar(async () => {
-      const res = await guardarBeneficio(ranchoId, programaId, {
-        nombre: nombre.trim(),
-        tipo,
-        beneficio,
-        reglas,
-        sellosVencenMeses: vencenMeses,
-      });
-      if (res.error) setError(res.error);
-      else if (res.programa) {
-        // El borrador compartido tiene que enterarse: si no, el próximo
-        // «Guardar» de la pestaña del diseño mandaría el nombre y el
-        // modo viejos y revertiría esto sin que nadie lo pida.
-        sincronizarPrograma(res.programa, res.recompensas);
-        setListo(true);
-      }
-    });
+    guardarTodo({ nombre: nombre.trim(), tipo, beneficio, reglas, vencenMeses });
   }
 
   return (
@@ -342,6 +351,105 @@ function PanelBeneficio({
               <TipoCerrado tipo={tipo} motivo={cambio.puede ? null : cambio.motivo} />
             )}
           </div>
+        </div>
+
+        {/* ── Diseño ──────────────────────────────────────────────── */}
+        <div className="rounded-2xl border border-bookea-linea bg-white p-5">
+          <h3 className="text-[15px] font-bold text-bookea-tinta">Diseño</h3>
+          <p className="mt-1.5 text-[12.5px] leading-relaxed text-bookea-gris">
+            Elegí una plantilla y ya está — todas se leen bien en el teléfono. Si tenés los
+            colores de tu marca, cambialos abajo.
+          </p>
+
+          <div className="mt-4">
+            <PlantillasColor
+              colorFondo={borrador.colorFondo}
+              colorSello={borrador.colorSello}
+              alElegir={({ fondo, sello }) => cambiar({ colorFondo: fondo, colorSello: sello })}
+            />
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <CampoColor
+              id="e-fondo"
+              etiqueta="Color de fondo"
+              valor={borrador.colorFondo}
+              alCambiar={(v) => cambiar({ colorFondo: v })}
+            />
+            <CampoColor
+              id="e-acento"
+              etiqueta={esSellos ? "Color del sello" : "Color del acento"}
+              valor={borrador.colorSello}
+              alCambiar={(v) => cambiar({ colorSello: v })}
+            />
+          </div>
+          {contrasteTexto < CONTRASTE_TEXTO && (
+            <p
+              role="status"
+              className="mt-3 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[12.5px] font-bold leading-relaxed text-amber-800"
+            >
+              Con ese fondo tan claro el texto de la tarjeta —que siempre es blanco— casi no
+              se lee. Probá un tono más oscuro o elegí uno de los temas de arriba.
+            </p>
+          )}
+          {contrasteSello < CONTRASTE_SELLO && (
+            <p
+              role="status"
+              className="mt-3 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[12.5px] font-bold leading-relaxed text-amber-800"
+            >
+              {esSellos
+                ? "El color del sello se confunde con el fondo: los sellos van a verse todos iguales, ganados y por ganar."
+                : "El acento se confunde con el fondo y no se va a notar."}
+            </p>
+          )}
+
+          {esSellos && (
+            <div className="mt-5 border-t border-bookea-linea pt-4">
+              <span className={etiqueta}>Icono del sello</span>
+              <SelectorIconoSello
+                valor={borrador.iconoSello}
+                alElegir={(icono) => cambiar({ iconoSello: icono })}
+                colorFondo={borrador.colorFondo}
+                colorSello={borrador.colorSello}
+                iconoUrl={borrador.iconoUrl || null}
+                alSubirIcono={(url) => cambiar({ iconoUrl: url })}
+              />
+            </div>
+          )}
+
+          <div className="mt-5 grid gap-4 border-t border-bookea-linea pt-4 sm:grid-cols-2">
+            <div>
+              <SubirImagen
+                etiqueta="Logo del negocio"
+                valor={borrador.logoUrl}
+                alCambiar={(url) => cambiar({ logoUrl: url })}
+                destino="logo"
+                carpeta="lealtad/logos"
+              />
+              <p className="mt-1.5 text-[11.5px] text-bookea-gris">
+                Sin logo, la tarjeta escribe el nombre del negocio.
+              </p>
+            </div>
+            <div>
+              <SubirImagen
+                etiqueta="Banda de la tarjeta (opcional)"
+                valor={borrador.bannerUrl}
+                alCambiar={(url) => cambiar({ bannerUrl: url })}
+                destino="banner"
+                carpeta="lealtad/bandas"
+              />
+              <p className="mt-1.5 text-[11.5px] text-bookea-gris">
+                La franja de arriba del pase.
+              </p>
+            </div>
+          </div>
+
+          {emitidos > 0 && (
+            <p className="mt-4 rounded-xl bg-amber-50 px-3.5 py-3 text-[12.5px] font-bold leading-relaxed text-amber-800">
+              Ya hay {emitidos} {emitidos === 1 ? "tarjeta" : "tarjetas"} en teléfonos de
+              clientes. Al guardar, {emitidos === 1 ? "esa tarjeta cambia" : "esas tarjetas cambian"}{" "}
+              de aspecto la próxima vez que el teléfono las actualice.
+            </p>
+          )}
         </div>
 
         {/* ── El beneficio ────────────────────────────────────────── */}
@@ -392,31 +500,23 @@ function PanelBeneficio({
           <button
             type="button"
             onClick={aplicar}
-            disabled={bloqueada || guardando || motivoBeneficio !== null || !nombre.trim()}
+            disabled={bloqueada || ocupado || motivoBeneficio !== null || !nombre.trim()}
             className="presionable rounded-xl bg-bookea-tinta px-5 py-3 text-[13px] font-extrabold text-white disabled:opacity-40"
           >
-            {guardando ? "Guardando…" : "Guardar lo que se gana"}
+            {ocupado ? "Guardando…" : "Guardar cambios"}
           </button>
-          {listo && (
-            <p role="status" className="text-[12.5px] font-bold text-aventurea-green">
-              Guardado. Las tarjetas que ya están en teléfonos ajenos cambian la próxima vez
-              que el teléfono las actualice.
-            </p>
-          )}
         </div>
 
-        {error && (
-          <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-2.5 text-[12.5px] font-bold text-red-700">
-            {error}
-          </p>
-        )}
+        {/* El error y el "Guardado" ya se ven arriba de las pestañas
+            (AvisoError/AvisoGuardado en EditorTarjeta) — no se repiten
+            acá para no decir lo mismo dos veces. */}
       </div>
 
       {/* ── Vista previa ────────────────────────────────────────── */}
       <aside className="mt-5 lg:mt-0 lg:sticky lg:top-24">
         <VistaPase
           datos={{
-            negocioNombre,
+            negocioNombre: nombreNegocioReal,
             modo: tipo,
             beneficio,
             colorFondo: borrador.colorFondo,
