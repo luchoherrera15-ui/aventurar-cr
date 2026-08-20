@@ -6,6 +6,7 @@ import { hoyISOCR, TZ_CR } from "@/lib/fechas";
 import { CRC, type FoodFranja, type FoodMenuCategory, type FoodMenuItem } from "@/lib/food/tipos";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
+import FoodDemoBanner from "@/components/food/demo-banner";
 import { IconCloche, IconUtensils } from "@/components/icons";
 import ReservarForm from "./reservar-form";
 
@@ -31,7 +32,7 @@ export async function generateMetadata({
   const anon = createAnonClient();
   const { data } = await anon
     .from("food_businesses")
-    .select("nombre, descripcion, foto_portada_url")
+    .select("nombre, descripcion, foto_portada_url, es_demo")
     .eq("slug", slug)
     .eq("activo", true)
     .maybeSingle();
@@ -52,6 +53,9 @@ export async function generateMetadata({
       type: "website",
       images: data.foto_portada_url ? [data.foto_portada_url] : undefined,
     },
+    // Un negocio demo (0193) no es real: no queremos que Google lo
+    // indexe aunque se comparta el enlace directo.
+    robots: data.es_demo ? { index: false } : undefined,
   };
 }
 
@@ -65,7 +69,7 @@ export default async function RestauranteFoodPage({
 
   const { data: negocio } = await anon
     .from("food_businesses")
-    .select("id, nombre, descripcion, foto_portada_url, telefono")
+    .select("id, nombre, descripcion, foto_portada_url, telefono, es_demo")
     .eq("slug", slug)
     .eq("activo", true)
     .maybeSingle();
@@ -139,6 +143,7 @@ export default async function RestauranteFoodPage({
   return (
     <>
       <SiteHeader breadcrumb="FOOD.BOOKEA" />
+      {negocio.es_demo && <FoodDemoBanner />}
       <main className="mx-auto max-w-[900px] px-4 py-8 sm:px-6">
       <div className="relative aspect-[21/9] w-full overflow-hidden rounded-3xl bg-aventurea-blue-light">
         {negocio.foto_portada_url ? (

@@ -34,6 +34,26 @@ export async function reservarFood(
   const db = createAdminClient();
   if (!db) return { ok: false, error: "No hay conexión de servicio." };
 
+  // Los negocios demo (es_demo=true, 0193) son puramente visuales — el
+  // dueño pidió explícitamente que ninguna reserva real cayera sobre
+  // ellos. crear_reserva_food() no distingue es_demo (a propósito: no
+  // se tocó el core), así que la barrera va ACÁ, antes de invocarla.
+  const { data: franja, error: errFranja } = await db
+    .from("food_franjas")
+    .select("food_businesses(es_demo)")
+    .eq("id", franjaId)
+    .maybeSingle();
+  if (errFranja) return { ok: false, error: "No se pudo validar la franja: " + errFranja.message };
+  const negocioFranja = Array.isArray(franja?.food_businesses)
+    ? franja.food_businesses[0]
+    : franja?.food_businesses;
+  if (negocioFranja?.es_demo) {
+    return {
+      ok: false,
+      error: "Esto es una demo: los restaurantes de /food/demo son de ejemplo y no aceptan reservas reales.",
+    };
+  }
+
   const { data, error } = await db.rpc("crear_reserva_food", {
     p_franja_id: franjaId,
     p_customer_id: user.id,

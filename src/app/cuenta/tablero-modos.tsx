@@ -262,7 +262,7 @@ export default function TableroModos({
                     Favoritos
                   </ItemNavOscuro>
                   <ItemNavOscuro href="/cuenta/lealtad" icono={<IconStar className="h-[16px] w-[16px]" />}>
-                    Mi lealtad
+                    Mis tarjetas de fidelidad
                   </ItemNavOscuro>
                 </>
               ) : (

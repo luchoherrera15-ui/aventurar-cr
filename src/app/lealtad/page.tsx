@@ -153,7 +153,7 @@ export default async function LealtadPage() {
   return (
     <main className="min-h-svh bg-white">
       <RevealOnScroll />
-      <NavLealtad />
+      <NavLealtad logueado={!!user} />
       <BurbujaContacto />
 
       {/* ================= HERO (navy) ================= */}

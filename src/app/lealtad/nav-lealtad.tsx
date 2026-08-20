@@ -33,7 +33,7 @@ const ENLACES: { href: string; label: string }[] = [
   { href: "#planes", label: "Planes" },
 ];
 
-export default function NavLealtad() {
+export default function NavLealtad({ logueado = false }: { logueado?: boolean }) {
   const [abierto, setAbierto] = useState(false);
 
   return (
@@ -69,10 +69,15 @@ export default function NavLealtad() {
 
         <div className="hidden items-center gap-5 md:flex">
           <Link
-            href="/cuenta?volver=lealtad"
-            className="text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+            href="/cuenta"
+            className="flex items-center gap-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
           >
-            Entrar
+            {logueado && (
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-aventurea-navy text-[10px] font-extrabold text-white">
+                ✓
+              </span>
+            )}
+            {logueado ? "Mi perfil" : "Entrar"}
           </Link>
           <Link
             href="/lealtad/nuevo"
@@ -109,11 +114,11 @@ export default function NavLealtad() {
               </a>
             ))}
             <Link
-              href="/cuenta?volver=lealtad"
+              href="/cuenta"
               onClick={() => setAbierto(false)}
               className="text-[15px] font-bold text-aventurea-ink"
             >
-              Entrar
+              {logueado ? "Mi perfil" : "Entrar"}
             </Link>
             <Link
               href="/lealtad/nuevo"

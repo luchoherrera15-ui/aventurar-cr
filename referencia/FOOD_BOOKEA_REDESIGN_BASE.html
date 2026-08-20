@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>food.bookea — Comé rico. Pagá menos.</title>
+<style>
+:root{
+  --navy:#0b1635; --red:#f3264b; --blue:#173b8f; --white:#fff;
+  --soft:#f7f8fb; --line:#e8ebf1; --muted:#667085; --text:#101828;
+  --radius:22px; --shadow:0 18px 50px rgba(16,24,40,.10)
+}
+*{box-sizing:border-box}body{margin:0;color:var(--text);background:#fff;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+a{text-decoration:none;color:inherit}button,input{font:inherit}.container{width:min(1180px,calc(100% - 40px));margin:auto}
+header{height:74px;border-bottom:1px solid var(--line);background:#fff}
+.nav{height:100%;display:flex;align-items:center;gap:26px}
+.logo{font-size:25px;font-weight:950;letter-spacing:-1.8px}.logo span{color:var(--red)}
+.location{border:0;background:#f6f7fa;border-radius:12px;padding:10px 14px;color:var(--text);font-weight:800;cursor:pointer}
+.navlinks{margin-left:auto;display:flex;gap:24px;font-size:13px;font-weight:800;color:#475467}.actions{display:flex;gap:9px}
+.btn{border:0;border-radius:12px;padding:11px 16px;font-weight:900;cursor:pointer}.btn-outline{background:#fff;border:1px solid #d8dde6}.btn-dark{background:var(--navy);color:#fff}.btn-red{background:var(--red);color:#fff}
+.hero{padding:18px 0 34px}
+.hero-grid{display:grid;grid-template-columns:.96fr 1.04fr;align-items:center;gap:35px}
+.eyebrow{font-size:12px;color:var(--red);font-weight:900;margin-bottom:14px}.eyebrow span{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--red);margin-right:6px}
+h1{font-size:clamp(48px,6.1vw,76px);line-height:.94;letter-spacing:-4.4px;color:var(--navy);margin:0 0 18px}h1 em{font-style:normal;color:var(--red)}
+.hero-copy{max-width:520px;color:var(--muted);font-size:17px;line-height:1.55;margin:0 0 20px}
+.search{display:grid;grid-template-columns:1.05fr 1fr 1fr auto;border:1px solid var(--line);border-radius:20px;padding:8px;box-shadow:var(--shadow);background:#fff;max-width:720px}
+.field{padding:10px 14px;border-right:1px solid var(--line)}.field:last-of-type{border-right:0}.field label{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.6px;color:#98a2b3;font-weight:900;margin-bottom:4px}.field input{width:100%;border:0;outline:0;background:transparent;font-size:13px;font-weight:750}
+.search-btn{border:0;border-radius:14px;background:var(--red);color:#fff;padding:0 20px;font-weight:950;cursor:pointer}
+.hero-meta{display:flex;gap:18px;margin-top:14px;color:var(--muted);font-size:11px;font-weight:800}.hero-meta span{white-space:nowrap}
+.hero-visual{height:430px;position:relative}.hero-image{height:100%;border-radius:30px;overflow:hidden}.hero-image img{width:100%;height:100%;object-fit:cover}
+.discount{position:absolute;left:-16px;top:22px;background:var(--red);color:#fff;border-radius:18px;padding:11px 16px;box-shadow:0 15px 35px rgba(243,38,75,.28)}.discount small{display:block;font-size:9px;font-weight:900}.discount strong{font-size:34px;line-height:1}
+.hero-card{position:absolute;left:22px;bottom:-18px;background:#fff;border-radius:18px;padding:14px 17px;box-shadow:var(--shadow);min-width:245px}.hero-card small{display:block;color:var(--muted);font-size:10px}.hero-card strong{display:block;font-size:17px;margin:3px 0}.hero-card b{color:var(--red);font-size:12px}
+section{padding:56px 0}.soft{background:#fff8f5}.head{display:flex;justify-content:space-between;align-items:end;margin-bottom:20px}.head h2{margin:0;color:var(--navy);font-size:29px;letter-spacing:-1.5px}.head p{margin:5px 0 0;color:var(--muted);font-size:12px}.link{font-size:12px;color:var(--blue);font-weight:900}
+.deals{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.card{border:1px solid var(--line);border-radius:20px;overflow:hidden;background:#fff;box-shadow:0 7px 24px rgba(16,24,40,.05)}.photo{height:170px;position:relative}.photo img{width:100%;height:100%;object-fit:cover}.badge{position:absolute;left:10px;top:10px;background:var(--red);color:#fff;padding:7px 9px;border-radius:8px;font-size:11px;font-weight:950}.heart{position:absolute;right:10px;top:10px;border:0;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.94);cursor:pointer}.body{padding:12px}.title{display:flex;justify-content:space-between;gap:6px}.title h3{margin:0;font-size:15px}.rating{font-size:10px;font-weight:900}.meta{font-size:10px;color:var(--muted);margin:5px 0 11px}.slots{display:flex;gap:6px}.slot{flex:1;text-align:center;background:#eef2ff;color:var(--blue);padding:7px 3px;border-radius:8px;font-size:9px;font-weight:950}.slot.hot{background:#fff0f2;color:var(--red)}
+.cats{display:flex;gap:16px;overflow:auto}.cat{min-width:85px;text-align:center}.cat-icon{width:65px;height:65px;border-radius:50%;background:#f3f5f9;border:1px solid var(--line);display:grid;place-items:center;margin:auto;font-size:27px}.cat:first-child .cat-icon{background:var(--navy);color:#fff}.cat p{margin:7px 0 0;font-size:11px;font-weight:850}
+.how{background:var(--navy);color:#fff;border-radius:30px;padding:30px 34px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;position:relative;overflow:hidden}.how h2{grid-column:1/-1;margin:0 0 2px;font-size:30px;letter-spacing:-1.4px}.step{display:flex;gap:12px}.num{width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.13);display:grid;place-items:center;font-weight:950;flex:none}.step h3{margin:0 0 3px;font-size:14px}.step p{margin:0;color:#bcc5d7;font-size:11px;line-height:1.5}
+.cities{display:grid;grid-template-columns:repeat(6,1fr);gap:11px}.city{height:170px;border-radius:17px;overflow:hidden;position:relative}.city img{width:100%;height:100%;object-fit:cover}.city:after{content:"";position:absolute;inset:0;background:linear-gradient(transparent 42%,rgba(4,10,28,.82))}.city-info{position:absolute;left:11px;bottom:11px;z-index:2;color:#fff}.city-info strong{display:block;font-size:13px}.city-info span{font-size:9px;opacity:.82}
+.ctas{display:grid;grid-template-columns:1fr 1fr;gap:17px}.cta{position:relative;border-radius:24px;min-height:190px;padding:28px;overflow:hidden;color:#fff}.cta-app{background:linear-gradient(135deg,#ff3254,#ff6440)}.cta-business{background:linear-gradient(135deg,#0b1635,#1f4294)}.cta h2{margin:0 0 7px;font-size:24px;letter-spacing:-1px;max-width:310px}.cta p{font-size:12px;line-height:1.55;max-width:360px;color:rgba(255,255,255,.83)}.cta .btn{margin-top:4px;background:#fff;color:var(--navy)}
+.benefits{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);border-radius:20px;overflow:hidden}.benefit{padding:20px;border-right:1px solid var(--line)}.benefit:last-child{border-right:0}.benefit h3{margin:8px 0 4px;font-size:13px}.benefit p{margin:0;color:var(--muted);font-size:10px;line-height:1.4}
+footer{background:var(--navy);color:#fff;padding:44px 0 23px}.foot{display:grid;grid-template-columns:1.6fr 1fr 1fr 1fr 1fr;gap:28px}.foot-logo{font-weight:950;font-size:21px;letter-spacing:-1.4px}.foot-logo span{color:var(--red)}footer p,footer a{color:#aeb8ca;font-size:11px;line-height:1.6}footer a{display:block;margin:6px 0}footer h4{margin:0 0 11px;font-size:11px}.bottom{border-top:1px solid rgba(255,255,255,.12);margin-top:25px;padding-top:15px;display:flex;justify-content:space-between;color:#8792a8;font-size:10px}
+.toast{position:fixed;right:20px;bottom:20px;background:#101828;color:#fff;padding:13px 16px;border-radius:12px;box-shadow:var(--shadow);transform:translateY(120px);transition:.25s;z-index:50;font-weight:800}.toast.show{transform:translateY(0)}
+@media(max-width:1000px){.navlinks{display:none}.hero-grid{grid-template-columns:1fr}.hero-visual{height:380px}.deals{grid-template-columns:1fr 1fr}.cities{grid-template-columns:repeat(3,1fr)}.foot{grid-template-columns:2fr 1fr 1fr}.how{grid-template-columns:1fr}.how h2{grid-column:auto}}
+@media(max-width:650px){.container{width:calc(100% - 24px)}header{height:66px}.location{display:none}.actions .btn-outline{display:none}.logo{font-size:22px}.hero-grid{gap:24px}.hero{padding-top:18px}h1{font-size:48px;letter-spacing:-3.2px}.hero-copy{font-size:15px}.search{grid-template-columns:1fr 1fr}.field:nth-child(2){border-right:0}.field:nth-child(3){grid-column:1/2}.search-btn{min-height:46px}.hero-meta{overflow:auto}.hero-visual{height:300px}.discount{left:10px}.hero-card{left:9px}.deals{grid-template-columns:1fr}.cities{grid-template-columns:1fr 1fr}.ctas{grid-template-columns:1fr}.benefits{grid-template-columns:1fr 1fr}.benefit{border-bottom:1px solid var(--line)}.foot{grid-template-columns:1fr 1fr}.brand{grid-column:1/-1}.bottom{display:block}.bottom span{display:block;margin-top:5px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="container nav">
+    <a class="logo" href="/">food<span>.bookea</span></a>
+    <button class="location">⌖ San José, CR ⌄</button>
+    <nav class="navlinks"><a href="#ofertas">Explorar</a><a href="#ofertas">Ofertas</a><a href="#categorias">Categorías</a><a href="#negocios">Para restaurantes</a></nav>
+    <div class="actions"><button class="btn btn-outline" onclick="toast('Inicio de sesión')">Iniciar sesión</button><button class="btn btn-dark" onclick="toast('Crear cuenta')">Crear cuenta</button></div>
+  </div>
+</header>
+
+<section class="hero">
+<div class="container hero-grid">
+  <div>
+    <div class="eyebrow"><span></span> Ofertas disponibles ahora cerca tuyo</div>
+    <h1>Comé rico.<br><em>Pagá menos.</em></h1>
+    <p class="hero-copy">Reservá en los mejores restaurantes con descuentos exclusivos por horario.</p>
+    <div class="search">
+      <div class="field"><label>¿Dónde?</label><input placeholder="Tu ubicación actual"></div>
+      <div class="field"><label>¿Cuándo?</label><input value="Hoy, ahora" readonly></div>
+      <div class="field"><label>¿Cuántos?</label><input value="2 personas" readonly></div>
+      <button class="search-btn" onclick="toast('Buscando ofertas...')">⌕ Buscar</button>
+    </div>
+    <div class="hero-meta"><span>✓ Sin pago anticipado</span><span>✓ Hasta 50% OFF</span><span>✓ Reservá en segundos</span></div>
+  </div>
+  <div class="hero-visual">
+    <div class="hero-image"><img src="https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=1400&q=88" alt="Comida de restaurante"></div>
+    <div class="discount"><small>HASTA</small><strong>50%</strong><small>OFF</small></div>
+    <div class="hero-card"><small>Oferta disponible ahora</small><strong>Sushi World</strong><b>40% OFF · Hoy 18:30</b></div>
+  </div>
+</div>
+</section>
+
+<section class="soft" id="ofertas"><div class="container">
+  <div class="head"><div><h2>Ofertas cerca tuyo</h2><p>Descuentos reales que cambian según la hora.</p></div><a class="link" href="#">Ver todas →</a></div>
+  <div class="deals">
+    <article class="card"><div class="photo"><img src="https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=85" alt="Hamburguesa"><span class="badge">-40%</span><button class="heart" onclick="toast('Agregado a favoritos')">♡</button></div><div class="body"><div class="title"><h3>Burger House</h3><span class="rating">★ 4.6</span></div><div class="meta">Hamburguesas · Americana · 0.8 km</div><div class="slots"><span class="slot hot">19:30 · -40%</span><span class="slot">21:00 · -30%</span></div></div></article>
+    <article class="card"><div class="photo"><img src="https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=900&q=85" alt="Pasta"><span class="badge">-30%</span><button class="heart" onclick="toast('Agregado a favoritos')">♡</button></div><div class="body"><div class="title"><h3>La Trattoria</h3><span class="rating">★ 4.7</span></div><div class="meta">Italiana · Pastas · 1.2 km</div><div class="slots"><span class="slot hot">20:00 · -30%</span><span class="slot">21:30 · -20%</span></div></div></article>
+    <article class="card"><div class="photo"><img src="https://images.unsplash.com/photo-1579871494447-9811cf80d66c?auto=format&fit=crop&w=900&q=85" alt="Sushi"><span class="badge">-50%</span><button class="heart" onclick="toast('Agregado a favoritos')">♡</button></div><div class="body"><div class="title"><h3>Sushi World</h3><span class="rating">★ 4.8</span></div><div class="meta">Sushi · Japonesa · 1.5 km</div><div class="slots"><span class="slot hot">18:30 · -50%</span><span class="slot">20:00 · -30%</span></div></div></article>
+    <article class="card"><div class="photo"><img src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=85" alt="Carne"><span class="badge">-25%</span><button class="heart" onclick="toast('Agregado a favoritos')">♡</button></div><div class="body"><div class="title"><h3>Parrilla del Sur</h3><span class="rating">★ 4.5</span></div><div class="meta">Parrilla · Carnes · 2.1 km</div><div class="slots"><span class="slot hot">19:00 · -25%</span><span class="slot">20:30 · -20%</span></div></div></article>
+  </div>
+</div></section>
+
+<section id="categorias"><div class="container">
+  <div class="head"><div><h2>Explorá por categoría</h2><p>Descubrí algo nuevo para comer.</p></div><a class="link" href="#">Ver categorías →</a></div>
+  <div class="cats">
+    <div class="cat"><div class="cat-icon">✦</div><p>Todas</p></div><div class="cat"><div class="cat-icon">🍣</div><p>Sushi</p></div><div class="cat"><div class="cat-icon">🍔</div><p>Hamburguesas</p></div><div class="cat"><div class="cat-icon">🍕</div><p>Italiana</p></div><div class="cat"><div class="cat-icon">🥩</div><p>Carnes</p></div><div class="cat"><div class="cat-icon">🌮</div><p>Mexicana</p></div><div class="cat"><div class="cat-icon">🍰</div><p>Postres</p></div><div class="cat"><div class="cat-icon">🥤</div><p>Bebidas</p></div><div class="cat"><div class="cat-icon">•••</div><p>Más</p></div>
+  </div>
+</div></section>
+
+<section><div class="container">
+  <div class="how"><h2>Reservá fácil en 3 simples pasos</h2>
+    <div class="step"><div class="num">01</div><div><h3>Elegí restaurante</h3><p>Descubrí ofertas increíbles cerca tuyo.</p></div></div>
+    <div class="step"><div class="num">02</div><div><h3>Elegí horario</h3><p>Seleccioná una franja con descuento.</p></div></div>
+    <div class="step"><div class="num">03</div><div><h3>Reservá y disfrutá</h3><p>Mostrá tu código al llegar y listo.</p></div></div>
+  </div>
+</div></section>
+
+<section><div class="container">
+  <div class="head"><div><h2>Ciudades populares en Latinoamérica</h2><p>Un producto pensado para crecer por toda la región.</p></div><a class="link" href="#">Ver ciudades →</a></div>
+  <div class="cities">
+    <a class="city" href="#"><img src="https://images.unsplash.com/photo-1518105779142-d975f22f1b0a?auto=format&fit=crop&w=800&q=80" alt="Ciudad de México"><div class="city-info"><strong>Ciudad de México</strong><span>México</span></div></a>
+    <a class="city" href="#"><img src="https://images.unsplash.com/photo-1612294037637-2c0b5c2c5d52?auto=format&fit=crop&w=800&q=80" alt="Buenos Aires"><div class="city-info"><strong>Buenos Aires</strong><span>Argentina</span></div></a>
+    <a class="city" href="#"><img src="https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?auto=format&fit=crop&w=800&q=80" alt="Santiago"><div class="city-info"><strong>Santiago</strong><span>Chile</span></div></a>
+    <a class="city" href="#"><img src="https://images.unsplash.com/photo-1483729558449-99ef09a8c325?auto=format&fit=crop&w=800&q=80" alt="Sao Paulo"><div class="city-info"><strong>São Paulo</strong><span>Brasil</span></div></a>
+    <a class="city" href="#"><img src="https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=800&q=80" alt="Bogotá"><div class="city-info"><strong>Bogotá</strong><span>Colombia</span></div></a>
+    <a class="city" href="#"><img src="https://images.unsplash.com/photo-1531968455001-5c5272a41129?auto=format&fit=crop&w=800&q=80" alt="Lima"><div class="city-info"><strong>Lima</strong><span>Perú</span></div></a>
+  </div>
+</div></section>
+
+<section id="negocios"><div class="container">
+  <div class="ctas">
+    <div class="cta cta-app"><h2>Descargá la app y encontrá descuentos exclusivos.</h2><p>Descubrí ofertas cerca tuyo estés donde estés.</p><button class="btn" onclick="toast('Próximamente: app móvil')">Descargar app →</button></div>
+    <div class="cta cta-business"><h2>¿Tenés un restaurante?</h2><p>Convertí tus horas de baja demanda en ventas y atraé nuevos clientes.</p><button class="btn" onclick="toast('Próximamente: alta de restaurantes')">Quiero vender más →</button></div>
+  </div>
+</div></section>
+
+<section style="padding-top:0"><div class="container">
+  <div class="benefits">
+    <div class="benefit"><div>◇</div><h3>Descuentos reales</h3><p>Ofertas exclusivas por horario.</p></div>
+    <div class="benefit"><div>✓</div><h3>Reservas confirmadas</h3><p>Rápidas, simples y seguras.</p></div>
+    <div class="benefit"><div>⌖</div><h3>Restaurantes cerca</h3><p>Descubrí opciones nuevas.</p></div>
+    <div class="benefit"><div>◎</div><h3>Hecho para LATAM</h3><p>Una experiencia pensada para la región.</p></div>
+  </div>
+</div></section>
+
+<footer><div class="container">
+  <div class="foot">
+    <div class="brand"><div class="foot-logo">food<span>.bookea</span></div><p>Comé rico. Pagá menos.</p></div>
+    <div><h4>Explorar</h4><a>Restaurantes</a><a>Ofertas</a><a>Categorías</a><a>Ciudades</a></div>
+    <div><h4>Para restaurantes</h4><a>¿Cómo funciona?</a><a>Precios</a><a>Recursos</a><a>Ingresar negocio</a></div>
+    <div><h4>Soporte</h4><a>Centro de ayuda</a><a>Contacto</a><a>Términos</a><a>Privacidad</a></div>
+    <div><h4>App</h4><a>App Store</a><a>Google Play</a><a>Español</a></div>
+  </div>
+  <div class="bottom"><span>© 2026 Food.Bookea. Todos los derechos reservados.</span><span>🌎 Latinoamérica</span></div>
+</div></footer>
+
+<div id="toast" class="toast"></div>
+<script>function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(window.__t);window.__t=setTimeout(()=>t.classList.remove('show'),2200)}</script>
+</body>
+</html>

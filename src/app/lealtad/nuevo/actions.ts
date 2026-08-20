@@ -153,28 +153,6 @@ export async function solicitarAltaConPlan(datos: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, motivo: "Iniciá sesión para enviar la solicitud." };
 
-  // ── UN COMERCIO CON PROGRAMA POR PERSONA ────────────────────────────
-  // Regla del dueño: quien usa Lealtad tiene UN negocio con programa. No
-  // limita cuántos negocios puede publicar en el marketplace — eso sigue
-  // abierto—, solo cuántos pueden tener tarjeta de fidelidad.
-  //
-  // SE COMPRUEBA ACÁ, EN EL SERVIDOR, y no escondiendo un botón: la
-  // pantalla ayuda, pero una petición armada a mano se salta cualquier
-  // cosa que viva en el navegador.
-  //
-  // A QUIEN YA TIENE VARIOS NO SE LE QUITA NADA. Este bloqueo frena las
-  // altas NUEVAS y nada más; los negocios que ya existen siguen con su
-  // programa, sus clientes y sus sellos. Quitarle el programa a alguien
-  // que lo está usando por un cambio de catálogo es exactamente lo que
-  // este proyecto ya decidió no hacer con los planes retirados.
-  const yaTiene = await negocioConProgramaDe(user.id);
-  if (yaTiene) {
-    return {
-      ok: false,
-      motivo: `Ya tenés tu programa de lealtad en «${yaTiene}». Por ahora cada cuenta maneja un solo comercio con programa — escribinos si necesitás más de uno.`,
-    };
-  }
-
   // ── EL CAMINO AUTOMÁTICO: Gratis + creador = se crea TODO al toque ──
   // Sin depósito no hay nada que verificar: el único requisito era la
   // cuenta, y ya la tiene. Los planes DE PAGO siguen el camino manual
@@ -278,50 +256,6 @@ export async function solicitarAltaConPlan(datos: {
   );
 
   return { ok: true };
-}
-
-/**
- * ¿ESTA PERSONA YA TIENE UN NEGOCIO CON PROGRAMA DE LEALTAD?
- *
- * Devuelve el NOMBRE del primero que encuentre, o null. El nombre —y no
- * un booleano— porque el aviso tiene que decir CUÁL: «ya tenés tu
- * programa en Café Aroma» se puede obedecer; «ya tenés un programa» deja
- * a alguien con cinco negocios adivinando en cuál.
- *
- * Cuenta lo que de verdad tiene programa, no lo que tiene el complemento
- * encendido: un negocio puede tener el add-on activo y todavía no haber
- * armado su tarjeta, y en ese estado no debería consumir el cupo.
- *
- * Va con la llave de servicio porque tiene que ver TODOS los negocios de
- * la persona, incluidos los que están pendientes de aprobación — si no,
- * alguien podría pedir dos altas seguidas antes de que la primera se
- * apruebe y quedarse con dos.
- */
-async function negocioConProgramaDe(userId: string): Promise<string | null> {
-  const db = createAdminClient();
-  if (!db) return null;
-
-  const { data: mios } = await db.from("ranchos").select("id, nombre").eq("owner_id", userId);
-  const ids = (mios ?? []).map((r) => r.id as string);
-  if (ids.length === 0) return null;
-
-  const { data: programas, error } = await db
-    .from("programa_lealtad")
-    .select("rancho_id")
-    .in("rancho_id", ids)
-    .limit(1);
-
-  // Si la consulta falla NO se bloquea el alta: dejar a alguien sin
-  // poder crear su programa por un error nuestro de lectura es peor que
-  // permitir un segundo negocio que después se puede resolver a mano.
-  if (error) {
-    console.error("[alta-lealtad] No se pudo comprobar el cupo de comercios:", error.message);
-    return null;
-  }
-  if (!programas || programas.length === 0) return null;
-
-  const dueño = (mios ?? []).find((r) => r.id === programas[0].rancho_id);
-  return ((dueño?.nombre as string | null) ?? "").trim() || "tu otro negocio";
 }
 
 /**

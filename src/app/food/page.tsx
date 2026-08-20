@@ -22,6 +22,13 @@ export const metadata: Metadata = {
  * ve igual para todo el mundo y la RLS de food_businesses ya filtra
  * `activo` — mismo criterio de rendimiento que /i/[slug] (ver
  * src/lib/supabase/server.ts).
+ *
+ * `es_demo=false` explícito acá (0193): la RLS por sí sola no separa
+ * real de demo (dos políticas SELECT permisivas se combinan con OR),
+ * así que este filtro de la propia consulta es lo que de verdad
+ * garantiza que el directorio real nunca muestre un negocio sembrado
+ * para /food/demo. Ver el encabezado de la migración 0193 para el
+ * razonamiento completo.
  */
 export default async function FoodDirectorioPage() {
   const supabase = createAnonClient();
@@ -29,6 +36,7 @@ export default async function FoodDirectorioPage() {
     .from("food_businesses")
     .select("id, nombre, slug, descripcion, foto_portada_url, telefono")
     .eq("activo", true)
+    .eq("es_demo", false)
     .order("nombre");
 
   if (error) console.error("[food] no se pudo cargar el directorio:", error.message);

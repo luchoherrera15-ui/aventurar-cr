@@ -11,6 +11,9 @@ export type FoodBusiness = {
   telefono: string | null;
   zona_horaria: string;
   activo: boolean;
+  /** true = negocio de muestra sembrado para /food/demo (0193). Nunca
+   *  sale en el directorio real ni acepta reservas reales. */
+  es_demo: boolean;
 };
 
 export type FoodLocation = {

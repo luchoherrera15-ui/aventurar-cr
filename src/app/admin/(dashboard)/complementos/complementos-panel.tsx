@@ -28,6 +28,7 @@ import { haceCuanto } from "@/lib/fechas";
 import VerPaseModal from "./ver-pase-modal";
 import VerClientesModal from "./ver-clientes-modal";
 import VerAuditoriaModal from "./ver-auditoria-modal";
+import AdministrarModal from "./administrar-modal";
 
 export type FilaAddon = {
   rancho_id: string;
@@ -230,6 +231,7 @@ export default function ComplementosPanel({
   const [verPase, setVerPase] = useState<{ id: string; nombre: string } | null>(null);
   const [verClientes, setVerClientes] = useState<{ id: string; nombre: string } | null>(null);
   const [verAuditoria, setVerAuditoria] = useState<{ id: string; nombre: string } | null>(null);
+  const [administrar, setAdministrar] = useState<{ id: string; nombre: string } | null>(null);
 
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -424,6 +426,7 @@ export default function ComplementosPanel({
                 </Encabezado>
                 <th className="px-3 py-2.5 font-bold">Pase</th>
                 <th className="px-3 py-2.5 font-bold">Auditoría</th>
+                <th className="px-3 py-2.5 font-bold">Administrar</th>
               </tr>
             </thead>
             <tbody>
@@ -441,10 +444,11 @@ export default function ComplementosPanel({
                     onVerPase={() => setVerPase({ id: n.id, nombre: n.nombre })}
                     onVerClientes={() => setVerClientes({ id: n.id, nombre: n.nombre })}
                     onVerAuditoria={() => setVerAuditoria({ id: n.id, nombre: n.nombre })}
+                    onAdministrar={() => setAdministrar({ id: n.id, nombre: n.nombre })}
                   />
                   {elegido === n.id && (
                     <tr>
-                      <td colSpan={10} className="bg-aventurea-cream-2/40 p-0">
+                      <td colSpan={11} className="bg-aventurea-cream-2/40 p-0">
                         <div className="px-3 py-3">
                           <Detalle
                             negocio={n}
@@ -522,6 +526,13 @@ export default function ComplementosPanel({
           onCerrar={() => setVerAuditoria(null)}
         />
       )}
+      {administrar && (
+        <AdministrarModal
+          ranchoId={administrar.id}
+          nombre={administrar.nombre}
+          onCerrar={() => setAdministrar(null)}
+        />
+      )}
     </div>
   );
 }
@@ -569,6 +580,7 @@ function Fila({
   onVerPase,
   onVerClientes,
   onVerAuditoria,
+  onAdministrar,
 }: {
   negocio: NegocioConAddons;
   elegido: boolean;
@@ -579,6 +591,8 @@ function Fila({
   onVerClientes: () => void;
   /** Abre el modal de solo-lectura con quién le dio qué sello a quién. */
   onVerAuditoria: () => void;
+  /** Abre el modal de código de confirmación para entrar como el dueño. */
+  onAdministrar: () => void;
 }) {
   const activos = n.addons.filter((a) => estadoDeAddon(a) === "activo");
   const vencidos = n.addons.filter((a) => estadoDeAddon(a) === "vencido");
@@ -763,6 +777,24 @@ function Fila({
           className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1 text-[11.5px] font-bold text-aventurea-navy"
         >
           Auditoría
+        </button>
+      </td>
+
+      <td className="px-3 py-2.5">
+        {/* Entra al panel de Lealtad de este negocio COMO el dueño. Un
+            admin ya tiene acceso completo con solo navegar a esa URL
+            (`verificarAccesoRancho` en src/lib/auth.ts) -este botón no
+            abre ningún permiso nuevo, solo pide una re-confirmación por
+            código antes de dejarlo pasar. */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAdministrar();
+          }}
+          className="rounded-lg border border-aventurea-line bg-white px-2.5 py-1 text-[11.5px] font-bold text-aventurea-navy"
+        >
+          Administrar
         </button>
       </td>
     </tr>
