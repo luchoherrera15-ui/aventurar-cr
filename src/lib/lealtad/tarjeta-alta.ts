@@ -1,5 +1,10 @@
 import { planIncluyeTipo, planQueDesbloquea } from "./planes";
-import { esIconoSello, iconoDelSello, type IconoSello } from "./iconos-sello";
+import {
+  esSelloElegido,
+  selloParaGuardar,
+  urlDeIconoPropio,
+  type SelloElegido,
+} from "./iconos-sello";
 import {
   esTipoTarjeta,
   validarBeneficio,
@@ -47,6 +52,9 @@ export type TarjetaDeAlta = {
   colorFondo?: string | null;
   colorSello?: string | null;
   iconoSello?: string | null;
+  /** El archivo del sello «Mi ícono» (0174) — solo viaja con sesión,
+   *  igual que logoUrl/bannerUrl. */
+  iconoUrl?: string | null;
   logoUrl?: string | null;
   bannerUrl?: string | null;
 };
@@ -58,8 +66,13 @@ export type TarjetaAltaValidada = {
   beneficio: ConfigBeneficio | null;
   colorFondo: string | null;
   colorSello: string | null;
-  /** Ya filtrado: solo sobrevive en tarjetas de sellos (0145). */
-  iconoSello: IconoSello | null;
+  /** Ya filtrado: solo sobrevive en tarjetas de sellos (0145). Puede
+   *  ser 'propio' (0174) — y entonces `iconoUrl` viene con él. */
+  iconoSello: SelloElegido | null;
+  /** El archivo del sello propio, coherente con `iconoSello` vía
+   *  `selloParaGuardar` (nunca 'propio' sin URL ni URL suelta en un
+   *  tipo que no es sellos). */
+  iconoUrl: string | null;
   logoUrl: string | null;
   bannerUrl: string | null;
 };
@@ -136,10 +149,23 @@ export function validarTarjetaDeAlta(
   // donde dibujarlo. Sin `modo`, el programa del alta nace como
   // 'sellos' (así lo escribe el RPC), y por eso el icono sí aplica.
   const iconoCrudo = limpiar(cruda.iconoSello);
-  if (iconoCrudo !== null && !esIconoSello(iconoCrudo)) {
+  if (iconoCrudo !== null && !esSelloElegido(iconoCrudo)) {
     return { ok: false, motivo: "Ese icono de sello no existe." };
   }
-  const iconoSello = iconoDelSello({ tipo: modo ?? "sellos", icono: iconoCrudo });
+  // El archivo del sello propio (0174): misma exigencia de origen que
+  // usa el editor autenticado (`urlDeIconoPropio`) — una URL ajena en
+  // el pase deja a un tercero decidiendo qué ve el cliente.
+  const iconoUrlCruda = limpiar(cruda.iconoUrl);
+  if (iconoUrlCruda !== null && urlDeIconoPropio(iconoUrlCruda) === null) {
+    return { ok: false, motivo: "El ícono no se subió bien — probá de nuevo." };
+  }
+  // `selloParaGuardar` deja el par coherente: 'propio' solo con URL,
+  // nada de iconos en tipos que no son sellos.
+  const sello = selloParaGuardar({
+    tipo: modo ?? "sellos",
+    icono: iconoCrudo,
+    url: iconoUrlCruda,
+  });
 
   // ── Las imágenes tienen que ser NUESTRAS ────────────────────────
   // Una URL ajena en el pase deja a un tercero decidiendo qué imagen
@@ -160,7 +186,8 @@ export function validarTarjetaDeAlta(
     modo === null &&
     colorFondo === null &&
     colorSello === null &&
-    iconoSello === null &&
+    sello.icono === null &&
+    sello.url === null &&
     logoUrl === null &&
     bannerUrl === null
   ) {
@@ -169,6 +196,15 @@ export function validarTarjetaDeAlta(
 
   return {
     ok: true,
-    tarjeta: { modo, beneficio, colorFondo, colorSello, iconoSello, logoUrl, bannerUrl },
+    tarjeta: {
+      modo,
+      beneficio,
+      colorFondo,
+      colorSello,
+      iconoSello: sello.icono,
+      iconoUrl: sello.url,
+      logoUrl,
+      bannerUrl,
+    },
   };
 }

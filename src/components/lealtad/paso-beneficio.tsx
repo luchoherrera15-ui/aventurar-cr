@@ -113,6 +113,80 @@ export default function PasoBeneficio({
               className={campo}
             />
           </div>
+
+          {/* LA REGLA DE ACUMULACIÓN (0197). «Por compra» es lo de
+              siempre y es el valor por defecto: una tarjeta guardada
+              antes de esta opción no cambia de comportamiento. La
+              cuenta la hace el SERVIDOR (sellosPorCompra): esto solo
+              elige la regla. */}
+          <div>
+            <span className={etiqueta}>¿Cómo gana sellos tu cliente?</span>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Regla de sellos">
+              {(
+                [
+                  ["compra", "1 sello por compra"],
+                  ["monto", "1 sello por monto"],
+                ] as const
+              ).map(([regla, label]) => (
+                <button
+                  key={regla}
+                  type="button"
+                  aria-pressed={(config.sellosPor ?? "compra") === regla}
+                  onClick={() =>
+                    alCambiar({
+                      ...config,
+                      sellosPor: regla,
+                      montoPorSello:
+                        regla === "monto" ? (config.montoPorSello ?? 4500) : null,
+                    })
+                  }
+                  className={`presionable rounded-xl border px-3.5 py-2 text-[12.5px] font-bold ${
+                    (config.sellosPor ?? "compra") === regla
+                      ? "border-bookea-azul bg-bookea-azul text-white"
+                      : "border-bookea-linea bg-white text-bookea-gris"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {(config.sellosPor ?? "compra") === "monto" ? (
+              <div className="mt-3">
+                <label className={etiqueta} htmlFor="b-monto-sello">
+                  Monto requerido (₡ por sello)
+                </label>
+                <input
+                  id="b-monto-sello"
+                  type="number"
+                  min={100}
+                  max={10_000_000}
+                  step={100}
+                  value={config.montoPorSello ?? ""}
+                  onChange={(e) =>
+                    alCambiar({
+                      ...config,
+                      montoPorSello:
+                        e.target.value.trim() === "" ? null : num(e.target.value, 100),
+                    })
+                  }
+                  placeholder="4500"
+                  className={campo}
+                />
+                <p className={ayuda}>
+                  Con ₡{(config.montoPorSello ?? 4500).toLocaleString("es-CR")} por sello,
+                  una compra de ₡
+                  {((config.montoPorSello ?? 4500) * 2).toLocaleString("es-CR")} suma 2
+                  sellos. El monto se teclea en el mostrador al escanear; sin monto, entra
+                  1 sello como siempre.
+                </p>
+              </div>
+            ) : (
+              <p className={ayuda}>
+                Cada compra escaneada suma un sello, gaste lo que gaste — lo de siempre.
+              </p>
+            )}
+          </div>
+
           <Interruptor
             id="b-rep"
             titulo="Se puede repetir"

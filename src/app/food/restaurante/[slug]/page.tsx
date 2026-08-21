@@ -4,10 +4,10 @@ import { notFound } from "next/navigation";
 import { createAnonClient, createClient } from "@/lib/supabase/server";
 import { hoyISOCR, TZ_CR } from "@/lib/fechas";
 import { CRC, type FoodFranja, type FoodMenuCategory, type FoodMenuItem } from "@/lib/food/tipos";
-import SiteHeader from "@/components/site-header";
-import SiteFooter from "@/components/site-footer";
+import FoodHeader from "@/components/food/food-header";
+import FoodFooter from "@/components/food/food-footer";
 import FoodDemoBanner from "@/components/food/demo-banner";
-import { IconCloche, IconUtensils } from "@/components/icons";
+import { IconCloche, IconPin, IconUtensils } from "@/components/icons";
 import ReservarForm from "./reservar-form";
 
 export const revalidate = 30;
@@ -87,6 +87,7 @@ export default async function RestauranteFoodPage({
     { data: categorias, error: errCategorias },
     { data: items, error: errItems },
     { data: franjas, error: errFranjas },
+    { data: sedes },
     sesion,
   ] = await Promise.all([
     anon
@@ -108,6 +109,11 @@ export default async function RestauranteFoodPage({
       .gte("fecha", hoy)
       .order("fecha")
       .order("hora"),
+    anon
+      .from("food_locations")
+      .select("direccion")
+      .eq("business_id", negocio.id)
+      .limit(1),
     (async () => {
       const supabase = await createClient();
       const {
@@ -140,49 +146,86 @@ export default async function RestauranteFoodPage({
     itemsPorCategoria.set(it.category_id, lista);
   }
 
+  const direccion = sedes?.[0]?.direccion ?? null;
+  const mejorDescuento = franjasVigentes.reduce(
+    (max, f) => Math.max(max, f.descuento_porcentaje),
+    0,
+  );
+
   return (
     <>
-      <SiteHeader breadcrumb="FOOD.BOOKEA" />
+      <FoodHeader />
       {negocio.es_demo && <FoodDemoBanner />}
-      <main className="mx-auto max-w-[900px] px-4 py-8 sm:px-6">
-      <div className="relative aspect-[21/9] w-full overflow-hidden rounded-3xl bg-aventurea-blue-light">
+      <main className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 sm:py-8">
+      {/* ── Hero comercial ───────────────────────────────────────────
+          El nombre va SOBRE la foto (o sobre navy si no hay foto — el
+          degradado navy garantiza contraste en los dos casos), con la
+          dirección real de food_locations y el mejor % vigente como
+          badge. La página debe leerse como una ficha de reserva, no
+          como un detalle de CRUD. */}
+      <div className="relative h-[250px] w-full overflow-hidden rounded-4xl bg-gradient-to-br from-aventurea-navy to-aventurea-navy-2 sm:h-[360px]">
         {negocio.foto_portada_url ? (
           <Image
             src={negocio.foto_portada_url}
             alt={negocio.nombre}
             fill
             priority
-            sizes="(max-width: 768px) 100vw, 900px"
+            sizes="(max-width: 768px) 100vw, 1180px"
             className="object-cover"
           />
         ) : (
-          <span className="flex h-full items-center justify-center text-aventurea-navy/40">
-            <IconCloche className="h-14 w-14" />
+          <span className="flex h-full items-center justify-center text-white/25">
+            <IconCloche className="h-16 w-16" />
           </span>
         )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+
+        {mejorDescuento > 0 && (
+          <span className="absolute right-4 top-4 rounded-xl bg-aventurea-orange px-3.5 py-2 text-white shadow-elevado sm:right-5 sm:top-5">
+            <span className="block text-[9px] font-bold uppercase tracking-wide">Hasta</span>
+            <span className="block text-[20px] font-extrabold leading-none">−{mejorDescuento}%</span>
+          </span>
+        )}
+
+        <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-7">
+          <h1 className="titulo text-[26px] leading-tight sm:text-[38px]">{negocio.nombre}</h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] font-bold text-white/85 sm:text-[13.5px]">
+            {direccion && (
+              <span className="flex items-center gap-1.5">
+                <IconPin className="h-3.5 w-3.5 shrink-0" />
+                {direccion}
+              </span>
+            )}
+            {negocio.telefono && <span>📞 {negocio.telefono}</span>}
+          </div>
+        </div>
       </div>
 
-      <h1 className="mt-5 text-2xl font-bold text-aventurea-ink sm:text-3xl">{negocio.nombre}</h1>
       {negocio.descripcion && (
-        <p className="mt-2 max-w-[600px] text-[14px] text-aventurea-ink-soft">{negocio.descripcion}</p>
-      )}
-      {negocio.telefono && (
-        <p className="mt-1 text-[13px] text-aventurea-ink-soft">📞 {negocio.telefono}</p>
+        <p className="mt-5 max-w-[640px] text-[14.5px] leading-relaxed text-aventurea-ink-soft">
+          {negocio.descripcion}
+        </p>
       )}
 
-      <section className="mt-8">
-        <h2 className="text-[17px] font-bold text-aventurea-ink">Reservá tu horario</h2>
-        <p className="mt-1 text-[13px] text-aventurea-ink-soft">
-          El descuento es del horario, no del plato: se aplica a toda tu cuenta.
-        </p>
-        <div className="mt-4">
-          <ReservarForm franjas={franjasVigentes} logueado={!!sesion} slug={slug} />
-        </div>
-      </section>
+      {/* ── Reserva + menú ───────────────────────────────────────────
+          En desktop el panel de reserva vive fijo (sticky) a la
+          derecha, como en cualquier ficha comercial de reserva; en
+          móvil va PRIMERO (el aside está antes en el DOM), porque a
+          eso vino el usuario — el menú es contexto, no la acción. */}
+      <div className="mt-7 grid gap-8 lg:grid-cols-[1fr_400px] lg:items-start">
+        <aside className="rounded-3xl border border-aventurea-line bg-white p-5 shadow-flotante sm:p-6 lg:sticky lg:top-20 lg:order-2">
+          <h2 className="titulo text-[19px] text-aventurea-navy">¿Cuándo querés ir?</h2>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            El descuento es del horario, no del plato: se aplica a toda tu cuenta.
+          </p>
+          <div className="mt-4">
+            <ReservarForm franjas={franjasVigentes} logueado={!!sesion} slug={slug} />
+          </div>
+        </aside>
 
       {(categorias ?? []).length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-[17px] font-bold text-aventurea-ink">Menú</h2>
+        <section className="lg:order-1">
+          <h2 className="titulo text-[19px] text-aventurea-navy">Menú</h2>
           <div className="mt-4 flex flex-col gap-6">
             {(categorias as FoodMenuCategory[]).map((cat) => {
               const lista = itemsPorCategoria.get(cat.id) ?? [];
@@ -233,8 +276,9 @@ export default async function RestauranteFoodPage({
           </div>
         </section>
       )}
+      </div>
       </main>
-      <SiteFooter />
+      <FoodFooter />
     </>
   );
 }

@@ -91,6 +91,7 @@ const SIN_TOPES: LimitesPlan = {
   clientesActivos: null,
   programas: null,
   notificacionesMes: null,
+  ubicaciones: null,
   administradores: null,
   sedes: null,
   automatizaciones: null,
@@ -720,15 +721,26 @@ describe("no se promete lo que no existe", () => {
     }
   });
 
-  it("el cupo de notificaciones es 1/1/20/50", () => {
-    // Prueba: 1 por mes
-    // Starter (id interno "arranque"): 1 por mes
-    // Impulso: 20 por mes
-    // Ilimitado: 50 por mes
+  it("el cupo de notificaciones es 1/2/15/ilimitado", () => {
+    // Los números que fijó el dueño en ago 2026:
+    // Prueba: 1 por mes · Starter ($12): 2 · Impulso: 15
+    // Ilimitado: sin tope (null = «ilimitadas», ver
+    // `etiquetaNotificacionesDe`).
     expect(PLANES.prueba.limites.notificacionesMes).toBe(1);
-    expect(PLANES.arranque.limites.notificacionesMes).toBe(1);
-    expect(PLANES.impulso.limites.notificacionesMes).toBe(20);
-    expect(PLANES.ilimitado.limites.notificacionesMes).toBe(50);
+    expect(PLANES.arranque.limites.notificacionesMes).toBe(2);
+    expect(PLANES.impulso.limites.notificacionesMes).toBe(15);
+    expect(PLANES.ilimitado.limites.notificacionesMes).toBeNull();
+  });
+
+  it("Geo-Push (ubicaciones) arranca en Impulso", () => {
+    // Decisión del dueño (ago 2026): es el gancho para subir de
+    // paquete. Prueba y Starter lo ven BLOQUEADO en el panel, no
+    // escondido (ver seccion-ubicaciones.tsx).
+    expect(PLANES.prueba.limites.ubicaciones).toBe(0);
+    expect(PLANES.arranque.limites.ubicaciones).toBe(0);
+    expect(PLANES.impulso.limites.ubicaciones).toBe(3);
+    // 10 y no null: es el techo que acepta Apple por pase.
+    expect(PLANES.ilimitado.limites.ubicaciones).toBe(10);
   });
 
   it("la proyección de crecimiento es SOLO de Impulso para arriba", () => {
@@ -745,9 +757,12 @@ describe("no se promete lo que no existe", () => {
   it("mandar notificaciones lo puede hacer cualquier paquete — lo que cambia es el número", () => {
     for (const id of PLANES_OFRECIDOS) expect(puede(id, "notificaciones")).toBe(true);
     expect(etiquetaNotificacionesDe(PLANES.prueba)).toBe("1 notificación al mes");
-    expect(etiquetaNotificacionesDe(PLANES.arranque)).toBe("1 notificación al mes");
-    expect(etiquetaNotificacionesDe(PLANES.impulso)).toBe("20 notificaciones al mes");
-    expect(etiquetaNotificacionesDe(PLANES.ilimitado)).toBe("50 notificaciones al mes");
+    expect(etiquetaNotificacionesDe(PLANES.arranque)).toBe("2 notificaciones al mes");
+    expect(etiquetaNotificacionesDe(PLANES.impulso)).toBe("15 notificaciones al mes");
+    // Ilimitado ya no lleva número: `null` se traduce a la frase.
+    expect(etiquetaNotificacionesDe(PLANES.ilimitado)).toBe(
+      "Notificaciones ilimitadas al pase del cliente",
+    );
   });
 
   it("toda capacidad tiene etiqueta, exista o no el producto", () => {

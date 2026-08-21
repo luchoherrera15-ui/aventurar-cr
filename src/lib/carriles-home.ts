@@ -118,17 +118,29 @@ export type PanelCarriles = {
 };
 
 /** El directorio de cada vertical. */
-const DIRECTORIO: Record<string, string> = {
+export const DIRECTORIO: Record<string, string> = {
   eventos: "/eventos",
   citas: "/citas",
   restaurantes: "/restaurantes",
   hospedajes: "/hospedajes",
 };
 
-/** Cómo se nombra la vertical dentro de «Más en …». */
-const NOMBRE_VERTICAL: Record<string, string> = {
+/**
+ * CÓMO SE LLAMA CADA VERTICAL DE CARA AL PÚBLICO.
+ *
+ * Un solo mapa para todo el sitio: lo lee el carril de cierre («Más en
+ * …»), el riel de la portada y la fila de íconos de arriba
+ * (`@/components/home/grupos-categorias`). Tres copias de estos cuatro
+ * nombres serían tres verdades el día que el dueño renombre una.
+ *
+ * ⚠️ «citas» dice «Salud y belleza» a propósito. La vertical se llama
+ * `citas` en la base y en la URL, pero esa palabra no le dice a nadie
+ * qué se reserva ahí: barbería, uñas, spa y consultorios. El nombre lo
+ * eligió el dueño y ya era el que usaba la portada.
+ */
+export const NOMBRE_VERTICAL: Record<string, string> = {
   eventos: "Eventos",
-  citas: "Citas",
+  citas: "Salud y belleza",
   restaurantes: "Restaurantes",
   hospedajes: "Hospedajes",
 };
@@ -141,7 +153,7 @@ const NOMBRE_VERTICAL: Record<string, string> = {
  * comparar contra ese valor sería un error de compilación aunque en la
  * base exista y llegue en la fila.
  */
-function verticalDe(rancho: Rancho): string {
+export function verticalDe(rancho: Rancho): string {
   return (rancho as { vertical?: string }).vertical ?? "eventos";
 }
 
@@ -338,4 +350,165 @@ export function agruparEnCarriles(
   }
 
   return { nivel: "B", carriles: [], sueltos: ordenar(propios, supers) };
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   EL REPARTO POR VERTICAL — los rieles de la PORTADA
+   ═════════════════════════════════════════════════════════════════
+
+   `agruparEnCarriles` (arriba) abre una fila POR RUBRO dentro de UNA
+   vertical: es lo que quiere un directorio, donde el visitante ya
+   eligió a qué vino. La portada quiere lo contrario, y así lo pidió el
+   dueño:
+
+     «Un carril que diga Eventos y salga todo en general. Un carril que
+      diga Salud y belleza y salgan barberías, uñas, estilistas, todo en
+      el mismo riel.»
+
+   O sea: CUATRO filas, una por vertical, cada una con todos sus rubros
+   revueltos adentro. El rubro específico no se pierde — cada tarjeta lo
+   lleva escrito encima de la foto (`RanchoCard`).
+
+   ── POR QUÉ ACÁ Y NO EN UN MÓDULO NUEVO ─────────────────────────────
+   Porque todo lo que necesita ya vive en este archivo: `DIRECTORIO`,
+   `NOMBRE_VERTICAL`, `verticalDe`, `ordenar` y `TOPE_CARRIL`. Un módulo
+   aparte tendría que importarlos o —lo más probable— volver a
+   escribirlos.
+
+   ── EL UMBRAL ES 1, Y ES DISTINTO AL DE ARRIBA A PROPÓSITO ──────────
+   `MIN_CARRIL` vale 3 porque una fila «Uñas» con una sola tarjeta,
+   entre otras cinco filas llenas, grita que ese rubro está vacío. Acá
+   no hay comparación posible: son las CUATRO verticales del
+   marketplace, y si Hospedajes tiene un solo negocio publicado,
+   esconderlo significa que ese negocio —que pagó por estar— no aparece
+   en la portada. La regla que sí se respeta es la otra: una vertical
+   SIN negocios no dibuja su fila (se devuelve fuera de la lista), en
+   vez de un riel vacío con flechas muertas.
+*/
+
+/**
+ * El orden en que la portada apila sus filas. Fijo y no «por cantidad»:
+ * el orden de las secciones de una portada no puede bailar entre dos
+ * visitas según quién publicó ayer.
+ */
+export const ORDEN_VERTICALES = [
+  "eventos",
+  "citas",
+  "hospedajes",
+  "restaurantes",
+] as const;
+
+export type RielVertical = {
+  /** Estable y única: sirve de `key` en React. */
+  vertical: string;
+  /** El encabezado de la fila («Salud y belleza»). */
+  titulo: string;
+  /**
+   * CUÁNTOS NEGOCIOS TIENE DE VERDAD ESA VERTICAL, antes del tope de la
+   * fila. Es el número que se pinta al lado del título, y es el mismo
+   * que el visitante va a contar del otro lado del «Ver todos» — porque
+   * sale de la misma lista de aprobados que alimenta al directorio.
+   */
+  total: number;
+  /** Las tarjetas que se pintan, ya ordenadas y recortadas. */
+  items: Rancho[];
+  /** El directorio de la vertical. */
+  verTodoHref: string;
+};
+
+/**
+ * Reparte los negocios publicados en una fila por vertical.
+ *
+ * Función PURA sobre la lista que la portada ya trajo: cero consultas
+ * nuevas. Las verticales sin negocios no salen en el resultado, así que
+ * quien la llama no tiene que acordarse de saltearlas.
+ *
+ * @param todos    Los aprobados y pintables de TODAS las verticales.
+ * @param superIds Los súper destacados (0169): van primeros en su fila.
+ */
+export function agruparPorVertical(
+  todos: Rancho[],
+  superIds: string[] = [],
+): RielVertical[] {
+  const supers = new Set(superIds);
+
+  const porVertical = new Map<string, Rancho[]>();
+  for (const r of todos) {
+    const v = verticalDe(r);
+    const lista = porVertical.get(v);
+    if (lista) lista.push(r);
+    else porVertical.set(v, [r]);
+  }
+
+  // ── Primero las conocidas, EN SU ORDEN FIJO ──────────────────────
+  //
+  // ── Y DESPUÉS, LO QUE NO ESTABA EN LA LISTA ──────────────────────
+  //
+  // `ORDEN_VERTICALES` es una constante escrita a mano; `ranchos.vertical`
+  // es una columna de la base cuyo CHECK ya se amplió DOS veces (la 0055
+  // agregó 'citas' y 'hospedajes', la 0076 agregó 'restaurantes'). El día
+  // que se amplíe una tercera, un `for` que solo recorre la constante
+  // dejaría a esos negocios FUERA DE LA PORTADA sin un solo error: ni un
+  // riel, ni un log, nada. Es exactamente el fallo que este archivo
+  // promete no cometer unas líneas más arriba («Ningún negocio publicado
+  // puede quedar invisible»).
+  //
+  // Así que la vuelta se da sobre las conocidas MÁS lo que de verdad
+  // llegó en los datos. Una vertical nueva sale al final, con el nombre
+  // crudo de la columna si nadie le puso uno bonito y con el «Ver todos»
+  // apuntando a Eventos: feo, sí, pero visible — y quien lo vea sabe de
+  // inmediato que falta darla de alta en `NOMBRE_VERTICAL` y `DIRECTORIO`.
+  const conocidas = new Set<string>(ORDEN_VERTICALES);
+  const orden = [
+    ...ORDEN_VERTICALES,
+    ...[...porVertical.keys()].filter((v) => !conocidas.has(v)).sort(),
+  ];
+
+  const rieles: RielVertical[] = [];
+  for (const vertical of orden) {
+    const propios = porVertical.get(vertical);
+    // La regla de oro: una fila sin negocios NO se dibuja.
+    if (!propios || propios.length === 0) continue;
+
+    rieles.push({
+      vertical,
+      titulo: NOMBRE_VERTICAL[vertical] ?? vertical,
+      total: propios.length,
+      items: ordenar(propios, supers).slice(0, TOPE_CARRIL),
+      verTodoHref: DIRECTORIO[vertical] ?? "/eventos",
+    });
+  }
+
+  return rieles;
+}
+
+/**
+ * ¿Se dibuja el riel transversal «Recién publicados»?
+ *
+ * Ese riel es un ATAJO: junta lo último que entró en las cuatro
+ * verticales para que nadie tenga que recorrer cuatro filas buscando lo
+ * nuevo. Un atajo solo vale la pena si ahorra camino.
+ *
+ * Con el directorio como está hoy —dos negocios aprobados, uno de
+ * Eventos y uno de Salud y belleza— ese riel mostraría EXACTAMENTE las
+ * mismas dos tarjetas que las dos filas de abajo, una encima de otra:
+ * la portada repetiría el catálogo entero tres veces. Eso no se lee
+ * como abundancia, se lee como relleno, que es justo lo que esta
+ * portada evita.
+ *
+ * Por eso pide las dos cosas a la vez:
+ *
+ *   · MÁS DE UNA FILA debajo que recorrer (si no, el atajo y la fila
+ *     son la misma lista con dos nombres distintos).
+ *   · `MIN_CARRIL` × 2 negocios publicados — o sea, suficiente fondo
+ *     para que «lo más nuevo» no sea, literalmente, «todo».
+ *
+ * Nadie tiene que tocar código el día que se cumpla: la fila aparece
+ * sola cuando entren los negocios.
+ */
+export function hayFondoParaRecienPublicados(
+  pintables: number,
+  rieles: number,
+): boolean {
+  return rieles >= 2 && pintables >= MIN_CARRIL * 2;
 }

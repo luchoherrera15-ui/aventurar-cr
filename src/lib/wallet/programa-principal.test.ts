@@ -3,8 +3,11 @@ import {
   elegirDeFilasCrudas,
   elegirPrograma,
   emisoraDeFilasCrudas,
+  filasCrudasPorAntiguedad,
+  laDelLinkDelNegocio,
   programaQueEmite,
   resumenDeFila,
+  tarjetaDelPase,
   type FilaElegible,
 } from "./programa-principal";
 
@@ -172,6 +175,185 @@ describe("filas crudas, como las devuelve `select *`", () => {
       activo: false,
       vigente_desde: null,
       vigente_hasta: null,
+      // Una fecha de creación que no sea texto tampoco: sin ella el
+      // desempate cae al id, que es lo que había antes de la columna.
+      created_at: null,
     });
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  EL QR IMPRESO NO PUEDE CAMBIAR DE DESTINO
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * Esto es lo que reportó el dueño: «al crear otra tarjeta me parece que
+ * el link de la primera desaparece, y no puede ser así ya que la
+ * primera estaba asociada al QR que el cliente ya tiene expuesto».
+ *
+ * El desempate por uuid lo permitía: el id de la tarjeta NUEVA puede
+ * ordenar antes que el de la vieja, y entonces `/tarjeta/<negocio>`
+ * —que está impreso y pegado en la pared de un local— empezaba a servir
+ * la tarjeta recién creada.
+ */
+describe("la tarjeta del link viejo del negocio", () => {
+  const conFecha = (id: string, created_at: string, extra: Partial<FilaElegible> = {}) =>
+    ({ id, estado: "activo", activo: true, created_at, ...extra }) as FilaElegible;
+
+  it("es la MÁS VIEJA, aunque el uuid de la nueva ordene antes", () => {
+    // El caso exacto del reporte: la segunda tarjeta tiene un uuid que
+    // empieza con "a" y la original con "z". Con el desempate viejo
+    // ganaba la nueva.
+    const original = conFecha("zzz", "2026-05-01T10:00:00Z");
+    const nueva = conFecha("aaa", "2026-08-19T10:00:00Z");
+    expect(laDelLinkDelNegocio([nueva, original])?.id).toBe("zzz");
+    expect(laDelLinkDelNegocio([original, nueva])?.id).toBe("zzz");
+  });
+
+  it("no se mueve por crear una tercera, ni una cuarta", () => {
+    const original = conFecha("zzz", "2026-05-01T10:00:00Z");
+    const filas = [original];
+    for (const [id, fecha] of [
+      ["aaa", "2026-08-19T10:00:00Z"],
+      ["bbb", "2026-09-01T10:00:00Z"],
+      ["000", "2026-10-01T10:00:00Z"],
+    ] as const) {
+      filas.push(conFecha(id, fecha));
+      expect(laDelLinkDelNegocio(filas)?.id).toBe("zzz");
+    }
+  });
+
+  it("sigue siendo la original AUNQUE esté pausada — no salta a la hermana", () => {
+    // Esta es la diferencia con `elegirPrograma`: si la tarjeta del
+    // póster está en pausa, la respuesta honesta es «está en pausa» (la
+    // página la muestra con su aviso), no entregarle al cliente otra
+    // tarjeta que él nunca pidió.
+    const original = conFecha("zzz", "2026-05-01T10:00:00Z", PAUSADA);
+    const nueva = conFecha("aaa", "2026-08-19T10:00:00Z");
+    expect(laDelLinkDelNegocio([nueva, original])?.id).toBe("zzz");
+  });
+
+  it("sin tarjetas, null", () => {
+    expect(laDelLinkDelNegocio([])).toBeNull();
+  });
+
+  it("una fila SIN fecha no le gana el primer puesto a una que sí la tiene", () => {
+    // «No sé de cuándo es» no puede ser «entonces es la más vieja»: el
+    // primer puesto es el que sirve el link impreso.
+    const sinFecha = tarjeta("aaa");
+    const conocida = conFecha("zzz", "2026-05-01T10:00:00Z");
+    expect(laDelLinkDelNegocio([sinFecha, conocida])?.id).toBe("zzz");
+  });
+});
+
+describe("elegirPrograma con fechas: la principal también prefiere la vieja", () => {
+  it("entre dos emitiendo, gana la más vieja y no la del uuid menor", () => {
+    const filas: FilaElegible[] = [
+      { id: "aaa", estado: "activo", activo: true, created_at: "2026-08-19T10:00:00Z" },
+      { id: "zzz", estado: "activo", activo: true, created_at: "2026-05-01T10:00:00Z" },
+    ];
+    expect(elegirPrograma(filas, AHORA)?.id).toBe("zzz");
+  });
+
+  it("pero si la vieja no emite, la principal sí pasa a la que emite", () => {
+    // El panel tiene que mostrar como principal la que de verdad le
+    // está dando tarjetas a los clientes hoy.
+    const filas: FilaElegible[] = [
+      { id: "aaa", estado: "activo", activo: true, created_at: "2026-08-19T10:00:00Z" },
+      { id: "zzz", ...PAUSADA, created_at: "2026-05-01T10:00:00Z" },
+    ];
+    expect(elegirPrograma(filas, AHORA)?.id).toBe("aaa");
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  EL PASE QUE SE ENTREGA ES EL DE LA TARJETA QUE SE PIDIÓ
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * La decisión más cara del módulo: si se equivoca, el cliente ve una
+ * tarjeta en pantalla y se lleva otra al teléfono, sin ningún error a
+ * la vista. Y del lado del REFRESCO es peor: el pase que ya está
+ * guardado se reescribe solo con datos de una tarjeta que esa persona
+ * nunca pidió.
+ */
+describe("tarjetaDelPase: cuál se entrega", () => {
+  const activa = (id: string, created_at: string) => ({
+    id,
+    nombre: id,
+    estado: "activo",
+    activo: true,
+    created_at,
+  });
+  const VIEJA = activa("sellos", "2026-05-01T10:00:00Z");
+  const NUEVA = activa("evento", "2026-08-19T10:00:00Z");
+
+  it("sin pedir ninguna, la de siempre: la que emite (y entre dos, la vieja)", () => {
+    const r = tarjetaDelPase([NUEVA, VIEJA], AHORA, null);
+    expect(r.fila?.id).toBe("sellos");
+    expect(r.pausado).toBe(false);
+  });
+
+  it("pidiendo una, ESA — aunque no sea la que se elegiría sola", () => {
+    expect(tarjetaDelPase([NUEVA, VIEJA], AHORA, "evento").fila?.id).toBe("evento");
+  });
+
+  it("un id que no es de este negocio no entrega NADA", () => {
+    // El id viaja por la URL. Sin esta comprobación, pedir el programa
+    // de otro rancho habría emitido su tarjeta desde acá.
+    const r = tarjetaDelPase([NUEVA, VIEJA], AHORA, "de-otro-negocio");
+    expect(r.fila).toBeNull();
+    expect(r.motivo).toBe("ajena");
+  });
+
+  it("la pedida PAUSADA se entrega marcada, no se cambia por la hermana", () => {
+    // El refresco de Wallet entra por acá: si devolviera la hermana, el
+    // aviso de pausa nunca llegaría y encima el pase guardado quedaría
+    // reescrito con otra tarjeta.
+    const pausada = { ...VIEJA, ...PAUSADA };
+    const r = tarjetaDelPase([NUEVA, pausada], AHORA, "sellos");
+    expect(r.fila?.id).toBe("sellos");
+    expect(r.pausado).toBe(true);
+  });
+
+  it("la pedida ARCHIVADA no entrega nada — y tampoco entrega la hermana", () => {
+    // Una archivada no vuelve sola, así que no hay pase que dar. Lo que
+    // NO puede pasar es que se entregue la otra tarjeta del negocio:
+    // eso es reescribirle el pase al cliente con algo ajeno.
+    const r = tarjetaDelPase([NUEVA, { ...VIEJA, ...ARCHIVADA }], AHORA, "sellos");
+    expect(r.fila).toBeNull();
+    expect(r.motivo).toBe("sin_programa");
+  });
+
+  it("sin pedir nada y con la principal pausada, se entrega marcada (lo de siempre)", () => {
+    const r = tarjetaDelPase([{ ...VIEJA, ...PAUSADA }], AHORA, null);
+    expect(r.fila?.id).toBe("sellos");
+    expect(r.pausado).toBe(true);
+  });
+
+  it("un negocio sin tarjetas no entrega nada", () => {
+    const r = tarjetaDelPase([], AHORA, null);
+    expect(r.fila).toBeNull();
+    expect(r.motivo).toBe("sin_programa");
+  });
+
+  it("devuelve LA FILA entera: el generador necesita los colores", () => {
+    expect(tarjetaDelPase([VIEJA], AHORA, "sellos").fila).toBe(VIEJA);
+  });
+});
+
+describe("filasCrudasPorAntiguedad", () => {
+  it("ordena de la más vieja a la más nueva sin tocar la lista original", () => {
+    const filas = [
+      { id: "b", created_at: "2026-08-19T10:00:00Z" },
+      { id: "a", created_at: "2026-05-01T10:00:00Z" },
+    ];
+    expect(filasCrudasPorAntiguedad(filas).map((f) => f.id)).toEqual(["a", "b"]);
+    expect(filas.map((f) => f.id)).toEqual(["b", "a"]);
+  });
+
+  it("devuelve LAS MISMAS filas, no copias: quien llama necesita los colores", () => {
+    const fila = { id: "a", created_at: "2026-05-01T10:00:00Z", pase_color_fondo: "#000" };
+    expect(filasCrudasPorAntiguedad([fila])[0]).toBe(fila);
   });
 });

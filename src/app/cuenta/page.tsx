@@ -83,6 +83,35 @@ export default async function CuentaPage({
           <FondoAcceso />
 
           <div className="relative z-10 w-full max-w-sm">
+            {/*
+             * EL TEXTO SIMBÓLICO que pidió el dueño para cuando "Entrá
+             * acá" (en /lealtad, el CTA de "¿Ya tenés el programa?") abre
+             * esta pantalla en una pestaña nueva — "arriba del panel que
+             * se abre" es literal: es lo primero que se ve acá.
+             *
+             * Gateado a `destinoLealtad` (o sea, a `?volver=lealtad`) y
+             * no a toda la pantalla: /cuenta también es el login del
+             * resto del sitio (reservas, favoritos, invitaciones), y ese
+             * público no viene pensando en su programa de lealtad.
+             *
+             * El texto elegido — "Tu mejor herramienta para que los
+             * clientes vuelvan" — parte de la sugerencia del dueño ("tu
+             * mejor forma de atraer clientes") pero la ajusta al público
+             * real de ESTE link: dice "¿Ya tenés el programa? Entrá
+             * acá", o sea que es gente que YA armó su tarjeta y vuelve a
+             * administrarla — no alguien decidiendo si probar Lealtad
+             * por primera vez. "Atraer" es la promesa de antes de
+             * empezar; "que vuelvan" es la de después, que es la que
+             * describe la lealtad en sí (y hace eco del propio H1 de
+             * /lealtad: "Hacé que cada visita se convierta en la
+             * próxima") — sin repetir esa misma frase.
+             */}
+            {destinoLealtad && (
+              <p className="mb-4 text-center text-[13px] font-bold uppercase tracking-[0.08em] text-aventurea-navy/70">
+                Tu mejor herramienta para que los clientes vuelvan
+              </p>
+            )}
+
             {/* El filo bicolor de la maqueta, superpuesto al borde
                 superior de la tarjeta. Va acá afuera y no dentro de
                 FormularioAuth: es adorno de ESTA pantalla, y el mismo

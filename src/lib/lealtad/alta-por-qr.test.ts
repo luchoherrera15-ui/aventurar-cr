@@ -39,6 +39,9 @@ type Mundo = {
   sinSesiones?: boolean;
   /** `personas` no contesta: la base no sabe de quién es cada contacto. */
   personasRotas?: boolean;
+  /** Lo que devuelve `alta_persona_local_por_qr` (0200). */
+  respuestaLocal?: Record<string, unknown>;
+  errorRpcLocal?: { message: string; code?: string };
 };
 
 type Registro = {
@@ -117,6 +120,19 @@ function dbFalso(mundo: Mundo, registro: Registro) {
       if (nombre === "personas_activas_del_negocio") {
         return Promise.resolve({ data: mundo.personasActivas ?? 0, error: null });
       }
+      if (nombre === "alta_persona_local_por_qr") {
+        if (mundo.errorRpcLocal) return Promise.resolve({ data: null, error: mundo.errorRpcLocal });
+        return Promise.resolve({
+          data: mundo.respuestaLocal ?? {
+            estado: "listo",
+            persona_id: "persona-local",
+            miembro_id: "miembro-local",
+            miembro_nuevo: true,
+            solo_contacto: true,
+          },
+          error: null,
+        });
+      }
       if (nombre === "alta_persona_por_qr") {
         if (mundo.errorRpc) return Promise.resolve({ data: null, error: mundo.errorRpc });
         return Promise.resolve({
@@ -160,6 +176,11 @@ async function correrAlta(mundo: Mundo, extra: Partial<Parametros> = {}) {
 /** Los argumentos con que se llamó al RPC del alta, si se llamó. */
 function argsDelAlta(registro: Registro) {
   return registro.rpc.find((l) => l.nombre === "alta_persona_por_qr")?.args ?? null;
+}
+
+/** Los del alta LOCAL (0200), la que no reclama el contacto ajeno. */
+function argsDelAltaLocal(registro: Registro) {
+  return registro.rpc.find((l) => l.nombre === "alta_persona_local_por_qr")?.args ?? null;
 }
 
 type Parametros = Parameters<typeof altaPorQr>[1];
@@ -464,5 +485,146 @@ describe("altaPorQr — qué lee la persona en cada caso", () => {
   it("una respuesta que no entendemos no se muestra como éxito", async () => {
     const { resultado } = await correrAlta({ respuesta: { estado: "vaya_a_saber" } });
     expect(resultado.estado).toBe("error");
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  «NO ES MÍA, DAME UNA NUEVA» — el desvío de la 0200
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * Pedido del dueño: «si el correo ya está, pide loguearse y eso es
+ * tedioso». La salida NO puede ser abrir el portero —eso entrega los
+ * sellos de otro—: es darle a quien está en la caja una identidad
+ * propia, de cero, con su contacto guardado como dato de contacto.
+ *
+ * Lo que estas pruebas clavan es lo único que puede salir caro: que ese
+ * camino se tome SOLO cuando la persona lo pidió, y que cuando se toma
+ * no se reclame nada de la identidad ajena.
+ */
+describe("altaPorQr — el desvío sin cuenta (0200)", () => {
+  const AJENO = {
+    respuesta: { estado: "requiere_prueba", persona_id: "otra", canal_sugerido: "correo" },
+  };
+
+  it("SIN pedirlo, el contacto ajeno sigue pidiendo prueba y no se crea nada", async () => {
+    // Que el desvío sea opt-in es la mitad de la seguridad: si se
+    // tomara solo, cualquiera que teclee un correo ajeno se llevaría
+    // una tarjeta sin haber decidido nada, y la deduplicación global de
+    // Bookea se disolvería sola.
+    const { resultado, registro } = await correrAlta(AJENO);
+    expect(resultado.estado).toBe("requiere_prueba");
+    expect(argsDelAltaLocal(registro)).toBeNull();
+  });
+
+  it("pidiéndolo, se abre una identidad LOCAL y se entrega la tarjeta", async () => {
+    const { resultado, registro } = await correrAlta(AJENO, { sinReclamo: true });
+    expect(resultado.estado).toBe("listo");
+    if (resultado.estado === "listo") {
+      expect(resultado.personaId).toBe("persona-local");
+      expect(resultado.miembroNuevo).toBe(true);
+      // La cookie se abre igual: es lo que hace que no tenga que
+      // volver a escribir todo la próxima vez.
+      expect(registro.sesiones).toHaveLength(1);
+    }
+  });
+
+  it("el desvío NO le manda a la base ninguna prueba de posesión", async () => {
+    // El agujero que hay que tener cerrado: si el alta local recibiera
+    // `p_persona_probada` o `p_cliente_id`, estaría reclamando la
+    // identidad ajena por la puerta de atrás. Su firma ni siquiera
+    // tiene esos parámetros — esto lo deja escrito.
+    const { registro } = await correrAlta(AJENO, { sinReclamo: true });
+    const args = argsDelAltaLocal(registro);
+    expect(args).not.toBeNull();
+    expect(args).not.toHaveProperty("p_persona_probada");
+    expect(args).not.toHaveProperty("p_cliente_id");
+  });
+
+  it("el contacto tecleado SÍ viaja: es la base de datos que el dueño pidió", async () => {
+    const { registro } = await correrAlta(AJENO, { sinReclamo: true });
+    const args = argsDelAltaLocal(registro);
+    expect(args?.p_correo).toBe("ana@ejemplo.com");
+    expect(args?.p_telefono).toBe("88888888");
+    expect(args?.p_nombre).toBe("Ana");
+  });
+
+  it("el texto exacto del permiso viaja igual que en el alta normal", async () => {
+    const { registro } = await correrAlta(AJENO, { sinReclamo: true });
+    const args = argsDelAltaLocal(registro);
+    const cuerpo = args?.p_consentimientos as { negocio?: { texto?: string; acepta?: boolean } };
+    expect(cuerpo.negocio?.texto).toBe(textoConsentimientoNegocio("Silence Barber"));
+    expect(cuerpo.negocio?.acepta).toBe(true);
+  });
+
+  it("con el contacto LIBRE el desvío no cambia nada: sigue el alta de siempre", async () => {
+    // `sinReclamo` no debe saltarse la deduplicación cuando no hace
+    // falta: si el correo no es de nadie, la persona tiene que quedar
+    // con su identidad global, como cualquiera.
+    const { resultado, registro } = await correrAlta({}, { sinReclamo: true });
+    expect(resultado.estado).toBe("listo");
+    expect(argsDelAlta(registro)).not.toBeNull();
+    expect(argsDelAltaLocal(registro)).toBeNull();
+  });
+
+  it("sin la 0200 pegada, se vuelve al login de hoy en vez de romper", async () => {
+    const { resultado } = await correrAlta(
+      { ...AJENO, errorRpcLocal: { message: "Could not find the function", code: "PGRST202" } },
+      { sinReclamo: true },
+    );
+    expect(resultado.estado).toBe("requiere_prueba");
+    if (resultado.estado === "requiere_prueba") expect(resultado.canal).toBe("correo");
+  });
+
+  it("otro error de la base llega traducido, nunca crudo", async () => {
+    const { resultado } = await correrAlta(
+      { ...AJENO, errorRpcLocal: { message: "Hace falta el nombre", code: "22023" } },
+      { sinReclamo: true },
+    );
+    expect(resultado.estado).toBe("error");
+    if (resultado.estado === "error") expect(resultado.mensaje).not.toContain("22023");
+  });
+
+  it("el desvío NO abre una puerta para pasarse del tope del paquete", async () => {
+    // EL AGUJERO QUE ESTO CIERRA, y no es teórico:
+    //
+    // `esClienteConocido` mira a propósito también las identidades que
+    // quien pide NO probó —le alcanza con que el correo tecleado sea de
+    // alguien que ya es miembro— porque en el camino normal esa persona
+    // se reusa y no consume un asiento nuevo.
+    //
+    // Pero este camino existe justamente porque el contacto es de OTRO:
+    // la ficha que crea es nueva sí o sí. Con el paquete lleno, teclear
+    // el correo de un cliente que ya está adentro apagaba el chequeo
+    // —`yaMiembro` en true por el dueño del correo— y el negocio
+    // afiliaba gente por encima de su tope, de a una por dedazo.
+    const { resultado, registro } = await correrAlta(
+      {
+        ...AJENO,
+        plan: "arranque", // 100 clientes activos
+        personasActivas: 100,
+        personas: [{ id: "persona-otra", correo: "ana@ejemplo.com" }],
+        miembros: ["persona-otra"], // el dueño del correo YA es miembro
+      },
+      { sinReclamo: true },
+    );
+    expect(resultado.estado).toBe("lleno");
+    // Y lo que de verdad importa: no se creó ninguna ficha.
+    expect(argsDelAltaLocal(registro)).toBeNull();
+  });
+
+  it("con lugar en el paquete, el desvío sigue entregando la tarjeta", async () => {
+    const { resultado, registro } = await correrAlta(
+      {
+        ...AJENO,
+        plan: "arranque",
+        personasActivas: 99,
+        personas: [{ id: "persona-otra", correo: "ana@ejemplo.com" }],
+        miembros: ["persona-otra"],
+      },
+      { sinReclamo: true },
+    );
+    expect(resultado.estado).toBe("listo");
+    expect(argsDelAltaLocal(registro)).not.toBeNull();
   });
 });

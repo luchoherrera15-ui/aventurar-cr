@@ -42,8 +42,18 @@ export async function GET(
     return pantallaDeProblema(pedido, ranchoId, "negocio_desconocido");
   }
 
+  // CUÁL tarjeta del negocio, si quien pide lo dijo. Lo manda la página
+  // pública con el id de la tarjeta que acaba de dibujar (desde que
+  // cada una tiene su link y su QR propios). Sin el parámetro, esta
+  // ruta se comporta EXACTAMENTE como antes.
+  //
+  // Se valida la forma acá y la pertenencia adentro del generador,
+  // contra las filas de ESTE negocio: el parámetro viene de la URL.
+  const pedidoPrograma = new URL(pedido.url).searchParams.get("programa");
+  const programaId = pedidoPrograma && UUID_REGEX.test(pedidoPrograma) ? pedidoPrograma : null;
+
   const db = createAdminClient();
-  if (!db) return pantallaDeProblema(pedido, ranchoId, "sin_conexion");
+  if (!db) return pantallaDeProblema(pedido, ranchoId, "sin_conexion", programaId);
 
   const supabase = await createClient();
   const {
@@ -86,11 +96,12 @@ export async function GET(
   });
   if (afiliacion.falta !== null) {
     console.warn(`[pases] ${ranchoId} → alta incompleta: falta ${afiliacion.falta}`);
-    return pantallaDeProblema(pedido, ranchoId, "sin_identidad");
+    return pantallaDeProblema(pedido, ranchoId, "sin_identidad", programaId);
   }
 
   const resultado = await generarPaseDeLealtad({
     ranchoId,
+    programaId,
     ...identidad,
     ahora: new Date(),
   });
@@ -101,7 +112,7 @@ export async function GET(
     // pintaba al cliente, en pantalla blanca y en jerga de máquina,
     // «{"error":"El programa de este negocio está lleno por ahora"}».
     console.warn(`[pases] ${ranchoId} → ${resultado.codigo}: ${resultado.motivo}`);
-    return pantallaDeProblema(pedido, ranchoId, resultado.codigo);
+    return pantallaDeProblema(pedido, ranchoId, resultado.codigo, programaId);
   }
 
   return new NextResponse(new Uint8Array(resultado.pkpass), {

@@ -5,6 +5,8 @@ import {
   TOPE_CARRIL,
   TOPE_CARRILES,
   agruparEnCarriles,
+  agruparPorVertical,
+  hayFondoParaRecienPublicados,
 } from "./carriles-home";
 import type { Rancho } from "@/app/mi-negocio/types";
 
@@ -375,5 +377,142 @@ describe("la función es pura", () => {
 
   it("el mínimo del carril es el mismo que la portada ya aplicaba", () => {
     expect(MIN_CARRIL).toBe(3);
+  });
+});
+
+/**
+ * ============================================================
+ * EL REPARTO POR VERTICAL — los rieles de la PORTADA
+ * ============================================================
+ *
+ * Otra función, otra regla: acá el umbral es UNO. Lo que estas pruebas
+ * fijan es lo que la portada de rieles no puede permitirse:
+ *
+ *  · que una vertical sin negocios dibuje un riel vacío;
+ *  · que un negocio publicado no aparezca porque su vertical tiene uno
+ *    solo (ese negocio pagó por estar en la portada);
+ *  · que el conteo del encabezado mienta cuando la fila se recorta;
+ *  · que el orden de las secciones baile según quién publicó ayer;
+ *  · que «Recién publicados» repita, arriba, el catálogo entero que
+ *    está tres centímetros más abajo.
+ */
+describe("el reparto por vertical", () => {
+  it("una vertical SIN negocios no devuelve riel", () => {
+    const rieles = agruparPorVertical([
+      negocio({ categoria: "lugares", vertical: "eventos" }),
+    ]);
+    expect(rieles).toHaveLength(1);
+    expect(rieles[0].vertical).toBe("eventos");
+  });
+
+  it("sin negocios no hay ni un riel", () => {
+    expect(agruparPorVertical([])).toEqual([]);
+  });
+
+  it("UN solo negocio SÍ abre su riel (el umbral acá es 1, no MIN_CARRIL)", () => {
+    // Exactamente el estado de producción en ago 2026: un negocio de
+    // Eventos y una barbería. Las dos filas se dibujan.
+    const rieles = agruparPorVertical([
+      negocio({ categoria: "lugares", vertical: "eventos" }),
+      negocio({ categoria: "barberia", vertical: "citas" }),
+    ]);
+    expect(rieles.map((r) => r.vertical)).toEqual(["eventos", "citas"]);
+    expect(rieles.every((r) => r.items.length === 1)).toBe(true);
+  });
+
+  it("junta TODOS los rubros de la vertical en el mismo riel", () => {
+    // El pedido textual: «barberías, uñas, estilistas, todo en el mismo
+    // riel». Cuatro rubros distintos de Citas → UNA sola fila.
+    const rieles = agruparPorVertical([
+      negocio({ categoria: "barberia", vertical: "citas" }),
+      negocio({ categoria: "unas", vertical: "citas" }),
+      negocio({ categoria: "belleza", vertical: "citas" }),
+      negocio({ categoria: "spa", vertical: "citas" }),
+    ]);
+    expect(rieles).toHaveLength(1);
+    expect(rieles[0].items).toHaveLength(4);
+  });
+
+  it("el riel de citas se llama «Salud y belleza», no «Citas»", () => {
+    const rieles = agruparPorVertical([
+      negocio({ categoria: "barberia", vertical: "citas" }),
+    ]);
+    expect(rieles[0].titulo).toBe("Salud y belleza");
+    expect(rieles[0].verTodoHref).toBe("/citas");
+  });
+
+  it("el orden de las filas es fijo, no «por cantidad»", () => {
+    // Restaurantes tiene tres y Eventos uno: Eventos va igual primero.
+    const rieles = agruparPorVertical([
+      ...tres("sodas", "restaurantes"),
+      negocio({ categoria: "lugares", vertical: "eventos" }),
+      negocio({ categoria: "casa", vertical: "hospedajes" }),
+    ]);
+    expect(rieles.map((r) => r.vertical)).toEqual([
+      "eventos",
+      "hospedajes",
+      "restaurantes",
+    ]);
+  });
+
+  it("el conteo del encabezado es el REAL, aunque la fila se recorte", () => {
+    const muchos = Array.from({ length: TOPE_CARRIL + 5 }, () =>
+      negocio({ categoria: "lugares", vertical: "eventos" }),
+    );
+    const [riel] = agruparPorVertical(muchos);
+    expect(riel.items).toHaveLength(TOPE_CARRIL);
+    expect(riel.total).toBe(TOPE_CARRIL + 5);
+  });
+
+  it("adentro del riel manda el destacado, y después la fecha", () => {
+    const viejoDestacado = negocio({
+      categoria: "lugares",
+      dia: 1,
+      destacadoOrden: 1,
+    });
+    const nuevoSinMarca = negocio({ categoria: "alimentacion", dia: 20 });
+    const [riel] = agruparPorVertical([nuevoSinMarca, viejoDestacado]);
+    expect(riel.items[0].id).toBe(viejoDestacado.id);
+  });
+
+  it("no toca el arreglo que recibe", () => {
+    const entrada = [...tres("lugares"), ...tres("belleza", "citas")];
+    const copia = [...entrada];
+    agruparPorVertical(entrada);
+    expect(entrada).toEqual(copia);
+  });
+
+  it("una vertical que NO está en la lista fija igual sale, al final", () => {
+    // El CHECK de `ranchos.vertical` ya se amplió dos veces (0055 y
+    // 0076). Si mañana entra una quinta vertical y nadie se acuerda de
+    // sumarla a `ORDEN_VERTICALES`, esos negocios NO pueden desaparecer
+    // de la portada en silencio: salen últimos, con el nombre crudo de
+    // la columna y el «Ver todos» cayendo a Eventos, que es feo pero se
+    // ve — y se ve tanto que quien lo mire lo arregla.
+    const rieles = agruparPorVertical([
+      negocio({ categoria: "lugares", vertical: "eventos" }),
+      negocio({ categoria: "otros", vertical: "vertical-nueva" }),
+    ]);
+    expect(rieles.map((r) => r.vertical)).toEqual([
+      "eventos",
+      "vertical-nueva",
+    ]);
+    expect(rieles[1].titulo).toBe("vertical-nueva");
+    expect(rieles[1].items).toHaveLength(1);
+  });
+});
+
+describe("«Recién publicados» solo cuando aporta algo", () => {
+  it("con los dos negocios de hoy NO se dibuja: sería el catálogo repetido", () => {
+    expect(hayFondoParaRecienPublicados(2, 2)).toBe(false);
+  });
+
+  it("con una sola vertical tampoco: el atajo y la fila serían la misma lista", () => {
+    expect(hayFondoParaRecienPublicados(20, 1)).toBe(false);
+  });
+
+  it("con fondo suficiente y más de una fila, sí", () => {
+    expect(hayFondoParaRecienPublicados(MIN_CARRIL * 2, 2)).toBe(true);
+    expect(hayFondoParaRecienPublicados(200, 4)).toBe(true);
   });
 });

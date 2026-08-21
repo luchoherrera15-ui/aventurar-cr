@@ -34,8 +34,13 @@ export async function GET(
     return pantallaDeProblema(pedido, ranchoId, "negocio_desconocido");
   }
 
+  // CUÁL tarjeta del negocio, si el botón lo dijo. Mismo criterio que
+  // Apple: sin el parámetro, esta ruta se comporta como siempre.
+  const pedidoPrograma = new URL(pedido.url).searchParams.get("programa");
+  const programaId = pedidoPrograma && UUID_REGEX.test(pedidoPrograma) ? pedidoPrograma : null;
+
   const db = createAdminClient();
-  if (!db) return pantallaDeProblema(pedido, ranchoId, "sin_conexion");
+  if (!db) return pantallaDeProblema(pedido, ranchoId, "sin_conexion", programaId);
 
   const supabase = await createClient();
   const {
@@ -62,13 +67,13 @@ export async function GET(
   });
   if (afiliacion.falta !== null) {
     console.warn(`[pases-google] ${ranchoId} → alta incompleta: falta ${afiliacion.falta}`);
-    return pantallaDeProblema(pedido, ranchoId, "sin_identidad");
+    return pantallaDeProblema(pedido, ranchoId, "sin_identidad", programaId);
   }
 
-  const resultado = await generarPaseGoogle({ ranchoId, ...identidad });
+  const resultado = await generarPaseGoogle({ ranchoId, programaId, ...identidad });
   if (!resultado.ok) {
     console.warn(`[pases-google] ${ranchoId} → ${resultado.codigo}: ${resultado.motivo}`);
-    return pantallaDeProblema(pedido, ranchoId, resultado.codigo);
+    return pantallaDeProblema(pedido, ranchoId, resultado.codigo, programaId);
   }
 
   return NextResponse.redirect(resultado.url, 302);

@@ -52,6 +52,7 @@ const { RETIRADO } = vi.hoisted(() => ({
       clientesActivos: null,
       programas: null,
       notificacionesMes: null,
+      ubicaciones: null,
       administradores: null,
       sedes: null,
       automatizaciones: null,

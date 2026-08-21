@@ -196,6 +196,9 @@ export type Beneficio =
   | { forma: "monto"; valor: number }
   | { forma: "gratis"; que: string };
 
+/** Cómo gana sellos el cliente (0197). */
+export type ReglaSellos = "compra" | "monto";
+
 export type ConfigSellos = {
   /** Cuántos sellos pide la regalía. */
   requeridos: number;
@@ -205,6 +208,16 @@ export type ConfigSellos = {
   inicial: number;
   /** Al completarla, arranca otra vuelta. */
   repetible: boolean;
+  /**
+   * Cómo se gana un sello (0197). "compra" = uno por compra, el
+   * comportamiento de siempre; "monto" = floor(monto / montoPorSello).
+   * OPCIONAL a propósito: las tarjetas guardadas antes de la 0197 no
+   * traen el campo y tienen que seguir leyéndose — ausente se comporta
+   * como "compra".
+   */
+  sellosPor?: ReglaSellos;
+  /** Colones por sello cuando sellosPor === "monto". */
+  montoPorSello?: number | null;
 };
 
 export type ConfigPuntos = {
@@ -283,7 +296,15 @@ export type ConfigBeneficio =
 export function configPorDefecto(tipo: TipoTarjeta): ConfigBeneficio {
   switch (tipo) {
     case "sellos":
-      return { tipo, requeridos: 10, recompensa: "", inicial: 0, repetible: true };
+      return {
+        tipo,
+        requeridos: 10,
+        recompensa: "",
+        inicial: 0,
+        repetible: true,
+        sellosPor: "compra",
+        montoPorSello: null,
+      };
     case "puntos":
       return {
         tipo,
@@ -335,6 +356,18 @@ export function validarBeneficio(config: ConfigBeneficio): string | null {
       // cliente la abre ya ganada y el programa no llega a existir.
       if (config.inicial >= config.requeridos) {
         return "Los sellos de regalo tienen que ser menos que la meta.";
+      }
+      // La regla de acumulación (0197). Ausente = "compra", que es lo
+      // de siempre; cualquier otra cosa que no sea "monto" es una
+      // petición armada a mano.
+      if (config.sellosPor !== undefined && config.sellosPor !== "compra" && config.sellosPor !== "monto") {
+        return "Esa regla de sellos no existe: es por compra o por monto.";
+      }
+      if (config.sellosPor === "monto") {
+        const m = config.montoPorSello;
+        if (typeof m !== "number" || !Number.isInteger(m) || m < 100 || m > 10_000_000) {
+          return "El monto por sello va en colones enteros, de ₡100 a ₡10.000.000.";
+        }
       }
       return null;
     }

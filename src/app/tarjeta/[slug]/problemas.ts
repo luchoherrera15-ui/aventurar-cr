@@ -111,6 +111,27 @@ export function avisoDeSlugDesconocido(): Aviso {
   };
 }
 
+/**
+ * El negocio SÍ existe, pero la tarjeta que pide el link no.
+ *
+ * Es distinto de `avisoDeSlugDesconocido` y por eso tiene su propio
+ * texto: acá el póster llegó al negocio correcto, así que quien atiende
+ * puede resolverlo en el momento —el link de cada tarjeta está en su
+ * panel— mientras que un slug de negocio desconocido no lo arregla
+ * nadie desde la caja.
+ */
+export function avisoDeTarjetaDesconocida(nombreNegocio: string): Aviso {
+  const negocio = nombreNegocio.trim() || "Este negocio";
+  return {
+    tono: "qr",
+    titulo: "Esta tarjeta ya no está en este link",
+    texto:
+      `${negocio} está en Bookea, pero la tarjeta que pide este código no ` +
+      `existe o le cambiaron el nombre. Mostrale esta pantalla a quien te ` +
+      `atendió: el link correcto de cada tarjeta está en su panel.`,
+  };
+}
+
 /** Por qué el botón del pase no pudo entregar nada. */
 export function avisoDeFalloDelPase(
   codigo: CodigoFalloPase,

@@ -97,20 +97,10 @@ export default function SelectorIconoSello({
         role="group"
         aria-label="Icono del sello"
       >
-        <Opcion
-          etiqueta="Mi logo"
-          puesto={valor === null}
-          alElegir={() => alElegir(null)}
-          colorFondo={colorFondo}
-        >
-          <span
-            className="grid h-8 w-8 place-items-center rounded-full border border-dashed"
-            style={{ borderColor: colorSello, color: colorSello }}
-          >
-            <Icono nombre="camara" className="h-4 w-4" />
-          </span>
-        </Opcion>
-
+        {/* «Mi ícono» va PRIMERO (pedido del dueño, ago 2026): la
+            opción de subir el propio símbolo es la que la gente busca
+            al llegar acá, y con «Mi logo» adelante se leía como que
+            "ahí va el logo" y no dejaba cargar nada. */}
         {alSubirIcono && (
           <Opcion
             etiqueta="Mi ícono"
@@ -135,6 +125,20 @@ export default function SelectorIconoSello({
             )}
           </Opcion>
         )}
+
+        <Opcion
+          etiqueta="Mi logo"
+          puesto={valor === null}
+          alElegir={() => alElegir(null)}
+          colorFondo={colorFondo}
+        >
+          <span
+            className="grid h-8 w-8 place-items-center rounded-full border border-dashed"
+            style={{ borderColor: colorSello, color: colorSello }}
+          >
+            <Icono nombre="camara" className="h-4 w-4" />
+          </span>
+        </Opcion>
 
         {ICONOS_SELLO_LISTA.map((i) => (
           <Opcion

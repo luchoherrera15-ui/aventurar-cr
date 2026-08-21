@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { Bloque, EsqueletoCard, EsqueletoFiltros } from "../esqueleto";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
-import SelectorVertical from "@/components/selector-vertical";
 import BarraFiltrosDirectorio from "@/components/barra-filtros-directorio";
 import { CATEGORIA_RESTAURANTE_ICONO } from "./iconos";
 import { esDemo } from "@/lib/demo";
@@ -115,9 +114,6 @@ export default async function RestaurantesPage({
 
       <section className="relative mx-auto max-w-[1100px] px-4 pb-10 pt-4 sm:px-6">
         <h1 className="sr-only">Restaurantes — reservá mesa y pedí para recoger</h1>
-        <div className="mb-4">
-          <SelectorVertical />
-        </div>
 
         {/* La altura reservada es lo que evita que el pie de página
             salte. Medido con red a 700 kbps y CPU 4×: el esqueleto de

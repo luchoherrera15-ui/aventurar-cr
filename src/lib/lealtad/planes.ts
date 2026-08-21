@@ -386,6 +386,26 @@ export type LimitesPlan = {
    */
   notificacionesMes: number | null;
   /**
+   * Ubicaciones con Geo-Push por negocio (0196, `lealtad_ubicaciones`):
+   * puntos con coordenadas y mensaje propio que el pase de Apple lleva
+   * en `locations` — el iPhone muestra el mensaje en la pantalla
+   * bloqueada al pasar cerca (radio ~100 m; lo fija iOS, no nosotros).
+   *
+   * SE EXIGE en `ubicaciones-actions.ts` (`agregarUbicacion`), contra
+   * el conteo real de la tabla. Y hay un TECHO DE APPLE aparte: un pase
+   * acepta 10 ubicaciones como máximo, así que ningún número de acá
+   * puede pasar de 10 — la 0196 lo remacha con un trigger en la base.
+   * Por eso Ilimitado va en 10 y no en `null`: «sin tope» sería
+   * prometer algo que Apple no entrega.
+   *
+   * Bajar de paquete NO borra ubicaciones ya guardadas: solo frena las
+   * nuevas — el mismo criterio que `administradores`.
+   *
+   * SOLO EN iPHONE, igual que `cercania`: `google.ts` no escribe
+   * ubicaciones en el objeto, y la pantalla lo dice.
+   */
+  ubicaciones: number | null;
+  /**
    * Personas del equipo con acceso al panel de Lealtad — los «PINs de
    * staff» del competidor. INCLUYE AL DUEÑO: por eso la Prueba va en 1
    * (el dueño y nadie más) y no en 0.
@@ -553,6 +573,10 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
       // Starter: el paquete gratis alcanza para probar el botón, no
       // para operar una campaña.
       notificacionesMes: 1,
+      // CERO ubicaciones: Geo-Push arranca en Impulso (dueño, ago
+      // 2026). La pantalla del panel no la esconde — la muestra
+      // bloqueada, con la invitación a cambiar de suscripción.
+      ubicaciones: 0,
       // El dueño y nadie más: `administradores` cuenta al dueño.
       administradores: 1,
       sedes: 1,
@@ -614,10 +638,13 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
       // cuenta de la 0142 eso ya no pasa —los 100 son 100 sumando las
       // dos— y el escalón puede ser lo que el dueño aprobó.
       programas: 2,
-      // Mismo número que Prueba: un local recién arrancando manda un
-      // aviso puntual, no una campaña seguida. El salto real está en
-      // Impulso (20).
-      notificacionesMes: 1,
+      // DOS al mes (dueño, ago 2026): el paquete de $12 manda avisos
+      // puntuales; la campaña seguida está en Impulso (15).
+      notificacionesMes: 2,
+      // CERO: Geo-Push arranca en Impulso (dueño, ago 2026) — es el
+      // gancho para subir de paquete. La sección se ve bloqueada, no
+      // escondida.
+      ubicaciones: 0,
       administradores: 3,
       sedes: 1,
       automatizaciones: 0,
@@ -633,6 +660,10 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     id: "impulso",
     nombre: "Impulso",
     descripcion: "Para el que ya tiene clientela y quiere hacerla volver.",
+    // $42 se QUEDA (dueño, ago 2026): bajarlo a $32.99 obligaba a crear
+    // un Price nuevo en Stripe —los Price son inmutables— y a migrar a
+    // mano a quien ya paga el viejo. Se pospuso; el catálogo no se
+    // adelanta a esa decisión.
     precioMensual: 42,
     // 42 × 12 = 504, menos 20% = 403,20 → 400 (20,6%). Ver la nota del
     // redondeo en el paquete Arranque: siempre hacia abajo.
@@ -640,9 +671,15 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     limites: {
       clientesActivos: 1_000,
       programas: 5,
-      // VEINTE, el salto grande del catálogo: de un aviso puntual a
-      // poder correr una campaña seguida en el mes.
-      notificacionesMes: 20,
+      // QUINCE al mes (dueño, ago 2026): el salto real contra las dos
+      // de Starter, sin llegar al spam.
+      notificacionesMes: 15,
+      // TRES: el negocio con clientela suele tener más de un punto (el
+      // local, la feria del sábado, el punto de retiro). IMPULSO ES EL
+      // PRIMERO QUE TRAE UBICACIONES — decisión del dueño: Geo-Push es
+      // el gancho para subir de paquete, así que Prueba y Starter van
+      // en 0 y la pantalla los invita a cambiar de suscripción.
+      ubicaciones: 3,
       administradores: 10,
       sedes: 1,
       automatizaciones: 0,
@@ -666,11 +703,17 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     limites: {
       clientesActivos: null,
       programas: null,
-      // CINCUENTA. No es `null` (ilimitado de verdad) a propósito: un
-      // negocio que manda más de 50 avisos promocionales al mes le está
-      // llenando el pase de spam a su propio cliente, y eso no es un
-      // límite técnico que valga la pena regalar.
-      notificacionesMes: 50,
+      // ILIMITADAS (dueño, ago 2026): el paquete se llama Ilimitado y
+      // ahora lo es también acá. `null` es el valor que
+      // `etiquetaNotificacionesDe` traduce a «Notificaciones ilimitadas
+      // al pase del cliente». (Antes eran 50, un tope pensado como
+      // freno al spam; el dueño decidió que ese juicio es del negocio,
+      // no del catálogo.)
+      notificacionesMes: null,
+      // DIEZ y no `null`: es el máximo que Apple acepta por pase. Ver
+      // la nota de `LimitesPlan.ubicaciones` — «ilimitado» acá sería
+      // prometer lo que iOS no entrega.
+      ubicaciones: 10,
       administradores: null,
       sedes: 1,
       automatizaciones: 0,
@@ -782,6 +825,8 @@ export const ETIQUETAS_LIMITE: Record<keyof LimitesPlan, string> = {
   clientesActivos: "Clientes activos",
   programas: "Tarjetas",
   notificacionesMes: "Notificaciones por mes",
+  // «(en iPhone)» por lo mismo que `cercania`: en Android no sale.
+  ubicaciones: "Ubicaciones con Geo-Push (en iPhone)",
   administradores: "Gente del equipo",
   sedes: "Sedes",
   automatizaciones: "Automatizaciones",
@@ -873,8 +918,10 @@ export function precioDe(def: DefinicionPlan, periodo: "mes" | "año" = "mes"): 
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    // Los precios son enteros ($12, $42, $89): pedir dos decimales
-    // pintaría "$12.00", que se lee como un formulario y no un precio.
+    // Los precios enteros ($12, $89) NO llevan ".00" —se leería como un
+    // formulario y no como un precio—, pero los que sí tienen centavos
+    // los muestran completos ($32.99, Impulso desde ago 2026): de ahí
+    // el mínimo en 0 y el máximo en 2.
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(monto);

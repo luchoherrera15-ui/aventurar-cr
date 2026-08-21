@@ -6,6 +6,9 @@ import {
   leerMontoColones,
   pideMontoElTipo,
   recompensaInicial,
+  registraCompraElTipo,
+  reglaDeSellos,
+  sellosPorCompra,
   textosDelTipo,
   traducirErrorDeBase,
   traducirMotivo,
@@ -372,5 +375,80 @@ describe("recompensaInicial — LOS OCHO TIPOS TIENEN QUÉ CANJEAR", () => {
         renovacionAutomatica: false,
       }),
     ).toBeNull();
+  });
+});
+
+describe("sellosPorCompra — la regla de acumulación (0197)", () => {
+  const porMonto: ConfigBeneficio = {
+    tipo: "sellos",
+    requeridos: 10,
+    recompensa: "Un matcha gratis",
+    inicial: 0,
+    repetible: true,
+    sellosPor: "monto",
+    montoPorSello: 4500,
+  };
+
+  it("con regla por monto: floor(monto / montoPorSello) — los casos del dueño", () => {
+    expect(sellosPorCompra(porMonto, 4500)).toBe(1);
+    expect(sellosPorCompra(porMonto, 9000)).toBe(2);
+    expect(sellosPorCompra(porMonto, 22500)).toBe(5);
+  });
+
+  it("la compra que no llega al monto no suma sellos (y no redondea para arriba)", () => {
+    expect(sellosPorCompra(porMonto, 4000)).toBe(0);
+    expect(sellosPorCompra(porMonto, 8999)).toBe(1);
+    expect(sellosPorCompra(porMonto, 0)).toBe(0);
+  });
+
+  it("con regla por compra: SIEMPRE 1, con o sin monto — lo de siempre, intacto", () => {
+    const porCompra = configPorDefecto("sellos");
+    expect(sellosPorCompra(porCompra, 22500)).toBe(1);
+    expect(sellosPorCompra(porCompra, null)).toBe(1);
+  });
+
+  it("sin monto tecleado: 1 sello como siempre, aunque la regla sea por monto", () => {
+    expect(sellosPorCompra(porMonto, null)).toBe(1);
+  });
+
+  it("config vieja (sin los campos de la 0197) o rota: se cae a 1 por compra", () => {
+    // Las tarjetas guardadas antes de la 0197 no traen sellosPor.
+    const vieja = {
+      tipo: "sellos",
+      requeridos: 10,
+      recompensa: "Café",
+      inicial: 0,
+      repetible: true,
+    } as ConfigBeneficio;
+    expect(sellosPorCompra(vieja, 9000)).toBe(1);
+    expect(reglaDeSellos(vieja)).toEqual({ por: "compra" });
+
+    // Regla por monto pero sin monto por sello utilizable: jamás
+    // dividir entre cero ni dejar al cliente sin su sello.
+    const rota = { ...porMonto, montoPorSello: 0 };
+    expect(sellosPorCompra(rota, 9000)).toBe(1);
+    expect(reglaDeSellos(rota)).toEqual({ por: "compra" });
+
+    expect(sellosPorCompra(null, 9000)).toBe(1);
+  });
+
+  it("una tarjeta que no es de sellos nunca entra por esta regla", () => {
+    expect(sellosPorCompra(configPorDefecto("puntos"), 9000)).toBe(1);
+  });
+});
+
+describe("registraCompraElTipo — dónde el mostrador ofrece registrar la compra", () => {
+  it("sellos entra desde la 0197; los de monto (puntos/cashback/giftcard) siguen", () => {
+    expect(registraCompraElTipo("sellos")).toBe(true);
+    expect(registraCompraElTipo("puntos")).toBe(true);
+    expect(registraCompraElTipo("cashback")).toBe(true);
+    expect(registraCompraElTipo("giftcard")).toBe(true);
+  });
+
+  it("a un cupón, una entrada o un carnet no se les pregunta cuánto gastaron", () => {
+    expect(registraCompraElTipo("cupon")).toBe(false);
+    expect(registraCompraElTipo("descuento")).toBe(false);
+    expect(registraCompraElTipo("membresia")).toBe(false);
+    expect(registraCompraElTipo("evento")).toBe(false);
   });
 });

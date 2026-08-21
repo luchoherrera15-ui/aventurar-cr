@@ -26,7 +26,12 @@ import {
  *     cuenta). Legítimo como resultado, aunque su causa fuera un bug.
  */
 
-const VACIA: IdentidadCliente = { nombre: null, correo: null, telefono: null };
+const VACIA: IdentidadCliente = {
+  nombre: null,
+  correo: null,
+  telefono: null,
+  soloContacto: false,
+};
 
 describe("resolverIdentidad — de dónde sale cada dato", () => {
   it("la persona de `personas` se muestra aunque no tenga fila en `perfiles`", () => {
@@ -44,6 +49,7 @@ describe("resolverIdentidad — de dónde sale cada dato", () => {
       nombre: "Melissa",
       correo: "melissa.chi87@gmail.com",
       telefono: "70119911",
+      soloContacto: false,
     });
   });
 
@@ -52,6 +58,7 @@ describe("resolverIdentidad — de dónde sale cada dato", () => {
       nombre: "Ana Vargas",
       correo: null,
       telefono: null,
+      soloContacto: false,
     });
   });
 
@@ -80,6 +87,7 @@ describe("resolverIdentidad — de dónde sale cada dato", () => {
       // el teléfono de `personas` manda: es el que sostiene el índice
       // único de deduplicación.
       telefono: "88880001",
+      soloContacto: false,
     });
   });
 
@@ -89,7 +97,12 @@ describe("resolverIdentidad — de dónde sale cada dato", () => {
       ficha: { nombre: null, correo: "luis@x.com", telefono: null },
       perfil: { nombre: "Luis Herrera", telefono: "87103739" },
     });
-    expect(r).toEqual({ nombre: "Luis", correo: "luis@x.com", telefono: "87103739" });
+    expect(r).toEqual({
+      nombre: "Luis",
+      correo: "luis@x.com",
+      telefono: "87103739",
+      soloContacto: false,
+    });
   });
 
   it("un string vacío no tapa el dato bueno de la fuente siguiente", () => {
@@ -105,6 +118,54 @@ describe("resolverIdentidad — de dónde sale cada dato", () => {
     // a la pantalla decir POR QUÉ está vacío en vez de inventar un
     // nombre que nadie dio.
     expect(resolverIdentidad({})).toEqual(VACIA);
+  });
+
+  // ── La identidad LOCAL de la 0200 ─────────────────────────────────
+  //
+  // Alguien escribió en el mostrador un correo que ya era de otra
+  // persona y eligió seguir sin cuenta. `personas.correo` y
+  // `.telefono` quedan VACÍOS a propósito (son los que deduplican y son
+  // de otro), así que el único contacto que existe es el declarado en
+  // el vínculo con este negocio. Sin ese escalón, el dueño vería una
+  // ficha sin ningún dato de contacto — justo la que pidió tener.
+  it("el contacto DECLARADO en el vínculo aparece cuando `personas` está vacía", () => {
+    const r = resolverIdentidad({
+      persona: { nombre: "Marcela", correo: null, telefono: null },
+      vinculo: { correo: "marcela@x.com", telefono: "88881234" },
+      soloContacto: true,
+    });
+    expect(r).toEqual({
+      nombre: "Marcela",
+      correo: "marcela@x.com",
+      telefono: "88881234",
+      soloContacto: true,
+    });
+  });
+
+  it("el declarado NO le gana al de `personas`: ese es el que identifica", () => {
+    const r = resolverIdentidad({
+      persona: { correo: "real@x.com" },
+      vinculo: { correo: "declarado@x.com" },
+    });
+    expect(r.correo).toBe("real@x.com");
+  });
+
+  it("el declarado SÍ le gana a la ficha del CRM: lo escribió la persona", () => {
+    const r = resolverIdentidad({
+      vinculo: { telefono: "88881234" },
+      ficha: { telefono: "70000000" },
+    });
+    expect(r.telefono).toBe("88881234");
+  });
+
+  it("`soloContacto` es false salvo que se diga explícitamente", () => {
+    // Toda ficha anterior a la 0200 tiene que salir sin marca: una
+    // etiqueta de «contacto sin verificar» sobre los 31 clientes reales
+    // que ya existen sería una mentira en el panel.
+    expect(resolverIdentidad({ persona: { nombre: "Ana" } }).soloContacto).toBe(false);
+    expect(resolverIdentidad({ persona: { nombre: "Ana" }, soloContacto: false }).soloContacto).toBe(
+      false,
+    );
   });
 });
 

@@ -120,10 +120,15 @@ export default function BarraFiltrosDirectorio({
         />
       </form>
 
-      {/* La fila de categorías. El degradado de la derecha avisa que
-          hay más para el lado cuando la fila no cabe entera. */}
+      {/* La fila de categorías. Los degradados de los costados avisan
+          que hay más para ese lado cuando la fila no cabe entera —en
+          las dos direcciones, porque `justify-[safe_center]` puede
+          centrar la fila y dejar desborde a la izquierda también. */}
       <div className="relative mt-3">
-        <div className="flex gap-2.5 overflow-x-auto py-1 lg:justify-center">
+        <div
+          className="flex gap-2.5 overflow-x-auto py-1 lg:justify-[safe_center]"
+          style={{ scrollbarWidth: "none" }}
+        >
           <ChipCategoria
             href={url({ cat: "" })}
             label="Todos"
@@ -144,7 +149,11 @@ export default function BarraFiltrosDirectorio({
         </div>
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-aventurea-cream-2 to-transparent lg:hidden"
+          className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-aventurea-cream-2 to-transparent"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-aventurea-cream-2 to-transparent"
         />
       </div>
 

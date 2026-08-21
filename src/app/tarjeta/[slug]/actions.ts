@@ -6,7 +6,13 @@ import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { minutoISOCR } from "@/lib/fechas";
-import { emisoraDeFilasCrudas } from "@/lib/wallet/programa-principal";
+import {
+  filasCrudasPorAntiguedad,
+  laDelLinkDeFilasCrudas,
+  resumenDeFila,
+} from "@/lib/wallet/programa-principal";
+import { operaAhora } from "@/lib/lealtad/programas";
+import { buscarPorLlave } from "@/lib/lealtad/llave-tarjeta";
 import {
   DIAS_COOKIE_PERSONA,
   NOMBRE_COOKIE_PERSONA,
@@ -28,11 +34,22 @@ import {
  * Lo que este archivo aporta sobre el RPC:
  *   · revisa los dos campos ANTES, para que un dedazo cueste corregir
  *     un campo y no el pase;
- *   · elige la tarjeta que EMITE con el mismo criterio que la página y
- *     que los dos generadores (`emisoraDeFilasCrudas`), para que nadie
- *     se afilie a una tarjeta distinta de la que vio;
+ *   · resuelve LA MISMA TARJETA que la pantalla acaba de dibujar —por
+ *     su llave si el link la trae, o la original del negocio si es el
+ *     link viejo—, para que nadie se afilie a una tarjeta distinta de
+ *     la que vio;
  *   · abre la sesión de la persona en este navegador y deja la cookie,
  *     que es lo que hace que no haya que volver a escribir nada nunca.
+ *
+ * ------------------------------------------------------------------
+ * LA TARJETA VIAJA EN EL FORMULARIO, Y ESO ES UN ARREGLO
+ * ------------------------------------------------------------------
+ * Antes acá se llamaba a `emisoraDeFilasCrudas`, o sea: el alta volvía
+ * a elegir por su cuenta cuál de las tarjetas del negocio afiliar. Con
+ * dos tarjetas activas, alguien podía ver la tarjeta A en pantalla y
+ * quedar afiliado a la B. Ahora la pantalla dice cuál dibujó y esta
+ * acción respeta eso — y comprueba igual que esa tarjeta sea del
+ * negocio del slug y esté emitiendo: el campo viene del navegador.
  */
 
 export type EstadoAlta = {
@@ -41,8 +58,9 @@ export type EstadoAlta = {
   campo?: CampoDelAlta | null;
   /**
    * El contacto ya es de alguien con cuenta o con sellos juntados. No
-   * se escribió nada: se recupera entrando con el código, que es la
-   * prueba de posesión que Bookea ya tiene.
+   * se escribió nada. Hay dos salidas y la pantalla ofrece las dos:
+   * entrar con el código (recupera la tarjeta y sus sellos) o seguir
+   * sin cuenta con una tarjeta propia y nueva.
    */
   requierePrueba?: boolean;
 };
@@ -57,6 +75,15 @@ export async function afiliarPorQr(
 ): Promise<EstadoAlta> {
   const slug = String(datos.get("slug") ?? "").trim();
   if (!slug) return { error: "Volvé a escanear el QR del local." };
+
+  // Cuál tarjeta del negocio. Vacío = el link viejo del negocio, o sea
+  // la tarjeta ORIGINAL (`laDelLinkDelNegocio`).
+  const llave = String(datos.get("tarjeta") ?? "").trim();
+
+  // ¿La persona ya vio el desvío de «ese contacto tiene dueño» y
+  // eligió seguir sin cuenta? Es un botón distinto del formulario, no
+  // una casilla escondida ni un valor por defecto.
+  const sinReclamo = datos.get("sin_cuenta") === "si";
 
   // El mínimo que pidió el dueño: nombre y AL MENOS un contacto. Se
   // revisa acá para poder marcar el campo exacto, y otra vez adentro de
@@ -81,22 +108,29 @@ export async function afiliarPorQr(
     .maybeSingle();
   if (!negocio) return { error: "Este QR ya no lleva a ninguna tarjeta. Preguntá en el local." };
 
-  // `select *`: las columnas de las 0134/0135/0136 pueden no existir
-  // todavía y una lista explícita fallaría la consulta entera.
-  const { data: filas } = await db
+  // `select *`: las columnas de las 0134/0135/0136/0199 pueden no
+  // existir todavía y una lista explícita fallaría la consulta entera.
+  const { data: filasCrudas } = await db
     .from("programa_lealtad")
     .select("*")
     .eq("rancho_id", negocio.id);
 
-  const programa = emisoraDeFilasCrudas(
-    (filas ?? []) as Record<string, unknown>[],
-    minutoISOCR(),
-  );
-  if (!programa) {
+  const filas = filasCrudasPorAntiguedad((filasCrudas ?? []) as Record<string, unknown>[]);
+  const pedida = llave === "" ? laDelLinkDeFilasCrudas(filas) : buscarPorLlave(filas, llave);
+
+  if (!pedida) {
+    return { error: "Este QR ya no lleva a ninguna tarjeta. Preguntá en el local." };
+  }
+
+  // Que esté emitiendo se comprueba ACÁ y no se confía en que la
+  // pantalla ya lo miró: entre que se dibujó el formulario y se tocó el
+  // botón, el dueño pudo pausarla.
+  if (!operaAhora(resumenDeFila(pedida), minutoISOCR())) {
     return {
       error: "Esta tarjeta no está repartiendo pases ahora mismo. Preguntá en el local.",
     };
   }
+  const programa = pedida;
 
   const jar = await cookies();
   const cabeceras = await headers();
@@ -127,6 +161,7 @@ export async function afiliarPorQr(
     // La sesión anónima del chat flotante NO es una cuenta: colgarle la
     // identidad de lealtad es el bug que documenta `personas.ts`.
     sesion: { clienteId: idDeCuentaDeBookea(user), correo: user?.email ?? null },
+    sinReclamo,
     ip: ipDePeticion(cabeceras),
     userAgent: cabeceras.get("user-agent"),
   });
@@ -136,12 +171,16 @@ export async function afiliarPorQr(
     // deja ver que ese contacto está en Bookea (es inevitable si se
     // quiere proteger la tarjeta), pero no hace falta agregarle valor
     // al dato para quien esté probando contactos ajenos.
+    //
+    // Y ya NO es un callejón sin salida: la pantalla muestra las dos
+    // salidas (recuperar la tarjeta con el código, o seguir sin cuenta
+    // con una propia). Ver `formulario-alta.tsx`.
     return {
       requierePrueba: true,
       error:
         resultado.canal === "whatsapp"
-          ? "Ese contacto ya tiene una tarjeta en Bookea. Para que nadie más se la lleve, entrá con tu correo y la recuperás con todo lo que tengas juntado."
-          : "Ese contacto ya tiene una tarjeta en Bookea. Para que nadie más se la lleve, entrá con el código que te mandamos al correo y la recuperás con todo lo que tengas juntado.",
+          ? "Ya hay una tarjeta con ese contacto. Si es tuya, entrá con tu correo y la recuperás con todo lo que tengas juntado."
+          : "Ya hay una tarjeta con ese contacto. Si es tuya, entrá con el código que te mandamos al correo y la recuperás con todo lo que tengas juntado.",
     };
   }
 
@@ -184,6 +223,12 @@ export async function afiliarPorQr(
   });
 
   // Navegación completa para que el servidor rehaga la página con la
-  // cookie recién puesta y muestre los botones del pase.
-  redirect(`/tarjeta/${encodeURIComponent(slug)}`);
+  // cookie recién puesta y muestre los botones del pase. Se vuelve al
+  // MISMO link por el que entró: si vino por el póster de la segunda
+  // tarjeta, no se lo manda al de la primera.
+  redirect(
+    llave === ""
+      ? `/tarjeta/${encodeURIComponent(slug)}`
+      : `/tarjeta/${encodeURIComponent(slug)}/${encodeURIComponent(llave)}`,
+  );
 }

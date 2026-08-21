@@ -752,6 +752,7 @@ export async function altaPorQr(
     acepta,
     personaProbada,
     sesion,
+    sinReclamo = false,
     ip,
     userAgent,
   }: {
@@ -777,6 +778,19 @@ export async function altaPorQr(
     personaProbada: string | null;
     /** La sesión de Bookea, si hay. Igual: acá se decide qué prueba. */
     sesion: { clienteId: string | null; correo: string | null };
+    /**
+     * «El contacto que escribí ya es de alguien: dame igual MI tarjeta,
+     * sin cuenta.»
+     *
+     * Lo enciende la persona en la pantalla, tocando la segunda opción
+     * del desvío (`formulario-alta.tsx`), NUNCA por defecto. Con esto
+     * en true, el `requiere_prueba` de la 0138 deja de ser un callejón
+     * sin salida: en vez de devolverla al login, se le abre una
+     * identidad NUEVA y LOCAL de este negocio —cero sellos, cero
+     * acceso a la ajena— con su contacto guardado solo como dato de
+     * contacto. Ver `altaLocalPorQr`, abajo.
+     */
+    sinReclamo?: boolean;
     ip: string | null;
     userAgent: string | null;
   },
@@ -870,13 +884,8 @@ export async function altaPorQr(
     clienteId: sesion.clienteId,
   });
 
-  if (!yaMiembro) {
-    const { plan, cuentaId } = await contextoDeCuenta(db, programa, { planRancho });
-    const limite = definicionDe(plan)?.limites.clientesActivos;
-    if (limite !== null && limite !== undefined) {
-      const usadas = await personasActivasDe(db, { cuentaId, ranchoId });
-      if (usadas >= limite) return { estado: "lleno" };
-    }
+  if (!yaMiembro && (await paqueteLleno(db, programa, { planRancho, ranchoId }))) {
+    return { estado: "lleno" };
   }
 
   const { data, error } = await db.rpc("alta_persona_por_qr", {
@@ -902,10 +911,41 @@ export async function altaPorQr(
   };
 
   if (salida.estado === "requiere_prueba") {
-    return {
-      estado: "requiere_prueba",
-      canal: salida.canal_sugerido === "whatsapp" ? "whatsapp" : "correo",
-    };
+    const canal: "correo" | "whatsapp" =
+      salida.canal_sugerido === "whatsapp" ? "whatsapp" : "correo";
+    // El desvío: la persona ya vio que ese contacto tiene dueño y
+    // eligió seguir sin cuenta. No se reclama nada de la identidad
+    // ajena — se abre una propia. Si la 0200 todavía no está pegada,
+    // `altaLocalPorQr` devuelve `requiere_prueba` y la pantalla queda
+    // exactamente como hoy.
+    if (sinReclamo) {
+      // ── EL TOPE, OTRA VEZ Y SIN LA GENEROSIDAD DE ARRIBA ─────────
+      // `esClienteConocido` mira a propósito también las identidades
+      // que quien pide NO probó: para el CUPO da lo mismo, porque el
+      // camino normal termina reusando esa persona y no consume un
+      // asiento nuevo.
+      //
+      // Acá no. Este camino existe justamente porque el contacto es de
+      // OTRO, así que la ficha que se va a crear es nueva sí o sí. Sin
+      // este segundo control, teclear el correo de un cliente que ya
+      // es miembro apagaba el chequeo de arriba —`yaMiembro` en true
+      // por el dueño del correo— y el negocio afiliaba gente por
+      // encima del tope de su paquete, de a una por dedazo.
+      if (await paqueteLleno(db, programa, { planRancho, ranchoId })) {
+        return { estado: "lleno" };
+      }
+      return await altaLocalPorQr(db, {
+        programaId,
+        nombreNegocio,
+        contacto,
+        nombre: nombreLimpio,
+        acepta,
+        canal,
+        ip,
+        userAgent,
+      });
+    }
+    return { estado: "requiere_prueba", canal };
   }
 
   const personaId = salida.persona_id;
@@ -930,6 +970,166 @@ export async function altaPorQr(
     miembroNuevo: salida.miembro_nuevo === true,
     token,
   };
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  EL ALTA QUE NO RECLAMA NADA — «ese correo no es mío, dame la mía»
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * ── EL PROBLEMA ─────────────────────────────────────────────────────
+ *
+ * Pedido del dueño, textual: «si el correo ya está, pide loguearse y
+ * eso es tedioso cuando ya vayan a otro cliente y ya exista el correo.
+ * La idea de pedir eso es meramente para tener base de datos de
+ * clientes».
+ *
+ * Tiene razón en el objetivo: pedir correo y WhatsApp es para PODER
+ * CONTACTAR, no para autenticar. Pero el portero de la 0138 no está de
+ * adorno: si el contacto tecleado ya es de alguien con sellos juntados,
+ * dejar pasar sería entregarle a un desconocido el pase de esa persona
+ * —y con el pase, su regalía, porque el escáner del mostrador canjea
+ * contra el pase—.
+ *
+ * ── LA SALIDA: OTRA IDENTIDAD, NO LA MISMA ──────────────────────────
+ *
+ * Las dos cosas se pueden tener a la vez si se deja de tratar el
+ * contacto tecleado como una LLAVE y se lo trata como lo que el dueño
+ * dijo que es: un DATO DE CONTACTO.
+ *
+ * Este camino crea una persona NUEVA, propia de este negocio, con:
+ *
+ *   · CERO sellos (empieza de cero, como cualquier cliente nuevo);
+ *   · ningún vínculo con la identidad dueña de ese correo — ni lo lee,
+ *     ni lo fusiona, ni le cuelga nada;
+ *   · el correo y el WhatsApp guardados en el VÍNCULO con este negocio
+ *     (`personas_negocio.*_declarado`), no en las columnas globales de
+ *     `personas`, que son las que deduplican. Por eso pueden repetirse
+ *     sin romper nada, y por eso el negocio SÍ tiene su base de datos.
+ *
+ * Qué pasa en los tres casos que importan:
+ *
+ *   · DOS PERSONAS ESCRIBEN EL MISMO CORREO → dos fichas distintas, dos
+ *     tarjetas distintas, dos saldos distintos. Ninguna ve la otra.
+ *   · QUIEN YA TIENE CUENTA Y SELLOS → su tarjeta no se toca. Nadie la
+ *     reclama sin el código del correo, que sigue siendo el camino de
+ *     al lado y el que la pantalla ofrece PRIMERO.
+ *   · UN DEDAZO (tecleó el correo de otro) → se lleva SU tarjeta, no la
+ *     del otro. Antes se quedaba sin ninguna.
+ *
+ * ── LO QUE ESTE CAMINO NO HACE ──────────────────────────────────────
+ *
+ * No escribe el espejo de `consentimientos` (0082). Esa tabla está
+ * indexada por CORREO a secas y sirve a `/baja` y al webhook de Resend:
+ * meter ahí «este correo aceptó promos de Pura Matcha» cuando el correo
+ * es de otra persona sería atribuirle a un tercero un permiso que nunca
+ * dio. El respaldo de la Ley 8968 igual queda —`consentimientos_persona`
+ * lo guarda contra ESTA persona, con el texto exacto— que es lo que
+ * pide el trigger de la 0181 y lo que hay que poder demostrar.
+ *
+ * ── DEGRADA SIN LA MIGRACIÓN ────────────────────────────────────────
+ *
+ * La función vive en la 0200, que se aplica aparte del deploy. Si no
+ * está, PostgREST contesta PGRST202 y acá se devuelve el mismo
+ * `requiere_prueba` de siempre: la pantalla vuelve a ofrecer solo el
+ * login, que es exactamente el comportamiento de hoy.
+ */
+async function altaLocalPorQr(
+  db: Admin,
+  {
+    programaId,
+    nombreNegocio,
+    contacto,
+    nombre,
+    acepta,
+    canal,
+    ip,
+    userAgent,
+  }: {
+    programaId: string;
+    nombreNegocio: string;
+    contacto: Contacto;
+    nombre: string;
+    acepta: boolean;
+    /** El canal que sugería el `requiere_prueba`, por si hay que volver. */
+    canal: "correo" | "whatsapp";
+    ip: string | null;
+    userAgent: string | null;
+  },
+): Promise<ResultadoAlta> {
+  const { data, error } = await db.rpc("alta_persona_local_por_qr", {
+    p_programa: programaId,
+    p_correo: contacto.correo,
+    p_telefono: contacto.telefono,
+    p_nombre: nombre,
+    p_consentimientos: cuerpoDeConsentimientos({ nombreNegocio, acepta }),
+    p_ip: ip,
+    p_user_agent: userAgent ? userAgent.slice(0, 400) : null,
+  });
+
+  if (error) {
+    // Base sin la 0200: se vuelve al camino de hoy en vez de inventar
+    // un error nuevo. La persona ve el login, que sí funciona.
+    const texto = (error.message ?? "").toLowerCase();
+    if (error.code === "PGRST202" || texto.includes("could not find the function")) {
+      return { estado: "requiere_prueba", canal };
+    }
+    return { estado: "error", mensaje: mensajeDeFalloDeAlta(error) };
+  }
+
+  const salida = (data ?? {}) as {
+    estado?: string;
+    persona_id?: string;
+    miembro_id?: string | null;
+    miembro_nuevo?: boolean;
+  };
+
+  const personaId = salida.persona_id;
+  if (salida.estado !== "listo" || typeof personaId !== "string") {
+    return { estado: "error", mensaje: mensajeDeFalloDeAlta(null) };
+  }
+
+  const token = await abrirSesionDePersona(db, personaId, { ip, userAgent });
+  if (!token) {
+    return {
+      estado: "error",
+      mensaje: "Tu tarjeta quedó lista, pero este navegador no la pudo recordar. Probá otra vez.",
+    };
+  }
+
+  return {
+    estado: "listo",
+    personaId,
+    miembroId: typeof salida.miembro_id === "string" ? salida.miembro_id : null,
+    miembroNuevo: salida.miembro_nuevo === true,
+    token,
+  };
+}
+
+/**
+ * ¿El paquete de este negocio ya no admite un cliente más?
+ *
+ * `alta_persona_por_qr` (y su hermana local de la 0200) insertan en
+ * `miembros` directo, y su propio comentario dice que el tope lo
+ * comprueba el servidor (0138:2111). Este es ese servidor, y por eso
+ * vive en una función: hay DOS puertas que crean una ficha nueva —el
+ * alta normal y el «no es mía, dame una nueva»— y si cada una escribe
+ * su propio chequeo, un día una de las dos se queda vieja.
+ *
+ * El plan sale de la CUENTA (0134) con el del rancho como respaldo, y
+ * el consumo se cuenta por cuenta (0142): contarlo por tarjeta le
+ * regalaría un cupo entero a cada tarjeta nueva.
+ */
+async function paqueteLleno(
+  db: Admin,
+  programa: Record<string, unknown>,
+  { planRancho, ranchoId }: { planRancho: string | null; ranchoId: string | null },
+): Promise<boolean> {
+  const { plan, cuentaId } = await contextoDeCuenta(db, programa, { planRancho });
+  const limite = definicionDe(plan)?.limites.clientesActivos;
+  if (limite === null || limite === undefined) return false;
+  const usadas = await personasActivasDe(db, { cuentaId, ranchoId });
+  return usadas >= limite;
 }
 
 /**

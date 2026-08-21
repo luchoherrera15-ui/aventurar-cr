@@ -49,6 +49,13 @@ export type FichaMiembro = {
   /** Días desde su último movimiento. null = nunca tuvo ninguno. */
   diasSinVenir: number | null;
   estado: string;
+  /**
+   * true = identidad LOCAL (0200): su correo y su WhatsApp son datos de
+   * contacto que dio en el mostrador, no una identidad verificada, y
+   * pueden estar repetidos con los de otra ficha. El dueño tiene que
+   * poder verlo antes de mandarle una promo.
+   */
+  soloContacto: boolean;
 };
 
 export type ResumenLealtad = {
@@ -139,6 +146,7 @@ export function fichasDeMiembros({
         conPase: conPase.has(m.id),
         diasSinVenir: visto ? diasDesde(visto, hoy) : null,
         estado: m.estado,
+        soloContacto: identidades.get(m.id)?.soloContacto === true,
       };
     })
     // Primero los que ya pueden canjear —hay que atenderlos—, después

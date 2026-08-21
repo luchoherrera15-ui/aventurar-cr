@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bookea Lealtad — Programa de fidelización</title>
+<meta name="description" content="Bookea Lealtad: tarjetas digitales en Apple Wallet y Google Wallet para convertir visitas en clientes frecuentes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#0d1733;
+  --muted:#667085;
+  --line:#e9ecf3;
+  --paper:#fbfcff;
+  --white:#fff;
+  --bookea:#172554;
+  --bookea-2:#233b7a;
+  --accent:#6d5dfc;
+  --accent-2:#8c6cff;
+  --soft:#eef1ff;
+  --cyan:#dff5ff;
+  --shadow:0 28px 80px rgba(30,43,89,.12);
+  --radius:28px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  color:var(--ink);
+  background:var(--paper);
+  font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+a{text-decoration:none;color:inherit}
+button{font:inherit}
+.container{width:min(1180px,calc(100% - 48px));margin:auto}
+.nav{
+  height:78px;display:flex;align-items:center;justify-content:space-between;
+  position:relative;z-index:20
+}
+.logo{
+  font-size:29px;letter-spacing:-1.8px;font-weight:700;color:var(--ink)
+}
+.logo span{font-weight:400}
+.navlinks{display:flex;gap:34px;font-size:13px;font-weight:600;color:#4f596f}
+.navlinks a:hover{color:var(--ink)}
+.navright{display:flex;align-items:center;gap:20px;font-size:13px;font-weight:600}
+.login{color:#4f596f}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  border:0;border-radius:13px;padding:14px 20px;font-size:13px;font-weight:700;
+  cursor:pointer;transition:.2s ease
+}
+.btn:hover{transform:translateY(-2px)}
+.btn-primary{
+  color:#fff;background:linear-gradient(135deg,#4f46e5,#8b5cf6);
+  box-shadow:0 12px 30px rgba(92,78,229,.22)
+}
+.btn-secondary{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 24px rgba(20,30,70,.06)}
+.hero{
+  position:relative;overflow:hidden;min-height:690px;
+  background:
+    radial-gradient(circle at 73% 47%,rgba(132,112,255,.24),transparent 28%),
+    radial-gradient(circle at 89% 72%,rgba(104,214,255,.18),transparent 22%),
+    linear-gradient(180deg,#fff 0%,#fbfcff 100%);
+}
+.hero:before{
+  content:"";position:absolute;width:760px;height:760px;right:-280px;top:-220px;
+  background:radial-gradient(circle,rgba(217,222,255,.55),transparent 68%);
+  pointer-events:none
+}
+.hero-grid{
+  display:grid;grid-template-columns:49% 51%;align-items:center;
+  min-height:612px;position:relative;z-index:2
+}
+.eyebrow{
+  display:inline-flex;align-items:center;padding:7px 12px;border-radius:999px;
+  border:1px solid #dce1f6;background:rgba(255,255,255,.72);
+  color:#5b64c9;font-size:10px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
+  box-shadow:0 6px 20px rgba(32,44,92,.04)
+}
+h1{
+  font-size:clamp(46px,5.4vw,70px);line-height:.99;letter-spacing:-4px;
+  margin:22px 0 22px;max-width:630px;font-weight:800
+}
+.gradient-text{
+  background:linear-gradient(110deg,#3049c8 0%,#6857ed 48%,#8e5cf6 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent
+}
+.hero-copy{font-size:18px;line-height:1.6;color:#667085;max-width:535px}
+.hero-copy strong{color:#374151}
+.hero-actions{display:flex;gap:12px;margin-top:30px}
+.trust{display:flex;align-items:center;gap:14px;margin-top:26px;color:#667085;font-size:12px}
+.avatars{display:flex;padding-left:4px}
+.avatar{
+  width:29px;height:29px;border-radius:50%;margin-left:-4px;border:2px solid #fff;
+  background:linear-gradient(135deg,#d5d9ee,#8e99bd);display:grid;place-items:center;
+  color:#fff;font-size:10px;font-weight:700
+}
+.stars{color:#e7a72e;letter-spacing:1px;font-size:12px}
+.product-stage{height:620px;position:relative;display:flex;align-items:center;justify-content:center}
+.phone{
+  position:relative;width:326px;height:590px;border-radius:48px;padding:10px;
+  background:linear-gradient(145deg,#121827,#4a5162 50%,#0c101a);
+  box-shadow:0 45px 90px rgba(18,28,67,.24),0 8px 25px rgba(18,28,67,.12);
+  transform:rotate(1deg);z-index:4
+}
+.phone:before{
+  content:"";position:absolute;top:16px;left:50%;transform:translateX(-50%);
+  width:112px;height:30px;border-radius:20px;background:#070b12;z-index:8
+}
+.screen{
+  height:100%;border-radius:40px;background:#f7f8fb;overflow:hidden;position:relative
+}
+.status{height:52px;padding:17px 22px 0;display:flex;justify-content:space-between;font-size:11px;font-weight:700}
+.wallet-title{font-size:25px;font-weight:800;padding:8px 24px 16px}
+.wallet-card{
+  margin:0 16px;border-radius:22px;min-height:275px;padding:22px;color:#fff;
+  background:linear-gradient(145deg,#172554 0%,#263e85 47%,#5666d9 100%);
+  box-shadow:0 20px 40px rgba(30,47,112,.22);position:relative;overflow:hidden
+}
+.wallet-card:after{
+  content:"";position:absolute;width:210px;height:210px;border-radius:50%;right:-80px;top:-80px;
+  background:rgba(255,255,255,.09)
+}
+.card-brand{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:700}
+.card-brand .mark{width:26px;height:26px;border-radius:8px;background:#fff;color:#24336e;display:grid;place-items:center;font-weight:800}
+.card-type{font-size:9px;letter-spacing:1.3px;opacity:.75;margin-top:25px}
+.points{font-size:36px;font-weight:800;letter-spacing:-2px;margin-top:4px}
+.card-row{display:flex;justify-content:space-between;margin-top:24px;font-size:9px;opacity:.9}
+.stamps{display:grid;grid-template-columns:repeat(10,1fr);gap:7px;margin-top:18px}
+.stamp{height:19px;border-radius:50%;border:1px solid rgba(255,255,255,.45);display:grid;place-items:center;font-size:7px}
+.stamp.on{background:#fff;color:#27377c;border-color:#fff}
+.card-footer{font-size:9px;text-align:center;margin-top:17px;font-weight:600}
+.qr{
+  width:78px;height:78px;margin:20px auto 0;background:#fff;border-radius:10px;
+  display:grid;place-items:center;position:relative
+}
+.qr:before{
+  content:"";width:49px;height:49px;
+  background:
+  linear-gradient(90deg,#111 10%,transparent 10% 20%,#111 20% 30%,transparent 30% 42%,#111 42% 54%,transparent 54% 63%,#111 63% 74%,transparent 74% 82%,#111 82%),
+  linear-gradient(#111 10%,transparent 10% 20%,#111 20% 30%,transparent 30% 42%,#111 42% 54%,transparent 54% 63%,#111 63% 74%,transparent 74% 82%,#111 82%);
+  opacity:.9
+}
+.wallet-button{margin:18px 16px;background:#fff;border:1px solid #e6e8ee;border-radius:13px;padding:12px;text-align:center;font-size:11px;font-weight:700}
+.float{
+  position:absolute;background:rgba(255,255,255,.94);border:1px solid rgba(230,233,243,.9);
+  box-shadow:0 22px 55px rgba(35,48,91,.15);backdrop-filter:blur(16px);z-index:7
+}
+.float-notification{left:15px;bottom:94px;border-radius:18px;padding:15px 17px;width:220px}
+.float-notification small{display:block;color:#8a91a4;font-size:10px;margin-bottom:4px}
+.float-notification strong{font-size:12px}
+.float-notification p{margin:5px 0 0;color:#667085;font-size:10px;line-height:1.45}
+.float-custom{right:-15px;top:120px;width:175px;border-radius:18px;padding:17px}
+.float-custom h4{margin:0 0 14px;font-size:11px}
+.option{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid #edf0f5;font-size:9px;color:#667085}
+.dot{width:18px;height:18px;border-radius:50%;background:linear-gradient(135deg,#283c86,#7566f2);border:3px solid #eef0ff}
+.section{padding:120px 0}
+.center{text-align:center}
+.kicker{font-size:10px;letter-spacing:1.8px;text-transform:uppercase;font-weight:800;color:#6a63c9}
+.section h2{font-size:clamp(35px,4vw,52px);letter-spacing:-2.8px;line-height:1.02;margin:14px auto 18px;max-width:750px}
+.lead{max-width:620px;margin:auto;color:#6b7280;line-height:1.65;font-size:16px}
+.wallet-strip{
+  margin-top:55px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px
+}
+.strip-card{
+  padding:28px;background:#fff;border:1px solid var(--line);border-radius:22px;
+  text-align:left;box-shadow:0 14px 40px rgba(30,42,83,.05)
+}
+.icon{width:42px;height:42px;border-radius:13px;background:#f0f1ff;color:#5c58d9;display:grid;place-items:center;font-weight:800;margin-bottom:18px}
+.strip-card h3{margin:0 0 8px;font-size:15px}.strip-card p{margin:0;color:#737b8d;font-size:12px;line-height:1.55}
+.demo-section{
+  background:linear-gradient(135deg,#f2f3ff 0%,#fff 55%,#edfaff 100%);
+  border-top:1px solid #eef0f6;border-bottom:1px solid #eef0f6
+}
+.demo-grid{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center}
+.mini-phone{
+  width:275px;height:500px;margin:auto;border-radius:40px;padding:9px;background:#151b2a;
+  box-shadow:var(--shadow);transform:rotate(-2deg)
+}
+.mini-screen{height:100%;border-radius:32px;background:#f8f9fc;overflow:hidden}
+.mini-card{margin:18px 14px;padding:18px;border-radius:18px;background:linear-gradient(145deg,#172554,#5c65d8);color:#fff;height:225px}
+.demo-list{margin-top:30px;display:grid;gap:16px}
+.demo-item{display:flex;gap:15px;align-items:flex-start}
+.num{flex:none;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#5d58dc;font-size:11px;font-weight:800;box-shadow:0 8px 25px rgba(46,53,111,.08)}
+.demo-item h4{margin:1px 0 5px;font-size:14px}.demo-item p{margin:0;color:#737b8d;font-size:12px;line-height:1.5}
+.panel{
+  background:#101a36;color:#fff;border-radius:32px;padding:34px;
+  box-shadow:0 35px 80px rgba(12,25,64,.18);overflow:hidden
+}
+.panel-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
+.panel-brand{font-weight:700}.panel-pill{font-size:10px;color:#b9c4e8;background:#1b284d;padding:7px 10px;border-radius:999px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:#172342;border:1px solid rgba(255,255,255,.06);padding:16px;border-radius:15px}
+.stat small{color:#93a0c7;font-size:9px}.stat strong{display:block;margin-top:7px;font-size:19px}
+.chart{margin-top:12px;background:#172342;border-radius:18px;padding:20px;height:190px;position:relative}
+.chart svg{width:100%;height:120px;margin-top:18px}
+.price-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:55px}
+.price{background:#fff;border:1px solid var(--line);border-radius:22px;padding:25px;text-align:left}
+.price.featured{border-color:#7b68ed;box-shadow:0 22px 55px rgba(98,84,221,.14);transform:translateY(-8px)}
+.price .tag{display:inline-block;background:#efeaff;color:#5e52cf;font-size:9px;font-weight:800;padding:5px 8px;border-radius:999px;margin-bottom:12px}
+.price h3{margin:0;font-size:15px}.amount{font-size:30px;font-weight:800;letter-spacing:-1.5px;margin:15px 0}.amount span{font-size:11px;color:#8a91a4;font-weight:500}
+.price ul{list-style:none;padding:0;margin:20px 0;display:grid;gap:10px;color:#667085;font-size:11px}.price li:before{content:"✓";color:#5f5ad8;font-weight:800;margin-right:8px}
+.price .btn{width:100%;margin-top:5px}
+.final{
+  padding:90px 0 100px;text-align:center;
+  background:radial-gradient(circle at 50% 0%,#dfe5ff 0%,transparent 45%),#fbfcff
+}
+.final-box{background:#111b38;color:#fff;border-radius:32px;padding:65px 30px;position:relative;overflow:hidden}
+.final-box:after{content:"";position:absolute;width:430px;height:430px;right:-180px;top:-220px;border-radius:50%;background:rgba(119,106,255,.18)}
+.final h2{margin:0 auto 15px;color:#fff}.final p{color:#b7c0d9;max-width:550px;margin:0 auto 25px;line-height:1.6}
+footer{padding:34px 0;border-top:1px solid var(--line);font-size:11px;color:#7c8495}
+.footer{display:flex;justify-content:space-between;align-items:center}.footer-links{display:flex;gap:20px}
+@media(max-width:900px){
+ .navlinks{display:none}.hero-grid,.demo-grid{grid-template-columns:1fr}.hero{min-height:auto}.hero-grid{padding:70px 0 40px}.product-stage{height:590px}.hero-copy{font-size:16px}
+ .float-custom{right:0}.wallet-strip,.price-grid{grid-template-columns:repeat(2,1fr)}
+ .panel{margin-top:30px}
+}
+@media(max-width:620px){
+ .container{width:min(100% - 30px,1180px)}.nav{height:68px}.login{display:none}.navright{gap:0}
+ h1{font-size:44px;letter-spacing:-2.8px}.hero-actions{flex-direction:column}.hero-actions .btn{width:100%}
+ .product-stage{height:560px;transform:scale(.84);transform-origin:center top;margin-bottom:-80px}
+ .float-custom{right:-20px}.float-notification{left:-20px}
+ .section{padding:80px 0}.wallet-strip,.price-grid{grid-template-columns:1fr}.price.featured{transform:none}
+ .stats{grid-template-columns:repeat(2,1fr)}
+ .footer{flex-direction:column;gap:15px}
+}
+</style>
+</head>
+<body>
+
+<header class="container nav">
+  <a class="logo" href="/">bookea<span>.</span></a>
+  <nav class="navlinks">
+    <a href="#producto">Producto</a>
+    <a href="#como-funciona">Cómo funciona</a>
+    <a href="#panel">Panel</a>
+    <a href="#precios">Precios</a>
+  </nav>
+  <div class="navright">
+    <a class="login" href="#">Iniciar sesión</a>
+    <a class="btn btn-primary" href="#precios">Crear mi programa gratis <span>→</span></a>
+  </div>
+</header>
+
+<main>
+<section class="hero" id="producto">
+  <div class="container hero-grid">
+    <div>
+      <span class="eyebrow">BOOKEA LEALTAD</span>
+      <h1>Hacé que cada visita <span class="gradient-text">se convierta en la próxima.</span></h1>
+      <p class="hero-copy">Una tarjeta de fidelización que vive en el teléfono de tus clientes. <strong>Apple Wallet y Google Wallet.</strong> Sin apps. Sin tarjetas de cartón. Sin complicaciones.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#precios">Armá tu tarjeta gratis <span>→</span></a>
+        <a class="btn btn-secondary" href="#como-funciona"><span>▶</span> Ver cómo funciona</a>
+      </div>
+      <div class="trust">
+        <div class="avatars"><span class="avatar">CR</span><span class="avatar">MG</span><span class="avatar">AV</span><span class="avatar">SR</span></div>
+        <div><span class="stars">★★★★★</span><br><strong style="color:#394154">+138 negocios</strong> ya tienen su tarjeta con Bookea</div>
+      </div>
+    </div>
+
+    <div class="product-stage">
+      <div class="float float-custom">
+        <h4>Personalizá tu tarjeta</h4>
+        <div class="option"><span>Logo</span><span>☕</span></div>
+        <div class="option"><span>Color</span><span class="dot"></span></div>
+        <div class="option"><span>Regalía</span><strong style="color:#6358d7">Café gratis</strong></div>
+        <div class="btn btn-primary" style="width:100%;padding:9px;margin-top:8px;font-size:9px">Guardar cambios</div>
+      </div>
+
+      <div class="phone">
+        <div class="screen">
+          <div class="status"><span>9:41</span><span>● ◒ ▰</span></div>
+          <div class="wallet-title">Wallet <span style="float:right;font-size:20px">⊕</span></div>
+          <div class="wallet-card">
+            <div class="card-brand"><span>☕ &nbsp;Café La Esquina</span><span class="mark">b</span></div>
+            <div class="card-type">SELLOS</div>
+            <div class="points">7/10</div>
+            <div class="card-row"><span>CLIENTE</span><span>REGALÍA</span></div>
+            <div class="card-row" style="margin-top:4px;font-size:11px"><strong>María González</strong><strong>Café gratis</strong></div>
+            <div class="stamps">
+              <span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp on">✓</span>
+              <span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp">8</span><span class="stamp">9</span><span class="stamp">10</span>
+            </div>
+            <div class="card-footer">Te faltan 3 sellos para tu café ☕</div>
+          </div>
+          <div class="qr"><span style="position:absolute;bottom:-15px;font-size:8px;color:#6d7484">Código del cliente</span></div>
+          <div class="wallet-button"> &nbsp; Agregar a Apple Wallet</div>
+        </div>
+      </div>
+
+      <div class="float float-notification">
+        <small>BOOKEA LEALTAD · Ahora</small>
+        <strong>✓ Nuevo sello agregado</strong>
+        <p>Llevás <b>7/10 sellos</b> en Café La Esquina.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="como-funciona">
+  <div class="container center">
+    <div class="kicker">Una tarjeta. Dos wallets.</div>
+    <h2>Cero aplicaciones nuevas.</h2>
+    <p class="lead">Tu cliente guarda la tarjeta una sola vez. Después, cada visita actualiza su pase y le recuerda cuánto le falta para volver.</p>
+    <div class="wallet-strip">
+      <div class="strip-card"><div class="icon"></div><h3>Apple Wallet</h3><p>La tarjeta queda junto a las demás tarjetas del cliente y se actualiza con cada visita.</p></div>
+      <div class="strip-card"><div class="icon">G</div><h3>Google Wallet</h3><p>La misma experiencia para Android. Un solo programa para todos tus clientes.</p></div>
+      <div class="strip-card"><div class="icon">⌗</div><h3>QR + link</h3><p>Compartí un enlace o imprimí un QR en tu mostrador. Sin descargar otra app.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section demo-section">
+  <div class="container demo-grid">
+    <div>
+      <div class="mini-phone">
+        <div class="mini-screen">
+          <div class="status"><span>9:41</span><span>● ◒</span></div>
+          <div class="wallet-title" style="font-size:20px">Wallet</div>
+          <div class="mini-card">
+            <div class="card-brand"><span>✦ Café La Esquina</span><span>bookea</span></div>
+            <div class="card-type">SELLOS</div><div class="points" style="font-size:31px">8/10</div>
+            <div class="stamps" style="margin-top:15px"><span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp on">✓</span><span class="stamp">9</span><span class="stamp">10</span></div>
+            <div class="card-footer">Te faltan 2 sellos para tu café</div>
+          </div>
+          <div style="margin:20px 16px;padding:15px;background:#fff;border:1px solid #e8eaf0;border-radius:15px;font-size:10px">
+            <strong>Movimientos</strong><br><br>
+            <span style="color:#697386">Sello agregado hoy · 3:12 pm</span><br><br>
+            <span style="color:#697386">Sello agregado 12 ago</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="kicker">Así funciona</div>
+      <h2 style="margin-left:0">Una experiencia simple para vos. Automática para ellos.</h2>
+      <p class="lead" style="margin-left:0">Bookea se encarga del saldo. Vos solo escaneás, confirmás y seguís atendiendo.</p>
+      <div class="demo-list">
+        <div class="demo-item"><span class="num">01</span><div><h4>Armás tu tarjeta</h4><p>Elegís sellos, puntos, cupón o membresía. Ponés tu logo, color y recompensa.</p></div></div>
+        <div class="demo-item"><span class="num">02</span><div><h4>La compartís</h4><p>QR en mostrador o link por WhatsApp. El cliente la agrega a su Wallet.</p></div></div>
+        <div class="demo-item"><span class="num">03</span><div><h4>Sellás y ellos vuelven</h4><p>Escaneás su código. El servidor valida la operación y el pase se actualiza solo.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="panel">
+  <div class="container">
+    <div class="center">
+      <div class="kicker">Todo bajo control</div>
+      <h2>No solo fidelizás. Entendés a tus clientes.</h2>
+      <p class="lead">Cada sello, visita y canje queda registrado para que sepás qué está funcionando.</p>
+    </div>
+    <div class="panel" style="margin-top:55px">
+      <div class="panel-top"><div class="panel-brand">bookea <span style="font-weight:400;color:#91a0c7">/ Lealtad</span></div><div class="panel-pill">Últimos 30 días ▾</div></div>
+      <div class="stats">
+        <div class="stat"><small>CLIENTES ACTIVOS</small><strong>128</strong></div>
+        <div class="stat"><small>SELLOS DEL MES</small><strong>412</strong></div>
+        <div class="stat"><small>CANJES</small><strong>34</strong></div>
+        <div class="stat"><small>VISITAS</small><strong>1,284</strong></div>
+      </div>
+      <div class="chart">
+        <small style="color:#93a0c7">Visitas de clientes con tarjeta</small>
+        <svg viewBox="0 0 900 150" preserveAspectRatio="none">
+          <path d="M0 118 C70 110 80 105 140 110 S220 70 290 82 S370 105 430 70 S500 52 560 68 S640 35 710 45 S790 22 900 30" fill="none" stroke="#8b7cf6" stroke-width="5" stroke-linecap="round"/>
+          <path d="M0 118 C70 110 80 105 140 110 S220 70 290 82 S370 105 430 70 S500 52 560 68 S640 35 710 45 S790 22 900 30 L900 150 L0 150Z" fill="rgba(139,124,246,.10)"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="precios">
+  <div class="container">
+    <div class="center">
+      <div class="kicker">Planes</div>
+      <h2>Empezá pequeño. Crecé cuando lo necesités.</h2>
+      <p class="lead">Probá el programa y pasá al siguiente paquete cuando tu base de clientes crezca.</p>
+    </div>
+    <div class="price-grid">
+      <article class="price"><h3>Prueba</h3><div class="amount">$0 <span>/ 14 días</span></div><ul><li>Hasta 25 clientes</li><li>Apple + Google Wallet</li><li>Tu logo y color</li><li>QR para compartir</li></ul><a class="btn btn-secondary" href="#">Empezar gratis</a></article>
+      <article class="price"><h3>Arranque</h3><div class="amount">$12 <span>/ mes</span></div><ul><li>Hasta 200 clientes</li><li>Todos los tipos de tarjeta</li><li>Reglas y vencimientos</li><li>Modo mostrador</li></ul><a class="btn btn-secondary" href="#">Solicitarlo</a></article>
+      <article class="price featured"><span class="tag">MÁS POPULAR</span><h3>Impulso</h3><div class="amount">$42 <span>/ mes</span></div><ul><li>Hasta 1.150 clientes</li><li>Todos los tipos de tarjeta</li><li>Notificaciones y promociones</li><li>Reportes avanzados</li></ul><a class="btn btn-primary" href="#">Elegir Impulso</a></article>
+      <article class="price"><h3>Ilimitado</h3><div class="amount">$89 <span>/ mes</span></div><ul><li>Clientes ilimitados</li><li>Todo lo del plan Impulso</li><li>Integraciones avanzadas</li><li>Soporte prioritario</li></ul><a class="btn btn-secondary" href="#">Solicitarlo</a></article>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="container">
+    <div class="final-box">
+      <div class="kicker" style="color:#a9a2ff">BOOKEA LEALTAD</div>
+      <h2>Tu competencia reparte tarjetas de cartón.<br><span style="color:#a99aff">Vos, sellos en el teléfono.</span></h2>
+      <p>Creá tu programa de fidelización y empezá a convertir visitas de hoy en clientes que vuelven mañana.</p>
+      <a class="btn btn-primary" href="#precios">Crear mi programa gratis →</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="container footer">
+    <div><strong style="color:var(--ink);font-size:15px">bookea.</strong> · Costa Rica · 2026</div>
+    <div class="footer-links"><a href="#">Reservá</a><a href="#">Para negocios</a><a href="#">Privacidad</a><a href="#">Términos</a></div>
+  </div>
+</footer>
+
+</body>
+</html>

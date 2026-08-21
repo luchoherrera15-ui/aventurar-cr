@@ -99,9 +99,30 @@ export async function identidadesDeMiembros(
     ...new Set(miembros.map((m) => m.cliente_id).filter((v): v is string => !!v)),
   ];
 
-  const [personas, fichas, perfiles] = await Promise.all([
-    personaIds.length
+  // `solo_contacto` (0200) se pide con reintento: nombrar una columna
+  // que la base todavía no tiene hace fallar la consulta ENTERA, y esta
+  // es la que pone los nombres en la sección Clientes. Sin la columna,
+  // se contesta igual que siempre y ninguna ficha se marca.
+  const personasConMarca = personaIds.length
+    ? await db
+        .from("personas")
+        .select("id, nombre, correo, telefono, solo_contacto")
+        .in("id", personaIds)
+    : { data: [], error: null };
+
+  const [personas, vinculos, fichas, perfiles] = await Promise.all([
+    personasConMarca.error && personaIds.length
       ? db.from("personas").select("id, nombre, correo, telefono").in("id", personaIds)
+      : Promise.resolve(personasConMarca),
+    // El contacto DECLARADO en el vínculo con ESTE negocio (0200). Con
+    // el mismo reintento y por el mismo motivo. Sin `ranchoId` no hay
+    // vínculo que mirar.
+    personaIds.length && ranchoId
+      ? db
+          .from("personas_negocio")
+          .select("persona_id, correo_declarado, telefono_declarado")
+          .eq("rancho_id", ranchoId)
+          .in("persona_id", personaIds)
       : Promise.resolve({ data: [], error: null }),
     // `notas` jamás. Ver la cabecera.
     personaIds.length && ranchoId
@@ -119,6 +140,26 @@ export async function identidadesDeMiembros(
   const porPersona = new Map<string, FilaContacto>(
     ((personas.data ?? []) as ({ id: string } & FilaContacto)[]).map((p) => [p.id, p]),
   );
+  const localesSoloContacto = new Set(
+    ((personas.data ?? []) as { id: string; solo_contacto?: boolean | null }[])
+      .filter((p) => p.solo_contacto === true)
+      .map((p) => p.id),
+  );
+  // El declarado se traduce al mismo `FilaContacto` que el resto de las
+  // fuentes: el orden de precedencia vive en `identidad-miembro.ts` y
+  // no se reparte por acá.
+  const porVinculo = new Map<string, FilaContacto>(
+    ((vinculos.data ?? []) as {
+      persona_id: string | null;
+      correo_declarado?: string | null;
+      telefono_declarado?: string | null;
+    }[])
+      .filter((v): v is { persona_id: string; correo_declarado?: string | null; telefono_declarado?: string | null } => !!v.persona_id)
+      .map((v) => [
+        v.persona_id,
+        { correo: v.correo_declarado ?? null, telefono: v.telefono_declarado ?? null },
+      ]),
+  );
   const porFicha = new Map<string, FilaContacto>(
     ((fichas.data ?? []) as ({ persona_id: string | null } & FilaContacto)[])
       .filter((f): f is { persona_id: string } & FilaContacto => !!f.persona_id)
@@ -133,8 +174,10 @@ export async function identidadesDeMiembros(
       m.id,
       resolverIdentidad({
         persona: m.persona_id ? (porPersona.get(m.persona_id) ?? null) : null,
+        vinculo: m.persona_id ? (porVinculo.get(m.persona_id) ?? null) : null,
         ficha: m.persona_id ? (porFicha.get(m.persona_id) ?? null) : null,
         perfil: m.cliente_id ? (porPerfil.get(m.cliente_id) ?? null) : null,
+        soloContacto: !!m.persona_id && localesSoloContacto.has(m.persona_id),
       }),
     ]),
   );

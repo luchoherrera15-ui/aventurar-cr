@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { llaveDeTarjeta, tarjetaConLlaveDeFila } from "@/lib/lealtad/llave-tarjeta";
 import type { CodigoFalloPase } from "@/lib/wallet/identidad";
 
 /**
@@ -47,11 +48,22 @@ export async function pantallaDeProblema(
   pedido: Request,
   ranchoId: string,
   codigo: CodigoFalloPase,
+  /**
+   * La tarjeta que se estaba pidiendo, si el botón la nombró.
+   *
+   * Sin esto, el rebote de la SEGUNDA tarjeta devolvía a la persona al
+   * link viejo del negocio —que sirve la PRIMERA— y el formulario que
+   * encontraba ahí la afiliaba a otra cosa. El destino es el link de la
+   * tarjeta de la que salió.
+   */
+  programaId?: string | null,
 ): Promise<NextResponse> {
   const slug = await slugDelNegocio(ranchoId);
 
   if (slug) {
-    const destino = new URL(`/tarjeta/${encodeURIComponent(slug)}`, pedido.url);
+    const llave = await llaveDelPrograma(ranchoId, programaId);
+    const ruta = `/tarjeta/${encodeURIComponent(slug)}${llave ? `/${encodeURIComponent(llave)}` : ""}`;
+    const destino = new URL(ruta, pedido.url);
     destino.searchParams.set("problema", codigo);
     // 303: lo que sigue es una página para mirar, no otra descarga.
     return NextResponse.redirect(destino, 303);
@@ -61,6 +73,41 @@ export async function pantallaDeProblema(
     status: 409,
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
   });
+}
+
+/**
+ * La llave pública de una tarjeta (`llave-tarjeta.ts`), o null.
+ *
+ * ── EL `eq("rancho_id")` NO ES DECORATIVO ──────────────────────────
+ * `programaId` llega del `?programa=` de la URL, o sea del navegador.
+ * Sin filtrar por el negocio, pedir el pase del negocio A nombrando
+ * una tarjeta del negocio B —que el generador rechaza, y con razón—
+ * igual hacía que el rebote leyera la fila de B y devolviera el NOMBRE
+ * de esa tarjeta metido en la URL de A. Es poco, pero es un dato de un
+ * tercero servido a pedido de cualquiera. Si no es de este negocio, no
+ * hay llave y el rebote va al link corto, que es lo correcto.
+ *
+ * `select *` y no `id, nombre, slug`: la columna `slug` la agrega la
+ * 0199 y nombrarla antes haría fallar la consulta entera — o sea que
+ * un rebote del pase terminaría en una pantalla de error en vez de en
+ * la página de la tarjeta.
+ */
+async function llaveDelPrograma(
+  ranchoId: string,
+  programaId?: string | null,
+): Promise<string | null> {
+  if (!programaId || !UUID_REGEX.test(programaId)) return null;
+  if (!UUID_REGEX.test(ranchoId)) return null;
+  const db = createAdminClient();
+  if (!db) return null;
+  const { data } = await db
+    .from("programa_lealtad")
+    .select("*")
+    .eq("id", programaId)
+    .eq("rancho_id", ranchoId)
+    .maybeSingle();
+  if (!data) return null;
+  return llaveDeTarjeta(tarjetaConLlaveDeFila(data as Record<string, unknown>));
 }
 
 async function slugDelNegocio(ranchoId: string): Promise<string | null> {

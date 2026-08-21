@@ -21,5 +21,5 @@ export default async function MenuFoodPage() {
       .order("orden"),
   ]);
 
-  return <MenuPanel negocioId={negocio.id} categorias={categorias ?? []} items={items ?? []} />;
+  return <MenuPanel negocioId={negocio.id} slug={negocio.slug} categorias={categorias ?? []} items={items ?? []} />;
 }

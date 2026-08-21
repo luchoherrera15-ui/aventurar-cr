@@ -150,6 +150,15 @@ export type DatosDelTexto = {
   sellosVencenEl?: string | null;
 };
 
+/** Una ubicación con Geo-Push del negocio (0196): el iPhone muestra
+ *  `mensaje` en la pantalla bloqueada al pasar cerca (~100 m). */
+export type UbicacionDelPase = {
+  latitud: number;
+  longitud: number;
+  /** El `relevantText` del pase — el texto de la pantalla bloqueada. */
+  mensaje: string;
+};
+
 export type DatosTarjeta = DatosDelTexto & {
   serialNumber: string;
   passTypeIdentifier: string;
@@ -157,6 +166,11 @@ export type DatosTarjeta = DatosDelTexto & {
   /** Coordenadas del local. Habilitan el aviso en pantalla bloqueada
    *  cuando el cliente pasa cerca — Apple lo hace nativo. */
   ubicacion?: { latitud: number; longitud: number } | null;
+  /** Las ubicaciones que el negocio registró (0196), cada una con su
+   *  mensaje propio. Si hay al menos una, MANDAN ellas y `ubicacion`
+   *  ni se mira: son la lista curada del dueño. Sin ninguna, el pase
+   *  sale exactamente como siempre. Apple acepta 10 por pase. */
+  ubicaciones?: readonly UbicacionDelPase[] | null;
   /** Secreto con el que ESTE pase se autentica ante nuestro Web
    *  Service (`pases_wallet.auth_token`). Sin él el pase no se
    *  actualiza solo: el iPhone ni siquiera se registra. */
@@ -590,7 +604,21 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
   // El aviso por cercanía es nativo de Wallet: con la coordenada del
   // local, el iPhone muestra la tarjeta en la pantalla bloqueada
   // cuando el cliente pasa cerca. No necesita servidor ni push.
-  if (datos.ubicacion) {
+  //
+  // Desde la 0196 hay dos caminos y GANA el registrado: si el negocio
+  // cargó sus ubicaciones (cada una con su mensaje propio), van esas.
+  // Sin ninguna registrada, queda el camino de siempre — la coordenada
+  // del local con el texto genérico, si el plan trae `cercania` — y el
+  // pase sale byte por byte igual que hoy. El `slice(0, 10)` es el
+  // techo de Apple, remachado acá por si quien llama trajera de más.
+  const registradas = (datos.ubicaciones ?? []).slice(0, 10);
+  if (registradas.length > 0) {
+    pass.locations = registradas.map((u) => ({
+      latitude: u.latitud,
+      longitude: u.longitud,
+      relevantText: u.mensaje,
+    }));
+  } else if (datos.ubicacion) {
     pass.locations = [
       {
         latitude: datos.ubicacion.latitud,

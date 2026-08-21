@@ -13,16 +13,35 @@ import type { Rancho } from "@/app/mi-negocio/types";
 const ANCHO_TARJETA = "clamp(240px, 70vw, 330px)";
 
 /**
+ * El `sizes` que se corresponde con ese ancho, traducido a algo que el
+ * navegador pueda resolver ANTES de tener el CSS: en teléfono la
+ * tarjeta ocupa el 70% del ancho de pantalla y en escritorio se planta
+ * en 330 px. El default de `RanchoCard` describe la grilla del
+ * directorio (45vw / 30vw / 260px) y acá se quedaba corto: en un
+ * teléfono de 390 px pedía una foto para 175 px cuando la ranura mide
+ * 273, y en escritorio una para 260 cuando mide 330.
+ */
+const SIZES_TARJETA = "(max-width: 471px) 70vw, 330px";
+
+/**
  * Fila horizontal con scroll-snap — la unidad básica del home (Fase 5).
- * Arriba a la derecha van las flechas ‹ › (estilo Airbnb) para pasar
- * de tarjetas sin arrastrar; se apagan cuando ya no hay más hacia ese
- * lado. En el teléfono además se puede deslizar con el dedo.
+ * Arriba a la derecha van las flechas ‹ › para pasar de tarjetas sin
+ * arrastrar: aparecen SOLO si la fila desborda, y se apagan cuando ya no
+ * hay más hacia ese lado. En el teléfono además se puede deslizar con el
+ * dedo.
+ *
+ * Con pocas tarjetas la fila no se estira: cada `RanchoCard` lleva un
+ * ancho fijo (`ANCHO_TARJETA`), así que un riel de un solo negocio queda
+ * corto y alineado a la izquierda en vez de una tarjeta deforme de 1200
+ * px de ancho.
  */
 export default function RielProveedores({
   titulo,
   subtitulo,
+  conteo,
   items,
   verTodoHref,
+  verTodoTexto = "Ver todo",
   onVerTodo,
   calificaciones,
   proximasLibres,
@@ -34,8 +53,21 @@ export default function RielProveedores({
 }: {
   titulo: string;
   subtitulo?: string;
+  /**
+   * Cuántos negocios tiene la fila DE VERDAD, antes del tope de
+   * tarjetas. Se pinta al lado del título («Eventos · 14 negocios»).
+   *
+   * Opcional porque no toda fila tiene un número honesto que mostrar:
+   * los carriles del directorio de Eventos son una vista filtrada de
+   * una lista que el visitante ya está viendo entera. Cuando se pasa,
+   * tiene que salir de la MISMA lista que alimenta el `verTodoHref`, o
+   * el número no va a cuadrar con lo que se ve del otro lado del clic.
+   */
+  conteo?: number;
   items: Rancho[];
   verTodoHref?: string;
+  /** El texto del enlace. Por defecto «Ver todo». */
+  verTodoTexto?: string;
   /** Alternativa a verTodoHref para contextos client-side: en vez de
    *  navegar, dispara una acción (ej. cambiar la pestaña de categoría). */
   onVerTodo?: () => void;
@@ -70,6 +102,13 @@ export default function RielProveedores({
   const rielRef = useRef<HTMLDivElement>(null);
   const [puedeIzq, setPuedeIzq] = useState(false);
   const [puedeDer, setPuedeDer] = useState(false);
+  // ¿Sobra fila para el costado? Si TODAS las tarjetas caben en
+  // pantalla, las flechas no se dibujan: dos botones permanentemente
+  // apagados al lado de un título son ruido, y en la portada —donde una
+  // vertical puede tener un solo negocio publicado— se leen como un
+  // control roto. Arranca en false: es mejor que aparezcan después de
+  // medir a que parpadeen y se vayan.
+  const [hayDesborde, setHayDesborde] = useState(false);
   // El scroller se nombra con el título de la fila: sin esto, un lector
   // de pantalla anuncia media docena de regiones desplazables idénticas.
   const idTitulo = useId();
@@ -84,6 +123,7 @@ export default function RielProveedores({
     if (!el) return;
     setPuedeIzq(el.scrollLeft > 4);
     setPuedeDer(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+    setHayDesborde(el.scrollWidth > el.clientWidth + 4);
   }, []);
 
   useEffect(() => {
@@ -121,9 +161,19 @@ export default function RielProveedores({
         <div className="min-w-0">
           <h2
             id={idTitulo}
-            className="text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink"
+            className="flex flex-wrap items-baseline gap-x-2.5 text-[21px] font-bold leading-tight tracking-tight text-aventurea-ink"
           >
             {titulo}
+            {/* El conteo real, en gris y en tamaño de nota: es
+                información, no un titular. Sale de la misma lista que
+                el «Ver todo», así que cuadra con lo que se ve del otro
+                lado del clic. Nunca se redondea ni se adorna con un
+                «+»: acá no se inventan cifras. */}
+            {typeof conteo === "number" && (
+              <span className="text-[13px] font-semibold text-aventurea-ink-soft">
+                {conteo} {conteo === 1 ? "negocio" : "negocios"}
+              </span>
+            )}
           </h2>
           {subtitulo && (
             <p className="mt-1 max-w-[62ch] text-[14px] text-aventurea-ink-soft">{subtitulo}</p>
@@ -143,27 +193,32 @@ export default function RielProveedores({
               href={verTodoHref}
               className="whitespace-nowrap text-[13px] font-bold text-aventurea-ink underline underline-offset-2 hover:text-aventurea-navy"
             >
-              Ver todo
+              {verTodoTexto}
             </Link>
           ) : null}
-          <button
-            type="button"
-            onClick={() => desplazar(-1)}
-            disabled={!puedeIzq}
-            aria-label={`Tarjetas anteriores de ${titulo}`}
-            className={flechaCls}
-          >
-            <IconChevronLeft />
-          </button>
-          <button
-            type="button"
-            onClick={() => desplazar(1)}
-            disabled={!puedeDer}
-            aria-label={`Más tarjetas de ${titulo}`}
-            className={flechaCls}
-          >
-            <IconChevronRight />
-          </button>
+          {/* Solo si de verdad hay algo para el costado. Ver `hayDesborde`. */}
+          {hayDesborde && (
+            <>
+              <button
+                type="button"
+                onClick={() => desplazar(-1)}
+                disabled={!puedeIzq}
+                aria-label={`Tarjetas anteriores de ${titulo}`}
+                className={flechaCls}
+              >
+                <IconChevronLeft />
+              </button>
+              <button
+                type="button"
+                onClick={() => desplazar(1)}
+                disabled={!puedeDer}
+                aria-label={`Más tarjetas de ${titulo}`}
+                className={flechaCls}
+              >
+                <IconChevronRight />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -176,6 +231,11 @@ export default function RielProveedores({
         onScroll={medir}
         role="group"
         aria-labelledby={idTitulo}
+        // Una región que scrollea tiene que poder recorrerse con el
+        // teclado: con el foco acá, las flechas ← → mueven la fila sin
+        // tocar el mouse. Solo cuando de verdad desborda — si todas las
+        // tarjetas caben, este tab stop no llevaría a ninguna parte.
+        tabIndex={hayDesborde ? 0 : undefined}
         className="mt-3.5 flex snap-x snap-mandatory gap-3.5 overflow-x-auto pb-1 pt-0.5"
         style={{ scrollbarWidth: "none" }}
       >
@@ -186,6 +246,7 @@ export default function RielProveedores({
               rancho={r}
               index={i}
               ancho={ANCHO_TARJETA}
+              sizes={SIZES_TARJETA}
               calificacion={calificaciones.get(r.id) ?? null}
               proximaLibre={r.categoria === "lugares" ? proximasLibres.get(r.id) : undefined}
               favoritoInicial={favoritosIds.has(r.id)}

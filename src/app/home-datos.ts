@@ -4,6 +4,7 @@ import { leerSuperDestacados } from "@/lib/destacados";
 import { enConfiguracion, normalizarCategoria, type Rancho } from "@/app/mi-negocio/types";
 import { normalizarCategoriaCita } from "@/app/citas/tipos";
 import { urlDirectorio } from "@/lib/url-directorio";
+import { verticalDe } from "@/lib/carriles-home";
 // Solo el TIPO: el carrusel es un módulo "use client" y un import de
 // valor lo arrastraría al servidor. Mismo criterio que @/lib/destacados.
 import type { NegocioDestacado } from "@/components/carrusel-super-destacados";
@@ -72,16 +73,13 @@ const DIRECTORIO_POR_VERTICAL: Record<string, string> = {
 /**
  * La vertical de un negocio, con el default de siempre.
  *
- * Va como función y no como `r.vertical ?? "eventos"` suelto porque el
- * tipo `Rancho` declara `vertical?: "eventos" | "citas" | "hospedajes"`
- * —sin "restaurantes", que llegó después— y comparar contra
- * "restaurantes" sería un error de compilación aunque en la base ese
- * valor exista y llegue en la fila. Acá se ensancha a `string` en un
- * solo lugar, en vez de sembrar casts por todo el archivo.
+ * La implementación vive en @/lib/carriles-home, que es NEUTRO: la
+ * misma línea estaba escrita palabra por palabra en los dos archivos, y
+ * el día que aparezca una vertical con otro default habría que
+ * acordarse de las dos. Se re-exporta con el mismo nombre para no tocar
+ * a quien ya la importaba desde acá (home-secciones.tsx).
  */
-export function verticalDe(rancho: Rancho): string {
-  return (rancho as { vertical?: string }).vertical ?? "eventos";
-}
+export { verticalDe };
 
 /**
  * La ficha de un negocio, sin pasar por el redirect de `/{slug}`.
@@ -376,4 +374,132 @@ export async function leerDatosHome(): Promise<DatosHome> {
     favoritosIds,
     sesionActiva: !!user,
   };
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   EL CATÁLOGO DE LA PORTADA — una consulta, todos los rieles
+   ═════════════════════════════════════════════════════════════════ */
+
+/**
+ * Lo que la portada de rieles necesita de la base. Es un subconjunto
+ * estricto de lo que `leerDatosHome()` calcula: sin vitrina, sin
+ * provincias, sin la tira curada y —sobre todo— SIN
+ * `leerSuperDestacados`, que es una ida más a la base para decidir un
+ * orden que en un catálogo por vertical no cambia nada mientras la
+ * columna `super_destacado` siga vacía en producción.
+ */
+export type CatalogoPortada = {
+  /**
+   * Los negocios que la portada puede pintar como tarjeta: APROBADOS y
+   * fuera de «en configuración», del más nuevo al más viejo.
+   *
+   * Es la lista COMPLETA, sin tope: el reparto por vertical
+   * (`agruparPorVertical`) recorta cada fila con `TOPE_CARRIL` y el
+   * conteo que se muestra al lado de cada título sale de contar acá. Un
+   * tope en la consulta haría que ese número mintiera en cuanto haya
+   * más de una docena de negocios.
+   */
+  pintables: Rancho[];
+  /**
+   * CUÁNTOS NEGOCIOS VA A CONTAR EL VISITANTE DEL OTRO LADO DEL «VER
+   * TODOS», por vertical. Es el número que se pinta al lado del título
+   * del riel.
+   *
+   * ⚠️ Se cuenta sobre TODO LO APROBADO y no sobre `pintables`, y la
+   * diferencia importa: los cuatro directorios NO esconden a los que
+   * están «en configuración» —les ponen un velo y los listan igual
+   * (verificado: ninguno llama a `enConfiguracion` al armar su lista)—.
+   * Si acá se contaran solo los pintables, el encabezado diría «14
+   * negocios» y la página siguiente mostraría quince. Un conteo que no
+   * cuadra con su destino es peor que no poner conteo; es el mismo
+   * criterio que ya aplica `leerDatosHome()` para los conteos por
+   * categoría, y está escrito allá con todas las letras.
+   *
+   * En las TARJETAS, en cambio, los «en configuración» sí se van: una
+   * tarjeta que no se puede abrir, en un riel, es una promesa que no se
+   * cumple.
+   */
+  totalPorVertical: Record<string, number>;
+  favoritosIds: string[];
+  sesionActiva: boolean;
+};
+
+/**
+ * Todo lo que la portada le pide a la base, de una sola vez.
+ *
+ * ── LA REGLA DE VISIBILIDAD NO SE REINVENTA ACÁ ─────────────────────
+ * Es exactamente la misma que aplica `leerDatosHome()` unas líneas más
+ * arriba y la misma que aplican los cuatro directorios:
+ *
+ *   1. `estado = 'aprobado'` — lo pendiente, rechazado o pausado NO se
+ *      ve. Hoy en producción eso deja fuera cuatro filas, dos de ellas
+ *      basura de prueba.
+ *   2. `!enConfiguracion(detalles)` — la publicación existe pero no se
+ *      puede abrir. En el directorio se muestra con un velo; en un riel
+ *      de la portada sería una tarjeta que no lleva a ninguna parte.
+ *
+ * ── UNA SOLA CONSULTA A `ranchos` ───────────────────────────────────
+ * `/` es la URL más visitada del sitio y cada ida a Supabase desde
+ * Vercel cuesta ~55 ms medidos. Se traen TODOS los aprobados en una
+ * tanda y el reparto en cuatro rieles se hace en memoria, que es gratis.
+ * La segunda promesa (`auth.getUser`) para un visitante anónimo ni
+ * siquiera sale a la red.
+ *
+ * ⚠️ `COLUMNAS_CARD`, nunca `select("*")`: la misma fila de `ranchos`
+ * guarda el SINPE y la cuenta bancaria del proveedor, y con `*` esas
+ * columnas terminan serializadas dentro del HTML público. Ya pasó dos
+ * veces — ver el comentario largo de @/lib/ranchos-publicos.
+ *
+ * NO TIRA NUNCA: si la consulta falla, `pintables` llega vacío, ningún
+ * riel se dibuja y la portada sigue de pie con su buscador, sus rubros
+ * y su llamado a publicar.
+ */
+export async function leerCatalogoPortada(): Promise<CatalogoPortada> {
+  const supabase = await createClient();
+
+  const [
+    { data },
+    {
+      data: { user },
+    },
+  ] = await Promise.all([
+    supabase
+      .from("ranchos")
+      .select(COLUMNAS_CARD)
+      .eq("estado", "aprobado")
+      // Lo último publicado adelante: es el único orden que los datos
+      // sostienen hoy (cero filas en `resenas`, así que «lo mejor
+      // valorado» no existe). Dentro de cada riel, `ordenar()` vuelve a
+      // acomodar poniendo los destacados primero.
+      .order("created_at", { ascending: false }),
+    supabase.auth.getUser(),
+  ]);
+
+  // Las tarjetas piden el tipo `Rancho` completo pero solo leen las
+  // columnas de COLUMNAS_CARD (verificado campo por campo en
+  // ranchos-publicos.ts) — de ahí el cast.
+  const aprobados = (data ?? []) as unknown as Rancho[];
+  const pintables = aprobados.filter((r) => !enConfiguracion(r.detalles));
+
+  // El conteo del encabezado se saca de `aprobados`, que es lo que
+  // lista el directorio al que lleva el «Ver todos» — el porqué está en
+  // el tipo. Cero consultas extra: se cuenta la lista que ya trajimos.
+  const totalPorVertical: Record<string, number> = {};
+  for (const r of aprobados) {
+    const v = verticalDe(r);
+    totalPorVertical[v] = (totalPorVertical[v] ?? 0) + 1;
+  }
+
+  // La única consulta que no puede ir en la tanda de arriba: necesita
+  // el id de la sesión. Solo la paga quien tiene sesión abierta.
+  let favoritosIds: string[] = [];
+  if (user) {
+    const { data: favData } = await supabase
+      .from("favoritos")
+      .select("rancho_id")
+      .eq("cliente_id", user.id);
+    favoritosIds = (favData ?? []).map((f) => f.rancho_id as string);
+  }
+
+  return { pintables, totalPorVertical, favoritosIds, sesionActiva: !!user };
 }

@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ID_COMO_FUNCIONA } from "./como-funciona";
-import { IconCompass, IconStore } from "@/components/icons";
+import { IconCompass } from "@/components/icons";
 
 /**
  * Los links de la nav del home. NO es un header: se le pasan al prop
@@ -35,7 +34,7 @@ import { IconCompass, IconStore } from "@/components/icons";
  * (`role="tablist"`). Reconstruir eso acá para conservar la burbuja
  * habría sido la duplicación al revés.
  *
- * Quedan solo los dos links de acompañamiento, en texto — la nav ya no
+ * Queda solo el link de acompañamiento, en texto — la nav ya no
  * necesita el separador que distinguía «puerta» de «acompañamiento».
  */
 type Link = {
@@ -45,16 +44,18 @@ type Link = {
 };
 
 const LINKS: Link[] = [
-  // Ancla, no ruta: la sección vive en esta misma página. El id sale de
-  // quien lo pinta, para que no se despareje si alguien lo renombra.
-  { href: `#${ID_COMO_FUNCIONA}`, texto: "Cómo funciona", Icono: IconCompass },
-  // OJO, fase de ensamble: `SiteHeader` ya muestra a la derecha su
-  // propio "Publicá tu espacio" (o "Manejá tu espacio" si la persona ya
-  // publicó). Si en pantalla los dos juntos se leen redundantes, la
-  // palanca es `conPublicar={false}` en el SiteHeader del home — el
-  // atajo sigue estando en el menú de cuenta y en el aviso de arriba,
-  // así que no se pierde ninguna puerta.
-  { href: "/publicar", texto: "Para negocios", Icono: IconStore },
+  // UN solo link, pedido del dueño (ago 2026): «Cómo funciona» lleva a
+  // /publicar — la página que le cuenta el producto a un negocio. Antes
+  // había dos entradas: «Cómo funciona» (ancla a la sección de la misma
+  // portada) y «Para negocios» (→ /publicar). Con el destino nuevo las
+  // dos apuntaban al mismo lugar, y dos links al mismo destino con dos
+  // nombres es el tipo de duplicación que el dueño ya había señalado
+  // («se repite abajo y arriba»), así que queda una sola con el texto
+  // que él pidió. (Actualización ago 2026: la sección "Cómo funciona"
+  // de la portada ya no se monta — la portada quedó solo con buscador y
+  // categorías. `como-funciona.tsx` sigue en el repo, sin llamador; el
+  // destino de este link, /publicar, es el que cuenta el producto.)
+  { href: "/publicar", texto: "Cómo funciona", Icono: IconCompass },
 ];
 
 export default function NavHome() {

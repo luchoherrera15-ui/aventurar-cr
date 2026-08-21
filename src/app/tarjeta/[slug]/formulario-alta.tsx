@@ -74,10 +74,18 @@ const ESTADO_INICIAL: EstadoAlta = { error: null };
 
 export default function FormularioAlta({
   slug,
+  tarjeta,
   textoConsentimiento,
   yaSabido,
 }: {
   slug: string;
+  /**
+   * La llave de LA TARJETA que la pantalla acaba de dibujar
+   * (`llave-tarjeta.ts`). Viaja escondida para que el alta afilie a esa
+   * y no a una hermana suya: desde que un negocio puede tener varias,
+   * «la tarjeta del negocio» dejó de ser una sola cosa.
+   */
+  tarjeta: string;
   /** El mismo string que se archiva como prueba. Ver arriba. */
   textoConsentimiento: string;
   /**
@@ -97,6 +105,7 @@ export default function FormularioAlta({
   return (
     <form action={enviar} className="flex flex-col gap-3.5 text-left">
       <input type="hidden" name="slug" value={slug} />
+      <input type="hidden" name="tarjeta" value={tarjeta} />
 
       <div>
         <label className={labelCls} htmlFor="nombre">
@@ -177,28 +186,67 @@ export default function FormularioAlta({
       {estado.error && (
         <div className="rounded-lg bg-red-50 px-3 py-2.5 text-[13px] leading-relaxed text-red-700">
           {estado.error}
-          {estado.requierePrueba && (
-            <>
-              {" "}
-              <Link
-                href={`/tarjeta/${slug}?entrar=1`}
-                className="font-bold underline underline-offset-2"
-              >
-                Entrar con mi correo
-              </Link>
-            </>
-          )}
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={pendiente}
-        className="mt-1 flex h-12 items-center justify-center rounded-xl text-[15px] font-bold transition-colors disabled:opacity-60"
-        style={{ background: ACCION, color: ACCION_TINTA }}
-      >
-        {pendiente ? "Creando tu tarjeta..." : "Quiero mi tarjeta"}
-      </button>
+      {/* ── EL DESVÍO, QUE ANTES ERA UN CALLEJÓN SIN SALIDA ──────────
+          Cuando el contacto tecleado ya tiene dueño, acá había un
+          renglón rojo y un link al login: fin del camino. En la caja,
+          con la fila atrás, eso es un cliente que se va sin tarjeta.
+
+          Ahora son DOS salidas y las dos siguen desde acá, sin volver
+          a tipear nada:
+
+            1. RECUPERARLA (primero, y en el botón lleno). Es la que
+               corresponde cuando el contacto SÍ es suyo: el código del
+               correo es la prueba de posesión, y con ella vuelven los
+               sellos que ya tenía. Va primero a propósito — es la única
+               que devuelve un saldo.
+
+            2. SEGUIR SIN CUENTA. Para el dedazo, el correo compartido y
+               el que simplemente no quiere abrir cuenta. Reenvía este
+               MISMO formulario con `sin_cuenta`, y el servidor le abre
+               una tarjeta NUEVA, de cero, sin tocar la ajena.
+
+          El botón normal se esconde mientras esto está a la vista: con
+          los mismos datos va a dar el mismo rebote, y tres botones que
+          hacen casi lo mismo es la forma más rápida de que alguien
+          toque el que no era. */}
+      {estado.requierePrueba && (
+        <div className="flex flex-col gap-2 rounded-lg bg-aventurea-cream-2 px-3 py-3">
+          <Link
+            href={`/tarjeta/${slug}${tarjeta ? `/${tarjeta}` : ""}?entrar=1`}
+            className="flex h-12 items-center justify-center rounded-xl text-center text-[15px] font-bold"
+            style={{ background: ACCION, color: ACCION_TINTA }}
+          >
+            Es mía — recuperarla con mi correo
+          </Link>
+          <button
+            type="submit"
+            name="sin_cuenta"
+            value="si"
+            disabled={pendiente}
+            className="flex h-11 items-center justify-center rounded-xl border-2 text-[14px] font-bold disabled:opacity-60"
+            style={{ borderColor: ACCION, color: ACCION }}
+          >
+            {pendiente ? "Creando tu tarjeta..." : "No es mía — dame una nueva"}
+          </button>
+          <p className="text-[11.5px] leading-relaxed text-zinc-500">
+            La nueva empieza en cero y no toca la otra tarjeta ni sus sellos.
+          </p>
+        </div>
+      )}
+
+      {!estado.requierePrueba && (
+        <button
+          type="submit"
+          disabled={pendiente}
+          className="mt-1 flex h-12 items-center justify-center rounded-xl text-[15px] font-bold transition-colors disabled:opacity-60"
+          style={{ background: ACCION, color: ACCION_TINTA }}
+        >
+          {pendiente ? "Creando tu tarjeta..." : "Quiero mi tarjeta"}
+        </button>
+      )}
 
       <p className="text-center text-[11.5px] leading-relaxed text-zinc-500">
         Con esos datos reconocemos tu tarjeta en cada visita. No hay

@@ -114,7 +114,19 @@ export default function ReservarForm({
       </div>
 
       {franjaElegida && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-aventurea-line bg-white p-4">
+        <div className="flex flex-col gap-3 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-4">
+          {/* La respuesta inmediata a "¿cuánto ahorro y a qué hora?" —
+              antes de pedir nada más. */}
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[13px] font-bold text-aventurea-ink">
+              {fechaCorta(franjaElegida.fecha)} · {horaCorta(franjaElegida.hora)}
+            </p>
+            {franjaElegida.descuento_porcentaje > 0 && (
+              <p className="rounded-lg bg-aventurea-orange px-2.5 py-1 text-[13px] font-extrabold text-white">
+                Tu descuento: {franjaElegida.descuento_porcentaje}%
+              </p>
+            )}
+          </div>
           <label className="block">
             <span className="mb-1.5 block text-[12.5px] font-bold text-aventurea-ink">
               ¿Cuántas personas?
@@ -149,9 +161,9 @@ export default function ReservarForm({
               type="button"
               disabled={pendiente || personas < 1 || personas > cupoDisponible}
               onClick={reservar}
-              className="self-start rounded-xl bg-aventurea-navy px-5 py-2.5 text-[14px] font-bold text-white transition-colors hover:bg-aventurea-navy-2 disabled:opacity-50"
+              className="btn-naranja presionable w-full disabled:opacity-50 sm:w-auto sm:self-start"
             >
-              {pendiente ? "Reservando…" : "Confirmar reserva"}
+              {pendiente ? "Reservando…" : `Reservar ${horaCorta(franjaElegida.hora)}`}
             </button>
           )}
 

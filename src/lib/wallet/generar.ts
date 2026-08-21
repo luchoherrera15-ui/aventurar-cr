@@ -11,8 +11,7 @@ import {
 } from "./imagenes";
 import { describirEscalon, escalonesDeLaTira, primeroQueSalga } from "./escalones-tira";
 import { imagenDentroDelSello, type DibujoDelSello } from "@/lib/lealtad/iconos-sello";
-import { elegirDeFilasCrudas, emisoraDeFilasCrudas, resumenDeFila } from "./programa-principal";
-import { estadoVisible } from "@/lib/lealtad/programas";
+import { tarjetaDelPase } from "./programa-principal";
 import { fechaDeCorte, reglaDeFila } from "@/lib/lealtad/vencimiento-sellos";
 import { minutoISOCR } from "@/lib/fechas";
 import { empaquetarPase } from "./empaquetar";
@@ -71,11 +70,18 @@ export type ResultadoPase =
 
 export async function generarPaseDeLealtad({
   ranchoId,
+  programaId: programaPedido = null,
   clienteId,
   personaId,
   ahora,
 }: IdentidadDelPase & {
   ranchoId: string;
+  /**
+   * CUÁL de las tarjetas del negocio. null = la de siempre (la que
+   * elige `emisoraDeFilasCrudas`), que es lo que piden el refresco de
+   * Wallet y cualquier llamador viejo. Ver el bloque de selección.
+   */
+  programaId?: string | null;
   ahora: Date;
 }): Promise<ResultadoPase> {
   if (!personaId && !clienteId) {
@@ -145,19 +151,31 @@ export async function generarPaseDeLealtad({
   // se emite igual, marcada. Solo `pausado`: una archivada, una vencida
   // o un borrador siguen sin entregar nada, porque ninguna de esas
   // vuelve sola.
-  const emisora = emisoraDeFilasCrudas(filas, ahoraCR);
-  const principal = emisora ?? elegirDeFilasCrudas(filas, ahoraCR);
-  const pausado =
-    !emisora && !!principal && estadoVisible(resumenDeFila(principal), ahoraCR) === "pausado";
-
-  const programaFila = emisora ?? (pausado ? principal : null);
-  if (!programaFila) {
+  //
+  // ── Y SI QUIEN PIDE DIJO CUÁL, MANDA ESA ─────────────────────────
+  // Desde que cada tarjeta tiene su propio link y su propio QR
+  // (`llave-tarjeta.ts`), la página pública manda el id de la que el
+  // cliente está mirando, y el refresco de Wallet manda el del MIEMBRO.
+  // Sin eso, esta función volvía a elegir por su cuenta y con dos
+  // tarjetas activas podía entregar la hermana: el cliente veía una y
+  // se llevaba otra, sin un solo error a la vista.
+  //
+  // La elección entera vive en `tarjetaDelPase` (`programa-principal`),
+  // pura y probada: acá adentro no se podría probar sin certificados,
+  // sin `sharp` y sin base.
+  const elegida = tarjetaDelPase(filas, ahoraCR, programaPedido);
+  if (!elegida.fila) {
     return {
       ok: false,
       codigo: "sin_programa",
-      motivo: "Este negocio todavía no tiene programa de lealtad.",
+      motivo:
+        elegida.motivo === "ajena"
+          ? "Esa tarjeta no es de este negocio."
+          : "Este negocio todavía no tiene programa de lealtad.",
     };
   }
+  const programaFila = elegida.fila;
+  const pausado = elegida.pausado;
   const programaId = programaFila.id as string;
 
   // La apariencia Y el beneficio salen de la fila en un solo lugar
@@ -376,6 +394,32 @@ export async function generarPaseDeLealtad({
     regalado === true ? ["pases_cercania"] : [],
   );
 
+  // ── Geo-Push (0196): las ubicaciones registradas por el negocio ───
+  // Cada una con su mensaje propio para la pantalla bloqueada. El tope
+  // por PAQUETE se exige al guardar (`ubicaciones-actions.ts`), no acá:
+  // el pase entrega lo que la tabla tiene, hasta el techo de Apple (10).
+  //
+  // El error se descarta a propósito: si la tabla no existe todavía
+  // —la 0196 se aplica aparte— o la consulta falla, esto queda vacío y
+  // el pase sale EXACTAMENTE como hoy. Una ubicación caída no puede
+  // dejar sin tarjeta a un cliente que está en el mostrador.
+  const { data: filasUbicaciones } = await db
+    .from("lealtad_ubicaciones")
+    .select("latitud, longitud, mensaje")
+    .eq("rancho_id", ranchoId)
+    .order("created_at", { ascending: true })
+    .limit(10);
+  const ubicaciones = ((filasUbicaciones ?? []) as Record<string, unknown>[])
+    .map((u) => ({
+      latitud: Number(u.latitud),
+      longitud: Number(u.longitud),
+      mensaje: typeof u.mensaje === "string" ? u.mensaje.trim() : "",
+    }))
+    .filter(
+      (u) =>
+        Number.isFinite(u.latitud) && Number.isFinite(u.longitud) && u.mensaje.length > 0,
+    );
+
   const passJson = construirPassJson({
     negocioNombre: negocio.nombre,
     saldo,
@@ -399,6 +443,9 @@ export async function generarPaseDeLealtad({
     passTypeIdentifier: credenciales.passTypeIdentifier,
     teamIdentifier: credenciales.teamIdentifier,
     ubicacion: tieneCercania === true ? coordenadasDe(negocio) : null,
+    // Si el negocio registró ubicaciones (0196), mandan ellas — ver la
+    // regla en `construirPassJson`. Vacío = el pase de siempre.
+    ubicaciones: ubicaciones.length > 0 ? ubicaciones : null,
     // Con esto el pase se registra solo para recibir actualizaciones:
     // al sumar un sello, el teléfono lo refresca sin que el cliente
     // vuelva a bajarlo.

@@ -72,6 +72,23 @@ export type IdentidadCliente = {
   nombre: string | null;
   correo: string | null;
   telefono: string | null;
+  /**
+   * true = es una identidad LOCAL de este negocio (0200): la persona
+   * escribió un contacto que ya pertenecía a otra identidad de Bookea y
+   * eligió seguir sin cuenta.
+   *
+   * Importa en el panel y por eso viaja hasta acá: ese correo y ese
+   * teléfono son datos de CONTACTO que el negocio puede usar para
+   * escribirle, pero NO son una identidad verificada — pueden estar
+   * repetidos con los de otra ficha, y el dueño tiene derecho a saberlo
+   * antes de mandar una promo.
+   *
+   * Opcional para no obligar a las cinco pantallas que arman un
+   * `{nombre:null, correo:null, telefono:null}` de respaldo a declarar
+   * algo que no saben: ausente vale lo mismo que false, que es el caso
+   * de todas las fichas anteriores a la 0200.
+   */
+  soloContacto?: boolean;
 };
 
 /** Vacío no es un dato: «   » y «» son lo mismo que no haber contestado. */
@@ -104,16 +121,29 @@ function primero(...valores: (string | null | undefined)[]): string | null {
 export function resolverIdentidad(fuentes: {
   /** `personas` (0138), por `miembros.persona_id`. La raíz. */
   persona?: FuenteDeIdentidad;
+  /**
+   * `personas_negocio` (0200), por `persona_id` y ESTE negocio: el
+   * contacto DECLARADO.
+   *
+   * Va en segundo lugar, después de `personas` y antes de la ficha del
+   * CRM, porque para una identidad local es el único que hay —
+   * `personas.correo` y `.telefono` están vacíos a propósito— y porque
+   * lo escribió la propia persona, no el dueño.
+   */
+  vinculo?: FuenteDeIdentidad;
   /** `clientes_negocio` (0109) de ESTE negocio, por `persona_id`. */
   ficha?: FuenteDeIdentidad;
   /** `perfiles`, por `miembros.cliente_id`. Respaldo legado. */
   perfil?: FuenteDeIdentidad;
+  /** `personas.solo_contacto` (0200). Ver `IdentidadCliente`. */
+  soloContacto?: boolean;
 }): IdentidadCliente {
-  const { persona, ficha, perfil } = fuentes;
+  const { persona, vinculo, ficha, perfil, soloContacto } = fuentes;
   return {
-    nombre: primero(persona?.nombre, ficha?.nombre, perfil?.nombre),
-    correo: primero(persona?.correo, ficha?.correo, perfil?.correo),
-    telefono: primero(persona?.telefono, ficha?.telefono, perfil?.telefono),
+    nombre: primero(persona?.nombre, vinculo?.nombre, ficha?.nombre, perfil?.nombre),
+    correo: primero(persona?.correo, vinculo?.correo, ficha?.correo, perfil?.correo),
+    telefono: primero(persona?.telefono, vinculo?.telefono, ficha?.telefono, perfil?.telefono),
+    soloContacto: soloContacto === true,
   };
 }
 

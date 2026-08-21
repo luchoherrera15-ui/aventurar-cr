@@ -853,3 +853,38 @@ export function IconBell({ className = base }: IconProps) {
     </svg>
   );
 }
+
+/** Configuración: engranaje simple. */
+export function IconGear({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <circle cx="12" cy="12" r="3.2" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 2.8v2.4M12 18.8v2.4M21.2 12h-2.4M5.2 12H2.8M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7M18.5 18.5l-1.7-1.7M7.2 7.2 5.5 5.5"
+      />
+    </svg>
+  );
+}
+
+/** Ayuda: signo de pregunta en círculo. */
+export function IconAyuda({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9.6 9.2a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2 1-1.2 1.8v.4" />
+      <circle cx="12" cy="16.8" r="0.4" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+/** Cerrar sesión: puerta con flecha hacia afuera. */
+export function IconSalir({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.5 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6.5a2 2 0 0 0 2-2v-2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h10m0 0-3-3m3 3-3 3" />
+    </svg>
+  );
+}

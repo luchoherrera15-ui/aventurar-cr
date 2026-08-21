@@ -43,6 +43,7 @@ export default function RanchoCard({
   favoritoInicial,
   sesionActiva,
   ancho,
+  sizes,
   conUnidad = true,
   prioridad,
 }: {
@@ -55,6 +56,16 @@ export default function RanchoCard({
   sesionActiva: boolean;
   /** Ancho CSS (ej. "220px" o un clamp()) para uso en riel horizontal; sin esto, ocupa el 100% de su celda de grilla. */
   ancho?: string;
+  /**
+   * El `sizes` de la foto. El valor por defecto describe la GRILLA del
+   * directorio; quien pone `ancho` está sacando la tarjeta de esa
+   * grilla y metiéndola en un riel, donde mide otra cosa — y con un
+   * `sizes` que miente el navegador baja una foto más chica de lo que
+   * la ranura necesita y se ve blanda. Los rieles pasan el suyo (ver
+   * `SIZES_TARJETA` en riel-proveedores.tsx), calculado a partir del
+   * mismo `clamp()` que define el ancho.
+   */
+  sizes?: string;
   /**
    * Si el precio lleva su unidad («por evento», «por noche»…). Por
    * defecto sí — es lo correcto dentro de un directorio de una sola
@@ -162,7 +173,7 @@ export default function RanchoCard({
               // desaconsejan el <link preload> justo en ese caso.
               loading={prioritaria ? "eager" : undefined}
               fetchPriority={prioritaria ? "high" : undefined}
-              sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 260px"
+              sizes={sizes ?? "(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 260px"}
               className="object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (

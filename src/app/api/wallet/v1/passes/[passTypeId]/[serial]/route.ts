@@ -75,6 +75,25 @@ export async function GET(
 
   const resultado = await generarPaseDeLealtad({
     ranchoId: pase.ranchoId,
+    // ── EL PASE SE REHACE CON **SU** TARJETA, NO CON LA DEL NEGOCIO ──
+    //
+    // Acá solo iba `ranchoId`, y el generador elegía por su cuenta cuál
+    // de las tarjetas del negocio usar. Con una sola tarjeta eso era lo
+    // mismo; con dos, el iPhone de alguien afiliado a la SEGUNDA pedía
+    // su pase actualizado y recibía el de la primera: otro nombre, otra
+    // meta, otros colores, y el serial de otra membresía si la persona
+    // estaba en las dos. Un pase que se reescribe solo con datos de una
+    // tarjeta que el cliente nunca pidió.
+    //
+    // `miembros.programa_id` es la respuesta y ya venía en el `select *`
+    // de arriba. Es lo mismo que hace el lado de Google
+    // (`refrescarPaseGoogleDeMiembro`), que nunca tuvo este problema
+    // porque siempre partió del miembro.
+    //
+    // Si la columna faltara, queda en null y todo se comporta como
+    // antes. Y la pertenencia al negocio la vuelve a comprobar el
+    // generador contra las filas de este rancho.
+    programaId: typeof fila.programa_id === "string" ? fila.programa_id : null,
     personaId,
     clienteId,
     ahora: new Date(),

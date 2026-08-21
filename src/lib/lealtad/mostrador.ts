@@ -337,6 +337,62 @@ export function pideMontoElTipo(tipo: TipoTarjeta): boolean {
 }
 
 /**
+ * Si el mostrador OFRECE registrar la compra (monto y producto,
+ * opcionales) además de los tipos donde el monto cambia lo acreditado.
+ *
+ * Desde la 0197 la tarjeta de SELLOS también entra: el sello no es el
+ * dato principal — la compra que lo genera sí. El campo es opcional a
+ * propósito: escanear sin teclear nada sigue sumando su sello igual
+ * que siempre; con monto, la venta queda medida (y si la tarjeta tiene
+ * la regla «por monto», además decide cuántos sellos entran).
+ */
+export function registraCompraElTipo(tipo: TipoTarjeta): boolean {
+  return tipo === "sellos" || pideMontoElTipo(tipo);
+}
+
+// ── 5b. La regla de acumulación de una tarjeta de sellos (0197) ────
+
+export type ReglaDeSellos = { por: "compra" } | { por: "monto"; montoPorSello: number };
+
+/**
+ * Qué regla de sellos tiene esta tarjeta.
+ *
+ * Ausente, mal guardada o sin monto válido → "compra", que es el
+ * comportamiento de siempre: una config vieja o rota NUNCA puede dejar
+ * a un cliente sin su sello.
+ */
+export function reglaDeSellos(config: ConfigBeneficio | null): ReglaDeSellos {
+  if (
+    config?.tipo === "sellos" &&
+    config.sellosPor === "monto" &&
+    typeof config.montoPorSello === "number" &&
+    Number.isFinite(config.montoPorSello) &&
+    config.montoPorSello >= 1
+  ) {
+    return { por: "monto", montoPorSello: Math.round(config.montoPorSello) };
+  }
+  return { por: "compra" };
+}
+
+/**
+ * CUÁNTOS SELLOS otorga una compra. La función que el servidor usa —
+ * nunca el navegador: el cliente manda el hecho (gastó tanto), no los
+ * sellos.
+ *
+ *   · regla "monto" y la compra TRAE monto → floor(monto / montoPorSello)
+ *     (₡4.500 → 1, ₡9.000 → 2, ₡22.500 → 5 con montoPorSello 4500 —
+ *     y ₡4.000 → 0: una compra que no llega, no suma);
+ *   · regla "compra", o compra sin monto → 1, como siempre.
+ */
+export function sellosPorCompra(config: ConfigBeneficio | null, monto: number | null): number {
+  const regla = reglaDeSellos(config);
+  if (regla.por === "monto" && monto !== null && Number.isFinite(monto) && monto >= 0) {
+    return Math.floor(monto / regla.montoPorSello);
+  }
+  return 1;
+}
+
+/**
  * LAS DOS COLUMNAS QUE EL MOTOR LEE, derivadas del beneficio.
  *
  * `acreditar_lealtad` (0125) calcula

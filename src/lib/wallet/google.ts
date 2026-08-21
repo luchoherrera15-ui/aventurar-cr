@@ -2,7 +2,7 @@ import { createSign } from "node:crypto";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { consultarSaldo } from "@/lib/lealtad/motor";
-import { emisoraDeFilasCrudas } from "./programa-principal";
+import { emisoraDeFilasCrudas, laDelLinkDeFilasCrudas } from "./programa-principal";
 import { minutoISOCR } from "@/lib/fechas";
 import {
   camposSegunModo,
@@ -160,12 +160,56 @@ async function tokenDeAcceso(cred: CredencialesGoogle): Promise<string> {
 // tabla de mapeo que se pueda desincronizar. Google solo acepta
 // [a-zA-Z0-9._-], así que los uuid van sin guiones.
 
-export function idDeClase(issuerId: string, ranchoId: string): string {
-  return `${issuerId}.negocio_${ranchoId.replace(/-/g, "")}`;
+/**
+ * El id de la clase de Google.
+ *
+ * ── POR QUÉ LLEVA UN SEGUNDO PARÁMETRO OPCIONAL ────────────────────
+ * La clase es lo que dibuja el nombre, el logo y el color de la
+ * tarjeta en Android, y hasta hoy había UNA por negocio. Con dos
+ * tarjetas activas eso ya no alcanza: si la segunda escribiera sobre
+ * la clase del negocio, TODOS los pases de Android de la primera
+ * —los que la gente ya tiene guardados— cambiarían de nombre y de
+ * color de golpe.
+ *
+ * La regla es la que protege lo que ya existe: la tarjeta ORIGINAL del
+ * negocio (la más vieja, la misma a la que apunta el QR impreso)
+ * conserva el id de siempre, `negocio_<rancho>`; cualquier otra usa el
+ * suyo. Se decide por ANTIGÜEDAD, que no cambia nunca — no por «cuál
+ * emite hoy», que sí cambia.
+ */
+export function idDeClase(issuerId: string, ranchoId: string, programaId?: string | null): string {
+  const base = `${issuerId}.negocio_${ranchoId.replace(/-/g, "")}`;
+  return programaId ? `${base}_p${programaId.replace(/-/g, "")}` : base;
 }
 
 export function idDeObjeto(issuerId: string, miembroId: string): string {
   return `${issuerId}.miembro_${miembroId.replace(/-/g, "")}`;
+}
+
+/**
+ * QUÉ CLASE LE TOCA A ESTA TARJETA: la legada del negocio o la suya.
+ *
+ * Devuelve lo que espera el parámetro `claseDePrograma` de
+ * `construirClase` / `construirObjeto`: `null` para la clase de
+ * siempre (`negocio_<rancho>`) y el id del programa para una propia.
+ *
+ * Vive acá, pura y en UN solo lugar, porque la regla la aplican dos
+ * caminos —emitir un pase nuevo y refrescar el diseño— y si cada uno
+ * la escribiera por su cuenta, el día que uno de los dos se quedara
+ * viejo el resultado sería el desastre silencioso que todo esto vino a
+ * evitar: la segunda tarjeta reescribiéndole el nombre, el logo y el
+ * color a todos los pases de Android que repartió la primera.
+ *
+ * La regla es por ANTIGÜEDAD (`laDelLinkDeFilasCrudas`), no por «cuál
+ * emite hoy»: la fecha de creación no cambia nunca, así que la tarjeta
+ * original conserva su clase aunque se la pause, se venza o se archive.
+ */
+export function claseDeLaTarjeta(
+  filasDelNegocio: readonly Record<string, unknown>[],
+  programaId: string,
+): string | null {
+  const original = laDelLinkDeFilasCrudas(filasDelNegocio);
+  return original && original.id === programaId ? null : programaId;
 }
 
 // ── Los recursos, como los quiere la API ──────────────────────────────
@@ -186,17 +230,25 @@ function imagenGoogle(uri: string, descripcion: string): ImagenGoogle {
 export function construirClase({
   issuerId,
   ranchoId,
+  claseDePrograma = null,
   nombreNegocio,
   config,
 }: {
   issuerId: string;
   ranchoId: string;
+  /**
+   * El programa al que pertenece esta clase, o null para la clase de
+   * siempre (la de la tarjeta original del negocio). Ver `idDeClase`:
+   * sin esto, la segunda tarjeta le pisaría el nombre y el color a
+   * todos los pases de Android que la primera ya repartió.
+   */
+  claseDePrograma?: string | null;
   nombreNegocio: string;
   config: ConfigPase;
 }) {
   const colores = coloresDe(config);
   return {
-    id: idDeClase(issuerId, ranchoId),
+    id: idDeClase(issuerId, ranchoId, claseDePrograma),
     // `issuerName` es el texto que Android dibuja arriba, al lado del
     // logo. Decía "Bookea" y por eso la tarjeta de un negocio se veía
     // como una tarjeta nuestra. Va el nombre del negocio: es su
@@ -449,6 +501,7 @@ function enTitulo(texto: string): string {
 export function construirObjeto({
   issuerId,
   ranchoId,
+  claseDePrograma = null,
   miembroId,
   nombreNegocio,
   nombreCliente,
@@ -460,6 +513,11 @@ export function construirObjeto({
 }: {
   issuerId: string;
   ranchoId: string;
+  /**
+   * El programa cuya clase usa este objeto, o null para la clase de
+   * siempre (la de la tarjeta original del negocio). Ver `idDeClase`.
+   */
+  claseDePrograma?: string | null;
   miembroId: string;
   nombreNegocio: string;
   nombreCliente: string;
@@ -474,7 +532,7 @@ export function construirObjeto({
 }) {
   return {
     id: idDeObjeto(issuerId, miembroId),
-    classId: idDeClase(issuerId, ranchoId),
+    classId: idDeClase(issuerId, ranchoId, claseDePrograma),
     state: "ACTIVE",
     accountId: miembroId,
     accountName: nombreCliente,
@@ -561,8 +619,28 @@ export type ResultadoClase = { ok: true } | { ok: false; motivo: string };
  *
  * Un solo PATCH de la clase arregla de una vez todas las tarjetas de
  * ese negocio: Google las vuelve a dibujar en los teléfonos solo.
+ *
+ * ── Y CADA TARJETA REFRESCA **LA SUYA** ────────────────────────────
+ * Desde que hay más de una clase por negocio (ver `idDeClase`), esta
+ * función tiene que saber CUÁL tarjeta se editó. Sin `programaId`
+ * elegía «la que emite» y escribía su diseño en la clase LEGADA
+ * —`negocio_<rancho>`, la de la tarjeta original—, con dos daños:
+ *
+ *   · si la original estaba pausada o vencida, «la que emite» era la
+ *     SEGUNDA, y su nombre, su logo y su color se le estampaban a
+ *     todos los pases de Android que la primera ya repartió. Es
+ *     exactamente la contaminación que `idDeClase` vino a evitar,
+ *     entrando por la otra puerta;
+ *   · y la clase propia de la segunda tarjeta no se refrescaba nunca:
+ *     un cambio de diseño suyo no llegaba a ningún Android.
+ *
+ * Con el id, se refresca la clase de ESA tarjeta y de ninguna otra.
+ * Sin él —llamador viejo— se conserva el comportamiento de antes.
  */
-export async function refrescarClaseGoogle(ranchoId: string): Promise<ResultadoClase> {
+export async function refrescarClaseGoogle(
+  ranchoId: string,
+  programaId?: string | null,
+): Promise<ResultadoClase> {
   const cred = credencialesGoogleDelEntorno();
   if (!cred) return { ok: false, motivo: "Google Wallet no está configurado." };
 
@@ -576,20 +654,24 @@ export async function refrescarClaseGoogle(ranchoId: string): Promise<ResultadoC
     .maybeSingle();
   if (!negocio) return { ok: false, motivo: "Ese negocio no existe." };
 
-  // La apariencia sale del programa que EMITE, elegido con la misma
-  // función que usa la emisión y que muestra el panel: un negocio puede
-  // tener más de una tarjeta (la 0134 quitó el `unique(rancho_id)`) y
-  // la clase de Google es una sola por negocio.
+  // `select *`: las columnas de las 0134/0135/0136 pueden no existir
+  // todavía y una lista explícita fallaría la consulta entera.
   const { data: filasPrograma } = await db
     .from("programa_lealtad")
     .select("*")
     .eq("rancho_id", ranchoId);
-  const emisora = emisoraDeFilasCrudas(
-    (filasPrograma ?? []) as Record<string, unknown>[],
-    minutoISOCR(),
-  );
-  if (!emisora) return { ok: false, motivo: "Este negocio no tiene una tarjeta activa." };
-  const { config } = tarjetaDesdeFila(emisora);
+  const filas = (filasPrograma ?? []) as Record<string, unknown>[];
+
+  // La tarjeta que se editó, comprobada contra las filas de ESTE
+  // negocio. Sin id, la que emite — como antes.
+  const pedida = programaId ? (filas.find((f) => f.id === programaId) ?? null) : null;
+  if (programaId && !pedida) return { ok: false, motivo: "Esa tarjeta no es de este negocio." };
+  const elegida = pedida ?? emisoraDeFilasCrudas(filas, minutoISOCR());
+  if (!elegida) return { ok: false, motivo: "Este negocio no tiene una tarjeta activa." };
+  const { config } = tarjetaDesdeFila(elegida);
+
+  // La MISMA regla que usa la emisión, y desde la misma función.
+  const claseDePrograma = claseDeLaTarjeta(filas, elegida.id as string);
 
   try {
     await asegurarRecurso(
@@ -598,6 +680,7 @@ export async function refrescarClaseGoogle(ranchoId: string): Promise<ResultadoC
       construirClase({
         issuerId: cred.issuerId,
         ranchoId,
+        claseDePrograma,
         nombreNegocio: (negocio.nombre as string | null) ?? "",
         config,
       }),
@@ -623,9 +706,19 @@ export type ResultadoPaseGoogle =
  */
 export async function generarPaseGoogle({
   ranchoId,
+  programaId: programaPedido = null,
   clienteId,
   personaId,
-}: IdentidadDelPase & { ranchoId: string }): Promise<ResultadoPaseGoogle> {
+}: IdentidadDelPase & {
+  ranchoId: string;
+  /**
+   * CUÁL de las tarjetas del negocio, si quien pide lo dijo. null = la
+   * de siempre. Lo manda la página pública desde que cada tarjeta tiene
+   * su link y su QR propios; sin el parámetro, todo se comporta
+   * exactamente como antes.
+   */
+  programaId?: string | null;
+}): Promise<ResultadoPaseGoogle> {
   if (!personaId && !clienteId) {
     return { ok: false, codigo: "sin_identidad", motivo: "No sabemos de quién es esta tarjeta." };
   }
@@ -664,8 +757,20 @@ export async function generarPaseGoogle({
     .select("*")
     .eq("rancho_id", ranchoId);
 
+  const filasDelNegocio = (filasPrograma ?? []) as Record<string, unknown>[];
+
+  // Si el botón dijo cuál tarjeta, manda esa — comprobada CONTRA LAS
+  // FILAS DE ESTE NEGOCIO, porque el id viene de la URL. Sin parámetro,
+  // se elige como siempre.
+  const pedida = programaPedido
+    ? (filasDelNegocio.find((f) => f.id === programaPedido) ?? null)
+    : null;
+  if (programaPedido && !pedida) {
+    return { ok: false, codigo: "sin_programa", motivo: "Esa tarjeta no es de este negocio." };
+  }
+
   const programaFila = emisoraDeFilasCrudas(
-    (filasPrograma ?? []) as Record<string, unknown>[],
+    pedida ? [pedida] : filasDelNegocio,
     minutoISOCR(),
   );
   if (!programaFila) {
@@ -676,6 +781,12 @@ export async function generarPaseGoogle({
     };
   }
   const programaId = programaFila.id as string;
+
+  // La CLASE de Google: la tarjeta original del negocio se queda con la
+  // de siempre y cualquier otra estrena la suya. Ver `claseDeLaTarjeta`
+  // — sin esto, la segunda tarjeta reescribía el nombre y el color de
+  // todos los pases de Android que la primera ya repartió.
+  const claseDePrograma = claseDeLaTarjeta(filasDelNegocio, programaId);
   // Apariencia y beneficio de la fila, con el MISMO lector que Apple
   // (tarjeta.ts). Antes cada plataforma casteaba la fila a su propia
   // lista de columnas escrita a mano y ninguna incluía `beneficio`.
@@ -786,7 +897,13 @@ export async function generarPaseGoogle({
     await asegurarRecurso(
       cred,
       "loyaltyClass",
-      construirClase({ issuerId: cred.issuerId, ranchoId, nombreNegocio: negocio.nombre, config }),
+      construirClase({
+        issuerId: cred.issuerId,
+        ranchoId,
+        claseDePrograma,
+        nombreNegocio: negocio.nombre,
+        config,
+      }),
     );
     await asegurarRecurso(
       cred,
@@ -794,6 +911,7 @@ export async function generarPaseGoogle({
       construirObjeto({
         issuerId: cred.issuerId,
         ranchoId,
+        claseDePrograma,
         miembroId: miembro.id,
         nombreNegocio: negocio.nombre,
         nombreCliente,

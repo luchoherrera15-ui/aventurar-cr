@@ -45,6 +45,13 @@ export default async function proxy(request: NextRequest) {
       pathname.startsWith("/food") ||
       pathname.startsWith("/_next") ||
       pathname.startsWith("/api") ||
+      // /cuenta pasa TAL CUAL: es la pantalla de acceso compartida de
+      // todo Bookea y la ficha de un restaurante manda ahí a quien
+      // quiere reservar (`/cuenta?volver=food:slug`). Sin esta
+      // excepción, food.bookea.lat/cuenta se reescribía a /food/cuenta
+      // —que no existe— y el login moría en un 404 (visto en vivo el
+      // 2026-08-20). La cookie de sesión ya alcanza al subdominio.
+      pathname.startsWith("/cuenta") ||
       /\.[a-z0-9]+$/i.test(pathname); // archivos estáticos: favicon.ico, robots.txt...
     if (!yaResuelta) {
       const url = request.nextUrl.clone();

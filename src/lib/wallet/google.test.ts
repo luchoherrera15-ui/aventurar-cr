@@ -1,6 +1,7 @@
 import { generateKeyPairSync, createVerify } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  claseDeLaTarjeta,
   construirClase,
   construirObjeto,
   credencialesGoogleDelEntorno,
@@ -36,6 +37,57 @@ describe("ids deterministas", () => {
 
   it("el mismo miembro SIEMPRE produce el mismo objeto (sin tabla de mapeo)", () => {
     expect(idDeObjeto(ISSUER, MIEMBRO)).toBe(idDeObjeto(ISSUER, MIEMBRO));
+  });
+});
+
+/**
+ * LA CLASE DE CADA TARJETA — lo que protege los pases de Android que ya
+ * están repartidos.
+ *
+ * En Google, el nombre que sale arriba, el logo y el color de fondo NO
+ * viven en el objeto del cliente: viven en la CLASE, que hasta la
+ * segunda tarjeta era una sola por negocio. Si la tarjeta nueva
+ * escribiera en esa clase, todos los pases de Android de la primera
+ * cambiarían de nombre y de color de golpe — Pura Matcha tiene cuatro.
+ *
+ * Por eso la regla es por ANTIGÜEDAD y no por «cuál emite hoy»: la
+ * fecha de creación no cambia nunca, así que la respuesta es la misma
+ * con la original activa, pausada, vencida o archivada.
+ */
+describe("claseDeLaTarjeta — la original conserva la clase legada", () => {
+  const VIEJA = { id: "prog-vieja", created_at: "2026-08-17T21:07:42Z", activo: true };
+  const NUEVA = { id: "prog-nueva", created_at: "2026-08-20T21:43:08Z", activo: true };
+  // A propósito con el uuid de la NUEVA ordenando antes que el de la
+  // vieja: es la forma exacta que tiene Pura Matcha en producción y la
+  // que rompía el desempate viejo.
+  const FILAS = [NUEVA, VIEJA];
+
+  it("la más vieja no estrena clase: se queda con `negocio_<rancho>`", () => {
+    expect(claseDeLaTarjeta(FILAS, "prog-vieja")).toBeNull();
+    expect(idDeClase(ISSUER, RANCHO, claseDeLaTarjeta(FILAS, "prog-vieja"))).toBe(
+      idDeClase(ISSUER, RANCHO),
+    );
+  });
+
+  it("cualquier otra estrena la suya, distinta de la legada", () => {
+    expect(claseDeLaTarjeta(FILAS, "prog-nueva")).toBe("prog-nueva");
+    expect(idDeClase(ISSUER, RANCHO, claseDeLaTarjeta(FILAS, "prog-nueva"))).not.toBe(
+      idDeClase(ISSUER, RANCHO),
+    );
+  });
+
+  it("PAUSAR la original no le pasa su clase a la segunda", () => {
+    // El caso que hace falta clavar: con la original pausada, «la que
+    // emite» pasa a ser la segunda. Si la regla mirara eso, refrescar
+    // el diseño le estamparía el nombre y el color de la segunda a los
+    // pases de Android de la primera.
+    const pausada = [{ ...NUEVA }, { ...VIEJA, activo: false, estado: "pausado" }];
+    expect(claseDeLaTarjeta(pausada, "prog-vieja")).toBeNull();
+    expect(claseDeLaTarjeta(pausada, "prog-nueva")).toBe("prog-nueva");
+  });
+
+  it("con UNA sola tarjeta nada cambia: sigue la clase de siempre", () => {
+    expect(claseDeLaTarjeta([VIEJA], "prog-vieja")).toBeNull();
   });
 });
 
