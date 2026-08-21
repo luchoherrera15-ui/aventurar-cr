@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import MenuInicialLealtad from "./menu-inicial-lealtad";
 import PanelPaquetesLealtad from "./panel-paquetes-lealtad";
-import EditorTarjetaCompleto from "./editor-tarjeta-completo";
+import TarjetaFormulario, { type ValorFormulario } from "./tarjeta-formulario";
+import { REGLAS_VACIAS } from "./panel/[id]/paso-reglas";
+import { solicitarAltaConPlan } from "./nuevo/actions";
 import {
   configPorDefecto,
   esTipoTarjeta,
@@ -11,9 +13,9 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
-import { esPlanOfrecido, type PlanId } from "@/lib/lealtad/planes";
+import { esPlanOfrecido, planQueDesbloquea, tiposDelPlan, type PlanId } from "@/lib/lealtad/planes";
 import { PALETAS, coloresDePaleta, paletaDeLosColores } from "@/lib/lealtad/paletas";
-import { esIconoSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import { esIconoSello, SELLO_PROPIO, type SelloElegido } from "@/lib/lealtad/iconos-sello";
 import { esPlantillaIcono } from "@/lib/lealtad/plantillas-icono";
 import { PLANTILLAS_FRANJA } from "@/lib/lealtad/plantillas-franjas";
 
@@ -94,7 +96,11 @@ export type EstadoLealtad = {
   beneficio: ConfigBeneficio;
   colorFondo: string;
   colorSello: string;
-  iconoSello: IconoSello | null;
+  /** Puede ser 'propio' (0174) — y entonces `iconoUrl` viene con él. */
+  iconoSello: SelloElegido | null;
+  /** El archivo del sello «Mi ícono» — SOLO una subida real (requiere
+   *  sesión, igual que logoUrl/bannerUrl). */
+  iconoUrl: string | null;
 
   /** "Imagen del negocio" — el sucesor de imagen-stock.ts, ahora 20-30. */
   imagenModo: "ninguna" | "stock" | "propia";
@@ -114,7 +120,10 @@ export type EstadoLealtad = {
 };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
-const CLAVE_SESION = "bookea-lealtad-wizard:nuevo";
+/** Exportada para `zona-configurador.tsx`: la zona desplegable necesita
+ *  saber si hay un borrador con vista avanzada para abrirse sola tras
+ *  la recarga del alta de cuenta. */
+export const CLAVE_SESION = "bookea-lealtad-wizard:nuevo";
 
 function estadoInicial(): EstadoLealtad {
   const base = coloresDePaleta(PALETAS.sellos);
@@ -127,6 +136,7 @@ function estadoInicial(): EstadoLealtad {
     colorFondo: base.fondo,
     colorSello: base.sello,
     iconoSello: null,
+    iconoUrl: null,
     imagenModo: "ninguna",
     imagenStockId: null,
     logoUrl: null,
@@ -166,7 +176,11 @@ function sanearGuardado(crudo: unknown): EstadoLealtad {
   }
   if (typeof c.colorFondo === "string" && HEX.test(c.colorFondo)) limpio.colorFondo = c.colorFondo;
   if (typeof c.colorSello === "string" && HEX.test(c.colorSello)) limpio.colorSello = c.colorSello;
+  // El ícono propio solo sobrevive el saneo si su archivo vino con él —
+  // 'propio' suelto no dibuja nada (mismo criterio que la 0174).
+  if (typeof c.iconoUrl === "string" && c.iconoUrl) limpio.iconoUrl = c.iconoUrl;
   if (esIconoSello(c.iconoSello)) limpio.iconoSello = c.iconoSello;
+  else if (c.iconoSello === SELLO_PROPIO && limpio.iconoUrl) limpio.iconoSello = SELLO_PROPIO;
 
   if (c.imagenModo === "stock" && esPlantillaIcono(c.imagenStockId)) {
     limpio.imagenModo = "stock";
@@ -187,9 +201,14 @@ function sanearGuardado(crudo: unknown): EstadoLealtad {
   return limpio;
 }
 
+type ExitoAlta = { ranchoId: string; slug: string | null };
+
 export default function ConfiguradorLealtad({ haySesion }: { haySesion: boolean }) {
   const [estado, setEstado] = useState<EstadoLealtad>(estadoInicial);
   const [restaurado, setRestaurado] = useState(false);
+  const [exito, setExito] = useState<ExitoAlta | null>(null);
+  const [errorAlta, setErrorAlta] = useState<string | null>(null);
+  const [guardando, iniciarGuardado] = useTransition();
 
   useEffect(() => {
     try {
@@ -234,7 +253,127 @@ export default function ConfiguradorLealtad({ haySesion }: { haySesion: boolean 
     });
   }
 
-  // ── Modo 3: el editor completo rompe el chrome `overflow-hidden` de
+  /**
+   * EL PUENTE HACIA `TarjetaFormulario` (Modo 3, "un solo panel" — el
+   * dueño lo pidió también para el panel autenticado; ver el comentario
+   * grande de `tarjeta-formulario.tsx`).
+   *
+   * `EstadoLealtad` y `ValorFormulario` casi coinciden, pero no son el
+   * mismo tipo: acá los campos se llaman `nombreNegocio`/`modo` (nacieron
+   * así antes de que existiera el panel autenticado) y allá `nombre`/
+   * `tipo` (para calzar con crear/editar, que nunca tuvieron el prefijo
+   * "Negocio"). Y `reglas`/`vencenMeses`/`iconoUrl` son campos que SOLO
+   * usan crear/editar — el alta pública se queda liviana a propósito
+   * (ver el comentario grande de `tarjeta-formulario.tsx`), así que acá
+   * van fijos al valor vacío y `alCambiarPublico` los descarta si algún
+   * día alguien los toca por error: este flujo nunca los muestra en
+   * pantalla, pero declararlos explícitos evita que un cambio futuro los
+   * escriba en `EstadoLealtad` sin querer.
+   */
+  const valorPublico: ValorFormulario = {
+    nombre: estado.nombreNegocio,
+    tipo: estado.modo,
+    beneficio: estado.beneficio,
+    colorFondo: estado.colorFondo,
+    colorSello: estado.colorSello,
+    iconoSello: estado.iconoSello,
+    iconoUrl: estado.iconoUrl ?? "",
+    logoUrl: estado.logoUrl ?? "",
+    bannerUrl: estado.bannerUrl ?? "",
+    reglas: REGLAS_VACIAS,
+    vencenMeses: null,
+    telefono: estado.telefono,
+    imagenModo: estado.imagenModo,
+    imagenStockId: estado.imagenStockId,
+    franjaModo: estado.franjaModo,
+    franjaBancoId: estado.franjaBancoId,
+    planElegido: estado.planElegido,
+  };
+
+  function alCambiarPublico(p: Partial<ValorFormulario>) {
+    const cambios: Partial<EstadoLealtad> = {};
+    if (p.nombre !== undefined) cambios.nombreNegocio = p.nombre;
+    if (p.tipo !== undefined) cambios.modo = p.tipo;
+    if (p.beneficio !== undefined) cambios.beneficio = p.beneficio;
+    if (p.colorFondo !== undefined) cambios.colorFondo = p.colorFondo;
+    if (p.colorSello !== undefined) cambios.colorSello = p.colorSello;
+    // Desde ago 2026 'propio' SÍ se acepta acá: el formulario ofrece
+    // «Mi ícono» cuando hay sesión (el archivo sube de verdad), así que
+    // `EstadoLealtad` lo guarda junto con su `iconoUrl`.
+    if (p.iconoSello !== undefined) cambios.iconoSello = p.iconoSello;
+    if (p.iconoUrl !== undefined) cambios.iconoUrl = p.iconoUrl || null;
+    if (p.logoUrl !== undefined) cambios.logoUrl = p.logoUrl;
+    if (p.bannerUrl !== undefined) cambios.bannerUrl = p.bannerUrl;
+    if (p.telefono !== undefined) cambios.telefono = p.telefono;
+    if (p.imagenModo !== undefined) cambios.imagenModo = p.imagenModo;
+    if (p.imagenStockId !== undefined) cambios.imagenStockId = p.imagenStockId;
+    if (p.franjaModo !== undefined) cambios.franjaModo = p.franjaModo;
+    if (p.franjaBancoId !== undefined) cambios.franjaBancoId = p.franjaBancoId;
+    if (p.planElegido !== undefined) cambios.planElegido = p.planElegido;
+    patch(cambios);
+  }
+
+  /**
+   * EL GUARDADO DEL ALTA PÚBLICA — se queda acá, no en
+   * `tarjeta-formulario.tsx`: es la MISMA lógica que ya tenía
+   * `editor-tarjeta-completo.tsx` (solo trasladada), y no se reescribe
+   * porque ya funciona en producción. `solicitarAltaConPlan` crea el
+   * negocio, la tarjeta y el addon juntos — nada que ver con
+   * `crearTarjeta` (crear-actions.ts) o `guardarBeneficio`
+   * (pases-actions.ts), que operan sobre un negocio que YA existe.
+   */
+  function publicarAlta() {
+    setErrorAlta(null);
+    const b = estado.beneficio;
+    const esGratis = tiposDelPlan("prueba").includes(estado.modo);
+    const planQueAbre = planQueDesbloquea(estado.modo);
+    const planDestino = esGratis ? "prueba" : (planQueAbre?.id ?? "arranque");
+    const datos = {
+      nombreNegocio: estado.nombreNegocio.trim(),
+      // Sin paso de rubro en este flujo: "citas" es el vertical más
+      // común de Lealtad y evita el único campo que
+      // `solicitarAltaConPlan` exige cuando el tipo es "otro".
+      tipo: "citas",
+      detalleOtro: "",
+      plan: planDestino,
+      metodoPago: "sinpe",
+      comprobanteUrl: "",
+      telefono: estado.telefono,
+      personalizado: false,
+      descripcion: "",
+      paseColor: estado.colorFondo,
+      paseLogoUrl: estado.imagenModo === "propia" ? (estado.logoUrl ?? "") : "",
+      regalia: b.tipo === "sellos" ? b.recompensa || "Tu regalía" : "Tu regalía",
+      metaSellos: b.tipo === "sellos" ? b.requeridos : 10,
+      tarjeta: {
+        modo: estado.modo,
+        beneficio: b,
+        colorFondo: estado.colorFondo,
+        colorSello: estado.colorSello,
+        iconoSello: estado.modo === "sellos" ? estado.iconoSello : null,
+        iconoUrl: estado.modo === "sellos" ? estado.iconoUrl : null,
+        logoUrl: estado.imagenModo === "propia" ? estado.logoUrl : null,
+        // NUNCA cuando franjaModo === "banco": esa ruta es de public/,
+        // no de nuestro Storage.
+        bannerUrl: estado.franjaModo === "propia" ? estado.bannerUrl : null,
+      },
+    };
+    iniciarGuardado(async () => {
+      const res = await solicitarAltaConPlan(datos);
+      if (!res.ok) {
+        setErrorAlta(res.motivo);
+        return;
+      }
+      try {
+        sessionStorage.removeItem(CLAVE_SESION);
+      } catch {
+        /* sin storage no hay nada que limpiar */
+      }
+      if (res.creado) setExito({ ranchoId: res.creado.ranchoId, slug: res.creado.slug });
+    });
+  }
+
+  // ── Modo 3: `TarjetaFormulario` rompe el chrome `overflow-hidden` de
   // los otros dos modos a propósito — un ancestro con `overflow-hidden`
   // le quita a `position: sticky` dónde pegarse, y el pase fijo de la
   // columna derecha necesita ese espacio.
@@ -242,15 +381,23 @@ export default function ConfiguradorLealtad({ haySesion }: { haySesion: boolean 
     return (
       <div
         id="configurador-lealtad"
-        className="scroll-mt-20 rounded-3xl border border-white/10 bg-white p-5 shadow-[0_30px_70px_-28px_rgba(4,10,24,0.55)] sm:p-8"
+        className="scroll-mt-20 rounded-3xl border border-[#e6eaf3] bg-white p-5 shadow-[0_28px_70px_-30px_rgba(16,38,88,0.35)] sm:p-8"
       >
-        <EditorTarjetaCompleto
-          estado={estado}
-          alCambiar={patch}
-          alElegirTipo={elegirTipo}
-          haySesion={haySesion}
-          alVolver={() => patch({ vista: "paquetes" })}
-        />
+        {exito ? (
+          <PantallaExito ranchoId={exito.ranchoId} slug={exito.slug} nombre={estado.nombreNegocio.trim()} />
+        ) : (
+          <TarjetaFormulario
+            modo="publico"
+            negocioNombre=""
+            haySesion={haySesion}
+            valor={valorPublico}
+            alCambiar={alCambiarPublico}
+            alVolver={() => patch({ vista: "paquetes" })}
+            guardando={guardando}
+            error={errorAlta}
+            onGuardar={publicarAlta}
+          />
+        )}
       </div>
     );
   }
@@ -258,7 +405,7 @@ export default function ConfiguradorLealtad({ haySesion }: { haySesion: boolean 
   return (
     <div
       id="configurador-lealtad"
-      className="scroll-mt-20 overflow-hidden rounded-[22px] border border-white/10 bg-white shadow-[0_30px_70px_-28px_rgba(4,10,24,0.55)]"
+      className="scroll-mt-20 overflow-hidden rounded-[22px] border border-[#e6eaf3] bg-white shadow-[0_28px_70px_-30px_rgba(16,38,88,0.35)]"
     >
       <div
         className="flex items-center gap-2 px-4 py-2"
@@ -289,6 +436,50 @@ export default function ConfiguradorLealtad({ haySesion }: { haySesion: boolean 
           alSeguir={(planId) => patch({ planElegido: planId, vista: "editor" })}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * LA PANTALLA DE ÉXITO del alta pública — la misma que tenía
+ * `editor-tarjeta-completo.tsx`, trasladada tal cual: reemplaza a
+ * `TarjetaFormulario` entero (no una sección más) en cuanto
+ * `solicitarAltaConPlan` confirma que el negocio y la tarjeta ya
+ * existen.
+ */
+function PantallaExito({
+  ranchoId,
+  slug,
+  nombre,
+}: {
+  ranchoId: string;
+  slug: string | null;
+  nombre: string;
+}) {
+  return (
+    <div className="entra-suave mx-auto max-w-[560px] text-center">
+      <h2 className="titulo text-[22px] text-bookea-tinta">¡Tu tarjeta está lista! 🎉</h2>
+      <p className="mx-auto mt-2 max-w-[440px] text-[13.5px] leading-relaxed text-bookea-gris">
+        <strong className="text-bookea-tinta">{nombre}</strong> quedó creado con su tarjeta funcionando. Compartí
+        el QR de tu panel y tus clientes ya pueden agregarla al teléfono.
+      </p>
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        <a
+          href={`/lealtad/panel/${ranchoId}`}
+          className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold"
+          style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+        >
+          Ir a mi panel →
+        </a>
+        {slug && (
+          <a
+            href={`/tarjeta/${slug}`}
+            className="presionable rounded-xl border border-bookea-linea px-5 py-2.5 text-[13px] font-bold text-bookea-gris"
+          >
+            Ver mi tarjeta como cliente
+          </a>
+        )}
+      </div>
     </div>
   );
 }

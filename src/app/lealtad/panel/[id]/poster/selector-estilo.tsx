@@ -41,12 +41,19 @@ function siguiente(indice: number, delta: number, total: number): number {
 
 export default function SelectorEstilo({
   ruta,
+  programaId = null,
   actual,
   marca,
   acento,
 }: {
   /** La misma página, sin query: el estilo se le pega como `?estilo=`. */
   ruta: string;
+  /**
+   * La tarjeta que se está imprimiendo, para no perderla al cambiar de
+   * diseño. null = la de siempre, y entonces el link queda idéntico al
+   * que había antes de que hubiera una tarjeta por póster.
+   */
+  programaId?: string | null;
   actual: EstiloPoster;
   /** Los dos colores del programa, para que las miniaturas no mientan. */
   marca: string;
@@ -87,7 +94,7 @@ export default function SelectorEstilo({
                 ref={(el) => {
                   enlaces.current[i] = el;
                 }}
-                href={`${ruta}?estilo=${id}`}
+                href={`${ruta}?estilo=${id}${programaId ? `&programa=${programaId}` : ""}`}
                 scroll={false}
                 // `page` y no `true`: lo que este enlace marca es que la
                 // página que se está viendo es esa, no un ítem de una

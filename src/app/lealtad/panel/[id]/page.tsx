@@ -30,11 +30,17 @@ import { estadoDePrueba } from "@/lib/lealtad/prueba";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { minutoISOCR } from "@/lib/fechas";
 import SeccionProgramas, { type ProgramaEnLista } from "./seccion-programas";
+import SelectorTarjetaActiva from "./selector-tarjeta-activa";
 import { estadoVisible, operaAhora } from "@/lib/lealtad/programas";
-import { elegirPrograma } from "@/lib/wallet/programa-principal";
+import {
+  elegirPrograma,
+  filasCrudasPorAntiguedad,
+  resumenDeFila,
+} from "@/lib/wallet/programa-principal";
+import { llaveDeTarjeta, tarjetaConLlaveDeFila } from "@/lib/lealtad/llave-tarjeta";
 import { cupoLleno, lasQueOcupanCupo } from "./cupo-tarjetas";
 import { TIPOS_TARJETA, tipoDe } from "@/lib/lealtad/tipos-tarjeta";
-import { pideMontoElTipo } from "@/lib/lealtad/mostrador";
+import { registraCompraElTipo } from "@/lib/lealtad/mostrador";
 import { permisosDeFila } from "@/lib/lealtad/permisos";
 import { cargarLealtad } from "./datos-lealtad";
 import ShellLealtad, { type GrupoLealtad } from "./shell-lealtad";
@@ -46,8 +52,11 @@ import InicioLealtad, {
 import ModoMostrador from "./modo-mostrador";
 import BotonEscanear from "./boton-escanear";
 import LealtadEstado from "./lealtad-estado";
+import ClientesVistas from "./clientes-vistas";
+import ClientesAuditoria from "./clientes-auditoria";
+import { cargarClientesAuditados } from "./clientes-datos";
 import MarketingLealtad from "./marketing-lealtad";
-import CompartirTarjeta from "./compartir-tarjeta";
+import CompartirTarjeta, { type TarjetaCompartible } from "./compartir-tarjeta";
 import { BloqueEstado } from "./pases-panel";
 import EditorRecompensas from "./editor-recompensas";
 import SeccionPlan from "./seccion-plan";
@@ -55,10 +64,16 @@ import FacturacionConTarjeta from "./facturacion-tarjeta";
 import { suscripcionDelNegocio } from "@/lib/pagos/puerta-supabase";
 import { AvisoError, AvisoGuardado, ProveedorPrograma } from "./programa-contexto";
 import MetricasLealtad from "./metricas";
+import ImpactoComercial from "./impacto-comercial";
 import AuditoriaResumen from "./auditoria-resumen";
 import EquipoLealtad, { type MiembroEquipo } from "./equipo-cliente";
 import { ActividadLealtad, IntegracionesLealtad, WalletLealtad } from "./lealtad-secciones";
 import SeccionDevelopers from "./seccion-developers";
+import SeccionUbicaciones from "./seccion-ubicaciones";
+import type { UbicacionFila } from "./ubicaciones-actions";
+import SeccionProductos from "./seccion-productos";
+import { catalogoDelNegocio, productosParaVender } from "@/lib/lealtad/productos-db";
+import type { ProductoCatalogo, ProductoDeVenta } from "@/lib/lealtad/productos";
 import type { ProgramaFila, RecompensaFila } from "./pases-actions";
 
 /**
@@ -92,14 +107,21 @@ export default async function PanelNegocioLealtad({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  // De vuelta de Stripe Checkout: `?pago=listo` o `?pago=cancelado`.
-  // OJO — es un AVISO y nada más: ningún plan se activa por lo que
-  // diga esta URL, que se escribe a mano. Activa el webhook firmado
-  // (src/app/api/stripe/webhook/route.ts) y nadie más.
-  searchParams: Promise<{ pago?: string }>;
+  searchParams: Promise<{
+    // De vuelta de Stripe Checkout: `?pago=listo` o `?pago=cancelado`.
+    // OJO — es un AVISO y nada más: ningún plan se activa por lo que
+    // diga esta URL, que se escribe a mano. Activa el webhook firmado
+    // (src/app/api/stripe/webhook/route.ts) y nadie más.
+    pago?: string;
+    // Qué tarjeta mirar en Clientes/Actividad/Métricas cuando el
+    // negocio tiene más de una — ver `selector-tarjeta-activa.tsx`.
+    // Se valida abajo contra las tarjetas REALES del negocio antes de
+    // usarse; nunca se confía en el string suelto de la URL.
+    tarjeta?: string;
+  }>;
 }) {
   const { id } = await params;
-  const { pago } = await searchParams;
+  const { pago, tarjeta } = await searchParams;
   const avisoPago = pago === "listo" || pago === "cancelado" ? pago : null;
 
   const acceso = await verificarAccesoLealtad(id);
@@ -281,6 +303,11 @@ export default async function PanelNegocioLealtad({
     vigente_hasta: (f.vigente_hasta as string | null) ?? null,
     colorFondo: (f.pase_color_fondo as string | null) ?? null,
     miembros: miembrosPorPrograma.get(f.id as string) ?? 0,
+    // OBLIGATORIO aunque la sección no lo dibuje: esta misma lista es
+    // la que va a `elegirPrograma`, que desempata por antigüedad. Sin
+    // la fecha el desempate cae al uuid y el panel elige una tarjeta
+    // distinta de la que sirven el link público y el pase.
+    created_at: typeof f.created_at === "string" ? f.created_at : null,
   }));
 
   // ── LA TARJETA PRINCIPAL: la que mandan Inicio, Clientes, Métricas
@@ -302,6 +329,21 @@ export default async function PanelNegocioLealtad({
   // dueño configure exactamente la tarjeta que su cliente recibe.
   const principal = elegirPrograma(programasEnLista, ahoraCR);
 
+  // ── EL LINK DE CADA TARJETA ────────────────────────────────────
+  // Uno por tarjeta, ordenadas de la más vieja a la más nueva. La
+  // PRIMERA es la que sirve el link corto `/tarjeta/<negocio>`, o sea
+  // la del QR que el negocio ya tiene impreso y pegado en la caja: por
+  // eso se marca, y por eso su sufijo va vacío. Ver `llave-tarjeta.ts`
+  // y `laDelLinkDelNegocio`.
+  const porAntiguedad = filasCrudasPorAntiguedad(todasLasFilas);
+  const tarjetasCompartibles: TarjetaCompartible[] = porAntiguedad.map((f, i) => ({
+    id: f.id as string,
+    nombre: (f.nombre as string) ?? "Tarjeta",
+    sufijo: i === 0 ? "" : `/${llaveDeTarjeta(tarjetaConLlaveDeFila(f))}`,
+    esLaDelQrImpreso: i === 0,
+    emitiendo: operaAhora(resumenDeFila(f), ahoraCR),
+  }));
+
   const p = (principal
     ? (todasLasFilas.find((f) => f.id === principal.id) ?? null)
     : null) as ProgramaFila | null;
@@ -316,6 +358,38 @@ export default async function PanelNegocioLealtad({
 
   const lista = (recompensas ?? []) as RecompensaFila[];
   const meta = lista.find((r) => r.activo) ?? null;
+
+  // ── LA TARJETA QUE SE ESTÁ MIRANDO en Clientes/Actividad/Métricas ──
+  // Por defecto es la misma principal (`p`): para el negocio con una
+  // sola tarjeta nada cambia. `?tarjeta=<id>` la pisa, y SOLO si ese
+  // id está en `programasEnLista` —las tarjetas reales de ESTE
+  // negocio—, nunca confiando en el string suelto de la URL.
+  //
+  // El botón grande «Escanear» del shell, «Recompensas» y el resto de
+  // Inicio siguen atados a `p`/`meta`: cambiar de pestaña acá NO
+  // cambia a qué tarjeta acredita un escaneo desde el botón de
+  // siempre. Esto es SOLO para mirar y operar el mostrador/auditoría
+  // de la tarjeta elegida — ver selector-tarjeta-activa.tsx.
+  const tarjetaVistaId =
+    tarjeta && programasEnLista.some((pr) => pr.id === tarjeta) ? tarjeta : (p?.id ?? null);
+  const pVista = (
+    tarjetaVistaId === p?.id ? p : (todasLasFilas.find((f) => f.id === tarjetaVistaId) ?? null)
+  ) as ProgramaFila | null;
+
+  // La recompensa activa de la tarjeta que se está mirando, si es
+  // DISTINTA de la principal — mismo criterio que ya corre para `p`
+  // arriba, una sola vez más solo cuando hace falta.
+  const { data: recompensasVista } =
+    admin && pVista && pVista.id !== p?.id
+      ? await admin
+          .from("recompensas")
+          .select("*")
+          .eq("programa_id", pVista.id)
+          .order("costo_puntos", { ascending: true })
+      : { data: null };
+  const metaVista: RecompensaFila | null =
+    pVista?.id === p?.id ? meta : ((recompensasVista as RecompensaFila[] | null)?.find((r) => r.activo) ?? null);
+
   // «Activo» acá es la pregunta que decide si el QR lleva a algún lado,
   // así que se responde con `operaAhora`: una tarjeta con estado activo
   // pero vencida NO emite pases, y decir que sí mandaría a imprimir un
@@ -333,6 +407,14 @@ export default async function PanelNegocioLealtad({
   // secciones del mismo render comparten una sola consulta.
   const datosLealtad = await cargarLealtad(p?.id ?? null, meta?.costo_puntos ?? null);
   const miembros = datosLealtad?.resumen.miembros ?? 0;
+
+  // La vista de auditoría (clientes-datos.ts) se apoya en la MISMA
+  // `cargarLealtad` de arriba — cache() por render, no es una segunda
+  // consulta del padrón. null cuando no hay programa todavía: la
+  // pestaña de Auditoría se apaga sola, no se rompe.
+  const datosClientes = pVista
+    ? await cargarClientesAuditados(pVista.id, metaVista?.costo_puntos ?? null)
+    : null;
 
   // El complemento de cercanía (0123): lo pide el editor de la tarjeta
   // para saber si ofrece el aviso por ubicación.
@@ -402,6 +484,51 @@ export default async function PanelNegocioLealtad({
   const suscripcion =
     admin && puedeDisenar ? await suscripcionDelNegocio(admin, { ranchoId: id, cuentaId }) : null;
 
+  // ── Geo-Push (0196): las ubicaciones del negocio ────────────────
+  // `null` = la consulta falló (típicamente: la tabla no existe porque
+  // la migración se aplica aparte). La sección se pinta con su aviso
+  // neutro y el RESTO del panel sigue vivo — el mismo criterio
+  // degradable que `suscripcionDelNegocio`, acá arriba.
+  let ubicaciones: UbicacionFila[] | null = null;
+  if (admin && puedeDisenar) {
+    const { data: filasUbic, error: errorUbic } = await admin
+      .from("lealtad_ubicaciones")
+      .select("id, nombre, latitud, longitud, mensaje")
+      .eq("rancho_id", id)
+      .order("created_at", { ascending: true });
+    if (!errorUbic) {
+      ubicaciones = ((filasUbic ?? []) as Record<string, unknown>[]).map(
+        (u): UbicacionFila => ({
+          id: String(u.id),
+          nombre: typeof u.nombre === "string" ? u.nombre : "",
+          latitud: Number(u.latitud),
+          longitud: Number(u.longitud),
+          mensaje: typeof u.mensaje === "string" ? u.mensaje : "",
+        }),
+      );
+    }
+  }
+
+  // ── El catálogo de productos (0198) ────────────────────────────
+  // DOS lecturas distintas, y no son la misma por quién las usa:
+  //
+  //   · `catalogo` es la pantalla de CONFIGURACIÓN, del dueño: trae
+  //     también los desactivados, porque son suyos y los tiene que
+  //     poder volver a encender. `null` = la migración no está pegada,
+  //     y la sección lo dice con su aviso neutro sin tumbar el panel.
+  //   · `productosDeVenta` es el desplegable de la CAJA: solo los
+  //     activos, y lo ve también un colaborador — por eso cuelga de
+  //     `permisos.acreditar` y NUNCA de `puedeDisenar`. Definir el
+  //     precio es del dueño; elegir el producto al cobrar, de quien
+  //     está atendiendo.
+  //
+  // Las dos degradan a «no hay catálogo» sin la 0198, y entonces el
+  // mostrador queda exactamente como antes: monto a mano.
+  const catalogo: ProductoCatalogo[] | null =
+    admin && puedeDisenar ? await catalogoDelNegocio(admin, id) : null;
+  const productosDeVenta: ProductoDeVenta[] =
+    admin && permisos.acreditar ? await productosParaVender(admin, id) : [];
+
   // La cuenta regresiva de la prueba. Se pinta EN EL PANEL y no solo en
   // un correo a propósito: el correo se pierde, se filtra o se lee
   // tarde, y el panel es el lugar donde el dueño ya está mirando su
@@ -440,6 +567,7 @@ export default async function PanelNegocioLealtad({
         ...(permisos.auditoria
           ? [
               { id: "actividad", etiqueta: "Actividad", icono: "actividad" as const },
+              { id: "ventas", etiqueta: "Ventas", icono: "moneda" as const },
               { id: "metricas", etiqueta: "Métricas", icono: "metricas" as const },
             ]
           : []),
@@ -454,6 +582,12 @@ export default async function PanelNegocioLealtad({
           ? [
               { id: "negocio", etiqueta: "Negocio", icono: "negocio" as const },
               { id: "recompensas", etiqueta: "Recompensas", icono: "recompensas" as const },
+              // «Productos» (0198) es la respuesta a «¿dónde configuro
+              // cuánto vale lo que vendo?». Va en Configuración y solo
+              // para el dueño, por lo mismo que Recompensas y
+              // Ubicación: el precio de lo que se vende no es una
+              // decisión de mostrador.
+              { id: "productos", etiqueta: "Productos", icono: "moneda" as const },
               // Acá había «Tarjeta digital», y se quitó a propósito: era
               // un atajo que editaba SIEMPRE la tarjeta principal. Con
               // una sola tarjeta parecía natural; con dos, el dueño
@@ -465,14 +599,19 @@ export default async function PanelNegocioLealtad({
             ]
           : []),
         { id: "poster", etiqueta: "Póster y QR", icono: "poster" as const },
-        // «Developers» es la promoción natural de Integraciones, que
-        // hoy vive enterrado dentro de Actividad. Va condicionado por
-        // `puedeDisenar` y NUNCA por permisos de colaborador, ni
-        // siquiera con `auditoria`: mirar el libro mayor y poder
-        // abrirle la puerta a un tercero no son el mismo permiso.
+        // «Ubicación» (Geo-Push, 0196) es del dueño por lo mismo que
+        // «Negocio»: dónde queda el local y qué promete al pasar cerca
+        // es identidad de la marca, no operación de mostrador.
         ...(puedeDisenar
-          ? [{ id: "developers", etiqueta: "Developers", icono: "actividad" as const }]
+          ? [{ id: "ubicacion", etiqueta: "Ubicación", icono: "ubicacion" as const }]
           : []),
+        // «Developers» YA NO va en el menú del negocio (dueño, ago
+        // 2026): conectar un punto de venta es cosa de un puñado de
+        // clientes y llenaba el menú a todos los demás. La pantalla
+        // sigue existiendo —se llega por /lealtad/developers, donde se
+        // pide la aprobación— y el bloque de integraciones se sigue
+        // viendo dentro de Actividad; lo que se quitó es el ítem del
+        // menú, no la funcionalidad.
         ...(puedeDisenar ? [{ id: "plan", etiqueta: "Plan y facturación", icono: "plan" as const }] : []),
       ],
     },
@@ -614,7 +753,8 @@ export default async function PanelNegocioLealtad({
               // Mismo criterio que el mostrador — ver el comentario de
               // más abajo. Las dos puertas al escáner tienen que
               // preguntar lo mismo.
-              pideMonto={pideMontoElTipo(tipoPrincipal)}
+              pideMonto={registraCompraElTipo(tipoPrincipal)}
+              productos={productosDeVenta}
               recompensa={
                 meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
               }
@@ -653,8 +793,37 @@ export default async function PanelNegocioLealtad({
         titulo="Clientes"
         bajada="Quién se afilió, cuánto lleva cada quien y a quién le toca su regalía."
       >
-        {p ? (
-          <LealtadEstado programaId={p.id} plan={plan} meta={meta?.costo_puntos ?? null} />
+        <SelectorTarjetaActiva
+          ranchoId={id}
+          programas={programasEnLista}
+          activaId={pVista?.id ?? null}
+          seccion="clientes"
+        />
+        {pVista ? (
+          datosClientes ? (
+            <ClientesVistas
+              mostrador={
+                <LealtadEstado
+                  programaId={pVista.id}
+                  plan={plan}
+                  meta={metaVista?.costo_puntos ?? null}
+                />
+              }
+              auditoria={
+                <ClientesAuditoria ranchoId={id} programaId={pVista.id} datos={datosClientes} />
+              }
+            />
+          ) : (
+            // Sin llave de servicio (entorno local sin configurar) la
+            // auditoría no tiene con qué armarse: el mostrador de
+            // siempre sigue andando, la pestaña nueva simplemente no
+            // aparece en vez de mostrar una vista rota.
+            <LealtadEstado
+              programaId={pVista.id}
+              plan={plan}
+              meta={metaVista?.costo_puntos ?? null}
+            />
+          )
         ) : (
           <Vacio texto="Tu plan está activo y el equipo de Bookea está armando el programa y la tarjeta. Te avisamos al correo cuando esté listo." />
         )}
@@ -686,7 +855,7 @@ export default async function PanelNegocioLealtad({
             →
           </span>
         </Link>
-        <CompartirTarjeta slug={slug} programaActivo={programaActivo} />
+        <CompartirTarjeta slug={slug} ranchoId={id} tarjetas={tarjetasCompartibles} />
       </Seccion>
     ),
 
@@ -736,12 +905,18 @@ export default async function PanelNegocioLealtad({
               titulo="Actividad"
               bajada="Quién hizo qué y cuándo. Todo movimiento queda escrito; nada se borra."
             >
+              <SelectorTarjetaActiva
+                ranchoId={id}
+                programas={programasEnLista}
+                activaId={pVista?.id ?? null}
+                seccion="actividad"
+              />
               <Rotulo>Quién hizo qué — últimos 30 días</Rotulo>
-              <AuditoriaResumen programaId={p?.id ?? null} />
+              <AuditoriaResumen programaId={pVista?.id ?? null} />
               <Rotulo className="mt-6">El libro, movimiento por movimiento</Rotulo>
-              <ActividadLealtad ranchoId={id} programaId={p?.id ?? null} />
+              <ActividadLealtad ranchoId={id} programaId={pVista?.id ?? null} />
               <Rotulo className="mt-6">Canjes por pasar a la caja</Rotulo>
-              <IntegracionesLealtad ranchoId={id} programaId={p?.id ?? null} />
+              <IntegracionesLealtad ranchoId={id} programaId={pVista?.id ?? null} />
             </Seccion>
           ),
           metricas: (
@@ -750,9 +925,28 @@ export default async function PanelNegocioLealtad({
               titulo="Métricas"
               bajada="¿Está creciendo el programa? Los últimos 30 días contra los 30 anteriores."
             >
-              <MetricasLealtad programaId={p?.id ?? null} plan={plan} />
+              <SelectorTarjetaActiva
+                ranchoId={id}
+                programas={programasEnLista}
+                activaId={pVista?.id ?? null}
+                seccion="metricas"
+              />
+              <MetricasLealtad programaId={pVista?.id ?? null} plan={plan} />
               <Rotulo className="mt-6">Estado de las tarjetas</Rotulo>
-              <WalletLealtad programaId={p?.id ?? null} />
+              <WalletLealtad programaId={pVista?.id ?? null} />
+            </Seccion>
+          ),
+          // VENTAS (0197) tiene su propia entrada en el menú y ya no vive
+          // escondida al final de Métricas: es la pregunta que el dueño
+          // de verdad hace —«¿cuánta plata me deja el programa?»— y
+          // enterrarla debajo de altas y sellos la volvía invisible.
+          ventas: (
+            <Seccion
+              eyebrow="La plata detrás de los sellos"
+              titulo="Ventas"
+              bajada="Cuánto compran tus clientes con tarjeta: cada sello queda respaldado por su compra."
+            >
+              <ImpactoComercial ranchoId={id} />
             </Seccion>
           ),
         }
@@ -883,6 +1077,40 @@ export default async function PanelNegocioLealtad({
              una→ /editar/[programaId]—, que ya existía y sí sabe cuál
              está tocando. `BloqueDiseno` (el contenido de aquella
              sección) no se borró: es lo que ese editor monta adentro. */
+          // ── EL CATÁLOGO (0198): cuánto vale lo que se vende ─────
+          // La pregunta del dueño era literal: «¿dónde configuro los
+          // precios de cuánto vale X cosa que se vende?». No había
+          // dónde — el mostrador tecleaba el monto en cada venta y el
+          // producto era texto libre. Acá está el dónde.
+          productos: (
+            <Seccion
+              eyebrow="Lo que vendés"
+              titulo="Productos"
+              bajada="Cargá tus productos con su precio y en la caja se elige de una lista: el monto se llena solo y sigue siendo editable."
+            >
+              <SeccionProductos ranchoId={id} iniciales={catalogo} />
+            </Seccion>
+          ),
+          // ── GEO-PUSH (0196): el aviso en la pantalla bloqueada ──
+          // El radio (~100 m) lo fija iOS y la píldora lo dice con el
+          // «~» a la vista: prometer un radio exacto o configurable
+          // sería vender lo que Apple no entrega.
+          ubicacion: (
+            <Seccion
+              eyebrow="Geo-Push"
+              titulo="Ubicación"
+              bajada="Registrá tus puntos y el pase les avisa a tus clientes en la pantalla bloqueada cuando pasan cerca."
+              accion={<PildoraEstado estado="info">Geo-Push en un radio de ~100 m</PildoraEstado>}
+            >
+              <SeccionUbicaciones
+                ranchoId={id}
+                negocioNombre={rancho.nombre}
+                iniciales={ubicaciones}
+                topePlan={def?.limites.ubicaciones ?? null}
+                planNombre={def?.nombre ?? null}
+              />
+            </Seccion>
+          ),
           developers: (
             <Seccion
               eyebrow="Quién se conecta"
@@ -948,16 +1176,21 @@ export default async function PanelNegocioLealtad({
             <ModoMostrador
               ranchoId={id}
               programaId={p.id}
-              // `pideMontoElTipo` y no «todo lo que no sea sellos»: esa
-              // condición le pedía el monto de la compra a un cupón, a
-              // una entrada de evento y a un carnet de socio, donde el
-              // número no cambia absolutamente nada — y el empleado, con
-              // el cliente enfrente, se queda mirando un campo que no
-              // sabe qué poner. Solo puntos, cashback y gift card
-              // dependen de cuánto se gastó.
-              pideMonto={pideMontoElTipo(tipoPrincipal)}
+              // `registraCompraElTipo` y no «todo lo que no sea
+              // sellos»: a un cupón, a una entrada de evento y a un
+              // carnet de socio el monto no les cambia absolutamente
+              // nada — y el empleado, con el cliente enfrente, se queda
+              // mirando un campo que no sabe qué poner. Puntos,
+              // cashback y gift card dependen de cuánto se gastó; y
+              // SELLOS entra desde la 0197 con el campo OPCIONAL: la
+              // compra queda registrada (y decide los sellos si la
+              // tarjeta tiene la regla por monto).
+              pideMonto={registraCompraElTipo(tipoPrincipal)}
               tipo={p.modo ?? null}
               permisos={permisos}
+              // El catálogo activo (0198). Vacío —o sin la migración—
+              // el mostrador queda idéntico: monto a mano.
+              productos={productosDeVenta}
               recompensa={
                 meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
               }

@@ -39,7 +39,7 @@ import { Icono } from "./panel/[id]/iconos";
  * el estado del configurador (ver `configurador-lealtad.tsx`) y pasa a
  * Modo 3 — es cosmético nada más: el servidor sigue revalidando el
  * paquete real contra el TIPO de tarjeta elegido en Modo 1, nunca contra
- * este clic (ver el comentario de `editor-tarjeta-completo.tsx`).
+ * este clic (ver el comentario de `tarjeta-formulario.tsx`).
  * Armar la tarjeta sigue siendo gratis siempre, sin importar qué card se
  * haya tocado acá; el único momento honesto para pedir plata sigue
  * siendo cuando la persona ya decidió publicar (la sección «Revisar y
@@ -96,8 +96,13 @@ export default function PanelPaquetesLealtad({
  * dueño pidió exponer «bien, con sus detalles»: el cupo real por
  * paquete (1/1/20/50) y que Prueba/Starter NO llevan proyección de
  * crecimiento.
+ *
+ * Exportada porque `precios-landing.tsx` (la tabla de precios de la
+ * portada) la reusa tal cual: dos curadurías de "qué viñeta mostrar"
+ * para la misma lista de planes se desincronizan la primera vez que
+ * alguien retoque una sola.
  */
-function bulletsDe(def: DefinicionPlan): string[] {
+export function bulletsDe(def: DefinicionPlan): string[] {
   return [
     etiquetaTiposDe(def),
     etiquetaNotificacionesDe(def),
@@ -128,13 +133,18 @@ function TarjetaPlanLectura({
   const botonDestacado = resaltado || destacado;
 
   return (
+    // La card ENTERA se anima al pasar el mouse (pedido del rediseño
+    // SaaS): crece un poco, se levanta y gana sombra — `hover:z-10`
+    // para que al agrandarse pase por ENCIMA de sus vecinas y no se
+    // recorte contra ellas. `will-change-transform` mantiene el texto
+    // nítido durante la transición de escala.
     <div
-      className={`flex flex-col rounded-2xl border p-5 ${
+      className={`relative flex flex-col rounded-2xl border p-5 transition-all duration-300 ease-out will-change-transform hover:z-10 hover:-translate-y-1.5 hover:scale-[1.045] hover:shadow-[0_26px_60px_-20px_rgba(15,40,90,0.35)] ${
         resaltado
           ? "border-bookea-azul bg-bookea-azul-suave"
           : destacado
-            ? "border-bookea-linea bg-bookea-fondo"
-            : "border-bookea-linea bg-white"
+            ? "border-bookea-linea bg-bookea-fondo hover:border-bookea-azul/50"
+            : "border-bookea-linea bg-white hover:border-bookea-azul/50"
       }`}
     >
       {resaltado ? (
@@ -194,20 +204,30 @@ function TarjetaPlanLectura({
 }
 
 /**
- * La respuesta a «¿y con qué pago?», pedida textual por el dueño:
- * Stripe con tarjeta (más wallets del dispositivo) o SINPE/transferencia
- * a mano. Chips de TEXTO y no íconos de marca — no hay ningún SVG de
- * Visa/Mastercard/Apple Pay/Stripe en `public/` y no se fabrican acá
- * (son marcas registradas de terceros).
+ * La respuesta a «¿y con qué pago?»: tarjeta (más wallets del
+ * dispositivo) o SINPE/transferencia a mano.
+ *
+ * Con LOGOS de marca desde ago 2026 (pedido del dueño): Visa,
+ * Mastercard, Amex, Apple Pay y Google Pay como SVG oficiales en
+ * `public/pagos/` (marcas de aceptación — el uso estándar de una
+ * página de cobro). Stripe procesa pero su logo NO va (pedido
+ * textual); SINPE Móvil se queda como chip de texto porque no hay una
+ * marca de aceptación oficial que mostrar.
  *
  * Apple Pay y Google Pay SÍ se prometen: el checkout de Stripe que ya
  * usa Lealtad (`checkout.ts`, `mode: "subscription"`) es el Checkout
  * hospedado sin `payment_method_types` fijado a solo tarjeta, así que
- * activa wallets del navegador/OS solas, sin nada que configurar acá —
- * por eso el copy dice «según tu dispositivo» y no lo garantiza a
- * ciegas, mismo criterio que ya sigue la etiqueta de «cercanía» en
- * `planes.ts` (SOLO EN iPHONE, y lo dice).
+ * activa wallets del navegador/OS solas — por eso el copy dice «según
+ * tu dispositivo» y no lo garantiza a ciegas.
  */
+const LOGOS_PAGO: { archivo: string; nombre: string }[] = [
+  { archivo: "visa.svg", nombre: "Visa" },
+  { archivo: "mastercard.svg", nombre: "Mastercard" },
+  { archivo: "amex.svg", nombre: "American Express" },
+  { archivo: "apple-pay.svg", nombre: "Apple Pay" },
+  { archivo: "google-pay.svg", nombre: "Google Pay" },
+];
+
 function SeccionConfianzaPago() {
   return (
     <div className="mt-5 rounded-2xl border border-bookea-linea bg-bookea-fondo p-3.5">
@@ -215,7 +235,7 @@ function SeccionConfianzaPago() {
         Pagás como prefieras, siempre seguro
       </p>
       <p className="mt-1 text-[11.5px] leading-relaxed text-bookea-gris">
-        Con tarjeta a través de Stripe —Visa, Mastercard, Apple Pay o Google Pay según tu
+        Con tarjeta —Visa, Mastercard, American Express, Apple Pay o Google Pay según tu
         dispositivo—, 100&nbsp;% cifrado y seguro. ¿Preferís depositar? También podés pagar por
         transferencia SINPE Móvil: subís el comprobante y activamos tu paquete apenas lo
         confirmamos.
@@ -224,15 +244,21 @@ function SeccionConfianzaPago() {
         <Icono nombre="listo" className="h-3.5 w-3.5 shrink-0 text-bookea-azul" />
         100&nbsp;% seguro, sin guardar tu tarjeta en Bookea
       </p>
-      <div className="mt-2.5 flex flex-wrap gap-1.5">
-        {["Stripe", "Visa", "Mastercard", "Apple Pay", "Google Pay", "SINPE Móvil"].map((chip) => (
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        {LOGOS_PAGO.map((l) => (
           <span
-            key={chip}
-            className="rounded-full border border-bookea-linea bg-white px-2.5 py-1 text-[10px] font-bold text-bookea-tinta"
+            key={l.archivo}
+            className="flex h-8 items-center rounded-lg border border-bookea-linea bg-white px-2.5"
+            title={l.nombre}
           >
-            {chip}
+            {/* eslint-disable-next-line @next/next/no-img-element -- SVGs
+                estáticos de marca; next/image no aporta nada acá. */}
+            <img src={`/pagos/${l.archivo}`} alt={l.nombre} className="h-4 w-auto" loading="lazy" />
           </span>
         ))}
+        <span className="flex h-8 items-center rounded-lg border border-bookea-linea bg-white px-2.5 text-[10.5px] font-extrabold text-bookea-tinta">
+          SINPE Móvil
+        </span>
       </div>
     </div>
   );

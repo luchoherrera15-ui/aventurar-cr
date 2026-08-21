@@ -8,6 +8,7 @@ import { BAJADA_PANTALLA, ESTADO_AVISO, RADIO_CARD, RADIO_TILE } from "@/compone
 import { ACCION, ACCION_BORDE, ACCION_TINTA, ACCION_TINTE, BOTON_ACCION } from "../sistema-lealtad";
 import { sembrarBeneficioFaltante } from "./crear-actions";
 import { BuscarYAtender, type PermisosMostrador } from "./atencion-manual";
+import type { ProductoDeVenta } from "@/lib/lealtad/productos";
 
 /**
  * MODO MOSTRADOR: la pantalla que se le deja al empleado en la caja.
@@ -42,6 +43,7 @@ export default function ModoMostrador({
   recompensa,
   tipo = null,
   permisos = { acreditar: true, canjear: true, revertir: false },
+  productos = [],
 }: {
   ranchoId: string;
   /** El programa que se opera en esta caja — lo necesita el alta de
@@ -64,6 +66,12 @@ export default function ModoMostrador({
    * esconder un botón es cortesía, no la autorización.
    */
   permisos?: PermisosMostrador;
+  /**
+   * El catálogo ACTIVO del negocio (0198): con él, en la caja se elige
+   * qué se vendió y el monto se llena solo. Vacío —o sin la migración
+   * aplicada— el mostrador queda exactamente como estaba: monto a mano.
+   */
+  productos?: ProductoDeVenta[];
 }) {
   const tipoTarjeta = tipoDe(tipo);
 
@@ -82,7 +90,12 @@ export default function ModoMostrador({
       {!recompensa && <SinBeneficio ranchoId={ranchoId} />}
 
       <div className="mt-4">
-        <EscanerPanel ranchoId={ranchoId} pideMonto={pideMonto} recompensa={recompensa} />
+        <EscanerPanel
+          ranchoId={ranchoId}
+          pideMonto={pideMonto}
+          recompensa={recompensa}
+          productos={productos}
+        />
       </div>
 
       <div className="mt-4">
@@ -94,6 +107,7 @@ export default function ModoMostrador({
           recompensa={recompensa}
           permisos={permisos}
           pideMonto={pideMonto}
+          productos={productos}
         />
       </div>
     </Card>

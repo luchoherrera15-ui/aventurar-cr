@@ -10,7 +10,14 @@ import {
 } from "@/lib/lealtad/plantillas-poster";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { coloresDe, metaDeSellos, type ConfigPase } from "@/lib/wallet/tarjeta";
-import { elegirDeFilasCrudas } from "@/lib/wallet/programa-principal";
+import {
+  elegirDeFilasCrudas,
+  filasCrudasPorAntiguedad,
+  resumenDeFila,
+} from "@/lib/wallet/programa-principal";
+import { operaAhora } from "@/lib/lealtad/programas";
+import { llaveDeTarjeta, tarjetaConLlaveDeFila } from "@/lib/lealtad/llave-tarjeta";
+import SelectorTarjeta from "./selector-tarjeta";
 import { minutoISOCR } from "@/lib/fechas";
 import BotonImprimir from "./boton-imprimir";
 import HojaPoster, { type DatosHoja } from "./hoja-poster";
@@ -58,6 +65,26 @@ import "./poster.css";
  * a poder guardar, en vez de fingir que guardó.
  */
 
+/**
+ * ------------------------------------------------------------------
+ * UN PÓSTER POR TARJETA
+ * ------------------------------------------------------------------
+ * Esta pantalla imprimía SIEMPRE la tarjeta principal del negocio y su
+ * QR apuntaba SIEMPRE a `/tarjeta/<negocio>`. Con dos tarjetas eso
+ * quería decir que la segunda no se podía repartir: no había forma de
+ * imprimir un cartel para ella.
+ *
+ * Ahora la tarjeta viaja en la URL (`?programa=<id>`) igual que el
+ * estilo, por el mismo motivo: el link que el dueño le manda al
+ * empleado, el botón de imprimir y un F5 tienen que dar la MISMA hoja.
+ * Sin el parámetro se imprime la de siempre, que es lo que ya está
+ * pegado en la caja.
+ *
+ * Y el QR de cada hoja lleva el link de SU tarjeta: el de la tarjeta
+ * original sigue siendo el link corto del negocio —el que ya está
+ * impreso y no puede cambiar— y el de las demás, el suyo propio.
+ */
+
 export const metadata = { title: "Póster para tu mostrador · Bookea" };
 
 export default async function PosterPage({
@@ -65,13 +92,13 @@ export default async function PosterPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ estilo?: string }>;
+  searchParams: Promise<{ estilo?: string; programa?: string }>;
 }) {
   const { id } = await params;
   // El estilo viaja en la URL y no en un estado del cliente: así el
   // link que el dueño manda al empleado, el botón de imprimir y un F5
   // dan exactamente la misma hoja.
-  const { estilo: estiloPedido } = await searchParams;
+  const { estilo: estiloPedido, programa: programaPedido } = await searchParams;
   const estilo = estiloDe(estiloPedido);
 
   const acceso = await verificarAccesoLealtad(id);
@@ -103,10 +130,18 @@ export default async function PosterPage({
   const { data: filasPrograma } = db
     ? await db.from("programa_lealtad").select("*").eq("rancho_id", id)
     : { data: [] };
-  const programa = elegirDeFilasCrudas(
-    (filasPrograma ?? []) as Record<string, unknown>[],
-    minutoISOCR(),
-  );
+  // Ordenadas de la más vieja a la más nueva: la primera es la que
+  // sirve el link corto del negocio, la que ya está impresa.
+  const tarjetas = filasCrudasPorAntiguedad((filasPrograma ?? []) as Record<string, unknown>[]);
+  const laOriginal = tarjetas[0] ?? null;
+  const pedida = programaPedido
+    ? (tarjetas.find((f) => f.id === programaPedido) ?? null)
+    : null;
+  // Sin `?programa=` (o con uno que no es de este negocio) se imprime la
+  // de siempre: la principal. El póster que el dueño ya tenía guardado
+  // sale igual que ayer.
+  const ahoraCR = minutoISOCR();
+  const programa = pedida ?? elegirDeFilasCrudas(tarjetas, ahoraCR);
 
   const { data: recompensa } = db && programa
     ? await db
@@ -148,7 +183,18 @@ export default async function PosterPage({
   const faltaColumna = !!programa && !("poster_config" in programa);
 
   const SITIO = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
-  const url = rancho.slug ? `${SITIO}/tarjeta/${rancho.slug}` : null;
+  // EL LINK DE **ESTA** TARJETA.
+  //
+  // La original se queda con el link corto del negocio: es el que está
+  // impreso en la calle, y reimprimir el póster no puede cambiarlo. Las
+  // demás llevan el suyo. `llaveDeTarjeta` da el mismo texto antes y
+  // después de la 0199 — ver `llave-tarjeta.ts`.
+  const esLaOriginal = !!programa && !!laOriginal && programa.id === laOriginal.id;
+  const rutaTarjeta =
+    !programa || esLaOriginal
+      ? ""
+      : `/${llaveDeTarjeta(tarjetaConLlaveDeFila(programa))}`;
+  const url = rancho.slug ? `${SITIO}/tarjeta/${rancho.slug}${rutaTarjeta}` : null;
 
   // Nivel H: el póster se imprime y vive pegado en una pared — puede
   // ensuciarse o quedar parcialmente tapado, y H tolera hasta un 30%
@@ -190,8 +236,29 @@ export default async function PosterPage({
 
       {url && svgQr && (
         <>
+          <SelectorTarjeta
+            ruta={`/lealtad/panel/${id}/poster`}
+            estilo={estilo}
+            actualId={(programa?.id as string | undefined) ?? null}
+            tarjetas={tarjetas.map((t) => {
+              const llave = llaveDeTarjeta(tarjetaConLlaveDeFila(t));
+              const original = !!laOriginal && t.id === laOriginal.id;
+              return {
+                id: t.id as string,
+                nombre: (t.nombre as string) ?? "Tarjeta",
+                color: (t.pase_color_fondo as string | null) ?? null,
+                url: rancho.slug
+                  ? `${SITIO}/tarjeta/${rancho.slug}${original ? "" : `/${llave}`}`
+                  : null,
+                esLaDelQrImpreso: original,
+                emitiendo: operaAhora(resumenDeFila(t), ahoraCR),
+              };
+            })}
+          />
+
           <SelectorEstilo
             ruta={`/lealtad/panel/${id}/poster`}
+            programaId={pedida ? (pedida.id as string) : null}
             actual={estilo}
             marca={colores.fondo}
             acento={colores.sello}

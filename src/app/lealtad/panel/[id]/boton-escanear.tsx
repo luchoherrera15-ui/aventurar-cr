@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { RADIO_CARD } from "@/components/panel/sistema";
 import { ACCION, ACCION_TINTA } from "../sistema-lealtad";
+import type { ProductoDeVenta } from "@/lib/lealtad/productos";
 
 /**
  * El botón grande de [📷 Escanear] de la pestaña General.
@@ -27,10 +28,13 @@ export default function BotonEscanear({
   ranchoId,
   pideMonto,
   recompensa,
+  productos = [],
 }: {
   ranchoId: string;
   pideMonto: boolean;
   recompensa: { id: string; nombre: string; costo: number } | null;
+  /** El catálogo activo (0198). Vacío = el escáner de siempre. */
+  productos?: ProductoDeVenta[];
 }) {
   const [abierto, setAbierto] = useState(false);
 
@@ -69,7 +73,12 @@ export default function BotonEscanear({
 
       {abierto && (
         <div className="mt-3">
-          <EscanerPanel ranchoId={ranchoId} pideMonto={pideMonto} recompensa={recompensa} />
+          <EscanerPanel
+            ranchoId={ranchoId}
+            pideMonto={pideMonto}
+            recompensa={recompensa}
+            productos={productos}
+          />
         </div>
       )}
     </div>

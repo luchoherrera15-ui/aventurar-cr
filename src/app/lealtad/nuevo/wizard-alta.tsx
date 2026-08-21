@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { subirImagenAlAlta } from "@/lib/lealtad/subida-alta";
 import { solicitarAltaConPlan } from "./actions";
+import { iniciarPagoDelPaquete } from "@/app/lealtad/planes/pago-actions";
 import type { DatosPago } from "@/app/lealtad/planes/formulario-solicitud";
 import { crearTarjeta, type BorradorTarjeta } from "@/app/lealtad/panel/[id]/crear-actions";
 import {
@@ -93,8 +94,9 @@ export type RanchoWizard = {
   tarjetasLlenas: boolean;
 };
 
-// "prellenado": llega desde editor-tarjeta-completo.tsx (Modo 3 del
-// configurador sin cuenta) con tipo/beneficio/apariencia YA resueltos
+// "prellenado": llega desde configurador-lealtad.tsx (Modo 3 del
+// configurador sin cuenta, vía `tarjeta-formulario.tsx`) con
+// tipo/beneficio/apariencia YA resueltos
 // — antes este wizard los volvía a pedir desde cero (mismo formulario
 // de PasoBeneficio, mismos selectores de color), el "proceso
 // redundante al pagar" que se reportó. Salta directo a "revisar".
@@ -174,10 +176,10 @@ function sanearGuardado(crudo: unknown, plan: string | null, topePasos: number):
   if (c.camino === "personalizado") limpio.camino = "personalizado";
   if (c.camino === "prellenado") limpio.camino = "prellenado";
   if (esRubro(c.tipoNegocio)) limpio.tipoNegocio = c.tipoNegocio;
-  // El camino "prellenado" nace de editor-tarjeta-completo.tsx, que no
-  // tiene paso de rubro (mismo criterio que ya usa ese archivo en su
-  // propio `publicar()`) — se fuerza "citas" sin importar qué haya en
-  // el respaldo.
+  // El camino "prellenado" nace de `publicarAlta()`/`irAlPlanPago()` en
+  // configurador-lealtad.tsx, que no tiene paso de rubro (mismo
+  // criterio que ya usa ese archivo) — se fuerza "citas" sin importar
+  // qué haya en el respaldo.
   if (limpio.camino === "prellenado") limpio.tipoNegocio = "citas";
 
   // El tipo se restaura SOLO si el paquete actual lo incluye: volver de
@@ -428,6 +430,7 @@ export default function WizardAlta({
         bannerUrl: estado.bannerUrl ?? "",
         reglas: {
           desde: "",
+          desdePrimerSello: false,
           hasta: "",
           usoUnico: false,
           maxPorCliente: null,
@@ -1370,13 +1373,112 @@ function BloquePago({
   error: string;
   alElegir: (archivo: File) => void;
 }) {
+  // ── La elección de CÓMO pagar (pedido del dueño, ago 2026) ───────
+  // Antes esta caja solo ofrecía SINPE/transferencia y el pago con
+  // tarjeta (Stripe, que /lealtad/planes ya tiene funcionando con
+  // `iniciarPagoDelPaquete`) no aparecía por ningún lado. Ahora hay
+  // dos botones y cada uno abre SU proceso. Un plan "a convenir"
+  // (precio null) no pasa por Stripe: va directo al depósito.
+  const [eleccion, setEleccion] = useState<"tarjeta" | "deposito" | null>(
+    plan.precio === null ? "deposito" : null,
+  );
+  const [pagando, setPagando] = useState(false);
+  const [errorTarjeta, setErrorTarjeta] = useState("");
+
+  async function pagarConTarjeta() {
+    setPagando(true);
+    setErrorTarjeta("");
+    // Igual que /lealtad/planes: el negocio NO existe todavía — la
+    // solicitud se crea en el servidor y el negocio lo crea el webhook
+    // cuando Stripe confirma. `window.location.assign` porque Checkout
+    // es un sitio ajeno.
+    const r = await iniciarPagoDelPaquete({
+      plan: plan.id,
+      periodo: "mensual",
+      ranchoId: "",
+      nombreNegocio: nombreNegocio.trim(),
+    });
+    if (r.ok) {
+      window.location.assign(r.url);
+      return;
+    }
+    setErrorTarjeta(r.motivo);
+    setPagando(false);
+  }
+
   return (
     <div className="rounded-3xl border border-bookea-linea bg-white p-5">
       <p className="text-[13.5px] font-extrabold text-bookea-tinta">
         {plan.precio === null
           ? "Coordinemos tu paquete"
-          : `Depositá ${plan.precio} (primer mes)`}
+          : `Pagá tu paquete (${plan.precio} el primer mes)`}
       </p>
+
+      {plan.precio !== null && (
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            aria-pressed={eleccion === "tarjeta"}
+            onClick={() => setEleccion("tarjeta")}
+            className={`presionable rounded-2xl border-2 px-4 py-3.5 text-left transition-colors ${
+              eleccion === "tarjeta"
+                ? "border-bookea-azul bg-bookea-azul-suave"
+                : "border-bookea-linea bg-white hover:border-bookea-azul/50"
+            }`}
+          >
+            <span className="block text-[13.5px] font-extrabold text-bookea-tinta">
+              💳 Pagar con tarjeta o Apple Pay
+            </span>
+            <span className="mt-0.5 block text-[11.5px] leading-snug text-bookea-gris">
+              Visa, Mastercard, Amex, Apple Pay o Google Pay — se activa solo al confirmarse.
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={eleccion === "deposito"}
+            onClick={() => setEleccion("deposito")}
+            className={`presionable rounded-2xl border-2 px-4 py-3.5 text-left transition-colors ${
+              eleccion === "deposito"
+                ? "border-bookea-azul bg-bookea-azul-suave"
+                : "border-bookea-linea bg-white hover:border-bookea-azul/50"
+            }`}
+          >
+            <span className="block text-[13.5px] font-extrabold text-bookea-tinta">
+              🏦 Pagar por transferencia o SINPE
+            </span>
+            <span className="mt-0.5 block text-[11.5px] leading-snug text-bookea-gris">
+              Depositás, adjuntás el comprobante y Bookea lo confirma.
+            </span>
+          </button>
+        </div>
+      )}
+
+      {eleccion === "tarjeta" && (
+        <div className="mt-3 rounded-2xl border border-bookea-linea bg-bookea-fondo p-4">
+          <p className="text-[12.5px] leading-relaxed text-bookea-gris">
+            Te llevamos al pago seguro de Stripe — 100&nbsp;% cifrado, sin guardar tu tarjeta
+            en Bookea. Al confirmarse el cobro, tu programa se crea solo y te llega el acceso
+            al correo.
+          </p>
+          <button
+            type="button"
+            disabled={pagando}
+            onClick={() => void pagarConTarjeta()}
+            className="presionable mt-3 w-full rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-60 sm:w-auto"
+            style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+          >
+            {pagando ? "Abriendo el pago seguro…" : `Pagar ${plan.precio} →`}
+          </button>
+          {errorTarjeta && (
+            <p role="alert" className="mt-2 text-[12.5px] font-bold text-red-700">
+              {errorTarjeta}
+            </p>
+          )}
+        </div>
+      )}
+
+      {eleccion === "deposito" && (
+      <>
       {/* El precio está en dólares y el SINPE se hace en colones:
           decirlo antes evita el depósito por el monto equivocado. */}
       {plan.enDolares && (
@@ -1457,6 +1559,8 @@ function BloquePago({
           {error && <p className="mt-1 text-[12.5px] font-bold text-red-700">{error}</p>}
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

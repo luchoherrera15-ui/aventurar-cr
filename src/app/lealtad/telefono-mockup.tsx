@@ -305,9 +305,12 @@ export function PantallaWallet({
             <p className="px-1 pb-1.5 text-[6.5px] uppercase tracking-[0.16em] text-white/35">
               Movimientos
             </p>
+            {/* `texto` solo NO alcanza de key: FICHAS.sellos repite
+                "Sello agregado" en sus dos movimientos, y dos hijos con
+                la misma key rompen la identidad de React. */}
             <div className="space-y-[5px]">
               {movimientos.map((m) => (
-                <div key={m.texto} className="flex items-center gap-2">
+                <div key={`${m.texto}-${m.cuando}`} className="flex items-center gap-2">
                   <span
                     aria-hidden
                     className="h-[5px] w-[5px] shrink-0 rounded-full"

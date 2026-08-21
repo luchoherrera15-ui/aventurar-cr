@@ -1467,6 +1467,37 @@ body {
   border-color: rgba(157, 180, 255, 0.45);
 }
 
+/* ── LAS VARIANTES `hover:`/`focus:` DE LO DE ARRIBA — el hueco real
+   que encontró Pura Matcha: "al poner el mouse encima no se ven los
+   textos" ────────────────────────────────────────────────────────
+   `.lealtad-oscuro .bg-aventurea-cream-2` remapea la clase BASE. Pero
+   `hover:bg-aventurea-cream-2` no es esa clase con un pseudo-estado:
+   para el selector de CSS es un token de clase LITERALMENTE DISTINTO
+   (`.hover\:bg-aventurea-cream-2:hover`), así que la regla de arriba
+   nunca lo toca. Al pasar el mouse, el navegador aplicaba el color
+   crudo del tema CLARO —un beige casi blanco— por debajo de texto ya
+   reescrito a blanco (`text-aventurea-ink` sí está remapeado): texto
+   blanco sobre fondo casi blanco, invisible.
+
+   Mismo agujero para cualquier variante con prefijo (`hover:`,
+   `focus:`, `sm:`…) de una clase que la sección de arriba remapea.
+   Estas son las que el panel usa hoy — si agregás una tarjeta, fila o
+   botón nuevo con otra combinación variante+clase-remapeada, sumale
+   su línea acá, o va a repetir este mismo bug. */
+.lealtad-oscuro .hover\:bg-aventurea-cream-2:hover,
+.lealtad-oscuro .hover\:bg-aventurea-cream:hover {
+  background-color: rgba(255, 255, 255, 0.09);
+}
+.lealtad-oscuro .hover\:text-aventurea-ink:hover {
+  color: #ffffff;
+}
+.lealtad-oscuro .hover\:text-aventurea-navy:hover {
+  color: #9db4ff;
+}
+.lealtad-oscuro .hover\:border-aventurea-navy:hover {
+  border-color: rgba(157, 180, 255, 0.45);
+}
+
 /* ── LA FAMILIA `bookea-*`, que faltaba entera ─────────────────────
    El asistente de tarjetas nació en su propia pantalla (/crear, fondo
    claro) y usa los tokens de la identidad de Lealtad —`bookea-tinta`,

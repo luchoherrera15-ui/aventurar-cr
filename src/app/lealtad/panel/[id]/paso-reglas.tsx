@@ -23,6 +23,10 @@ import { Interruptor } from "@/components/lealtad/paso-beneficio";
 
 export type Reglas = {
   desde: string;
+  /** true = la tarjeta de cada cliente vale desde el día de su primer
+   *  sello o bono (0195) — sin fecha fija de inicio. Excluyente con
+   *  `desde`. */
+  desdePrimerSello: boolean;
   hasta: string;
   usoUnico: boolean;
   maxPorCliente: number | null;
@@ -35,6 +39,7 @@ export type Reglas = {
 
 export const REGLAS_VACIAS: Reglas = {
   desde: "",
+  desdePrimerSello: false,
   hasta: "",
   usoUnico: false,
   maxPorCliente: null,
@@ -53,8 +58,9 @@ const etiqueta = "mb-1.5 block text-[11px] font-bold uppercase tracking-wide tex
 /** Cómo se resume una regla en una línea, para el paso de Revisar. */
 export function resumenDeReglas(reglas: Reglas): { vigencia: string; cuando: string; canjes: string } {
   return {
-    vigencia:
-      reglas.desde || reglas.hasta
+    vigencia: reglas.desdePrimerSello
+      ? `Desde el primer sello del cliente → ${reglas.hasta || "sin fin"}`
+      : reglas.desde || reglas.hasta
         ? `${reglas.desde || "hoy"} → ${reglas.hasta || "sin fin"}`
         : "Sin límite de fechas",
     cuando:
@@ -86,7 +92,7 @@ export default function PasoReglas({
   // mostraría apagada —o sea, mintiendo— y el primer clic en el
   // interruptor le borraría las fechas al dueño.
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>(() => ({
-    vig: !!(reglas.desde || reglas.hasta),
+    vig: !!(reglas.desde || reglas.hasta || reglas.desdePrimerSello),
     dias: reglas.dias.length > 0 || !!reglas.horaDesde || !!reglas.horaHasta,
     lim: reglas.maxPorCliente !== null || reglas.maxGlobal !== null,
   }));
@@ -101,22 +107,49 @@ export default function PasoReglas({
         activo={!!abiertos.vig}
         alCambiar={(v) => {
           set("vig", v);
-          if (!v) alCambiar({ ...reglas, desde: "", hasta: "" });
+          if (!v) alCambiar({ ...reglas, desde: "", hasta: "", desdePrimerSello: false });
         }}
       />
       <div className="desplegable" data-abierto={abiertos.vig ? "true" : "false"}>
         <div>
+          {/* «Desde el primer sello» (0195): la vigencia de cada cliente
+              arranca el día de su primer sello o bono — con el check
+              puesto, la fecha fija de inicio deja de aplicar y el campo
+              Desde se esconde (mandar las dos sería contradictorio). */}
+          <label className="flex cursor-pointer items-start gap-2.5 px-1 pb-3">
+            <input
+              type="checkbox"
+              checked={reglas.desdePrimerSello}
+              onChange={(e) =>
+                alCambiar({
+                  ...reglas,
+                  desdePrimerSello: e.target.checked,
+                  ...(e.target.checked ? { desde: "" } : {}),
+                })
+              }
+              className="mt-0.5 h-4 w-4 accent-[color:var(--accion)]"
+            />
+            <span className="text-[13px] font-bold leading-snug text-bookea-tinta">
+              Desde el día del primer sello o bono del cliente
+              <span className="mt-0.5 block text-[11.5px] font-normal leading-relaxed text-bookea-gris">
+                La tarjeta de cada cliente empieza a valer el día en que recibe el primero —
+                sin fecha fija de inicio.
+              </span>
+            </span>
+          </label>
           <div className="grid gap-3 px-1 pb-1 sm:grid-cols-2">
-            <div>
-              <label className={etiqueta} htmlFor="r-desde">Desde</label>
-              <input
-                id="r-desde"
-                type="date"
-                value={reglas.desde}
-                onChange={(e) => alCambiar({ ...reglas, desde: e.target.value })}
-                className={campo}
-              />
-            </div>
+            {!reglas.desdePrimerSello && (
+              <div>
+                <label className={etiqueta} htmlFor="r-desde">Desde</label>
+                <input
+                  id="r-desde"
+                  type="date"
+                  value={reglas.desde}
+                  onChange={(e) => alCambiar({ ...reglas, desde: e.target.value })}
+                  className={campo}
+                />
+              </div>
+            )}
             <div>
               <label className={etiqueta} htmlFor="r-hasta">Hasta</label>
               <input

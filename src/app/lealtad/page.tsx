@@ -2,68 +2,94 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
-import { createClient } from "@/lib/supabase/server";
-import {
-  ETIQUETAS_CAPACIDAD,
-  PLANES,
-  precioDe,
-} from "@/lib/lealtad/planes";
-import { TIPOS_TARJETA } from "@/lib/lealtad/tipos-tarjeta";
-import { FICHAS } from "./contenido-tipos";
+import { PLANES_VIGENTES } from "@/lib/lealtad/planes";
+import { INDUSTRIAS } from "./industrias/datos";
 import { Icono, type NombreIcono } from "./panel/[id]/iconos";
+import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 import NavLealtad from "./nav-lealtad";
 import BurbujaContacto from "./burbuja-contacto";
-import ConfiguradorLealtad from "./configurador-lealtad";
 import MockupRecorrido from "./mockup-recorrido";
+import MockupAnuncios from "./mockup-anuncios";
+import MockupRescate from "./mockup-rescate";
+import MockupHitos from "./mockup-hitos";
+import MockupCercania from "./mockup-cercania";
+import MockupHeroPase from "./mockup-hero-pase";
+import MockupPanelNegocio from "./mockup-panel-negocio";
+import BotonCrearPase from "./boton-crear-pase";
+import AsiFunciona from "./asi-funciona";
+import SelectorTiposLanding from "./selector-tipos-landing";
+import FlujoAutomatizaciones from "./flujo-automatizaciones";
+import SeccionWallets from "./seccion-wallets";
+import SeccionConfianza from "./seccion-confianza";
+import PreciosLanding from "./precios-landing";
+import FaqAcordeon from "./faq-acordeon";
 
 /**
- * /lealtad — rediseño 2026-08.
+ * /lealtad — rediseño "storytelling de producto" 2026-08.
  *
- * Ya no es una landing "inmersiva sin chrome": tiene nav real y
- * alterna franjas claras (la mayoría) con tres franjas navy (hero,
- * el bloque de planes y el cierre), en vez del navy de punta a punta
- * que tenía antes. El objetivo es que en menos de 20 segundos se
- * entienda qué es, qué recibe el cliente, cómo se registra una
- * visita y que funciona con Apple Wallet y Google Wallet sin que
- * nadie instale una app — no vender con adjetivos.
+ * Segunda pasada sobre el rediseño SaaS anterior (ver historial de
+ * git): la primera ya tenía casi todas las piezas correctas —el hero
+ * con el teléfono animado, el selector interactivo de tipos, el
+ * recorrido del mostrador, las automatizaciones honestas— pero
+ * repartidas en ~15 secciones de punta a punta, cada una con su
+ * propio encabezado, sin pedir nunca "¿esto puede vivir junto con lo
+ * de al lado?". Esta pasada NO tira ese trabajo: lo reordena y lo
+ * funde en 11 movimientos con una razón de ser cada uno, y agrega la
+ * única pieza que faltaba de verdad — un mockup real del panel del
+ * negocio (antes era una tarjetita de tres cifras metida a presión
+ * dentro de "Resultados").
+ *
+ * El orden cuenta una sola historia, de punta a punta:
+ *   Hero (qué es) → para quién es → el problema (el cartón) →
+ *   cómo funciona (+ el mostrador) → vive en el Wallet → elegís el
+ *   tipo → tu panel (KPIs + marketing + confianza) → lo que corre
+ *   solo (automatizaciones) → precios → FAQ → cierre.
  *
  * Los paquetes y sus viñetas salen de src/lib/lealtad/planes.ts (la
  * misma fuente que /lealtad/planes) y el catálogo de tipos de
  * src/lib/lealtad/tipos-tarjeta.ts — nada de esto se escribe a mano
  * acá para que la landing no pueda prometer algo que el producto no
  * tiene. El motor real vive en la migración 0060 (programa_lealtad,
- * ledger de puntos, pases).
+ * ledger de puntos, pases) y el impacto comercial en la 0197
+ * (lealtad_transacciones) — ver impacto-comercial.tsx, la fuente real
+ * de las cinco cifras que ahora muestra MockupPanelNegocio.
  */
 
 const NAVY_PROFUNDO = "#0a1226";
 const NAVY = "#16295e";
 
 /* ── Los papeles de color de esta página ──────────────────────────
-   Antes acá vivía `const NARANJA` y todo lo que se tocaba salía de
-   ella, así que la landing entera se leía naranja. El logotipo dice
-   otra cosa —99,8 % navy y naranja solo el chevrón—, así que ahora
-   son DOS papeles distintos: azul lo que se toca, naranja lo que se
-   gana.
-
-   Los valores salen de los tokens de `.lealtad` (globals.css) y no
-   de hexadecimales sueltos: fue justamente la copia del hex la que
-   hizo que el eyebrow y el botón terminaran en naranjas distintos.
-
-   Las tres franjas navy piden la variante CLARA del azul: `--accion`
-   sobre navy da 1,44:1 y desaparece. */
+   Azul lo que se toca, naranja lo que se gana — ver globals.css
+   (tokens de `.lealtad`). Las franjas navy piden la variante CLARA
+   del azul: `--accion` sobre navy da 1,44:1 y desaparece. */
 const ACCION_OSCURO = "var(--accion-claro)";
-const ACCION_OSCURO_TINTA = "var(--accion-claro-tinta)";
-const ACENTO_OSCURO = "var(--orange)"; /* el naranja del logo, solo sobre navy */
-const ACENTO_CLARO = "var(--orange-acento-claro)"; /* su gemelo legible sobre blanco */
+const ACENTO_CLARO = "var(--orange-acento-claro)";
+
+/** El degradado navy→azul para texto: se usa con cuenta gotas (hero,
+ *  problema, panel, cierre) — no en cada encabezado de la página, o
+ *  deja de leerse como énfasis y pasa a ser papel tapiz. */
+const DEGRADADO_TEXTO = "linear-gradient(110deg,#0b3168 0%,#0f4c9e 55%,#3672c9 100%)";
+
+function TextoDegradado({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        background: DEGRADADO_TEXTO,
+        WebkitBackgroundClip: "text",
+        backgroundClip: "text",
+        color: "transparent",
+      }}
+    >
+      {children}
+    </span>
+  );
+}
 
 // Se cae la ISR de 6 horas que tenía esta página (`revalidate = 21600`):
-// el configurador ahora crea la cuenta y el negocio ACÁ MISMO, y para
-// decidir si le muestra a la visita el paso «Tu cuenta» necesita saber
-// si ya hay sesión — eso exige leer la cookie en cada pedido, que es
-// justo lo que una página estática no puede hacer. El resto de la
-// landing (planes, FAQ, cómo funciona) no cambió de contenido; lo que
-// cambió es que ya no se puede servir la misma copia cacheada durante
-// horas sin mentirle a quien ya tiene cuenta.
+// el configurador ahora crea la cuenta y el negocio en /lealtad/crear, y
+// para decidir si le muestra a la visita el paso «Tu cuenta» necesita
+// saber si ya hay sesión — eso exige leer la cookie en cada pedido, que
+// es justo lo que una página estática no puede hacer.
 
 export const metadata: Metadata = {
   title: "Lealtad",
@@ -71,7 +97,7 @@ export const metadata: Metadata = {
     "Sellos, puntos, cupones y membresías directo en el Wallet de tus clientes. Sin apps que instalar, sin contratos, y armado en menos de 10 minutos.",
   alternates: { canonical: "/lealtad" },
   openGraph: {
-    title: "Bookea Lealtad — Hacé que cada visita se convierta en la próxima",
+    title: "Bookea Lealtad — Convertí compradores de un día en clientes de por vida",
     description:
       "Tarjetas de sellos, puntos, cupones y membresías en Apple Wallet y Google Wallet. Sin apps, sin contratos, sin tarjeta de crédito.",
     url: "/lealtad",
@@ -79,36 +105,56 @@ export const metadata: Metadata = {
   },
 };
 
-const PASOS: { titulo: string; texto: string; detalle: string }[] = [
+/**
+ * LOS CUATRO PILARES — contra qué compite Bookea Lealtad.
+ *
+ * Cada uno es una capacidad que el producto TIENE hoy, no una promesa:
+ * el pase en Wallet nativo, el refresco silencioso del pase, los
+ * anuncios push (con ubicaciones en los paquetes que las incluyen) y la
+ * identidad por persona detrás de cada sello. El `contraste` es la
+ * mitad que hace el trabajo: sin él cada card es una característica
+ * suelta; con él, cada card es una razón para dejar el cartón.
+ */
+const PILARES: {
+  icono: NombreIcono;
+  titulo: string;
+  texto: string;
+  contraste: string;
+}[] = [
   {
-    titulo: "Armás tu tarjeta",
+    icono: "movil",
+    titulo: "No se pierde ni se moja",
     texto:
-      "Elegís el tipo (sellos, puntos, cupón…), ponés tus colores y tu logo, y decidís qué se gana. La vas viendo en el teléfono mientras la armás.",
-    detalle: "Cinco pasos · sin diseñador",
+      "La tarjeta vive en la billetera del teléfono, al lado de la del banco y del pase de abordar. El cliente la trae encima siempre, sin acordarse de nada.",
+    contraste: "El cartón se arruga, se moja y termina en la guantera.",
   },
   {
-    titulo: "La compartís",
+    icono: "repetir",
+    titulo: "Se actualiza sola",
     texto:
-      "Imprimís el póster para tu mostrador o mandás el link por WhatsApp. Quien lo abre agrega la tarjeta a su Wallet y queda afiliado solo.",
-    detalle: "QR y link · sin app que instalar",
+      "Escaneás su código y el conteo cambia en su teléfono en el momento. No tiene que abrir una app, ni refrescar, ni pedirte que le cuentes cuántos lleva.",
+    contraste: "En papel, el saldo solo existe cuando alguien lo busca.",
   },
   {
-    titulo: "Sellás y ellos vuelven",
+    icono: "campana",
+    titulo: "Le podés escribir",
     texto:
-      "En cada visita escaneás su código desde el panel. El sello entra y la tarjeta se actualiza sola en su teléfono.",
-    detalle: "Un escaneo · el saldo lo lleva el sistema",
+      "Un anuncio tuyo le aparece en la pantalla de bloqueo. Y con los paquetes que traen ubicaciones, le aparece justo cuando pasa cerca de tu local.",
+    contraste: "Una tarjeta de cartón no avisa nada, nunca.",
+  },
+  {
+    icono: "clientes",
+    titulo: "Sabés quién vuelve",
+    texto:
+      "Cada sello queda con nombre. Tu panel te dice quiénes son los de siempre, quiénes hace rato no aparecen y quién está por llegar a su premio.",
+    contraste: "Con sellos de hule no sabés ni cuántas tarjetas repartiste.",
   },
 ];
 
-/** Los cuatro que pide el rediseño, con contenido real de contenido-tipos.ts. */
-const SOLUCIONES: { tipo: keyof typeof FICHAS }[] = [
-  { tipo: "sellos" },
-  { tipo: "puntos" },
-  { tipo: "cupon" },
-  { tipo: "membresia" },
-];
-
-const PLAN_ARRANQUE = PLANES.arranque;
+const CUPO_MAX_ANUNCIOS = PLANES_VIGENTES.reduce(
+  (max, p) => Math.max(max, p.limites.notificacionesMes ?? 0),
+  0,
+);
 
 const FAQ: { pregunta: string; respuesta: string }[] = [
   {
@@ -139,115 +185,198 @@ const FAQ: { pregunta: string; respuesta: string }[] = [
 ];
 
 export default async function LealtadPage() {
-  // Se decide del lado del SERVIDOR, con la cookie de sesión, y no en
-  // el cliente: es la misma comprobación que ya hacía
-  // `/lealtad/nuevo/page.tsx`, así que no hay una segunda forma de
-  // saber si alguien está logueado, y el configurador arranca sin el
-  // parpadeo de "primero muestro el paso de cuenta y después lo escondo
-  // cuando el cliente confirma que sí había sesión".
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Del lado del SERVIDOR, con la cookie de sesión: el nav de arriba
+  // muestra de QUIÉN es la sesión (nombre de la cuenta) y no solo si
+  // hay una — ver src/lib/lealtad/sesion-nav.ts.
+  const sesion = await sesionDelNavLealtad();
 
   return (
     <main className="min-h-svh bg-white">
       <RevealOnScroll />
-      <NavLealtad logueado={!!user} />
+      <NavLealtad logueado={sesion.logueado} nombre={sesion.nombre} />
       <BurbujaContacto />
 
-      {/* ================= HERO (navy) ================= */}
+      {/* ============================================================
+          1 · HERO — qué es, la promesa, el producto en la mano.
+          ============================================================ */}
       <section
-        data-tema="oscuro"
-        className="relative pb-16 pt-14 sm:pb-24 sm:pt-20"
-        style={{ background: NAVY_PROFUNDO, color: "#ffffff" }}
+        className="relative overflow-hidden"
+        style={{
+          background:
+            "radial-gradient(circle at 76% 38%, rgba(15,76,158,.10), transparent 32%)," +
+            "radial-gradient(circle at 92% 78%, rgba(243,146,0,.09), transparent 26%)," +
+            "linear-gradient(180deg,#ffffff 0%,#fbfcff 100%)",
+        }}
       >
-        {/* El blur lleva SU PROPIO `overflow-hidden` — la sección ya no
-            puede tenerlo: el editor de tarjeta (Modo 3, más abajo)
-            monta un preview `sticky` y cualquier ancestro con overflow
-            distinto de `visible` rompe el cálculo de `position: sticky`
-            aunque ese ancestro nunca scrollee por sí mismo. */}
-        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div
-            className="absolute left-[18%] top-[26%] h-[620px] w-[620px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.16] blur-[140px]"
-            style={{ background: ACCION_OSCURO }}
-          />
-        </div>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-[280px] -top-[220px] h-[720px] w-[720px] rounded-full"
+          style={{ background: "radial-gradient(circle, rgba(214,226,248,.6), transparent 66%)" }}
+        />
 
-        <div className="relative mx-auto w-[min(1180px,92vw)] py-6">
-          <div className="mx-auto max-w-[790px] text-center">
+        <div className="relative mx-auto grid w-[min(1180px,92vw)] items-center gap-8 pb-10 pt-10 sm:pt-14 lg:grid-cols-[49%_51%] lg:gap-2 lg:pb-16">
+          <div className="text-center lg:text-left">
             <p
-              className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.1em]"
-              style={{ color: ACCION_OSCURO }}
+              className="inline-flex items-center gap-2 rounded-full border border-[#dbe3f4] bg-white/75 px-3.5 py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] shadow-[0_6px_20px_rgba(20,40,90,.05)]"
+              style={{ color: "var(--accion)" }}
             >
-              ✦ Tarjetas y pases para Apple y Google Wallet
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: ACENTO_CLARO }} />
+              Bookea Lealtad · Apple y Google Wallet
             </p>
 
-            <h1 className="titulo mt-5 text-balance text-[clamp(34px,5.4vw,58px)] leading-[1.03]">
-              Hacé que cada visita se convierta en la próxima.
+            <h1 className="titulo mt-5 max-w-[15ch] text-balance text-[clamp(38px,5.2vw,64px)] leading-[1.0] tracking-tight text-aventurea-navy">
+              Convertí compradores de un día en <TextoDegradado>clientes de por vida.</TextoDegradado>
             </h1>
 
-            <p className="mx-auto mt-5 max-w-[58ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-white/60">
-              Bookea Lealtad le da a cada cliente una tarjeta en el teléfono —Apple Wallet y
-              Google Wallet— que suma sellos o puntos en cada visita y se actualiza sola. Armala
-              acá mismo y mirá cómo queda, antes de crear cuenta.
+            <p className="mt-5 max-w-[50ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-aventurea-ink-soft">
+              Una tarjeta de fidelización que vive en el teléfono de tus clientes y trae más
+              visitas y más recompra.{" "}
+              <strong className="text-aventurea-navy">Apple Wallet y Google Wallet.</strong> Sin
+              apps. Sin tarjetas de cartón.
             </p>
 
-            <ul className="mx-auto mt-7 flex max-w-[52ch] flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] font-bold text-white/65">
+            <div className="mt-8">
+              <BotonCrearPase variante="primario">
+                ¡Creá tu pase de lealtad! <span aria-hidden>→</span>
+              </BotonCrearPase>
+              <p className="mt-3 flex items-center justify-center gap-2 text-[13.5px] font-bold text-aventurea-ink-soft lg:justify-start">
+                <span aria-hidden>📲</span>
+                Tus clientes lo tendrán en el Wallet de su móvil — sin instalar nada.
+              </p>
+            </div>
+
+            <ul className="mt-7 flex flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] font-bold text-aventurea-ink-soft lg:justify-start">
               {["Primera tarjeta gratis", "Sin apps que instalar", "Sin tarjeta de crédito"].map((t) => (
                 <li key={t} className="flex items-center gap-2">
-                  {/* La palomita se queda naranja: marca lo que el
-                      cliente GANA, que es el único trabajo que le
-                      queda al acento. */}
-                  <span aria-hidden style={{ color: ACENTO_OSCURO }}>
+                  <span aria-hidden style={{ color: ACENTO_CLARO }}>
                     ✓
                   </span>
                   {t}
                 </li>
               ))}
             </ul>
-          </div>
 
-          <div className="mt-12">
-            <ConfiguradorLealtad haySesion={!!user} />
-          </div>
-
-          <div className="mt-8 flex flex-col items-center gap-2 text-center">
-            <a
-              href="#como-funciona"
-              className="presionable rounded-full border border-white/25 px-6 py-3 text-[13.5px] font-bold text-white/90"
-            >
-              Ver cómo funciona
-            </a>
-            <p className="mt-2 text-[13px] text-white/55">
+            <p className="mt-6 text-[13px] text-aventurea-ink-soft/80">
               ¿Ya tenés el programa?{" "}
               <Link
                 href="/cuenta?volver=lealtad"
-                className="font-bold underline transition-colors hover:text-white/80"
-                style={{ color: ACCION_OSCURO }}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold underline transition-colors hover:opacity-75"
+                style={{ color: "var(--accion)" }}
               >
                 Entrá acá
               </Link>
             </p>
           </div>
+
+          <MockupHeroPase />
         </div>
       </section>
 
-      {/* ================= COMPATIBILIDAD (claro) ================= */}
-      <section className="px-5 py-6 sm:px-8">
-        <div className="mx-auto flex w-full max-w-[1120px] flex-col items-center justify-between gap-4 rounded-2xl border border-aventurea-line bg-white px-6 py-5 shadow-[0_16px_38px_-28px_rgba(16,47,82,0.3)] sm:flex-row">
-          <p className="text-[13px] font-extrabold text-aventurea-navy">
-            Una tarjeta. Dos wallets. Cero aplicaciones nuevas.
+      {/* ============================================================
+          2 · PARA QUIÉN ES — franja liviana, casi parte del hero: en
+          dos segundos confirma "esto es para un negocio como el
+          mío" y lleva a la página de industria real correspondiente.
+          ============================================================ */}
+      <section className="px-5 pb-16 pt-2 sm:px-8">
+        <div className="mx-auto w-full max-w-[1120px]">
+          <p data-reveal className="text-center text-[13.5px] font-bold text-aventurea-ink-soft">
+            Hecho para negocios donde el cliente{" "}
+            <span className="text-aventurea-navy">vuelve</span>: cafeterías, sodas y restaurantes,
+            barberías y salas de belleza, lavacares, gasolineras, carnicerías y casilleros.
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[12.5px] font-bold text-aventurea-ink-soft">
-            <span> Apple Wallet</span>
-            <span>◉ Google Wallet</span>
-            <span>▦ Código QR</span>
+
+          <ul className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
+            {INDUSTRIAS.map((industria, i) => (
+              <li
+                key={industria.slug}
+                data-reveal
+                style={{ "--reveal-delay": `${i * 50}ms` } as React.CSSProperties}
+              >
+                <Link
+                  href={`/lealtad/industrias/${industria.slug}`}
+                  className="group flex items-center gap-2.5 rounded-full border border-aventurea-line bg-white py-2 pl-2 pr-4 shadow-[0_10px_26px_-22px_rgba(16,47,82,0.45)] transition-colors hover:border-[color:var(--accion)]"
+                >
+                  <span
+                    aria-hidden
+                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
+                    style={{ background: industria.colorFondo }}
+                  >
+                    <span className="h-2 w-2 rounded-full" style={{ background: industria.colorSello }} />
+                  </span>
+                  <span className="text-[13px] font-extrabold text-aventurea-navy">{industria.nombre}</span>
+                  <span
+                    aria-hidden
+                    className="text-[13px] font-extrabold opacity-0 transition-opacity group-hover:opacity-100"
+                    style={{ color: "var(--accion)" }}
+                  >
+                    →
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ============================================================
+          3 · EL PROBLEMA — contra qué compite Bookea Lealtad. No es
+          "qué es" (eso ya lo hizo el hero): es "por qué importa".
+          ============================================================ */}
+      <section className="px-5 py-16 sm:px-8">
+        <div className="mx-auto w-full max-w-[1120px]">
+          <div data-reveal className="mx-auto max-w-[56ch] text-center">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
+              El problema del cartón
+            </p>
+            <h2 className="titulo mx-auto mt-4 max-w-[24ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
+              Cuatro cosas que una tarjeta de cartón <TextoDegradado>nunca va a hacer.</TextoDegradado>
+            </h2>
+            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
+              No es la misma tarjeta de siempre en versión digital. Es lo que se vuelve posible
+              cuando el sello deja de vivir en un papel.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {PILARES.map((pilar, i) => (
+              <div
+                key={pilar.titulo}
+                data-reveal
+                className="elevar flex flex-col rounded-3xl border border-aventurea-line bg-white p-6 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.4)]"
+                style={{ "--reveal-delay": `${i * 70}ms` } as React.CSSProperties}
+              >
+                <span
+                  className="grid h-11 w-11 place-items-center rounded-2xl"
+                  style={{ background: "var(--accion-suave)", color: "var(--accion-fuerte)" }}
+                >
+                  <Icono nombre={pilar.icono} className="h-5 w-5" />
+                </span>
+                <h3 className="mt-4 text-[16.5px] font-extrabold leading-tight text-aventurea-navy">
+                  {pilar.titulo}
+                </h3>
+                <p className="mt-2 flex-1 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+                  {pilar.texto}
+                </p>
+                <p className="mt-4 border-t border-aventurea-line pt-3 text-[12px] font-bold text-aventurea-ink-soft/80">
+                  <span aria-hidden className="mr-1.5">
+                    ✕
+                  </span>
+                  {pilar.contraste}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ================= CÓMO FUNCIONA (claro) ================= */}
+      {/* ============================================================
+          4 · CÓMO FUNCIONA — la mecánica general (timeline editorial,
+          no cards) y, como su prueba visual inmediata, el recorrido
+          de una visita real en el mostrador. Antes eran dos secciones
+          separadas con dos encabezados; acá es un solo movimiento.
+          ============================================================ */}
       <section id="como-funciona" className="scroll-mt-16 px-5 py-24 sm:px-8">
         <div className="mx-auto w-full max-w-[1120px]">
           <div data-reveal className="mx-auto max-w-[52ch] text-center">
@@ -262,54 +391,53 @@ export default async function LealtadPage() {
             </p>
           </div>
 
-          <ol className="mt-14 grid gap-4 md:grid-cols-3">
-            {PASOS.map((p, i) => (
-              <li
-                key={p.titulo}
-                data-reveal
-                className="rounded-3xl border border-aventurea-line bg-white p-6 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.4)]"
-                style={{ "--reveal-delay": `${i * 80}ms` } as React.CSSProperties}
-              >
-                {/* El disco del paso también se queda naranja: marca
-                    en cuál va la lectura. Sobre blanco pide el gemelo
-                    oscuro del acento —el del logo da 2,35:1 acá. */}
-                <span
-                  className="grid h-10 w-10 place-items-center rounded-full text-[15px] font-extrabold"
-                  style={{ background: ACENTO_CLARO, color: "#0a1226" }}
-                >
-                  {i + 1}
-                </span>
-                <h3 className="mt-4 text-[18px] font-extrabold leading-tight text-aventurea-navy">
-                  {p.titulo}
-                </h3>
-                <p className="mt-2 text-[13.5px] leading-relaxed text-aventurea-ink-soft">{p.texto}</p>
-                <p className="mt-4 text-[12px] font-bold text-[color:var(--accion)]">{p.detalle}</p>
-              </li>
-            ))}
-          </ol>
+          <AsiFunciona />
+
+          <div data-reveal className="mt-20">
+            <div className="mx-auto max-w-[52ch] text-center">
+              <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
+                En el mostrador
+              </p>
+              <h3 className="titulo mx-auto mt-3 text-[22px] leading-tight text-aventurea-navy sm:text-[26px]">
+                Así se registra cada visita
+              </h3>
+            </div>
+            <div className="mt-10">
+              <MockupRecorrido />
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ================= MOCKUP 2: el recorrido de una visita ================= */}
-      <section className="px-5 pb-24 sm:px-8">
+      {/* ============================================================
+          5 · APPLE WALLET + GOOGLE WALLET — dónde vive la tarjeta.
+          ============================================================ */}
+      <section className="bg-aventurea-sky-light/40 px-5 py-24 sm:px-8">
         <div className="mx-auto w-full max-w-[1120px]">
-          <div data-reveal className="mx-auto max-w-[52ch] text-center">
+          <div data-reveal className="mx-auto max-w-[56ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              En el mostrador
+              Apple Wallet · Google Wallet
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[22ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
-              Así se registra cada visita
+              Tu programa vive donde tus clientes ya están.
             </h2>
+            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
+              Nada de instalar una app aparte: la tarjeta entra directo a la billetera que el
+              teléfono ya trae instalada, junto a la del banco y el pase de abordar.
+            </p>
           </div>
-
-          <div data-reveal className="mt-12">
-            <MockupRecorrido />
+          <div data-reveal className="mt-14">
+            <SeccionWallets />
           </div>
         </div>
       </section>
 
-      {/* ================= SOLUCIONES (claro, tinte) ================= */}
-      <section id="soluciones" className="scroll-mt-16 bg-aventurea-sky-light/40 px-5 py-24 sm:px-8">
+      {/* ============================================================
+          6 · SOLUCIONES — elegí el tipo, la tarjeta y la explicación
+          cambian juntas. El único selector interactivo de la página
+          que decide qué mostrar, no solo cómo se ve.
+          ============================================================ */}
+      <section id="soluciones" className="scroll-mt-16 px-5 py-24 sm:px-8">
         <div className="mx-auto w-full max-w-[1180px]">
           <div data-reveal className="mx-auto max-w-[56ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
@@ -318,99 +446,232 @@ export default async function LealtadPage() {
             <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(30px,5vw,54px)] leading-[1.06] text-aventurea-navy">
               Elegí qué guardan en el teléfono
             </h2>
+            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
+              Los ocho tipos de tarjeta que el producto arma de verdad. Tocá cada uno y mirá
+              cómo cambia la tarjeta en el teléfono.
+            </p>
           </div>
 
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {SOLUCIONES.map(({ tipo }, i) => {
-              const def = TIPOS_TARJETA[tipo];
-              const ficha = FICHAS[tipo];
-              return (
-                <div
-                  key={tipo}
-                  data-reveal
-                  className="rounded-3xl border border-aventurea-line bg-white p-6"
-                  style={{ "--reveal-delay": `${i * 70}ms` } as React.CSSProperties}
-                >
-                  {/* Tinte informativo, no de marca: el durazno
-                      `--color-aventurea-orange-light` es un literal de
-                      `@theme` y el scope `.lealtad` no lo alcanza, así
-                      que acá se nombra el token de tinte directo. */}
-                  <span
-                    className="grid h-11 w-11 place-items-center rounded-2xl"
-                    style={{ background: "var(--accion-suave)", color: "var(--accion-fuerte)" }}
-                  >
-                    <Icono nombre={def.icono as NombreIcono} className="h-5 w-5" />
-                  </span>
-                  <h3 className="mt-4 text-[16px] font-extrabold text-aventurea-navy">{def.nombre}</h3>
-                  <p className="mt-2 text-[13px] leading-relaxed text-aventurea-ink-soft">
-                    {def.descripcion}
-                  </p>
-                  <p className="mt-3 text-[11.5px] font-bold text-aventurea-ink-soft/80">
-                    {ficha.paraQuien}
-                  </p>
-                </div>
-              );
-            })}
+          <div data-reveal className="mt-12">
+            <SelectorTiposLanding />
           </div>
         </div>
       </section>
 
-      {/* ================= BENEFICIOS Y PLANES (navy) ================= */}
-      <section id="planes" data-tema="oscuro" className="scroll-mt-16 px-5 py-24 sm:px-8" style={{ background: NAVY }}>
-        <div className="mx-auto w-full max-w-[1020px]">
-          <div data-reveal className="grid items-center gap-10 lg:grid-cols-[1.1fr_1fr]">
-            <div>
-              <p
-                className="text-[12px] font-bold uppercase tracking-[0.22em]"
-                style={{ color: ACCION_OSCURO }}
-              >
-                Beneficios y planes
-              </p>
-              <h2 className="titulo mt-4 max-w-[16ch] text-[clamp(28px,4.4vw,44px)] leading-[1.08] text-white">
-                Empezá pequeño y crecé cuando lo necesités.
-              </h2>
-              <p className="mt-4 max-w-[46ch] text-[15px] leading-relaxed text-white/60">
-                Empezá gratis, sin tarjeta de crédito y sin vencimiento. Cuando tu programa crezca, subís
-                de paquete — nunca antes.
-              </p>
+      {/* ============================================================
+          7 · TU PANEL — lo que ve el dueño del negocio: las cifras
+          reales (KPIs), la herramienta para escribirle a sus
+          clientes, y por qué se puede confiar en lo que el panel
+          dice. Antes eran tres secciones sueltas ("Resultados" con
+          una tarjetita de tres cifras, "Marketing" y "Confianza");
+          acá son un solo panel con tres pestañas de contenido, que es
+          justamente la metáfora correcta.
+          ============================================================ */}
+      <section id="panel" className="scroll-mt-16 px-5 py-24 sm:px-8">
+        <div className="mx-auto w-full max-w-[1120px]">
+          <div data-reveal className="mx-auto max-w-[56ch] text-center">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
+              El panel del negocio
+            </p>
+            <h2 className="titulo mx-auto mt-4 max-w-[24ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
+              No te prometemos clientes fieles. <TextoDegradado>Te mostramos cuánto compran.</TextoDegradado>
+            </h2>
+            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
+              Cada sello queda respaldado por su compra: tu panel te dice cuánto venden tus
+              clientes con tarjeta, cuánto gastan por visita y quiénes vuelven.
+            </p>
+          </div>
 
-              <p className="mt-6 text-[26px] font-extrabold text-white">
-                Desde {precioDe(PLAN_ARRANQUE)}
-                <span className="text-[14px] font-bold text-white/50"> / mes</span>
-              </p>
+          <div data-reveal className="mx-auto mt-12 max-w-[880px]">
+            <MockupPanelNegocio />
+            <p className="mt-3 text-center text-[11.5px] font-bold text-aventurea-ink-soft/70">
+              Vista de ejemplo del panel — no son cifras de un negocio real.
+            </p>
+          </div>
 
-              <Link
-                href="/lealtad/planes"
-                className="presionable mt-6 inline-block rounded-full px-7 py-3.5 text-[14px] font-extrabold"
-                style={{ background: ACCION_OSCURO, color: ACCION_OSCURO_TINTA }}
-              >
-                Ver planes
-              </Link>
+          {/* Sub-movimiento: la misma pantalla también te deja
+              escribirle al cliente. Reusa la sección "Marketing"
+              anterior, ahora como parte del panel en vez de una
+              sección propia — es literalmente la misma pestaña. */}
+          <div data-reveal className="mt-20 border-t border-aventurea-line pt-16">
+            <div className="mx-auto max-w-[54ch] text-center">
+              <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
+                Desde el mismo panel
+              </p>
+              <h3 className="titulo mx-auto mt-3 max-w-[20ch] text-[24px] leading-tight text-aventurea-navy sm:text-[30px]">
+                Escribís el anuncio. Les llega al teléfono.
+              </h3>
+              <p className="mx-auto mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
+                Tus anuncios les llegan como notificación a los clientes que ya tienen tu
+                tarjeta en su Wallet — sin pedir números ni armar listas de correo. Enviás
+                hasta {CUPO_MAX_ANUNCIOS} al mes según tu paquete.
+              </p>
             </div>
+            <div className="mt-12">
+              <MockupAnuncios />
+            </div>
+          </div>
 
-            <ul className="grid gap-3.5">
-              {(
-                ["wallet", "personalizacion_tarjeta", "poster_qr", "modo_mostrador"] as const
-              ).map((c) => (
-                <li key={c} className="flex items-start gap-3">
-                  <span
-                    aria-hidden
-                    className="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-full"
-                    style={{ background: "rgba(255,255,255,.08)" }}
-                  >
-                    <Icono nombre="listo" className="h-3.5 w-3.5 text-white" />
-                  </span>
-                  <span className="text-[14px] leading-relaxed text-white/80">
-                    {ETIQUETAS_CAPACIDAD[c]}
-                  </span>
-                </li>
-              ))}
+          {/* Sub-movimiento: por qué se puede confiar en lo de arriba. */}
+          <div data-reveal className="mt-20 border-t border-aventurea-line pt-16">
+            <p className="mx-auto max-w-[54ch] text-center text-[13px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft">
+              Y nada de esto depende de la palabra de nadie
+            </p>
+            <div className="mt-8">
+              <SeccionConfianza />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          8 · LO QUE CORRE SOLO — automatizaciones reales, cada una
+          etiquetada según si corre sola o con ayuda de un asesor.
+          ============================================================ */}
+      <section className="px-5 pb-4 pt-16 sm:px-8">
+        <div className="mx-auto w-full max-w-[1120px]">
+          <p data-reveal className="mx-auto mb-8 max-w-[62ch] text-center text-[13px] leading-relaxed text-aventurea-ink-soft">
+            Vos seguís atendiendo tu negocio.{" "}
+            <strong className="text-aventurea-navy">Bookea se encarga de que nadie se olvide de volver.</strong>
+          </p>
+          <div data-reveal className="mx-auto max-w-[56ch] text-center">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
+              Lo que corre solo
+            </p>
+            <h2 className="titulo mx-auto mt-4 max-w-[22ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
+              Bookea se acuerda, aunque nadie esté pendiente.
+            </h2>
+          </div>
+          <div data-reveal className="mt-10" style={{ "--reveal-delay": "80ms" } as React.CSSProperties}>
+            <FlujoAutomatizaciones />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Franja 1: EL RESCATE (con tu asesor) — mockup de panel ── */}
+      <section className="px-5 pb-20 pt-10 sm:px-8">
+        <div className="mx-auto grid w-full max-w-[1120px] items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div data-reveal>
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
+              Trabaja solo · Con tu asesor
+            </p>
+            <h3 className="titulo mt-4 max-w-[16ch] text-[clamp(26px,4vw,42px)] leading-[1.1] text-aventurea-navy">
+              El cliente que dejó de venir no se pierde solo.
+            </h3>
+            <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
+              La mayoría de los clientes no se van enojados: se van sin darse cuenta. Tu
+              panel te muestra quiénes tenían la tarjeta andando y hace semanas no
+              aparecen. Con tu asesor armás el anuncio que los trae de vuelta, y les llega
+              al teléfono donde ya tienen tus sellos guardados.
+            </p>
+            <p className="mt-5 rounded-xl bg-[#f2f4f8] px-3.5 py-3 text-[12.5px] font-bold text-[#5a6478]">
+              Esta es la única de las tres que hoy hacés con ayuda, no sola — y lo decimos
+              así de claro.
+            </p>
+          </div>
+          <div data-reveal style={{ "--reveal-delay": "80ms" } as React.CSSProperties}>
+            <MockupRescate />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Franja 2: LOS HITOS (automático) — teléfono, sellos + hito ── */}
+      <section className="px-5 py-20 sm:px-8">
+        <div className="mx-auto grid w-full max-w-[1120px] items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div data-reveal className="order-2 lg:order-1">
+            <MockupHitos />
+          </div>
+          <div data-reveal className="order-1 lg:order-2" style={{ "--reveal-delay": "80ms" } as React.CSSProperties}>
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
+              Trabaja solo · Automático
+            </p>
+            <h3 className="titulo mt-4 max-w-[15ch] text-[clamp(26px,4vw,42px)] leading-[1.1] text-aventurea-navy">
+              Los hitos que le importan, sin que nadie se acuerde.
+            </h3>
+            <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
+              El primer sello, el penúltimo y el premio alcanzado salen solos por correo.
+              Son los tres momentos en que un cliente decide si el programa le importa, y
+              ninguno depende de que alguien en tu negocio se acuerde de escribirle.
+            </p>
+            <ul className="mt-5 flex flex-col gap-2 text-[13.5px] font-semibold text-aventurea-navy">
+              <li>🎉 &ldquo;¡Tu tarjeta ya arrancó!&rdquo; — con el primer sello</li>
+              <li>☕ &ldquo;¡Te falta uno!&rdquo; — con el penúltimo</li>
+              <li>🏆 &ldquo;¡Premio desbloqueado!&rdquo; — al completar la meta</li>
             </ul>
           </div>
         </div>
       </section>
 
-      {/* ================= FAQ (claro) ================= */}
+      {/* ── Franja 3: CUANDO PASAN CERCA (automático) — teléfono + mapa ── */}
+      <section className="px-5 pb-24 pt-20 sm:px-8">
+        <div className="mx-auto grid w-full max-w-[1120px] items-center gap-10 lg:grid-cols-2 lg:gap-14">
+          <div data-reveal>
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
+              Trabaja solo · Automático
+            </p>
+            <h3 className="titulo mt-4 max-w-[15ch] text-[clamp(26px,4vw,42px)] leading-[1.1] text-aventurea-navy">
+              Un recordatorio justo cuando puede entrar.
+            </h3>
+            <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
+              Con las ubicaciones activadas, el pase aparece en la pantalla del teléfono
+              cuando el cliente está a unas cuadras de tu local. No es un correo que se lee
+              en la noche: es un recordatorio en el momento exacto en que puede entrar.
+            </p>
+            <p className="mt-5 text-[13px] font-bold text-aventurea-ink-soft">
+              📍 Disponible desde el paquete Impulso — mirá &ldquo;Elegí qué guardan en el
+              teléfono&rdquo; más arriba.
+            </p>
+          </div>
+          <div data-reveal style={{ "--reveal-delay": "80ms" } as React.CSSProperties}>
+            <MockupCercania />
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          9 · PRECIOS — panel navy redondeado, los cuatro paquetes
+          reales de src/lib/lealtad/planes.ts.
+          ============================================================ */}
+      <section id="planes" className="scroll-mt-16 px-5 py-24 sm:px-8">
+        <div
+          data-tema="oscuro"
+          className="relative mx-auto w-full max-w-[1160px] overflow-hidden rounded-[32px] px-6 py-12 sm:px-10 sm:py-14"
+          style={{ background: NAVY, boxShadow: "0 35px 80px rgba(12,25,64,.18)" }}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-28 -top-36 h-[400px] w-[400px] rounded-full bg-white/[0.05]"
+          />
+          <div data-reveal className="relative">
+            <div className="mx-auto max-w-[56ch] text-center">
+              <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: ACCION_OSCURO }}>
+                Beneficios y planes
+              </p>
+              <h2 className="titulo mx-auto mt-4 max-w-[18ch] text-[clamp(28px,4.4vw,44px)] leading-[1.08] text-white">
+                Empezá pequeño y crecé cuando lo necesités.
+              </h2>
+              <p className="mx-auto mt-4 max-w-[48ch] text-[15px] leading-relaxed text-white/60">
+                Empezá gratis, sin tarjeta de crédito y sin vencimiento. Cuando tu programa crezca,
+                subís de paquete — nunca antes.
+              </p>
+            </div>
+
+            <div className="mt-10">
+              <PreciosLanding />
+            </div>
+
+            <p className="mt-8 text-center text-[12px] font-bold text-white/55">
+              <Link href="/lealtad/planes" className="underline transition-colors hover:text-white">
+                Ver el detalle completo de cada paquete →
+              </Link>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          10 · FAQ
+          ============================================================ */}
       <section className="px-5 py-24 sm:px-8">
         <div className="mx-auto w-full max-w-[760px]">
           <div data-reveal className="mx-auto max-w-[52ch] text-center">
@@ -422,45 +683,48 @@ export default async function LealtadPage() {
             </h2>
           </div>
 
-          <div data-reveal className="mt-10 divide-y divide-aventurea-line rounded-3xl border border-aventurea-line bg-white">
-            {FAQ.map((f) => (
-              <details key={f.pregunta} className="group p-5 sm:p-6">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[14.5px] font-extrabold text-aventurea-navy marker:content-none">
-                  {f.pregunta}
-                  <span
-                    aria-hidden
-                    className="shrink-0 text-[18px] font-bold text-[color:var(--orange-acento-claro)] transition-transform group-open:rotate-45"
-                  >
-                    +
-                  </span>
-                </summary>
-                <p className="mt-3 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-                  {f.respuesta}
-                </p>
-              </details>
-            ))}
+          <div data-reveal className="mt-10">
+            <FaqAcordeon items={FAQ} />
           </div>
         </div>
       </section>
 
-      {/* ================= CIERRE (navy) ================= */}
-      <section data-tema="oscuro" className="px-5 py-28 text-center sm:px-8" style={{ background: NAVY_PROFUNDO }}>
-        <div data-reveal className="mx-auto w-full max-w-[760px]">
-          <h2 className="titulo text-[clamp(32px,5.6vw,64px)] leading-[1.04] text-white">
-            Tu competencia reparte tarjetas de cartón.
-            <br />
-            Vos, sellos en el teléfono.
-          </h2>
-          <p className="mx-auto mt-5 max-w-[48ch] text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/60">
-            Contanos de tu negocio y armamos tu programa — sin contratos, sin permanencia mínima.
-          </p>
-          <Link
-            href="/lealtad/nuevo"
-            className="presionable mt-9 inline-block rounded-full px-9 py-4 text-[15px] font-bold transition-transform hover:scale-[1.03]"
-            style={{ background: ACCION_OSCURO, color: ACCION_OSCURO_TINTA }}
-          >
-            Crear mi programa gratis
-          </Link>
+      {/* ============================================================
+          11 · CIERRE — caja navy redondeada con el CTA final.
+          ============================================================ */}
+      <section
+        className="px-5 py-24 text-center sm:px-8"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 0%, rgba(15,76,158,.10) 0%, transparent 45%), #fbfcff",
+        }}
+      >
+        <div
+          data-tema="oscuro"
+          data-reveal
+          className="relative mx-auto w-full max-w-[980px] overflow-hidden rounded-[32px] px-6 py-16 sm:px-10 sm:py-20"
+          style={{ background: NAVY_PROFUNDO, boxShadow: "0 35px 80px rgba(12,25,64,.2)" }}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute -right-40 -top-52 h-[430px] w-[430px] rounded-full"
+            style={{ background: "rgba(157,180,255,.14)" }}
+          />
+          <div className="relative">
+            <h2 className="titulo text-[clamp(30px,4.8vw,54px)] leading-[1.05] text-white">
+              Tu competencia reparte tarjetas de cartón.
+              <br />
+              <span style={{ color: ACCION_OSCURO }}>Vos, sellos en el teléfono.</span>
+            </h2>
+            <p className="mx-auto mt-5 max-w-[48ch] text-[clamp(15px,1.8vw,18px)] leading-relaxed text-white/60">
+              Contanos de tu negocio y armamos tu programa — sin contratos, sin permanencia mínima.
+            </p>
+            <div className="mt-9">
+              <BotonCrearPase variante="oscuro">
+                ¡Creá tu pase de lealtad! <span aria-hidden>→</span>
+              </BotonCrearPase>
+            </div>
+          </div>
         </div>
       </section>
 

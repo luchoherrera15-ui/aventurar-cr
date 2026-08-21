@@ -84,6 +84,10 @@ export type BorradorTarjeta = {
   bannerUrl: string;
   reglas: {
     desde: string;
+    /** true = la tarjeta de cada cliente vale desde su primer sello o
+     *  bono — sin fecha fija de inicio (la 0195). Excluyente con
+     *  `desde`. */
+    desdePrimerSello: boolean;
     hasta: string;
     usoUnico: boolean;
     maxPorCliente: number | null;
@@ -128,6 +132,7 @@ const COLUMNAS_DEGRADABLES = [
   "pase_sello_icono_url",
   "compra_minima",
   "vigente_desde",
+  "vigencia_desde_primer_sello",
   "vigente_hasta",
   "uso_unico",
   "max_por_cliente",
@@ -232,7 +237,10 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
 
   // Las fechas tienen que tener sentido entre sí. Al revés, la tarjeta
   // nacería vencida y nadie entendería por qué no se puede canjear.
-  const { desde, hasta } = datos.reglas;
+  // Con «desde el primer sello» (0195) la fecha fija de inicio no
+  // aplica: se descarta acá aunque el navegador la mandara igual.
+  const desde = datos.reglas.desdePrimerSello ? "" : datos.reglas.desde;
+  const { hasta } = datos.reglas;
   if (desde && hasta && hasta < desde) {
     return { ok: false, motivo: "La fecha de vencimiento no puede ser anterior a la de inicio." };
   }
@@ -415,6 +423,7 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     // regla que decide si algo procede no puede vivir donde nadie la
     // valida.
     vigente_desde: desde || null,
+    vigencia_desde_primer_sello: datos.reglas.desdePrimerSello === true,
     vigente_hasta: hasta || null,
     uso_unico: datos.reglas.usoUnico,
     max_por_cliente: datos.reglas.maxPorCliente,

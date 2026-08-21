@@ -6,8 +6,19 @@ import { after } from "next/server";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
-import { traducirErrorDeBase, traducirMotivo } from "@/lib/lealtad/mostrador";
-import { TIPOS_TARJETA, tipoDe, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import { reglaDeSellos, sellosPorCompra, traducirErrorDeBase, traducirMotivo } from "@/lib/lealtad/mostrador";
+import {
+  recortarProducto,
+  registrarTransaccionComercial,
+} from "@/lib/lealtad/transacciones";
+import { productoDelNegocio } from "@/lib/lealtad/productos-db";
+import { formatearCRC } from "@/lib/dinero";
+import {
+  TIPOS_TARJETA,
+  leerBeneficio,
+  tipoDe,
+  type TipoTarjeta,
+} from "@/lib/lealtad/tipos-tarjeta";
 import { identidadesDeMiembros, miembrosConIdentidad } from "@/lib/lealtad/identidades-db";
 import { fichaVisible } from "@/lib/lealtad/identidad-miembro";
 
@@ -109,6 +120,20 @@ export async function sumarSelloEscaneado(
    * llave nueva = sello nuevo. Sin él se cae al minuto de calendario.
    */
   intentoId?: string,
+  /**
+   * Producto o concepto de la compra ("Matcha latte"). Opcional: viaja
+   * al registro comercial (0197), nunca decide sellos ni puntos.
+   */
+  producto?: string | null,
+  /**
+   * El producto del CATÁLOGO que se eligió en la caja (0198).
+   *
+   * Llega del navegador, así que se COMPROBA contra este negocio antes
+   * de usarlo (más abajo) y de ahí sale el nombre que se guarda en la
+   * venta. No decide el monto: el monto es el que llegó, porque en la
+   * caja es editable a propósito — una venta puede llevar dos cafés.
+   */
+  productoId?: string | null,
 ): Promise<ResultadoEscaneo> {
   const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
   if (!user) redirect("/lealtad/login");
@@ -149,7 +174,7 @@ export async function sumarSelloEscaneado(
   // tarjeta de otro local sumaría puntos acá.
   const { data: programa } = await db
     .from("programa_lealtad")
-    .select("rancho_id, modo")
+    .select("rancho_id, modo, beneficio")
     .eq("id", miembro.programa_id)
     .maybeSingle();
   if (!programa || programa.rancho_id !== ranchoId) {
@@ -162,6 +187,28 @@ export async function sumarSelloEscaneado(
   const tipo = tipoDe(programa.modo as string | null);
   const acumula = TIPOS_TARJETA[tipo].acumula;
 
+  // LA REGLA DE ACUMULACIÓN (0197): la decide el SERVIDOR leyendo el
+  // beneficio guardado — el navegador manda el hecho (gastó ₡9.000),
+  // nunca los sellos. `leerBeneficio` tolera configs viejas o rotas y
+  // `sellosPorCompra` cae a «1 por compra», el comportamiento de
+  // siempre.
+  const beneficio = tipo === "sellos" ? leerBeneficio(programa.beneficio, "sellos") : null;
+  const regla = reglaDeSellos(beneficio);
+  const porMonto = tipo === "sellos" && regla.por === "monto" && monto !== null;
+  const sellos = porMonto ? sellosPorCompra(beneficio, monto) : null;
+
+  // EL PRODUCTO DEL CATÁLOGO (0198), comprobado contra ESTE negocio: un
+  // id ajeno enlazaría la venta al producto de otro local. Si no pasa
+  // el filtro —o si la 0198 todavía no está— la venta se registra igual
+  // con el texto que haya: el catálogo nunca puede frenar un sello.
+  //
+  // El nombre que se guarda es el del CATÁLOGO y no el que teclearon:
+  // es la foto del menú al momento de la venta, que es justo lo que
+  // hace que el reporte no se descuadre cuando el producto se renombra.
+  const delCatalogo =
+    productoId && productoId.trim() ? await productoDelNegocio(db, ranchoId, productoId) : null;
+  const productoLimpio = recortarProducto(delCatalogo?.nombre ?? producto);
+
   // El intento manda; el minuto es el respaldo. Un `intentoId` con
   // forma rara se descarta en vez de usarse: una llave que el navegador
   // arme mal no puede convertirse en «cada escaneo es único».
@@ -171,21 +218,63 @@ export async function sumarSelloEscaneado(
       ? `escaneo:${serial}:${intento}`
       : referenciaDelMinuto(serial, new Date());
 
-  const { data, error } = await db.rpc("acreditar_lealtad", {
+  // LA COMPRA QUE NO LLEGA AL MONTO no suma sello, y se dice con el
+  // número enfrente en vez de un «no se pudo». La venta SÍ queda
+  // registrada (0197): la compra es el dato principal, con sellos o
+  // sin ellos.
+  if (porMonto && sellos !== null && sellos < 1) {
+    await registrarTransaccionComercial(db, {
+      ranchoId,
+      programaId: miembro.programa_id as string,
+      miembroId: miembro.id as string,
+      monto,
+      producto: productoLimpio,
+      productoId: delCatalogo?.id ?? null,
+      sellosOtorgados: 0,
+      puntosOtorgados: null,
+      referencia,
+      registradoPor: user.id,
+    });
+    return {
+      ok: false,
+      motivo: `La compra quedó registrada, pero no llega a ${formatearCRC(
+        regla.por === "monto" ? regla.montoPorSello : 0,
+      )}: no suma sello.`,
+    };
+  }
+
+  // EL MOTIVO QUEDA EN EL LEDGER PARA SIEMPRE, así que dice lo que de
+  // verdad pasó. En una tarjeta que no acumula, este movimiento no es
+  // un sello: es el derecho de uso que entra al presentarla y que el
+  // canje consume en el mismo acto (ver mostrador.ts).
+  const argumentos = {
     p_miembro_id: miembro.id,
     p_monto: monto,
     p_referencia: referencia,
     p_usuario_id: user.id,
-    // EL MOTIVO QUEDA EN EL LEDGER PARA SIEMPRE, así que dice lo que de
-    // verdad pasó. En una tarjeta que no acumula, este movimiento no es
-    // un sello: es el derecho de uso que entra al presentarla y que el
-    // canje consume en el mismo acto (ver mostrador.ts).
     p_motivo: !acumula
       ? "Tarjeta presentada (escaneo)"
       : monto === null
         ? "Sello por visita (escaneo)"
         : "Compra (escaneo)",
-  });
+  };
+
+  // Con regla por monto, los sellos van YA CALCULADOS acá arriba
+  // (`p_sellos`, 0197). Si esa migración todavía no está pegada, el
+  // RPC de 6 argumentos no existe: se degrada al camino de siempre —
+  // un sello por compra — en vez de dejar al cliente sin nada.
+  let respuesta =
+    porMonto && sellos !== null
+      ? await db.rpc("acreditar_lealtad", { ...argumentos, p_sellos: sellos })
+      : await db.rpc("acreditar_lealtad", argumentos);
+  if (
+    respuesta.error &&
+    porMonto &&
+    (respuesta.error.code === "PGRST202" || respuesta.error.code === "42883")
+  ) {
+    respuesta = await db.rpc("acreditar_lealtad", argumentos);
+  }
+  const { data, error } = respuesta;
 
   if (error) return { ok: false, motivo: traducirErrorDeBase(error, "registrar el sello") };
 
@@ -193,6 +282,27 @@ export async function sumarSelloEscaneado(
   const yaEstaba = !r.otorgado && r.motivo === "ya-otorgado";
   if (!r.otorgado && !yaEstaba) {
     return { ok: false, motivo: traducirMotivo(r.motivo, "No se pudo registrar.") };
+  }
+
+  // EL EVENTO COMERCIAL (0197): el sello ya está en el ledger; acá se
+  // conserva la compra que lo generó — monto (o null), producto y qué
+  // otorgó. Degrada en silencio si la tabla no existe, y un reintento
+  // rebota por la misma referencia: nada de esto puede quitarle el
+  // sello a nadie. Solo en tarjetas acumulativas: presentar un cupón
+  // no es una compra.
+  if (acumula && !yaEstaba) {
+    await registrarTransaccionComercial(db, {
+      ranchoId,
+      programaId: miembro.programa_id as string,
+      miembroId: miembro.id as string,
+      monto,
+      producto: productoLimpio,
+      productoId: delCatalogo?.id ?? null,
+      sellosOtorgados: tipo === "sellos" ? (r.puntos ?? 0) : 0,
+      puntosOtorgados: tipo === "sellos" ? null : (r.puntos ?? null),
+      referencia,
+      registradoPor: user.id,
+    });
   }
 
   // A QUIÉN se le acaba de sellar. Salía de `perfiles` por `cliente_id`

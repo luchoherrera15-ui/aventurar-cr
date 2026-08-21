@@ -10,6 +10,8 @@ import {
 import { CAMPO_PANEL, DETALLE, RADIO_CARD } from "@/components/panel/sistema";
 import { ACCION, ACCION_TINTA, BOTON_ACCION, BOTON_LEALTAD } from "../sistema-lealtad";
 import type { TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import type { ProductoDeVenta } from "@/lib/lealtad/productos";
+import SelectorProducto from "./selector-producto";
 import {
   acreditarOperacion,
   afiliarClienteAMano,
@@ -71,6 +73,17 @@ export type ClienteEnLista = {
    * pintan en ninguna pantalla que no sea esta lista.
    */
   contacto?: string[];
+  /**
+   * true = identidad LOCAL de este negocio (0200).
+   *
+   * QUÉ SIGNIFICA PARA QUIEN ATIENDE: esta persona escribió un correo o
+   * un WhatsApp que ya pertenecía a otra identidad de Bookea y eligió
+   * seguir sin cuenta. Sus datos SIRVEN para escribirle —son los que le
+   * dio a este negocio— pero no están verificados y pueden estar
+   * repetidos con los de otra ficha. Sin decirlo, dos fichas con el
+   * mismo correo se leen como un error del sistema.
+   */
+  soloContacto?: boolean;
   saldo: number;
   estado: string;
   conPase: boolean;
@@ -113,6 +126,7 @@ function FilaCliente({
   recompensa,
   permisos,
   pideMonto,
+  productos,
   novedad,
   onNovedad,
 }: {
@@ -123,11 +137,16 @@ function FilaCliente({
   recompensa: RecompensaDelPrograma;
   permisos: PermisosMostrador;
   pideMonto: boolean;
+  /** El catálogo activo (0198). Vacío = el campo de monto a mano de
+   *  siempre, sin desplegable y sin ningún cambio de comportamiento. */
+  productos: ProductoDeVenta[];
   novedad: Novedad | undefined;
   onNovedad: (miembroId: string, n: Novedad) => void;
 }) {
   const [ocupado, setOcupado] = useState<null | "sello" | "canje" | "estado">(null);
   const [monto, setMonto] = useState("");
+  /** El producto del catálogo elegido para ESTA fila. null = a mano. */
+  const [productoId, setProductoId] = useState<string | null>(null);
   const [avisoMonto, setAvisoMonto] = useState<string | null>(null);
   const [completando, setCompletando] = useState(false);
   /** Lo que se acaba de teclear, para pintar la fila sin recargar. */
@@ -168,7 +187,16 @@ function FilaCliente({
     setAvisoMonto(null);
     setOcupado("sello");
     if (!intento.current) intento.current = llaveDeIntento();
-    acreditarOperacion(ranchoId, cliente.miembroId, lectura.monto, `mostrador:${intento.current}`)
+    // El producto viaja como ID: el nombre que se guarda lo resuelve el
+    // servidor contra el catálogo de ESTE negocio, no el navegador.
+    acreditarOperacion(
+      ranchoId,
+      cliente.miembroId,
+      lectura.monto,
+      `mostrador:${intento.current}`,
+      null,
+      productoId,
+    )
       .then((res) => {
         // Contestó: el intento se cierra pase lo que pase. Ver el ref.
         intento.current = null;
@@ -176,7 +204,10 @@ function FilaCliente({
           onNovedad(cliente.miembroId, { saldo: null, estado: null, texto: res.motivo, tono: "mal" });
           return;
         }
-        if (!res.yaEstaba) setMonto("");
+        if (!res.yaEstaba) {
+          setMonto("");
+          setProductoId(null);
+        }
         onNovedad(cliente.miembroId, {
           saldo: res.saldo,
           estado: null,
@@ -318,7 +349,19 @@ function FilaCliente({
           → 6,81:1 sobre la superficie de tarjeta: AA con margen, y sin
           estrenar ningún color. */}
       {contactoVisible && contactoVisible.length > 0 && (
-        <p className={`mt-0.5 ${DETALLE}`}>{contactoVisible.join(" · ")}</p>
+        <p className={`mt-0.5 ${DETALLE}`}>
+          {contactoVisible.join(" · ")}
+          {/* La marca de la identidad local (0200), pegada al contacto
+              porque es de ÉL de lo que habla: «podés escribirle, pero
+              este dato no lo verificó nadie y puede estar repetido».
+              Sin esto, dos fichas con el mismo correo se leen como una
+              falla del sistema y el dueño lo reporta como tal. */}
+          {cliente.soloContacto && (
+            <span className="ml-2 rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10.5px] font-bold text-aventurea-ink-soft">
+              contacto sin verificar
+            </span>
+          )}
+        </p>
       )}
 
       {/* Los botones en su propia línea: en el teléfono del mostrador
@@ -328,6 +371,30 @@ function FilaCliente({
         <div className="mt-2 flex flex-wrap items-center gap-2">
           {permisos.acreditar && activa && (
             <>
+              {/* EL CATÁLOGO (0198): elegir el producto pone su precio
+                  en el campo de al lado, que sigue siendo editable —
+                  una venta puede llevar dos. Sin catálogo cargado, esto
+                  no se dibuja y la fila queda idéntica a la de antes.
+                  El <label> va oculto y no como `aria-label` para que
+                  el nombre del cliente sea parte del nombre accesible:
+                  en una lista de 50 filas, «Producto» a secas no dice
+                  de quién es el desplegable. */}
+              {pideMonto && productos.length > 0 && (
+                <div className="w-[190px] [&_label]:sr-only [&_select]:bg-white [&_select]:py-2 [&_select]:text-[13px]">
+                  <SelectorProducto
+                    id={`producto-${cliente.miembroId}`}
+                    productos={productos}
+                    valor={productoId}
+                    onElegir={(p) => {
+                      setProductoId(p?.id ?? null);
+                      if (avisoMonto) setAvisoMonto(null);
+                      if (p) setMonto(String(p.precio));
+                    }}
+                    etiqueta={`Producto que le vendés a ${cliente.nombre}`}
+                  />
+                </div>
+              )}
+
               {pideMonto && (
                 <input
                   type="number"
@@ -727,6 +794,7 @@ export function BuscarYAtender({
   recompensa,
   permisos,
   pideMonto,
+  productos = [],
 }: {
   ranchoId: string;
   /**
@@ -741,6 +809,8 @@ export function BuscarYAtender({
   recompensa: RecompensaDelPrograma;
   permisos: PermisosMostrador;
   pideMonto: boolean;
+  /** El catálogo activo del negocio (0198). Vacío = monto a mano. */
+  productos?: ProductoDeVenta[];
 }) {
   const textos = textosDelTipo(tipo);
   const [texto, setTexto] = useState("");
@@ -906,6 +976,7 @@ export function BuscarYAtender({
                 // dueño, no de la caja.
                 permisos={{ ...permisos, revertir: false }}
                 pideMonto={pideMonto}
+                productos={productos}
                 novedad={novedades[c.miembroId]}
                 onNovedad={(id, n) => setNovedades((v) => ({ ...v, [id]: n }))}
               />
@@ -936,6 +1007,7 @@ export function ListaClientes({
   recompensa,
   permisos,
   pideMonto,
+  productos = [],
 }: {
   ranchoId: string;
   clientes: ClienteEnLista[];
@@ -945,6 +1017,8 @@ export function ListaClientes({
   recompensa: RecompensaDelPrograma;
   permisos: PermisosMostrador;
   pideMonto: boolean;
+  /** El catálogo activo del negocio (0198). Vacío = monto a mano. */
+  productos?: ProductoDeVenta[];
 }) {
   const [filtro, setFiltro] = useState("");
   const [novedades, setNovedades] = useState<Record<string, Novedad>>({});
@@ -988,6 +1062,7 @@ export function ListaClientes({
                 recompensa={recompensa}
                 permisos={permisos}
                 pideMonto={pideMonto}
+                productos={productos}
                 novedad={novedades[c.miembroId]}
                 onNovedad={(id, n) => setNovedades((v) => ({ ...v, [id]: n }))}
               />

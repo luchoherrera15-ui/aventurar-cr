@@ -56,19 +56,27 @@ function avisarEdicionDeTarjeta(programaId: string, ranchoId: string): void {
   // ── ANDROID NECESITA LA OTRA MITAD ───────────────────────────────
   // `avisarCambioDeDiseno` empuja el OBJETO de cada cliente. Pero en
   // Google el nombre que sale arriba, el logo y el color de fondo no
-  // viven en el objeto: viven en la CLASE, que es una sola por negocio
-  // y que hasta ahora solo se escribía al emitir el pase de alguien
-  // NUEVO. O sea que un negocio con todos sus clientes ya adentro
-  // podía cambiar el color de su tarjeta y no verlo nunca en un
-  // Android.
+  // viven en el objeto: viven en la CLASE, que hasta ahora solo se
+  // escribía al emitir el pase de alguien NUEVO. O sea que un negocio
+  // con todos sus clientes ya adentro podía cambiar el color de su
+  // tarjeta y no verlo nunca en un Android.
+  //
+  // Va CON el id de la tarjeta que se acaba de editar, y no solo con
+  // el del negocio: desde que cada tarjeta tiene su propia clase (ver
+  // `idDeClase`), refrescar «la que emite» podía estamparle el diseño
+  // de la segunda tarjeta a todos los pases de Android de la primera.
   //
   // Falla en silencio a propósito: si Google no contesta, el diseño ya
   // quedó guardado en la base y la próxima edición —o la próxima
   // afiliación— lo vuelve a intentar. Tirar el guardado entero porque
   // un servicio externo se cayó sería peor.
   after(async () => {
-    const r = await refrescarClaseGoogle(ranchoId);
-    if (!r.ok) console.warn(`[google-wallet] no se refrescó la clase de ${ranchoId}: ${r.motivo}`);
+    const r = await refrescarClaseGoogle(ranchoId, programaId);
+    if (!r.ok) {
+      console.warn(
+        `[google-wallet] no se refrescó la clase de ${ranchoId}/${programaId}: ${r.motivo}`,
+      );
+    }
   });
 }
 
@@ -513,6 +521,9 @@ export async function guardarPrograma(
 
 export type ReglasTarjeta = {
   desde: string;
+  /** true = vale desde el primer sello/bono del cliente (0195),
+   *  excluyente con `desde`. */
+  desdePrimerSello: boolean;
   hasta: string;
   usoUnico: boolean;
   maxPorCliente: number | null;
@@ -662,7 +673,10 @@ export async function guardarBeneficio(
   const invalido = validarBeneficio(datos.beneficio);
   if (invalido) return { error: invalido };
 
-  const { desde, hasta } = datos.reglas;
+  // Con «desde el primer sello» (0195) la fecha fija de inicio no
+  // aplica: se descarta aunque el navegador la mandara igual.
+  const desde = datos.reglas.desdePrimerSello ? "" : datos.reglas.desde;
+  const { hasta } = datos.reglas;
   if (desde && hasta && hasta < desde) {
     return { error: "La fecha de vencimiento no puede ser anterior a la de inicio." };
   }
@@ -756,6 +770,7 @@ export async function guardarBeneficio(
     // motor que autoriza un canje: una regla que decide si algo procede
     // no puede vivir donde nadie la valida.
     vigente_desde: desde || null,
+    vigencia_desde_primer_sello: datos.reglas.desdePrimerSello === true,
     vigente_hasta: hasta || null,
     uso_unico: datos.reglas.usoUnico,
     max_por_cliente: datos.reglas.maxPorCliente,
@@ -791,6 +806,7 @@ export async function guardarBeneficio(
     esColumnaAusente(error, [
       "beneficio",
       "vigente_desde",
+      "vigencia_desde_primer_sello",
       "vigente_hasta",
       "uso_unico",
       "max_por_cliente",

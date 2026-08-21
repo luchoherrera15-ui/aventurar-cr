@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
 import { leerMontoColones, llaveDeIntento, textosDelTipo } from "@/lib/lealtad/mostrador";
+import type { ProductoDeVenta } from "@/lib/lealtad/productos";
 import { ACCION, ACCION_TINTA, BOTON_ACCION, BOTON_LEALTAD } from "../sistema-lealtad";
 import { sumarSelloEscaneado, type ResultadoEscaneo } from "./escaner-actions";
 import { canjearRecompensa } from "./lealtad-operar-actions";
+import SelectorProducto from "./selector-producto";
 
 /**
  * Escanear la tarjeta del cliente para sumarle un sello.
@@ -45,12 +47,25 @@ export default function EscanerPanel({
   ranchoId,
   pideMonto = false,
   recompensa = null,
+  productos = [],
 }: {
   ranchoId: string;
-  /** true en modo puntos/cashback: la compra trae un monto. */
+  /**
+   * true en puntos/cashback/giftcard (el monto cambia lo acreditado) y
+   * en SELLOS desde la 0197 (la compra queda registrada, y si la
+   * tarjeta tiene la regla «por monto», el monto decide los sellos).
+   * Los dos campos —monto y producto— son opcionales: escanear sin
+   * teclear nada sigue funcionando como siempre.
+   */
   pideMonto?: boolean;
   /** La meta actual, para ofrecer el canje apenas el saldo alcance. */
   recompensa?: { id: string; nombre: string; costo: number } | null;
+  /**
+   * El catálogo ACTIVO del negocio (0198). Vacío = no hay catálogo, y
+   * entonces el desplegable ni se dibuja: el mostrador queda
+   * exactamente como antes, con el monto a mano. Cero regresión.
+   */
+  productos?: ProductoDeVenta[];
 }) {
   const video = useRef<HTMLVideoElement | null>(null);
   const lienzo = useRef<HTMLCanvasElement | null>(null);
@@ -78,6 +93,9 @@ export default function EscanerPanel({
   const [resultado, setResultado] = useState<ResultadoEscaneo | null>(null);
   const [procesando, setProcesando] = useState(false);
   const [monto, setMonto] = useState("");
+  const [producto, setProducto] = useState("");
+  /** El producto del catálogo elegido (0198). null = venta a mano. */
+  const [productoId, setProductoId] = useState<string | null>(null);
   const [avisoMonto, setAvisoMonto] = useState<string | null>(null);
   const [canje, setCanje] = useState<
     | { fase: "hecho"; nombre: string; sku: string | null; instrucciones: string | null }
@@ -237,7 +255,14 @@ export default function EscanerPanel({
     }
 
     setProcesando(true);
-    sumarSelloEscaneado(ranchoId, serial, lectura.monto, intento.current.id)
+    sumarSelloEscaneado(
+      ranchoId,
+      serial,
+      lectura.monto,
+      intento.current.id,
+      producto || null,
+      productoId,
+    )
       .then((res) => {
         setResultado(res);
         // LA REGLA: la llave sobrevive SOLO mientras el resultado sea
@@ -253,8 +278,11 @@ export default function EscanerPanel({
         if (res.ok && !res.yaEstaba) {
           // EL MONTO NO SE HEREDA. Acreditada la compra, el campo queda
           // vacío: sin esto, al cliente siguiente se le acreditaba la
-          // compra del anterior con solo volver a escanear.
+          // compra del anterior con solo volver a escanear. El producto
+          // —tecleado o elegido del catálogo— sigue la misma regla.
           setMonto("");
+          setProducto("");
+          setProductoId(null);
         }
         apagar();
       })
@@ -269,6 +297,22 @@ export default function EscanerPanel({
   function siguienteCliente() {
     limpiarTurno();
     setMonto("");
+    setProducto("");
+    setProductoId(null);
+  }
+
+  /**
+   * Se eligió del catálogo (0198): el monto se rellena con el precio y
+   * el nombre viaja como concepto. Los dos quedan EDITABLES — el precio
+   * es una propuesta, no un candado: una venta puede llevar dos cafés y
+   * el empleado tiene que poder corregirlo con el cliente enfrente.
+   */
+  function elegirProducto(p: ProductoDeVenta | null) {
+    setProductoId(p?.id ?? null);
+    setAvisoMonto(null);
+    if (!p) return;
+    setMonto(String(p.precio));
+    setProducto(p.nombre);
   }
 
   // Las palabras del mostrador salen del TIPO de la tarjeta que se
@@ -395,10 +439,31 @@ export default function EscanerPanel({
 
       {pideMonto && (
         <div className="mt-4 max-w-[260px]">
-          <label className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+          {/* EL CATÁLOGO (0198), si el negocio cargó productos. Va
+              ARRIBA del monto porque es lo que lo rellena: elegir el
+              café pone su precio y su nombre, y de ahí el empleado
+              corrige si la venta lleva dos. Sin catálogo esto no
+              existe y la pantalla es la de siempre. */}
+          {productos.length > 0 && (
+            <div className="mb-3">
+              <SelectorProducto
+                id="escaner-catalogo"
+                productos={productos}
+                valor={productoId}
+                onElegir={elegirProducto}
+                etiqueta="¿Qué se vendió?"
+              />
+            </div>
+          )}
+
+          <label
+            htmlFor="escaner-monto"
+            className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+          >
             Monto de la compra (₡)
           </label>
           <input
+            id="escaner-monto"
             type="number"
             min={0}
             step={1}
@@ -420,6 +485,31 @@ export default function EscanerPanel({
           {avisoMonto && (
             <p className="mt-1.5 text-[12px] font-bold text-red-700">{avisoMonto}</p>
           )}
+
+          {/* EL PRODUCTO (0197): puro registro comercial. No decide
+              sellos ni puntos — por eso no tiene validación que pueda
+              frenar un escaneo. */}
+          <label
+            className="mb-1.5 mt-3 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
+            htmlFor="escaner-producto"
+          >
+            Producto/concepto
+          </label>
+          <input
+            id="escaner-producto"
+            type="text"
+            maxLength={120}
+            value={producto}
+            onChange={(e) => {
+              setProducto(e.target.value);
+              // Corregir el texto a mano DESATA el enlace al catálogo:
+              // el reporte diría «Capuchino» con el id de otro producto,
+              // que es la clase de dato que no se puede auditar después.
+              if (productoId) setProductoId(null);
+            }}
+            placeholder="Opcional — «Matcha latte»"
+            className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500"
+          />
         </div>
       )}
 

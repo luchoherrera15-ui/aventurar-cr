@@ -57,6 +57,22 @@ export type ProgramaEnLista = {
   colorFondo: string | null;
   /** Miembros afiliados a ESTE programa. */
   miembros: number;
+  /**
+   * `programa_lealtad.created_at`. No lo dibuja esta sección: viaja
+   * porque el panel le pasa ESTA MISMA lista a `elegirPrograma`, que
+   * desempata por antigüedad. Sin el campo, todas las filas llegaban
+   * sin fecha y el desempate caía al uuid — o sea que el panel elegía
+   * como principal una tarjeta distinta de la que sirve el link
+   * público y de la que entrega el pase. En Pura Matcha eso ponía de
+   * principal el evento de 2 clientes en vez de la tarjeta de sellos
+   * de 31. Ver `programa-principal.ts`.
+   *
+   * OBLIGATORIO —y `| null` en vez de opcional— justamente por eso: el
+   * compilador tiene que rebotar al próximo que arme esta lista y se
+   * olvide de la fecha. Un `?` habría dejado volver el mismo bug en
+   * silencio.
+   */
+  created_at: string | null;
 };
 
 export default function SeccionProgramas({
@@ -168,7 +184,13 @@ export default function SeccionProgramas({
           </Link>
         ))}
 
-      {/* ── Filtros ────────────────────────────────────────────── */}
+      {/* ── Filtros + el botón «+» ─────────────────────────────────
+          El «+» redondo lo pidió el dueño para los paquetes pagos:
+          quien tiene derecho a más tarjetas crea la siguiente sin
+          buscar el banner. Mismas condiciones que el banner (puede
+          crear y hay cupo) — el cupo real lo decide el plan, así que
+          en Prueba (1 tarjeta) el tope ya alcanzado lo esconde solo. */}
+      <div className="flex items-center justify-between gap-3">
       <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar tarjetas">
         {FILTROS.map((f) => {
           const n = conteo[f.id];
@@ -202,6 +224,18 @@ export default function SeccionProgramas({
             </button>
           );
         })}
+      </div>
+      {puedeCrear && !topeAlcanzado && (
+        <Link
+          href={`/lealtad/panel/${ranchoId}/crear`}
+          aria-label="Crear otra tarjeta"
+          title="Crear otra tarjeta"
+          className="presionable grid h-9 w-9 shrink-0 place-items-center rounded-full text-[19px] font-extrabold leading-none"
+          style={{ background: ACCION, color: ACCION_TINTA }}
+        >
+          +
+        </Link>
+      )}
       </div>
 
       {/* ── Sin resultados en ESTE filtro (distinto de vacío) ───── */}

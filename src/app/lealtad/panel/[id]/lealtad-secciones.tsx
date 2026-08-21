@@ -10,6 +10,7 @@ import {
   ROTULO_CIFRA,
   SUPERFICIE_PANEL,
 } from "@/components/panel/sistema";
+import { formatearCRC } from "@/lib/dinero";
 import { identidadesDeMiembros, miembrosConIdentidad } from "@/lib/lealtad/identidades-db";
 import { fichaVisible, numeroCorto, SIN_DATOS } from "@/lib/lealtad/identidad-miembro";
 import { canalDelMovimiento } from "@/lib/lealtad/canal-del-sello";
@@ -129,6 +130,36 @@ export async function ActividadLealtad({
   }[];
   if (filas.length === 0) return <Vacio texto="Todavía no hay movimientos." />;
 
+  // LA COMPRA DETRÁS DEL SELLO (0197): si el evento comercial existe,
+  // la fila del ledger deja de decir «Compra (escaneo)» y dice la
+  // compra de verdad — «Compra registrada · ₡4.500 · Matcha» — con el
+  // +N y la hora que la fila ya trae. Se cruza por la MISMA referencia
+  // de idempotencia que entró al ledger. Sin la 0197 la consulta falla
+  // y la Actividad queda EXACTAMENTE como hoy: degradada, no rota.
+  const referencias = filas
+    .map((t) => t.referencia)
+    .filter((r): r is string => typeof r === "string" && r.length > 0);
+  const compras = new Map<string, { monto: number | null; producto: string | null }>();
+  if (referencias.length) {
+    const { data: eventos } = await db
+      .from("lealtad_transacciones")
+      .select("referencia, monto, producto")
+      .eq("programa_id", programaId)
+      .in("referencia", referencias);
+    for (const c of (eventos ?? []) as {
+      referencia: string | null;
+      monto: number | null;
+      producto: string | null;
+    }[]) {
+      if (c.referencia) {
+        compras.set(c.referencia, {
+          monto: c.monto === null ? null : Number(c.monto),
+          producto: c.producto,
+        });
+      }
+    }
+  }
+
   // QUIÉN lo hizo: el colaborador o dueño que escaneó/canjeó/ajustó.
   // usuario_id null = lo hizo el sistema (ej. puntos por cita cumplida).
   const operadores = [...new Set(filas.map((t) => t.usuario_id).filter((v): v is string => !!v))];
@@ -150,7 +181,7 @@ export async function ActividadLealtad({
     nombre: nombres.get(t.miembro_id) ?? SIN_DATOS,
     tipo: t.tipo,
     puntos: t.puntos,
-    motivo: t.motivo ?? "",
+    motivo: motivoConCompra(t, compras),
     // Los dos datos de auditoría que faltaban. La `referencia` es el
     // número de factura, el serial escaneado o la llave del intento:
     // es lo único con lo que se puede cruzar un reclamo del cliente
@@ -181,6 +212,29 @@ export async function ActividadLealtad({
       totalMiembros={nombres.size}
     />
   );
+}
+
+/**
+ * El motivo de una fila del libro, con su compra adelante si la hay.
+ *
+ * Solo movimientos GANADOS con un evento comercial que diga algo
+ * (monto o producto): un canje, una reversión o un sello sin compra
+ * registrada conservan su motivo de siempre. El «+1 sello» y la hora
+ * no van acá — la fila ya los pinta.
+ */
+function motivoConCompra(
+  t: { tipo: string; referencia: string | null; motivo: string | null },
+  compras: Map<string, { monto: number | null; producto: string | null }>,
+): string {
+  const base = t.motivo ?? "";
+  if (t.tipo !== "ganado" || !t.referencia) return base;
+  const compra = compras.get(t.referencia);
+  if (!compra || (compra.monto === null && !compra.producto)) return base;
+
+  const partes = ["Compra registrada"];
+  if (compra.monto !== null) partes.push(formatearCRC(compra.monto));
+  if (compra.producto) partes.push(compra.producto);
+  return partes.join(" · ");
 }
 
 // ── Wallet: los pases emitidos ──────────────────────────────────────

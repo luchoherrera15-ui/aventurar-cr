@@ -2,7 +2,7 @@ import { estadoDelLimite } from "@/lib/lealtad/planes";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
-import { pideMontoElTipo } from "@/lib/lealtad/mostrador";
+import { registraCompraElTipo } from "@/lib/lealtad/mostrador";
 import { CardVacia } from "@/components/panel/piezas";
 import {
   ESTADO_AVISO,
@@ -10,6 +10,7 @@ import {
   GAP_TABLERO,
   RADIO_TILE,
 } from "@/components/panel/sistema";
+import { productosParaVender } from "@/lib/lealtad/productos-db";
 import { cargarLealtad } from "./datos-lealtad";
 import Kpi from "./kpi";
 import { ListaClientes, type ClienteEnLista } from "./atencion-manual";
@@ -105,10 +106,19 @@ export default async function LealtadEstado({
     ? { id: premio.id, nombre: premio.nombre, costo: premio.costo_puntos }
     : null;
 
-  // El monto solo se pide donde CAMBIA lo que se otorga. En una tarjeta
-  // de sellos o en un cupón es una pregunta sin consecuencia que el
-  // empleado tiene que ignorar con un cliente enfrente.
-  const pideMonto = pideMontoElTipo(tipo);
+  // El monto se pide donde cambia lo que se otorga (puntos, cashback,
+  // gift card) y — desde la 0197 — también en sellos, como OPCIONAL:
+  // registra la compra detrás del sello, y decide los sellos si la
+  // tarjeta tiene la regla por monto. En cupón/evento/carnet sigue sin
+  // preguntarse: ahí no cambia nada.
+  const pideMonto = registraCompraElTipo(tipo);
+
+  // EL CATÁLOGO (0198), para que desde esta lista se cobre eligiendo el
+  // producto en vez de teclear el monto. Se pide acá y no se lo recibe
+  // por prop por lo mismo que el permiso y la recompensa: la sección se
+  // completa sola y ninguna otra pantalla tiene que cambiar. Devuelve
+  // lista vacía sin la migración, y entonces la fila queda como antes.
+  const productos = db && ranchoId ? await productosParaVender(db, ranchoId) : [];
 
   // Al navegador va lo justo: `FichaMiembro` trae `clienteId`, que es
   // el id de auth de la persona y no hace falta para dar un sello.
@@ -126,6 +136,7 @@ export default async function LealtadEstado({
     estado: f.estado,
     conPase: f.conPase,
     diasSinVenir: f.diasSinVenir,
+    soloContacto: f.soloContacto,
   }));
 
   return (
@@ -206,6 +217,7 @@ export default async function LealtadEstado({
           recompensa={recompensa}
           permisos={permisos}
           pideMonto={pideMonto}
+          productos={productos}
         />
       )}
     </div>

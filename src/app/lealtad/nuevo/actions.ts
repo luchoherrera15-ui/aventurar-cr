@@ -406,6 +406,10 @@ async function crearGratisAlInstante(d: {
     if (t.colorFondo) cambios.pase_color_fondo = t.colorFondo;
     if (t.colorSello) cambios.pase_color_sello = t.colorSello;
     if (t.iconoSello) cambios.pase_sello_icono = t.iconoSello;
+    // El archivo del sello «Mi ícono» (0174): `validarTarjetaDeAlta` ya
+    // garantiza el par coherente (nunca 'propio' sin URL), que es lo
+    // que exige el CHECK de la 0174.
+    if (t.iconoUrl) cambios.pase_sello_icono_url = t.iconoUrl;
     if (t.logoUrl) cambios.pase_logo_url = t.logoUrl;
     if (t.bannerUrl) cambios.pase_banner_url = t.bannerUrl;
 
