@@ -99,9 +99,15 @@ const BENEFICIOS = [
 export default function DirectorioFood({
   negocios,
   modo,
+  favoritosIds = new Set(),
+  logueado = false,
 }: {
   negocios: TarjetaFood[];
   modo: "real" | "demo";
+  /** ids ya marcados como favorito de quien mira. Vacío en /food/demo
+   *  (los favoritos reales, 0201, no aplican a negocios de mentira). */
+  favoritosIds?: Set<string>;
+  logueado?: boolean;
 }) {
   const idBase = useId();
   const [borrador, setBorrador] = useState<Busqueda>(BUSQUEDA_VACIA);
@@ -394,7 +400,12 @@ export default function DirectorioFood({
           <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtrados.map((t, i) => (
               <Revelar key={t.id} indice={i}>
-                <RestauranteCard tarjeta={t} prioridad={i < 3} />
+                <RestauranteCard
+                  tarjeta={t}
+                  prioridad={i < 3}
+                  favoritoInicial={modo === "real" ? favoritosIds.has(t.id) : undefined}
+                  logueado={logueado}
+                />
               </Revelar>
             ))}
           </div>

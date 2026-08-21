@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { toString as qrATexto } from "qrcode";
 import { createClient } from "@/lib/supabase/server";
 import { fechaCorta, horaCorta } from "@/lib/food/tipos";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
+import BottomNavFood from "@/components/food/bottom-nav-food";
 import CancelarReserva from "./cancelar-reserva";
 
 // Privada (una reserva ajena): fuera de cualquier índice.
@@ -50,10 +52,24 @@ export default async function ConfirmacionReservaFoodPage({
 
   const puedeCancelar = reserva.estado === "confirmada";
 
+  // El QR es el MISMO código de 6 caracteres que ya se lee a ojo y se
+  // teclea a mano en /food/negocio/(panel)/check-in (Mostrador): no
+  // existe hoy un escáner del lado del negocio, así que esto no es
+  // "escaneable en el mostrador" — es una forma más de mostrar y
+  // guardar el mismo código, y queda lista para el día en que el
+  // check-in agregue una cámara. Mismo patrón que el póster de
+  // Lealtad (toString de "qrcode", SVG inline, sin dependencia nueva).
+  const qrSvg = await qrATexto(reserva.codigo_confirmacion, {
+    type: "svg",
+    errorCorrectionLevel: "M",
+    margin: 1,
+    color: { dark: "#16295e", light: "#ffffff" },
+  });
+
   return (
     <>
       <SiteHeader breadcrumb="FOOD.BOOKEA" />
-      <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-[480px] flex-col items-center justify-center px-4 py-10 text-center">
+      <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-[480px] flex-col items-center justify-center px-4 py-10 pb-24 text-center lg:pb-10">
       <p className="text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
         FOOD.BOOKEA
       </p>
@@ -67,6 +83,11 @@ export default async function ConfirmacionReservaFoodPage({
         <p className="mt-1 font-mono text-4xl font-extrabold tracking-[0.15em] text-aventurea-navy">
           {reserva.codigo_confirmacion}
         </p>
+
+        <div
+          className="mx-auto mt-4 h-[132px] w-[132px] [&_svg]:h-full [&_svg]:w-full"
+          dangerouslySetInnerHTML={{ __html: qrSvg }}
+        />
 
         <div className="mt-5 grid grid-cols-2 gap-3 border-t border-aventurea-line pt-5 text-left">
           {franja && (
@@ -123,6 +144,7 @@ export default async function ConfirmacionReservaFoodPage({
       </div>
       </main>
       <SiteFooter />
+      <BottomNavFood />
     </>
   );
 }

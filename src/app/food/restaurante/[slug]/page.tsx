@@ -7,6 +7,8 @@ import { CRC, type FoodFranja, type FoodMenuCategory, type FoodMenuItem } from "
 import FoodHeader from "@/components/food/food-header";
 import FoodFooter from "@/components/food/food-footer";
 import FoodDemoBanner from "@/components/food/demo-banner";
+import BottomNavFood from "@/components/food/bottom-nav-food";
+import BotonFavorito from "@/components/food/boton-favorito";
 import { IconCloche, IconPin, IconUtensils } from "@/components/icons";
 import ReservarForm from "./reservar-form";
 
@@ -88,7 +90,7 @@ export default async function RestauranteFoodPage({
     { data: items, error: errItems },
     { data: franjas, error: errFranjas },
     { data: sedes },
-    sesion,
+    { user: sesion, favorito },
   ] = await Promise.all([
     anon
       .from("food_menu_categories")
@@ -114,12 +116,23 @@ export default async function RestauranteFoodPage({
       .select("direccion")
       .eq("business_id", negocio.id)
       .limit(1),
+    // Sesión + favorito de ESTA ficha en una sola pasada: un solo
+    // `getUser()` y, si hay sesión, una única fila de food_favoritos
+    // (no el catálogo entero de favoritos — eso es cargarFavoritosIds,
+    // usado en /food/descubrir y /food/favoritos).
     (async () => {
       const supabase = await createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      return user;
+      if (!user) return { user: null, favorito: false };
+      const { data } = await supabase
+        .from("food_favoritos")
+        .select("id")
+        .eq("customer_id", user.id)
+        .eq("business_id", negocio.id)
+        .maybeSingle();
+      return { user, favorito: !!data };
     })(),
   ]);
 
@@ -156,7 +169,7 @@ export default async function RestauranteFoodPage({
     <>
       <FoodHeader />
       {negocio.es_demo && <FoodDemoBanner />}
-      <main className="mx-auto max-w-[1180px] px-4 py-6 sm:px-6 sm:py-8">
+      <main className="mx-auto max-w-[1180px] px-4 py-6 pb-24 sm:px-6 sm:py-8 lg:pb-8">
       {/* ── Hero comercial ───────────────────────────────────────────
           El nombre va SOBRE la foto (o sobre navy si no hay foto — el
           degradado navy garantiza contraste en los dos casos), con la
@@ -179,6 +192,18 @@ export default async function RestauranteFoodPage({
           </span>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
+
+        {!negocio.es_demo && (
+          <div className="absolute left-4 top-4 sm:left-5 sm:top-5">
+            <BotonFavorito
+              businessId={negocio.id}
+              favoritoInicial={favorito}
+              logueado={!!sesion}
+              slugParaVolver={slug}
+              tamano="lg"
+            />
+          </div>
+        )}
 
         {mejorDescuento > 0 && (
           <span className="absolute right-4 top-4 rounded-xl bg-aventurea-orange px-3.5 py-2 text-white shadow-elevado sm:right-5 sm:top-5">
@@ -279,6 +304,7 @@ export default async function RestauranteFoodPage({
       </div>
       </main>
       <FoodFooter />
+      <BottomNavFood />
     </>
   );
 }

@@ -2,18 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { fechaCorta, horaCorta, type FoodReservationEstado } from "@/lib/food/tipos";
+import { minutoISOCR } from "@/lib/fechas";
+import type { FoodReservationEstado } from "@/lib/food/tipos";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
+import BottomNavFood from "@/components/food/bottom-nav-food";
+import ReservasTabsFood, { type FilaReserva } from "./reservas-tabs";
 
 export const metadata: Metadata = { title: "Mis reservas · FOOD.BOOKEA", robots: { index: false } };
-
-const ESTADO_LABEL: Record<FoodReservationEstado, string> = {
-  confirmada: "Confirmada",
-  check_in: "Ya fuiste",
-  no_show: "No te presentaste",
-  cancelada: "Cancelada",
-};
 
 type Fila = {
   id: string;
@@ -50,12 +46,28 @@ export default async function MisReservasFoodPage() {
 
   if (error) console.error("[food/mis-reservas] no se pudo cargar:", error.message);
 
-  const reservas = (data ?? []) as Fila[];
+  const ahoraCR = minutoISOCR();
+  const reservas: FilaReserva[] = ((data ?? []) as Fila[]).map((r) => {
+    const franja = Array.isArray(r.food_franjas) ? r.food_franjas[0] : r.food_franjas;
+    const negocio = Array.isArray(r.food_businesses) ? r.food_businesses[0] : r.food_businesses;
+    const fecha = franja?.fecha ?? null;
+    const hora = franja?.hora ?? null;
+    return {
+      id: r.id,
+      codigoConfirmacion: r.codigo_confirmacion,
+      partySize: r.party_size,
+      estado: r.estado,
+      negocioNombre: negocio?.nombre ?? "Restaurante",
+      fecha,
+      hora,
+      pasada: fecha !== null && hora !== null && `${fecha}T${hora.slice(0, 5)}` < ahoraCR,
+    };
+  });
 
   return (
     <>
       <SiteHeader breadcrumb="FOOD.BOOKEA" />
-      <main className="mx-auto max-w-[720px] px-4 py-10 sm:px-6">
+      <main className="mx-auto max-w-[720px] px-4 py-10 pb-24 sm:px-6 lg:pb-10">
         <p className="text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange">
           FOOD.BOOKEA
         </p>
@@ -72,39 +84,13 @@ export default async function MisReservasFoodPage() {
             </p>
           </div>
         ) : (
-          <ul className="mt-8 flex flex-col gap-3">
-            {reservas.map((r) => {
-              const franja = Array.isArray(r.food_franjas) ? r.food_franjas[0] : r.food_franjas;
-              const negocio = Array.isArray(r.food_businesses) ? r.food_businesses[0] : r.food_businesses;
-              return (
-                <li key={r.id}>
-                  <Link
-                    href={`/food/reserva/${r.id}`}
-                    className="flex flex-wrap items-center gap-3 rounded-2xl border border-aventurea-line bg-white p-4 transition-shadow hover:shadow-md"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[14.5px] font-bold text-aventurea-ink">{negocio?.nombre ?? "Restaurante"}</p>
-                      {franja && (
-                        <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-                          {fechaCorta(franja.fecha)} · {horaCorta(franja.hora)} · {r.party_size}{" "}
-                          {r.party_size === 1 ? "persona" : "personas"}
-                        </p>
-                      )}
-                    </div>
-                    <span className="shrink-0 rounded-lg bg-aventurea-cream-2 px-2.5 py-1 text-[11.5px] font-bold text-aventurea-ink-soft">
-                      {ESTADO_LABEL[r.estado] ?? r.estado}
-                    </span>
-                    <span className="shrink-0 font-mono text-[13px] font-bold text-aventurea-navy">
-                      {r.codigo_confirmacion}
-                    </span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="mt-8">
+            <ReservasTabsFood reservas={reservas} />
+          </div>
         )}
       </main>
       <SiteFooter />
+      <BottomNavFood />
     </>
   );
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CRC } from "@/lib/food/tipos";
 import type { TarjetaFood } from "@/lib/food/tarjetas";
 import { IconCloche, IconPin } from "@/components/icons";
+import BotonFavorito from "./boton-favorito";
 
 /**
  * La tarjeta grande del directorio de FOOD.BOOKEA — rediseño ago 2026
@@ -12,18 +13,25 @@ import { IconCloche, IconPin } from "@/components/icons";
  * horarios de la fecha más próxima y el precio original/con descuento
  * con el "Reservar →" naranja.
  *
- * Sin corazón de favoritos, rating ni distancia: favoritos de FOOD no
- * existen como funcionalidad y rating/km no existen como dato — un
- * control que no hace nada o un número inventado es peor que no
- * tenerlo. Todo lo que muestra viene de `TarjetaFood`
+ * El corazón de favoritos es real desde la 0201 (food_favoritos) — se
+ * pinta solo cuando quien llama pasa `favoritoInicial`/`logueado`, así
+ * que un lugar que todavía no resolvió esos datos (o no los necesita)
+ * no paga nada de más. Sin rating ni distancia: esas columnas no
+ * existen hoy en la base, y un número inventado es peor que no
+ * tenerlo. Todo lo demás viene de `TarjetaFood`
  * (src/lib/food/tarjetas.ts); esta tarjeta no calcula nada, solo pinta.
  */
 export default function RestauranteCard({
   tarjeta,
   prioridad = false,
+  favoritoInicial,
+  logueado = false,
 }: {
   tarjeta: TarjetaFood;
   prioridad?: boolean;
+  /** undefined = esta pantalla no resolvió favoritos (el corazón no se pinta). */
+  favoritoInicial?: boolean;
+  logueado?: boolean;
 }) {
   const {
     nombre,
@@ -64,16 +72,32 @@ export default function RestauranteCard({
         )}
 
         {/* El badge de descuento es lo primero que el ojo debe registrar
-            en la card — de ahí el tamaño y el contraste. */}
-        {descuentoPorcentaje > 0 && (
-          <span className="absolute left-3.5 top-3.5 rounded-full bg-aventurea-orange px-3.5 py-1.5 text-[15px] font-extrabold text-white shadow-elevado">
-            −{descuentoPorcentaje}%
-          </span>
-        )}
-        {esNuevo && (
-          <span className="absolute right-3.5 top-3.5 rounded-full bg-white/90 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
-            Nuevo
-          </span>
+            en la card — de ahí el tamaño y el contraste. "Nuevo" se
+            apila debajo en vez de compartir la esquina derecha con el
+            favorito: dos controles/badges en la misma esquina se pisan
+            en pantallas chicas. */}
+        <div className="absolute left-3.5 top-3.5 flex flex-col items-start gap-1.5">
+          {descuentoPorcentaje > 0 && (
+            <span className="rounded-full bg-aventurea-orange px-3.5 py-1.5 text-[15px] font-extrabold text-white shadow-elevado">
+              −{descuentoPorcentaje}%
+            </span>
+          )}
+          {esNuevo && (
+            <span className="rounded-full bg-white/90 px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
+              Nuevo
+            </span>
+          )}
+        </div>
+
+        {favoritoInicial !== undefined && (
+          <div className="absolute right-3.5 top-3.5">
+            <BotonFavorito
+              businessId={tarjeta.id}
+              favoritoInicial={favoritoInicial}
+              logueado={logueado}
+              slugParaVolver={tarjeta.slug}
+            />
+          </div>
         )}
       </div>
 

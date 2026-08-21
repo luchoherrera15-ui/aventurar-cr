@@ -4,6 +4,7 @@ import { cargarTarjetasFood } from "@/lib/food/tarjetas";
 import FoodHeader from "@/components/food/food-header";
 import FoodFooter from "@/components/food/food-footer";
 import DirectorioFood from "@/components/food/directorio-food";
+import BottomNavFood from "@/components/food/bottom-nav-food";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 
 export const revalidate = 60;
@@ -27,6 +28,13 @@ export const metadata: Metadata = {
  * (foto grande, descuento, ubicación, horario y precio) armada por
  * `cargarTarjetasFood()` (src/lib/food/tarjetas.ts) — el mismo cálculo
  * que usa /food/demo, para que las dos vistas nunca se desalineen.
+ *
+ * SIN corazón de favoritos acá a propósito: apenas una pantalla lee la
+ * sesión (cookies) deja de poder cachearse con `revalidate` — por eso
+ * el favorito interactivo vive en /food/descubrir y en la ficha del
+ * restaurante, que YA necesitan la sesión para otra cosa (el botón de
+ * reservar). El Home se queda rápido y anónimo-cacheable; el bottom
+ * nav (BottomNavFood) es único componente nuevo acá y no pide sesión.
  */
 export default async function FoodDirectorioPage() {
   const supabase = createAnonClient();
@@ -35,11 +43,12 @@ export default async function FoodDirectorioPage() {
   return (
     <>
       <FoodHeader />
-      <main>
+      <main className="pb-20 lg:pb-0">
         <DirectorioFood negocios={tarjetas} modo="real" />
       </main>
       <FoodFooter />
       <RevealOnScroll />
+      <BottomNavFood />
     </>
   );
 }
