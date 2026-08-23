@@ -8,6 +8,27 @@ import AccionesSesion from "./acciones-sesion";
  * proveedor, el rancho insignia y /publicar. El navy ocupa solo el
  * cuadrado de la marca — el resto del header es blanco, a propósito
  * (regla del rediseño: el navy no pasa del 5% de la pantalla).
+ *
+ * ------------------------------------------------------------------
+ * `flotante`: la variante vidrio de la portada (pedido del dueño, ago
+ * 2026)
+ * ------------------------------------------------------------------
+ * "Flotante" es SOLO un cambio de piel, nunca de contrato: el `<header>`
+ * de afuera se queda en `h-16`, `sticky top-0`, exactamente como
+ * siempre — de eso dependen media docena de barras `sticky top-16` de
+ * otras pantallas (ver el comentario viejo, más abajo). Lo que cambia
+ * vive ADENTRO, en una segunda capa: una píldora más baja (`h-12`),
+ * separada de los bordes de la pantalla, con vidrio esmerilado
+ * (`backdrop-blur-xl` + fondo blanco al 70%) y sombra flotante en vez
+ * del borde inferior sólido de siempre. Por fuera de esa píldora el
+ * `<header>` es TRANSPARENTE — es lo que hace que se lea "flotando
+ * sobre la página" y no "una barra blanca más".
+ *
+ * Prop y no comportamiento nuevo por defecto: 29 pantallas usan este
+ * componente (directorio, paneles de proveedor, /cuenta, legales…) y
+ * la mayoría son utilitarias, no la vidriera de marketing que es la
+ * portada. Encenderlo en todas de un tirón sería un cambio de marca
+ * que nadie pidió para esas pantallas.
  */
 export default async function SiteHeader({
   breadcrumb,
@@ -15,6 +36,7 @@ export default async function SiteHeader({
   extra,
   extraCentrado = false,
   conPublicar = true,
+  flotante = false,
 }: {
   /** Texto después de la barra, ej. "Eventos", "Rancho de Eventos". */
   breadcrumb?: string;
@@ -38,19 +60,37 @@ export default async function SiteHeader({
   /** false = sin el link "Publicá tu espacio" (páginas de proveedor,
    * donde el header ya carga bastante; el link sigue en el menú). */
   conPublicar?: boolean;
+  /** true = la píldora flotante de vidrio (ver el comentario grande de
+   *  arriba). Hoy solo la portada la enciende. */
+  flotante?: boolean;
 }) {
   // A quien ya publicó no se le ofrece publicar: lo que necesita es la
   // puerta a su panel.
   const yaPublica = conPublicar ? await tieneNegocioPropio() : false;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-aventurea-line bg-aventurea-surface/90 backdrop-blur-sm">
+    <header
+      className={`sticky top-0 z-50 ${
+        flotante
+          ? ""
+          : "border-b border-aventurea-line bg-aventurea-surface/90 backdrop-blur-sm"
+      }`}
+    >
       <div
         // Altura FIJA de 64px: media docena de barras `sticky` de abajo
         // adivinaban esta altura con `top-14` (56px) y quedaban metidas
         // 7px debajo del header. Con h-16 el offset es exacto: top-16.
-        className={`mx-auto flex h-16 ${ancho} items-center justify-between gap-x-4 px-4 sm:px-6 lg:px-10`}
+        // La variante flotante NO toca este alto — solo lo que hay
+        // adentro cambia de piel — así que ese contrato sigue en pie.
+        className={`mx-auto flex h-16 ${ancho} items-center ${flotante ? "px-3 sm:px-5 lg:px-8" : "px-4 sm:px-6 lg:px-10"}`}
       >
+        <div
+          className={
+            flotante
+              ? "flex h-12 w-full items-center justify-between gap-x-4 rounded-2xl border border-white/60 bg-white/70 px-4 shadow-[0_12px_36px_-16px_rgba(16,47,82,0.35)] backdrop-blur-xl transition-shadow sm:px-5"
+              : "flex w-full items-center justify-between gap-x-4"
+          }
+        >
         {/* El logo lleva al home (la portada de las tres verticales) —
             antes iba directo a /eventos porque / era solo un redirect. */}
         <Link href="/" className="flex shrink-0 items-center gap-2">
@@ -73,7 +113,7 @@ export default async function SiteHeader({
             alt="Bookear"
             width={440}
             height={138}
-            className="h-8 w-auto shrink-0 sm:h-9"
+            className={`w-auto shrink-0 ${flotante ? "h-7 sm:h-8" : "h-8 sm:h-9"}`}
           />
           {breadcrumb && (
             <>
@@ -102,7 +142,8 @@ export default async function SiteHeader({
               {yaPublica ? "Manejá tu espacio" : "Publicá tu espacio"}
             </Link>
           )}
-          <AccionesSesion />
+          <AccionesSesion flotante={flotante} />
+        </div>
         </div>
       </div>
     </header>

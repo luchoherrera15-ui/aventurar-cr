@@ -379,7 +379,7 @@ export default async function LealtadPage() {
               Elegí qué guardan en el teléfono
             </h2>
             <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Los ocho tipos de tarjeta que el producto arma de verdad. Tocá
+              Los ocho tipos de tarjeta que el producto arma de verdad. Elegí
               cada uno y mirá cómo cambia la tarjeta en el teléfono.
             </p>
           </div>

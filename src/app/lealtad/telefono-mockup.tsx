@@ -54,14 +54,17 @@ export default function TelefonoMockup({
     <div
       className={`flotante relative mx-auto w-[min(268px,72vw,100%)] ${className}`}
     >
-      {/* El canto metálico */}
+      {/* El canto de titanio — más bandas que antes y más frías (el
+          gris azulado del titanio de verdad, no el gris cálido de un
+          aluminio genérico), para que el brillo lea como metal
+          cepillado y no como un borde pintado de un solo tono. */}
       <div
-        className="relative rounded-[44px] p-[3px]"
+        className="relative rounded-[46px] p-[3px]"
         style={{
           background:
-            "linear-gradient(155deg, #6b7280 0%, #1f2937 22%, #4b5563 48%, #111827 72%, #6b7280 100%)",
+            "linear-gradient(152deg, #e4e4e7 0%, #9a9ca3 10%, #5b5d63 24%, #2a2b2f 40%, #1c1d20 52%, #37383d 64%, #121316 78%, #86878d 90%, #e4e4e7 100%)",
           boxShadow:
-            "0 30px 60px -20px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.06)",
+            "0 30px 60px -20px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.08)",
         }}
       >
         {/* Los botones: silencio y volumen a la izquierda, encendido a
@@ -70,32 +73,53 @@ export default function TelefonoMockup({
         <span
           aria-hidden
           className="absolute -left-[2px] top-[92px] h-7 w-[3px] rounded-l"
-          style={{ background: "linear-gradient(90deg,#374151,#6b7280)" }}
+          style={{ background: "linear-gradient(90deg,#374151,#9a9ca3)" }}
         />
         <span
           aria-hidden
           className="absolute -left-[2px] top-[130px] h-11 w-[3px] rounded-l"
-          style={{ background: "linear-gradient(90deg,#374151,#6b7280)" }}
+          style={{ background: "linear-gradient(90deg,#374151,#9a9ca3)" }}
         />
         <span
           aria-hidden
           className="absolute -right-[2px] top-[118px] h-14 w-[3px] rounded-r"
-          style={{ background: "linear-gradient(270deg,#374151,#6b7280)" }}
+          style={{ background: "linear-gradient(270deg,#374151,#9a9ca3)" }}
         />
 
-        {/* El bisel negro */}
-        <div className="rounded-[41px] bg-black p-[8px]">
+        {/* El bisel: más fino que antes (6px, no 8px) — los iPhone
+            recientes casi no tienen marco negro visible, y un bisel
+            grueso es lo que más traiciona a un mockup de "teléfono
+            genérico". El anillo de 1px por dentro simula el filo donde
+            el vidrio se encuentra con el metal. */}
+        <div
+          className="rounded-[43px] bg-black p-[6px]"
+          style={{ boxShadow: "inset 0 0 0 1px rgba(255,255,255,.05)" }}
+        >
           {/* La pantalla */}
           <div
-            className="relative aspect-[9/19.5] overflow-hidden rounded-[34px]"
-            style={{ background: "#0a1226" }}
+            className="relative aspect-[9/19.5] overflow-hidden rounded-[36px]"
+            style={{
+              background: "#0a1226",
+              boxShadow: "inset 0 0 0 1px rgba(255,255,255,.04)",
+            }}
           >
-            {/* La isla dinámica. `z-20` para quedar sobre el contenido,
-                como en un teléfono de verdad. */}
+            {/* La isla dinámica: más ancha que antes (proporción real
+                de iPhone) y con el puntito de la cámara frontal —el
+                detalle que más rápido dice "esto es un iPhone", no un
+                teléfono genérico con una muesca negra. `z-20` para
+                quedar sobre el contenido, como en un teléfono de
+                verdad. */}
             <span
               aria-hidden
-              className="absolute left-1/2 top-[9px] z-20 h-[19px] w-[64px] -translate-x-1/2 rounded-full bg-black"
-            />
+              className="absolute left-1/2 top-[10px] z-20 flex h-[22px] w-[76px] -translate-x-1/2 items-center justify-end rounded-full bg-black pr-[6px]"
+            >
+              <span
+                className="h-[6px] w-[6px] rounded-full"
+                style={{
+                  background: "radial-gradient(circle at 35% 35%, #3a4a6b, #0a0e1a 70%)",
+                }}
+              />
+            </span>
 
             {children}
 
@@ -154,16 +178,33 @@ export function PantallaWallet({
       {/* Barra de estado */}
       <div className="flex items-center justify-between px-5 pt-[11px] text-white">
         <span className="text-[9px] font-semibold">9:41</span>
-        <span className="flex items-center gap-[3px]" aria-hidden>
+        <span className="flex items-center gap-[4px]" aria-hidden>
           {/* Señal: cuatro barras que crecen. */}
-          {[3, 5, 7, 9].map((h) => (
-            <span
-              key={h}
-              className="w-[2px] rounded-sm bg-white"
-              style={{ height: h }}
-            />
-          ))}
-          <span className="ml-[3px] h-[8px] w-[14px] rounded-[2px] border border-white/70">
+          <span className="flex items-end gap-[1.5px]">
+            {[3, 5, 7, 9].map((h) => (
+              <span
+                key={h}
+                className="w-[2px] rounded-sm bg-white"
+                style={{ height: h }}
+              />
+            ))}
+          </span>
+          {/* Wifi: los mismos tres arcos que dibuja iOS, no un ícono
+              genérico — es una de las señales más rápidas de "esto es
+              un iPhone" en la barra de estado. */}
+          <svg
+            viewBox="0 0 16 12"
+            className="h-[9px] w-[12px]"
+            fill="none"
+            stroke="white"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          >
+            <path d="M1.5 4.8a10 10 0 0 1 13 0" />
+            <path d="M4 7.4a6 6 0 0 1 8 0" />
+            <path d="M6.7 10a2.4 2.4 0 0 1 2.6 0" />
+          </svg>
+          <span className="ml-[1px] h-[8px] w-[14px] rounded-[2px] border border-white/70">
             <span className="block h-full w-[70%] rounded-[1px] bg-white" />
           </span>
         </span>

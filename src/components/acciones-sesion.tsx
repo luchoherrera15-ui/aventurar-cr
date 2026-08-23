@@ -12,7 +12,13 @@ async function cerrarSesionPublica() {
   redirect("/eventos");
 }
 
-export default async function AccionesSesion() {
+export default async function AccionesSesion({
+  /** true = los botones toman el círculo navy de la lupa de búsqueda,
+   *  para la variante flotante del header (ver site-header.tsx). */
+  flotante = false,
+}: {
+  flotante?: boolean;
+} = {}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -51,6 +57,7 @@ export default async function AccionesSesion() {
       fotoUrl={fotoUrl}
       yaPublica={yaPublica}
       cerrarSesion={cerrarSesionPublica}
+      flotante={flotante}
     />
   );
 }

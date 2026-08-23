@@ -26,6 +26,10 @@ export default function MenuCuenta({
   fotoUrl,
   yaPublica = false,
   cerrarSesion,
+  /** true = los dos botones toman el mismo círculo navy que el botón
+   *  "Buscar" de la cápsula (nav-categorias.tsx) — pedido del dueño:
+   *  que los botones del header "sincronicen con la lupa". */
+  flotante = false,
 }: {
   sesionActiva: boolean;
   nombre?: string | null;
@@ -33,6 +37,7 @@ export default function MenuCuenta({
   /** Ya tiene un negocio publicado: el link lleva a su panel. */
   yaPublica?: boolean;
   cerrarSesion: () => Promise<void>;
+  flotante?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
   const { abierto: chatAbierto, sinLeer } = useSyncExternalStore(
@@ -44,6 +49,10 @@ export default function MenuCuenta({
   const itemCls =
     "block whitespace-nowrap rounded-lg px-3.5 py-2.5 text-left text-[13.5px] font-bold text-aventurea-ink hover:bg-aventurea-cream-2";
 
+  const botonCls = flotante
+    ? "rounded-full bg-aventurea-navy text-white shadow-sm hover:bg-aventurea-navy-2"
+    : "rounded-xl border border-aventurea-line bg-aventurea-surface text-aventurea-ink shadow-sm hover:shadow-md";
+
   return (
     <div className="flex items-center gap-2">
       {sesionActiva && (
@@ -52,7 +61,7 @@ export default function MenuCuenta({
           onClick={alternarChatPanel}
           aria-label={sinLeer > 0 ? `Mensajes: ${sinLeer} sin leer` : "Tus mensajes"}
           aria-expanded={chatAbierto}
-          className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-aventurea-line bg-aventurea-surface text-aventurea-ink shadow-sm transition-shadow hover:shadow-md"
+          className={`relative flex h-9 w-9 shrink-0 items-center justify-center transition-all ${botonCls}`}
         >
           <IconChatBubble className="h-[17px] w-[17px]" />
           {sinLeer > 0 && (
@@ -68,9 +77,9 @@ export default function MenuCuenta({
         onClick={() => setAbierto((v) => !v)}
         aria-label="Menú de cuenta"
         aria-expanded={abierto}
-        className="flex items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-surface py-1 pl-3 pr-1 shadow-sm transition-shadow hover:shadow-md"
+        className={`flex items-center gap-2 py-1 pl-3 pr-1 transition-all ${botonCls}`}
       >
-        <IconMenu className="h-[15px] w-[15px] text-aventurea-ink" />
+        <IconMenu className={`h-[15px] w-[15px] ${flotante ? "text-white" : "text-aventurea-ink"}`} />
         {sesionActiva && fotoUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element -- avatar
              de Google, dominio externo variable: next/image pediría

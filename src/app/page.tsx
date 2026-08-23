@@ -129,6 +129,7 @@ export default async function Home() {
         ancho="max-w-[1200px]"
         extra={<NavHome />}
         conPublicar={false}
+        flotante
       />
 
       {/* ── LA BARRA COMPACTA ────────────────────────────────────────
