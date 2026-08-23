@@ -1,0 +1,60 @@
+{
+  "expo": {
+    "name": "FOOD.BOOKEA",
+    "slug": "bookea-food",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "bookeafood",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "lat.bookea.food",
+      "supportsTablet": false,
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#071e4a",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "lat.bookea.food",
+      "permissions": []
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-apple-authentication",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#ffffff",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 180
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c17ecbdf-9502-43bd-b42c-46c9f7304bc6"
+      }
+    },
+    "owner": "luchitos15",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
+  }
+}
