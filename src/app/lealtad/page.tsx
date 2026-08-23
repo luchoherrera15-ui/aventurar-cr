@@ -4,11 +4,11 @@ import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
 import { PLANES_VIGENTES } from "@/lib/lealtad/planes";
 import { TIPOS_TARJETA_ID } from "@/lib/lealtad/tipos-tarjeta";
-import { Icono, type NombreIcono } from "./panel/[id]/iconos";
 import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 import NavLealtad from "./nav-lealtad";
 import BurbujaContacto from "./burbuja-contacto";
 import ConfiguradorLealtad from "./configurador-lealtad";
+import RevelarConfigurador from "./revelar-configurador";
 import MockupRecorrido from "./mockup-recorrido";
 import MockupAnuncios from "./mockup-anuncios";
 import MockupRescate from "./mockup-rescate";
@@ -23,6 +23,7 @@ import FlujoAutomatizaciones from "./flujo-automatizaciones";
 import SeccionWallets from "./seccion-wallets";
 import SeccionConfianza from "./seccion-confianza";
 import SeccionBeneficios from "./seccion-beneficios";
+import PilaresInteractivos from "./pilares-interactivos";
 import PreciosLanding from "./precios-landing";
 import FaqAcordeon from "./faq-acordeon";
 
@@ -109,52 +110,6 @@ export const metadata: Metadata = {
   },
 };
 
-/**
- * LOS CUATRO PILARES — contra qué compite Bookea Lealtad.
- *
- * Cada uno es una capacidad que el producto TIENE hoy, no una promesa:
- * el pase en Wallet nativo, el refresco silencioso del pase, los
- * anuncios push (con ubicaciones en los paquetes que las incluyen) y la
- * identidad por persona detrás de cada sello. El `contraste` es la
- * mitad que hace el trabajo: sin él cada card es una característica
- * suelta; con él, cada card es una razón para dejar el cartón.
- */
-const PILARES: {
-  icono: NombreIcono;
-  titulo: string;
-  texto: string;
-  contraste: string;
-}[] = [
-  {
-    icono: "movil",
-    titulo: "No se pierde ni se moja",
-    texto:
-      "La tarjeta vive en la billetera del teléfono, al lado de la del banco y del pase de abordar. El cliente la trae encima siempre, sin acordarse de nada.",
-    contraste: "El cartón se arruga, se moja y termina en la guantera.",
-  },
-  {
-    icono: "repetir",
-    titulo: "Se actualiza sola",
-    texto:
-      "Escaneás su código y el conteo cambia en su teléfono en el momento. No tiene que abrir una app, ni refrescar, ni pedirte que le cuentes cuántos lleva.",
-    contraste: "En papel, el saldo solo existe cuando alguien lo busca.",
-  },
-  {
-    icono: "campana",
-    titulo: "Le podés escribir",
-    texto:
-      "Un anuncio tuyo le aparece en la pantalla de bloqueo. Y con los paquetes que traen ubicaciones, le aparece justo cuando pasa cerca de tu local.",
-    contraste: "Una tarjeta de cartón no avisa nada, nunca.",
-  },
-  {
-    icono: "clientes",
-    titulo: "Sabés quién vuelve",
-    texto:
-      "Cada sello queda con nombre. Tu panel te dice quiénes son los de siempre, quiénes hace rato no aparecen y quién está por llegar a su premio.",
-    contraste: "Con sellos de hule no sabés ni cuántas tarjetas repartiste.",
-  },
-];
-
 const CUPO_MAX_ANUNCIOS = PLANES_VIGENTES.reduce(
   (max, p) => Math.max(max, p.limites.notificacionesMes ?? 0),
   0,
@@ -201,20 +156,22 @@ export default async function LealtadPage() {
       <BurbujaContacto />
 
       {/* ============================================================
-          0 · ARMÁ TU TARJETA — pedido del dueño (esta sesión): el
-          configurador vuelve a vivir en la landing, ahora pegado al
-          header en vez de a mitad de página o en su propia pantalla
-          (/lealtad/crear sigue existiendo para quien llega por un
-          link directo). Los botones "¡Creá tu pase!" de esta misma
-          página hacen scroll hasta acá (BotonCrearPase) — es lo
-          primero interactivo que se ve, antes de cualquier texto de
-          venta.
+          0 · ARMÁ TU TARJETA — el configurador vive en la landing,
+          pero OCULTO hasta que se lo pida (pedido del dueño, ago
+          2026: "eso no se debe ver hasta que la persona presione el
+          botón de crearla"). RevelarConfigurador lo mantiene sin
+          montar hasta que algún <BotonCrearPase> de esta página
+          dispara el evento — recién ahí aparece y hace scroll hacia
+          sí mismo. /lealtad/crear sigue existiendo para quien llega
+          por un link directo.
           ============================================================ */}
-      <section className="px-5 pt-6 sm:px-8">
-        <div className="mx-auto w-full max-w-[1180px]">
-          <ConfiguradorLealtad haySesion={sesion.logueado} />
-        </div>
-      </section>
+      <RevelarConfigurador>
+        <section className="px-5 pt-6 sm:px-8">
+          <div className="mx-auto w-full max-w-[1180px]">
+            <ConfiguradorLealtad haySesion={sesion.logueado} />
+          </div>
+        </section>
+      </RevelarConfigurador>
 
       {/* ============================================================
           1 · HERO — qué es, la promesa, el producto en la mano.
@@ -340,45 +297,7 @@ export default async function LealtadPage() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {PILARES.map((pilar, i) => (
-              <div
-                key={pilar.titulo}
-                data-reveal
-                className="group flex flex-col rounded-2xl border border-aventurea-line bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[color:var(--accion)]/40 hover:shadow-[0_8px_24px_-16px_rgba(22,41,94,0.35)]"
-                style={
-                  { "--reveal-delay": `${i * 70}ms` } as React.CSSProperties
-                }
-              >
-                <div className="flex items-center justify-between">
-                  <span
-                    className="grid h-10 w-10 place-items-center rounded-xl transition-colors group-hover:bg-[color:var(--accion)] group-hover:text-white"
-                    style={{
-                      background: "var(--accion-suave)",
-                      color: "var(--accion-fuerte)",
-                    }}
-                  >
-                    <Icono nombre={pilar.icono} className="h-[18px] w-[18px]" />
-                  </span>
-                  <span className="rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                </div>
-                <h3 className="mt-4 text-[15px] font-bold leading-tight text-aventurea-navy">
-                  {pilar.titulo}
-                </h3>
-                <p className="mt-1.5 flex-1 text-[13px] leading-relaxed text-aventurea-ink-soft">
-                  {pilar.texto}
-                </p>
-                <p className="mt-3.5 border-t border-aventurea-line pt-3 text-[11.5px] font-semibold text-aventurea-ink-soft/75">
-                  <span aria-hidden className="mr-1.5 text-red-400">
-                    ✕
-                  </span>
-                  {pilar.contraste}
-                </p>
-              </div>
-            ))}
-          </div>
+          <PilaresInteractivos />
         </div>
       </section>
 

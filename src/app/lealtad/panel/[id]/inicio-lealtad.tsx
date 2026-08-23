@@ -22,6 +22,7 @@ import {
   BOTON_ACCION,
   DISCO_LEALTAD,
   ESTADO_DE_TONO,
+  TILE_LEALTAD,
 } from "../sistema-lealtad";
 import { Icono, type NombreIcono } from "./iconos";
 import Kpi from "./kpi";
@@ -31,7 +32,7 @@ import { CONSEJO_TARJETA, momentoDeInicio } from "@/lib/lealtad/inicio";
 import { TIPOS_TARJETA, UNIDAD_SALDO, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { ETIQUETA_ESTADO, TONO_ESTADO, type EstadoVisible } from "@/lib/lealtad/programas";
 import type { ResumenLealtad } from "@/lib/lealtad/tablero";
-import { definicionDe, precioDe, type EstadoLimite } from "@/lib/lealtad/planes";
+import { definicionDe, precioDe, PLANES_OFRECIDOS, type EstadoLimite } from "@/lib/lealtad/planes";
 import { textoRestante, type EstadoPrueba } from "@/lib/lealtad/prueba";
 
 /**
@@ -111,12 +112,24 @@ export type EnlacesInicio = {
   clientes: string | null;
   programas: string | null;
   plan: string | null;
+  /** Enlaces de la fila «Accesos rápidos» — null = quien mira no tiene
+   *  esa sección (mismo criterio que el resto de `EnlacesInicio`). */
+  marketing: string | null;
+  configuracion: string | null;
 };
 
 export type TarjetaPrincipal = {
   nombre: string;
   tipo: TipoTarjeta;
   estado: EstadoVisible;
+};
+
+/** Un renglón del Top 5 — mismo conteo de `visitas` que ya usa la
+ *  Auditoría de clientes (movimientos 'ganado' del ledger). */
+export type ClienteRecurrente = {
+  miembroId: string;
+  nombre: string;
+  visitas: number;
 };
 
 /**
@@ -154,6 +167,7 @@ export default function InicioLealtad({
   enlaces,
   avisosOcultos,
   accion,
+  topRecurrentes,
 }: {
   /** El id del negocio: con él se guarda qué avisos se cerraron. */
   negocioId: string;
@@ -175,6 +189,9 @@ export default function InicioLealtad({
   avisosOcultos: string[];
   /** El botón de escanear, si quien mira puede acreditar. */
   accion?: ReactNode;
+  /** Los 5 con más visitas, ya ordenados. Vacío = nadie con una visita
+   *  todavía — la card no se pinta, cero no es información. */
+  topRecurrentes: ClienteRecurrente[];
 }) {
   const tipo = tarjeta?.tipo ?? "puntos";
   const definicion = TIPOS_TARJETA[tipo];
@@ -290,6 +307,13 @@ export default function InicioLealtad({
         {accion}
       </div>
 
+      {/* ── El plan, primero y a todo el ancho ────────────────────
+          Indispensable a propósito (pedido del dueño, ago 2026): antes
+          vivía a media altura, empujado a la columna angosta de
+          `GrillaTablero`, y compitiendo con el status de la tarjeta.
+          Acá arriba nadie se lo pierde. */}
+      <PlanHero paquete={paquete} />
+
       {/* ── Lo que hay que hacer AHORA, con su X ────────────────── */}
       <AvisosCerrables
         negocioId={negocioId}
@@ -358,12 +382,11 @@ export default function InicioLealtad({
         </div>
       )}
 
-      {/* ── El status del paquete y el de la tarjeta ──────────────
-          La grilla del sistema: la columna ancha para lo que se lee (el
-          paquete, con sus dos medidores) y la angosta para lo que se
-          decide. A 390px es una sola columna. */}
+      {/* ── El status de la tarjeta y los accesos rápidos ─────────
+          La grilla del sistema: la columna ancha para lo que se lee (la
+          tarjeta) y la angosta para lo que se hace. A 390px es una sola
+          columna. */}
       <GrillaTablero>
-        <StatusDelPlan paquete={paquete} />
         {tarjeta && (
           <StatusDeLaTarjeta
             tarjeta={tarjeta}
@@ -372,7 +395,51 @@ export default function InicioLealtad({
             enlaces={enlaces}
           />
         )}
+        <AccesosRapidos enlaces={enlaces} />
       </GrillaTablero>
+
+      {/* ── Top 5 clientes más recurrentes ────────────────────────
+          Mismo conteo de `visitas` que ya valida la Auditoría de
+          clientes (movimientos 'ganado' del ledger) — no una cifra
+          nueva. Ordenado por visitas y no por saldo: el saldo baja con
+          cada canje, así que el cliente más fiel podría verse "bajo" si
+          se midiera por ahí. */}
+      {topRecurrentes.length > 0 && (
+        <Card
+          eyebrow="Quién más vuelve"
+          titulo="Top 5 clientes más recurrentes"
+          nivel="h3"
+          accion={
+            enlaces.clientes ? (
+              <a href={enlaces.clientes} className={ENLACE_CARD}>
+                Ver todos →
+              </a>
+            ) : undefined
+          }
+        >
+          <ol className="space-y-2">
+            {topRecurrentes.map((c, i) => (
+              <li
+                key={c.miembroId}
+                className={`flex items-center gap-3 ${RADIO_TILE} border border-aventurea-line bg-aventurea-surface px-3.5 py-2.5`}
+              >
+                <span
+                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] font-extrabold text-aventurea-ink"
+                  style={{ borderColor: ACCION_BORDE }}
+                >
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-aventurea-ink">
+                  {c.nombre}
+                </span>
+                <span className={`shrink-0 ${DETALLE}`}>
+                  {c.visitas.toLocaleString("es-CR")} visita{c.visitas === 1 ? "" : "s"}
+                </span>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
 
       {/* ── Varias tarjetas: cuántas hay y cuántas están vivas ──── */}
       {tarjetas.vivas > 1 && enlaces.programas && (
@@ -634,8 +701,11 @@ function PanelAccion({
 }
 
 /**
- * STATUS DEL PLAN ACTUAL: qué paquete tiene, cómo va contra sus topes y
- * por dónde se comparan los demás.
+ * EL PLAN, INDISPENSABLE Y A TODO EL ANCHO (pedido del dueño, ago
+ * 2026): qué paquete tiene, cómo va contra sus topes y un botón para
+ * subir de paquete que no se puede pasar por alto. Es lo primero que
+ * se pinta después del titular — antes de los avisos de puesta en
+ * marcha, no después.
  *
  * Los DOS topes que se pintan son los dos que el servidor hace cumplir
  * de verdad —clientes y tarjetas—. Los otros cuatro de `LimitesPlan`
@@ -643,15 +713,19 @@ function PanelAccion({
  * un medidor de algo que nadie puede consumir promete una función que
  * no existe.
  *
- * Y el botón manda a /lealtad/planes en vez de repintar la grilla de
- * paquetes: esa grilla se sacó a propósito de la sección Plan para no
- * mantener el mismo catálogo en dos lugares (ver seccion-plan.tsx).
+ * El botón dice «¡Mejorar plan!» salvo en el paquete más alto del
+ * catálogo (`PLANES_OFRECIDOS` está de menor a mayor): ahí no hay nada
+ * más arriba, así que prometer una mejora sería mentir. Manda a
+ * /lealtad/planes en vez de repintar la grilla de paquetes acá: esa
+ * grilla se sacó a propósito de la sección Plan para no mantener el
+ * mismo catálogo en dos lugares (ver seccion-plan.tsx).
  */
-function StatusDelPlan({ paquete }: { paquete: EstadoPaquete }) {
+function PlanHero({ paquete }: { paquete: EstadoPaquete }) {
   const definicion = definicionDe(paquete.plan);
   const precio = definicion ? precioDe(definicion) : null;
   const clientes = paquete.clientes;
   const restante = textoRestante(paquete.prueba);
+  const esElMasAlto = definicion?.id === PLANES_OFRECIDOS[PLANES_OFRECIDOS.length - 1];
 
   return (
     <Card
@@ -673,7 +747,7 @@ function StatusDelPlan({ paquete }: { paquete: EstadoPaquete }) {
     >
       {definicion ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <p className="text-[24px] font-extrabold leading-none tracking-[-0.04em] text-aventurea-ink">
+          <p className="text-[26px] font-extrabold leading-none tracking-[-0.04em] text-aventurea-ink">
             {definicion.nombre}
           </p>
           {!definicion.vigente && (
@@ -700,7 +774,10 @@ function StatusDelPlan({ paquete }: { paquete: EstadoPaquete }) {
         </p>
       )}
 
-      <div className="mt-4 space-y-4">
+      {/* Lado a lado y no apilados: a todo el ancho de la pantalla hay
+          lugar de sobra, y separados se leen más rápido que en una
+          columna angosta. */}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
           <Medidor
             icono="clientes"
@@ -737,10 +814,10 @@ function StatusDelPlan({ paquete }: { paquete: EstadoPaquete }) {
       {paquete.planes ? (
         <Link
           href={paquete.planes}
-          className={`${BOTON_ACCION} presionable mt-5`}
+          className={`${BOTON_ACCION} presionable mt-5 px-6 text-[13.5px]`}
           style={{ background: ACCION, color: ACCION_TINTA }}
         >
-          Ver los demás paquetes
+          {esElMasAlto ? "Ver los paquetes" : "¡Mejorar plan!"}
           <span aria-hidden>→</span>
         </Link>
       ) : (
@@ -749,6 +826,57 @@ function StatusDelPlan({ paquete }: { paquete: EstadoPaquete }) {
            mandarlo a una pared. */
         <p className={`mt-5 ${DETALLE}`}>El paquete lo elige el dueño del negocio.</p>
       )}
+    </Card>
+  );
+}
+
+/**
+ * ACCESOS RÁPIDOS: adónde ir a HACER algo, no a leer un número. Existe
+ * para que el tablero tenga algo con qué actuar incluso el día que
+ * todavía no hay una sola cifra que mostrar (negocio recién armado,
+ * cero afiliados) — no se rellena con datos inventados, se rellena con
+ * las secciones a las que esta persona ya tiene paso.
+ *
+ * Cada enlace sale de `EnlacesInicio`, que ya llega con el permiso
+ * resuelto (`ancla()` en panel/[id]/page.tsx): si esta persona no tiene
+ * esa sección, el campo es `null` y la fila no se pinta. Nunca se
+ * inventa un enlace acá.
+ */
+function AccesosRapidos({ enlaces }: { enlaces: EnlacesInicio }) {
+  const todos: { icono: NombreIcono; etiqueta: string; href: string | null }[] = [
+    { icono: "tarjeta", etiqueta: "Tus tarjetas", href: enlaces.programas },
+    { icono: "clientes", etiqueta: "Clientes", href: enlaces.clientes },
+    { icono: "campana", etiqueta: "Marketing", href: enlaces.marketing },
+    { icono: "configuracion", etiqueta: "Configuración", href: enlaces.configuracion },
+    { icono: "poster", etiqueta: "Póster y QR", href: enlaces.poster },
+  ];
+  const accesos = todos.filter(
+    (a): a is { icono: NombreIcono; etiqueta: string; href: string } => a.href !== null,
+  );
+
+  if (accesos.length === 0) return null;
+
+  return (
+    <Card eyebrow="A un toque" titulo="Accesos rápidos" nivel="h3">
+      <div className="space-y-2">
+        {accesos.map((a) => (
+          <a key={a.etiqueta} href={a.href} className={TILE_LEALTAD}>
+            <span
+              aria-hidden
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
+              style={DISCO_LEALTAD}
+            >
+              <Icono nombre={a.icono} className="h-4 w-4" />
+            </span>
+            <span className="min-w-0 flex-1 text-[13px] font-bold text-aventurea-ink">
+              {a.etiqueta}
+            </span>
+            <span aria-hidden className="shrink-0 text-aventurea-ink-soft">
+              →
+            </span>
+          </a>
+        ))}
+      </div>
     </Card>
   );
 }

@@ -81,7 +81,7 @@ export default function NavLealtad({
 
         <nav
           aria-label="Secciones de la página"
-          className="hidden items-center gap-7 md:flex"
+          className="hidden items-center gap-7 lg:flex"
         >
           {ENLACES.map((e) => (
             <a
@@ -127,7 +127,7 @@ export default function NavLealtad({
           </div>
         </nav>
 
-        <div className="hidden items-center gap-5 md:flex">
+        <div className="hidden items-center gap-5 lg:flex">
           <Link
             href={logueado ? "/lealtad/panel" : "/cuenta"}
             className="flex items-center gap-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
@@ -141,10 +141,10 @@ export default function NavLealtad({
           </Link>
           <Link
             href="/lealtad/crear"
-            className="presionable rounded-full px-5 py-2.5 text-[13.5px] font-extrabold"
+            className="presionable whitespace-nowrap rounded-full px-5 py-2.5 text-[13.5px] font-extrabold"
             style={{ background: ACCION, color: ACCION_TINTA }}
           >
-            Crear mi programa gratis
+            Crear mi tarjeta de fidelidad gratis
           </Link>
         </div>
 
@@ -154,7 +154,7 @@ export default function NavLealtad({
           aria-expanded={abierto}
           aria-controls="menu-lealtad"
           aria-label={abierto ? "Cerrar menú" : "Abrir menú"}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-aventurea-line text-aventurea-navy md:hidden"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-aventurea-line text-aventurea-navy lg:hidden"
         >
           <Icono nombre={abierto ? "cerrar" : "menu"} className="h-5 w-5" />
         </button>
@@ -163,7 +163,7 @@ export default function NavLealtad({
       {abierto && (
         <div
           id="menu-lealtad"
-          className="border-t border-aventurea-line bg-white px-5 py-5 md:hidden"
+          className="border-t border-aventurea-line bg-white px-5 py-5 lg:hidden"
         >
           <nav
             className="flex flex-col gap-4"
@@ -210,7 +210,7 @@ export default function NavLealtad({
               className="presionable mt-1 rounded-full px-5 py-3.5 text-center text-[15px] font-extrabold"
               style={{ background: ACCION, color: ACCION_TINTA }}
             >
-              Crear mi programa gratis
+              Crear mi tarjeta de fidelidad gratis
             </Link>
           </nav>
         </div>

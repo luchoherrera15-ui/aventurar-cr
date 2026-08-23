@@ -719,6 +719,8 @@ export default async function PanelNegocioLealtad({
     clientes: ancla("clientes"),
     programas: ancla("programas"),
     plan: ancla("plan"),
+    marketing: ancla("marketing"),
+    configuracion: ancla("configuracion"),
   };
 
   // El status del paquete que abre el tablero. Los dos topes son los
