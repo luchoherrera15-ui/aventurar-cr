@@ -81,7 +81,7 @@ export default function ShellLealtad({
   mostrador,
 }: {
   negocio: { nombre: string; plan: string | null };
-  usuario: { nombre: string; email: string };
+  usuario: { nombre: string; email: string; rol: string };
   grupos: GrupoLealtad[];
   contenidos: Record<string, ReactNode>;
   /** El escáner a pantalla completa. null = quien mira no acredita. */
@@ -94,6 +94,10 @@ export default function ShellLealtad({
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [enMostrador, setEnMostrador] = useState(false);
   const [pidiendoSalida, setPidiendoSalida] = useState(false);
+  // El menú del avatar (0163): «Mi perfil» y «Mis negocios» ya no son
+  // ítems del rail — viven acá, colgando del mismo bloque que ya
+  // mostraba el nombre.
+  const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
 
   function entrarAlMostrador() {
     setMenuAbierto(false);
@@ -173,7 +177,11 @@ export default function ShellLealtad({
           className={`fixed inset-y-0 left-0 z-50 flex w-[268px] flex-col overflow-y-auto border-r transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-svh lg:w-auto lg:translate-x-0 ${
             menuAbierto ? "translate-x-0" : "-translate-x-full"
           }`}
-          style={{ background: RAIL, borderColor: RAIL_LINEA }}
+          /* `scrollbarWidth: "none"` — mismo patrón que usa el riel de
+             `riel-proveedores.tsx` para esconder la barra nativa: el menú
+             sigue siendo scrolleable con rueda/gesto/teclado, solo no
+             dibuja el control feo del navegador encima del rail oscuro. */
+          style={{ background: RAIL, borderColor: RAIL_LINEA, scrollbarWidth: "none" }}
         >
           {/* LA CABECERA DE NEGOCIO (`.business` de la maqueta): un
               cuadrado con las iniciales, el nombre y su subtítulo, DENTRO
@@ -258,21 +266,10 @@ export default function ShellLealtad({
               </div>
             ))}
           </nav>
-
-          {/* EL PIE DEL RAIL (`.sidebar-bottom`). La maqueta pone acá una
-              tarjeta de plan con un «78 % configurado» — ese porcentaje
-              no existe en Bookea y no se inventa. Lo que sí existe es el
-              plan del negocio, que ya se lee arriba, así que el pie
-              queda con lo único que de verdad va acá: la salida. */}
-          <div className="border-t p-3" style={{ borderColor: RAIL_LINEA }}>
-            <Link
-              href="/lealtad/panel"
-              className={`${RAIL_ITEM_LEALTAD} text-aventurea-rail hover:text-white`}
-            >
-              <Icono nombre="negocio" className="h-[17px] w-[17px] shrink-0" />
-              <span className="min-w-0 truncate">Mis negocios</span>
-            </Link>
-          </div>
+          {/* El pie del rail («Mis negocios») se mudó al menú del avatar
+             (0163) — ver el bloque de la barra superior, más abajo. La
+             maqueta ponía acá una tarjeta de plan con un «78 %
+             configurado» que no existe en Bookea; nunca se agregó. */}
         </aside>
         )}
 
@@ -395,30 +392,80 @@ export default function ShellLealtad({
               )
             ) : (
               <>
-                {/* AVATAR + NOMBRE, como en la maqueta. El nombre estaba
-                    solo en el `title` del avatar, o sea que solo existía
-                    para quien pasa el mouse: en un panel donde el mismo
-                    negocio lo abre el dueño y tres colaboradores, saber
-                    con qué cuenta estás mirando es parte del chrome. */}
-                <Link
-                  href="/cuenta"
-                  title={usuario.email}
-                  className="flex shrink-0 items-center gap-2 rounded-xl border px-1.5 py-1.5 transition-colors hover:border-white/40 sm:pr-3"
-                  style={{
-                    borderColor: "rgba(255,255,255,.18)",
-                    background: "rgba(255,255,255,.06)",
-                  }}
-                >
-                  <span
-                    className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-extrabold"
-                    style={{ background: ACCION_TINTE, color: ACCION }}
+                {/* AVATAR + NOMBRE, como en la maqueta — ahora con menú
+                    (0163). «Mi perfil» y «Mis negocios» vivían como
+                    sección propia del rail y como link suelto al pie del
+                    menú; los dos absorbidos acá, que es donde ya estaba
+                    el nombre de la cuenta. */}
+                <div className="relative shrink-0">
+                  <button
+                    type="button"
+                    title={usuario.email}
+                    aria-haspopup="menu"
+                    aria-expanded={menuUsuarioAbierto}
+                    onClick={() => setMenuUsuarioAbierto((v) => !v)}
+                    className="flex items-center gap-2 rounded-xl border px-1.5 py-1.5 transition-colors hover:border-white/40 sm:pr-3"
+                    style={{
+                      borderColor: "rgba(255,255,255,.18)",
+                      background: "rgba(255,255,255,.06)",
+                    }}
                   >
-                    {iniciales(usuario.nombre) || "?"}
-                  </span>
-                  <span className="hidden max-w-[140px] truncate text-[12.5px] font-bold text-white sm:block">
-                    {usuario.nombre}
-                  </span>
-                </Link>
+                    <span
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full text-[11px] font-extrabold"
+                      style={{ background: ACCION_TINTE, color: ACCION }}
+                    >
+                      {iniciales(usuario.nombre) || "?"}
+                    </span>
+                    <span className="hidden max-w-[140px] truncate text-[12.5px] font-bold text-white sm:block">
+                      {usuario.nombre}
+                    </span>
+                  </button>
+
+                  {menuUsuarioAbierto && (
+                    <>
+                      {/* Capa transparente para cerrar al tocar afuera —
+                          mismo truco que el cajón del rail en móvil, sin
+                          el fondo oscuro: acá el menú es chico y no tapa
+                          la pantalla. */}
+                      <button
+                        type="button"
+                        aria-label="Cerrar el menú de la cuenta"
+                        onClick={() => setMenuUsuarioAbierto(false)}
+                        className="fixed inset-0 z-40"
+                      />
+                      <div
+                        role="menu"
+                        className="absolute right-0 top-[calc(100%+6px)] z-50 w-[220px] overflow-hidden rounded-xl border py-1.5 shadow-flotante"
+                        style={{ background: RAIL, borderColor: RAIL_LINEA }}
+                      >
+                        <div className="border-b px-3.5 py-2.5" style={{ borderColor: RAIL_LINEA }}>
+                          <p className="truncate text-[13px] font-extrabold text-white">
+                            {usuario.nombre}
+                          </p>
+                          <p className="mt-0.5 text-[11.5px] text-aventurea-rail">{usuario.rol}</p>
+                        </div>
+                        <Link
+                          href="/cuenta"
+                          role="menuitem"
+                          className={`${RAIL_ITEM_LEALTAD} mx-1.5 mt-1 text-aventurea-rail hover:text-white`}
+                          onClick={() => setMenuUsuarioAbierto(false)}
+                        >
+                          <Icono nombre="perfil" className="h-[17px] w-[17px] shrink-0" />
+                          <span className="min-w-0 truncate">Tu cuenta en Bookea</span>
+                        </Link>
+                        <Link
+                          href="/lealtad/panel"
+                          role="menuitem"
+                          className={`${RAIL_ITEM_LEALTAD} mx-1.5 text-aventurea-rail hover:text-white`}
+                          onClick={() => setMenuUsuarioAbierto(false)}
+                        >
+                          <Icono nombre="negocio" className="h-[17px] w-[17px] shrink-0" />
+                          <span className="min-w-0 truncate">Cambiar de negocio</span>
+                        </Link>
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 <Link href="/lealtad" className="hidden shrink-0 lg:block">
                   <Image

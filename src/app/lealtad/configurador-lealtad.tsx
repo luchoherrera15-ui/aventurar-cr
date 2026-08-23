@@ -125,13 +125,25 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
  *  la recarga del alta de cuenta. */
 export const CLAVE_SESION = "bookea-lealtad-wizard:nuevo";
 
-function estadoInicial(): EstadoLealtad {
+function estadoInicial(planInicial?: PlanId | null): EstadoLealtad {
   const base = coloresDePaleta(PALETAS.sellos);
   return {
-    vista: "menu",
+    // (0163) Arranca en "paquetes", no en "menu": el tipo de tarjeta se
+    // volvía a preguntar en la Sección 1 del editor ("Tu negocio"), así
+    // que el paso de Menú era la misma pregunta dos veces antes de
+    // llegar a algo nuevo. "menu" sigue existiendo — un "volver" desde
+    // Paquetes puede seguir cayendo ahí — solo dejó de ser la entrada
+    // por defecto. Con "sellos" (gratis) como `modo` por defecto, los
+    // paquetes se muestran contextualizados a la opción gratuita; si
+    // en el editor se elige un tipo que pide más, el aviso ámbar de
+    // plan pago ya existente se enciende solo.
+    vista: "paquetes",
     nombreNegocio: "",
     modo: "sellos",
-    planElegido: null,
+    // Trae el plan que la persona ya había elegido en /lealtad/planes
+    // (era el `?plan=` que antes leía /lealtad/nuevo). Solo cosmético
+    // acá también — ver el comentario del campo, arriba.
+    planElegido: planInicial ?? null,
     beneficio: configPorDefecto("sellos"),
     colorFondo: base.fondo,
     colorSello: base.sello,
@@ -203,8 +215,16 @@ function sanearGuardado(crudo: unknown): EstadoLealtad {
 
 type ExitoAlta = { ranchoId: string; slug: string | null };
 
-export default function ConfiguradorLealtad({ haySesion }: { haySesion: boolean }) {
-  const [estado, setEstado] = useState<EstadoLealtad>(estadoInicial);
+export default function ConfiguradorLealtad({
+  haySesion,
+  planInicial,
+}: {
+  haySesion: boolean;
+  /** El paquete que ya se eligió antes de llegar acá (ej. desde
+   *  /lealtad/planes). `null`/ausente = arranca sin ninguno marcado. */
+  planInicial?: PlanId | null;
+}) {
+  const [estado, setEstado] = useState<EstadoLealtad>(() => estadoInicial(planInicial));
   const [restaurado, setRestaurado] = useState(false);
   const [exito, setExito] = useState<ExitoAlta | null>(null);
   const [errorAlta, setErrorAlta] = useState<string | null>(null);

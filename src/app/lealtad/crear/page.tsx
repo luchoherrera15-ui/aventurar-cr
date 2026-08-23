@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
+import { esPlanOfrecido } from "@/lib/lealtad/planes";
 import NavLealtad from "../nav-lealtad";
 import ConfiguradorLealtad from "../configurador-lealtad";
 
@@ -27,7 +28,18 @@ export const metadata: Metadata = {
   alternates: { canonical: "/lealtad/crear" },
 };
 
-export default async function CrearPaseLealtadPage() {
+export default async function CrearPaseLealtadPage({
+  searchParams,
+}: {
+  /** `?plan=` — quien llega desde /lealtad/planes con un paquete ya
+   *  elegido. Mismo criterio de validación que /lealtad/nuevo: nunca
+   *  confiar el string crudo, siempre contra `esPlanOfrecido`. */
+  searchParams: Promise<{ plan?: string }>;
+}) {
+  const { plan: planParam } = await searchParams;
+  const planPedido = planParam ?? null;
+  const planInicial = esPlanOfrecido(planPedido) ? planPedido : null;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -61,7 +73,7 @@ export default async function CrearPaseLealtadPage() {
           </div>
 
           <div className="mt-9">
-            <ConfiguradorLealtad haySesion={!!user} />
+            <ConfiguradorLealtad haySesion={!!user} planInicial={planInicial} />
           </div>
         </div>
       </section>

@@ -180,7 +180,7 @@ export default function DemoLavacarsPage() {
                   Ver servicios
                 </a>
                 <Link
-                  href="/lealtad/nuevo"
+                  href="/lealtad/crear"
                   className="inline-flex items-center justify-center border px-[18px] py-[13px] text-[9px] font-extrabold uppercase tracking-[.1em] text-white"
                   style={{ borderColor: LINEA }}
                 >

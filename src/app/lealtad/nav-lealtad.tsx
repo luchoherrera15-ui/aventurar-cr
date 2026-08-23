@@ -58,7 +58,7 @@ export default function NavLealtad({
   // Pedido del dueño: que arriba se vea DE QUIÉN es la sesión. Con
   // nombre se muestra el nombre; sin él (sesión sin perfil cargado),
   // «Mi cuenta»; sin sesión, «Ingresar».
-  const etiquetaCuenta = logueado ? (nombre || "Mi cuenta") : "Ingresar";
+  const etiquetaCuenta = logueado ? nombre || "Mi cuenta" : "Ingresar";
 
   return (
     <header className="sticky top-0 z-50 border-b border-aventurea-line bg-white/95 backdrop-blur-sm">
@@ -79,7 +79,10 @@ export default function NavLealtad({
           </span>
         </Link>
 
-        <nav aria-label="Secciones de la página" className="hidden items-center gap-7 md:flex">
+        <nav
+          aria-label="Secciones de la página"
+          className="hidden items-center gap-7 md:flex"
+        >
           {ENLACES.map((e) => (
             <a
               key={e.href}
@@ -101,7 +104,10 @@ export default function NavLealtad({
               className="flex items-center gap-1 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
             >
               Industrias
-              <span aria-hidden className="text-[9px] transition-transform group-hover:rotate-180">
+              <span
+                aria-hidden
+                className="text-[9px] transition-transform group-hover:rotate-180"
+              >
                 ▼
               </span>
             </button>
@@ -123,7 +129,7 @@ export default function NavLealtad({
 
         <div className="hidden items-center gap-5 md:flex">
           <Link
-            href="/cuenta"
+            href={logueado ? "/lealtad/panel" : "/cuenta"}
             className="flex items-center gap-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
           >
             {logueado && (
@@ -134,8 +140,8 @@ export default function NavLealtad({
             <span className="max-w-[150px] truncate">{etiquetaCuenta}</span>
           </Link>
           <Link
-            href="/lealtad/nuevo"
-            className="presionable rounded-xl px-5 py-2.5 text-[13.5px] font-extrabold"
+            href="/lealtad/crear"
+            className="presionable rounded-full px-5 py-2.5 text-[13.5px] font-extrabold"
             style={{ background: ACCION, color: ACCION_TINTA }}
           >
             Crear mi programa gratis
@@ -155,8 +161,14 @@ export default function NavLealtad({
       </div>
 
       {abierto && (
-        <div id="menu-lealtad" className="border-t border-aventurea-line bg-white px-5 py-5 md:hidden">
-          <nav className="flex flex-col gap-4" aria-label="Secciones de la página">
+        <div
+          id="menu-lealtad"
+          className="border-t border-aventurea-line bg-white px-5 py-5 md:hidden"
+        >
+          <nav
+            className="flex flex-col gap-4"
+            aria-label="Secciones de la página"
+          >
             {ENLACES.map((e) => (
               <a
                 key={e.href}
@@ -181,7 +193,7 @@ export default function NavLealtad({
               </Link>
             ))}
             <Link
-              href="/cuenta"
+              href={logueado ? "/lealtad/panel" : "/cuenta"}
               onClick={() => setAbierto(false)}
               className="flex items-center gap-2 text-[15px] font-bold text-aventurea-ink"
             >
@@ -193,9 +205,9 @@ export default function NavLealtad({
               <span className="truncate">{etiquetaCuenta}</span>
             </Link>
             <Link
-              href="/lealtad/nuevo"
+              href="/lealtad/crear"
               onClick={() => setAbierto(false)}
-              className="presionable mt-1 rounded-xl px-5 py-3.5 text-center text-[15px] font-extrabold"
+              className="presionable mt-1 rounded-full px-5 py-3.5 text-center text-[15px] font-extrabold"
               style={{ background: ACCION, color: ACCION_TINTA }}
             >
               Crear mi programa gratis

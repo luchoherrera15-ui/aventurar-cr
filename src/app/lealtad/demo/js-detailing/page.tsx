@@ -137,7 +137,7 @@ export default function JsDetailingDemoPage() {
 
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
-                href="/lealtad/nuevo"
+                href="/lealtad/crear"
                 className="px-6 py-3 text-[14px] font-bold uppercase tracking-wide transition-transform hover:scale-[1.02]"
                 style={{ background: ACCION, color: ACCION_TINTA }}
               >

@@ -14,12 +14,11 @@ import {
   CUERPO_SUAVE,
   EYEBROW_NEUTRO,
   GAP_TABLERO,
+  LIENZO_PANEL,
   RADIO_CARD,
   RADIO_TILE,
   TITULO_PANTALLA,
 } from "@/components/panel/sistema";
-import { ACCION, ACCION_BORDE, ACCION_TINTA, ACCION_TINTE } from "./sistema-lealtad";
-import "./panel-oscuro.css";
 
 /**
  * EL DASHBOARD DE LEALTAD: a donde aterriza quien entra por
@@ -35,9 +34,14 @@ import "./panel-oscuro.css";
  * La profundidad NO se duplica: la tarjeta lleva a la pestaña Lealtad
  * del panel del negocio, que es la única fuente de verdad del programa.
  * Dos pantallas editando lo mismo es el bug de mañana.
+ *
+ * TEMA CLARO (0163): esta pantalla dejó de usar el dialecto `.lealtad-oscuro`
+ * — vive en el lienzo claro que `.lealtad` ya declara (`--grey` #f5f7fa), el
+ * mismo mecanismo de `/mi-negocio`. El azul de acción es el par para fondo
+ * claro (`--accion`/`--accion-tinta`, fundacion-visual.md), no el par para
+ * navy que usaba antes. El resto del panel (`/lealtad/panel/[id]`) sigue en
+ * el dialecto oscuro hasta que se decida convertirlo también.
  */
-
-const NAVY_PROFUNDO = "#0a1226";
 
 export const metadata = {
   title: "Mis negocios · Lealtad Bookea",
@@ -172,21 +176,34 @@ export default async function PanelLealtadPage() {
   }
 
   return (
-    /* `lealtad-oscuro`: esta pantalla vive fuera del shell del panel, así
-       que sin la clase no recibiría el traductor de tema y las piezas
-       del sistema (tarjeta, píldora, kicker) saldrían con sus colores
-       para fondo claro sobre navy. */
-    <main
-      className="lealtad-oscuro min-h-svh px-4 pb-12 sm:px-6"
-      style={{ background: NAVY_PROFUNDO }}
-    >
-      <div className="mx-auto w-full max-w-[960px]">
+    <main className={`relative min-h-svh overflow-hidden px-4 pb-12 sm:px-6 ${LIENZO_PANEL}`}>
+      {/* El "blur azul": un resplandor decorativo detrás del titular, nada
+          más — mismo espíritu que `.acceso-resplandor` de /cuenta pero sin
+          su aparato de mapa/rutas, que es específico de esa pantalla de
+          acceso. `color-mix()` sobre `--accion` (mismo patrón que
+          fondo-acceso.css) en vez de `--accion-suave`: ese tinte ya está
+          pensado para el RELLENO de una píldora/chip, y a ese nivel de
+          opacidad se pierde casi entero contra el lienzo. Sin `@supports` +
+          respaldo plano porque es 100% decorativo (`aria-hidden`,
+          `pointer-events-none`): en un navegador sin `color-mix()` la
+          declaración se descarta entera y el resplandor no aparece, sin
+          romper nada más. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-0 h-[440px]"
+        style={{
+          background:
+            "radial-gradient(640px circle at 50% -10%, color-mix(in srgb, var(--accion) 16%, transparent) 0%, transparent 72%)",
+        }}
+      />
+
+      <div className="relative z-10 mx-auto w-full max-w-[960px]">
         {/* La misma barra de 64px que el panel: es el chrome del
             producto, no de una pantalla. */}
         <header className="flex h-16 items-center justify-between">
           <Link href="/lealtad">
             <Image
-              src="/logo-bookea-blanco-v4.png"
+              src="/logo-bookea-v4.png"
               alt="Bookea"
               width={132}
               height={41}
@@ -195,7 +212,7 @@ export default async function PanelLealtadPage() {
           </Link>
           <Link
             href="/cuenta"
-            className="text-[12.5px] font-bold text-aventurea-rail hover:text-white"
+            className="text-[12.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
           >
             Tu cuenta →
           </Link>
@@ -273,7 +290,7 @@ export default async function PanelLealtadPage() {
                   <Link
                     href={`/lealtad/panel/${n.id}`}
                     className={`flex items-center justify-between ${RADIO_TILE} px-4 py-3 text-[13.5px] font-extrabold transition-opacity hover:opacity-90`}
-                    style={{ background: ACCION, color: ACCION_TINTA }}
+                    style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
                   >
                     Plan de Lealtad
                     <span aria-hidden>→</span>
@@ -281,16 +298,15 @@ export default async function PanelLealtadPage() {
                 ) : (
                   <Link
                     href={`/lealtad/planes?negocio=${n.id}`}
-                    className={`flex items-center justify-between ${RADIO_TILE} border px-4 py-3 text-[13.5px] font-bold transition-colors hover:bg-white/10`}
-                    style={{ borderColor: ACCION_BORDE, color: ACCION }}
+                    className={`flex items-center justify-between ${RADIO_TILE} border px-4 py-3 text-[13.5px] font-bold transition-opacity hover:opacity-80`}
+                    style={{ borderColor: "var(--accion)", color: "var(--accion)" }}
                   >
                     Solicitar el plan
                     <span aria-hidden>→</span>
                   </Link>
                 )}
-                {/* Era `text-white/30` — 2,32:1 sobre el navy, o sea que
-                    la línea existía y no se leía. Va con el gris de
-                    texto del módulo, 6,81:1. */}
+                {/* Gris de texto suave del sistema — mismo tono que el resto
+                    de las notas al pie de la tarjeta. */}
                 <p className="text-center text-[11px] text-aventurea-ink-soft">
                   Más herramientas de Bookea, pronto.
                 </p>
@@ -309,13 +325,13 @@ export default async function PanelLealtadPage() {
 
           {/* Crear otro programa — o el primero. */}
           <Link
-            href="/lealtad/nuevo"
+            href="/lealtad/crear"
             className={`flex min-h-[150px] flex-col items-center justify-center ${RADIO_CARD} border border-dashed border-aventurea-line bg-aventurea-cream-2 p-5 text-center transition-colors hover:border-aventurea-navy`}
           >
             <span
               aria-hidden
               className="grid h-10 w-10 place-items-center rounded-xl text-[22px] leading-none"
-              style={{ background: ACCION_TINTE, color: ACCION }}
+              style={{ background: "var(--accion-suave)", color: "var(--accion)" }}
             >
               +
             </span>

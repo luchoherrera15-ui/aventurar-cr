@@ -245,13 +245,15 @@ export default function PlanesCliente({
         destinoPortal &&
         createPortal(
           <DialogoPaquete key={plan.id} paquete={plan.nombre} alCerrar={cerrar}>
-            {/* ── NEGOCIO NUEVO: el wizard de la primera tarjeta ──────
+            {/* ── NEGOCIO NUEVO: el configurador de la primera tarjeta ──
                 Quien todavía no tiene nada en Bookea puede armar la
                 tarjeta COMPLETA (tipo, beneficio, colores, vista previa)
-                en /lealtad/nuevo con el paquete ya elegido. El
+                en /lealtad/crear con el paquete ya elegido (0163: antes
+                mandaba a /lealtad/nuevo, el wizard viejo — se dejó de
+                enlazar en todo el sitio, sigue vivo sin enlaces). El
                 formulario de abajo sigue intacto: con tarjeta se paga
-                primero y el wizard espera del otro lado del cobro; con
-                SINPE la solicitud es la de siempre.
+                primero y el configurador espera del otro lado del
+                cobro; con SINPE la solicitud es la de siempre.
 
                 Viaja DENTRO del diálogo desde que el formulario dejó de
                 montarse debajo de la grilla: suelto en la página quedaba
@@ -262,11 +264,11 @@ export default function PlanesCliente({
                   ¿Negocio nuevo? Armá tu tarjeta de una vez
                 </p>
                 <p className="mt-1 max-w-[520px] text-[12.5px] leading-snug text-white/65">
-                  Elegís el tipo de tarjeta, el beneficio y tus colores en cinco pasos, viendo la
-                  tarjeta mientras la armás{plan.esGratis ? " — sin pagar nada" : ""}.
+                  Elegís el tipo de tarjeta, el beneficio y tus colores viendo la tarjeta
+                  mientras la armás{plan.esGratis ? " — sin pagar nada" : ""}.
                 </p>
                 <Link
-                  href={`/lealtad/nuevo?plan=${plan.id}`}
+                  href={`/lealtad/crear?plan=${plan.id}`}
                   className={`mt-3 inline-block rounded-xl px-4 py-2.5 text-[13px] font-extrabold ${BOTON_ACCION}`}
                 >
                   Armar mi tarjeta con {plan.nombre} →

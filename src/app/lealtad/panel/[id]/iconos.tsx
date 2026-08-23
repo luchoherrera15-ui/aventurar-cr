@@ -28,6 +28,7 @@ export type NombreIcono =
   | "poster"
   | "plan"
   | "perfil"
+  | "configuracion"
   // ── El recorrido del cliente y las acciones del equipo ──
   | "qr"
   | "afiliar"
@@ -151,6 +152,23 @@ const TRAZOS: Record<NombreIcono, ReactNode> = {
       <path d="M5 3h14v18l-2.5-1.8L14 21l-2-1.8L10 21l-2.5-1.8L5 21z" />
       <path d="M9 8.5h6" />
       <path d="M9 12.5h6" />
+    </>
+  ),
+  // «Deslizadores», no engranaje: el diente-a-diente de un gear de
+  // verdad no entra en el mismo lenguaje de 2-4 trazos que el resto del
+  // juego (rects/paths/circles simples). Tres barras con su perilla es
+  // el mismo glifo que ya lee cualquiera como «ajustes».
+  configuracion: (
+    <>
+      <path d="M4 6h8" />
+      <path d="M16 6h4" />
+      <circle cx="13" cy="6" r="2" />
+      <path d="M4 12h2" />
+      <path d="M10 12h10" />
+      <circle cx="7" cy="12" r="2" />
+      <path d="M4 18h11" />
+      <path d="M19 18h1" />
+      <circle cx="17" cy="18" r="2" />
     </>
   ),
   perfil: (
