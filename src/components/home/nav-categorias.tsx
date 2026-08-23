@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Form from "next/form";
 import { GRUPOS } from "@/components/home/grupos-categorias";
@@ -183,12 +183,13 @@ const DESTINO_POR_DEFECTO = OPCIONES_BUSQUEDA[0]?.href ?? "/eventos";
    ───────────────────────────────────────────────────────────────── */
 
 /**
- * @param titulo El h1 de la portada. Llega como prop y no se escribe
- *   acá para que el encabezado de la página siga viviendo en la
- *   página: quien lea `page.tsx` tiene que poder ver de qué habla el
- *   documento sin abrir un componente de barra.
+ * Ya no recibe un `titulo`: el h1 de la portada vive aparte, `sr-only`,
+ * directo en `page.tsx` (pedido del dueño, ago 2026: todo el mando de
+ * la portada — buscador y categorías incluidos — pasó a compartir una
+ * sola línea con el logo y las acciones dentro de `SiteHeader`, y ya
+ * no hay una columna propia donde poner un título visible).
  */
-export default function NavCategorias({ titulo }: { titulo?: ReactNode }) {
+export default function NavCategorias() {
   // Cuál está abierto: el id de un grupo, "ia", o nada. Un solo valor y
   // no cinco booleanos, para que sea imposible tener dos abiertos.
   const [abierto, setAbierto] = useState<string | null>(null);
@@ -237,47 +238,29 @@ export default function NavCategorias({ titulo }: { titulo?: ReactNode }) {
   const grupoAbierto = GRUPOS.find((g) => g.id === abierto);
 
   return (
-    /* ── LA BARRA, EN DOS RENGLONES ──────────────────────────────
-       Pedido del dueño (ago 2026, revisado ago 2026): el título en la
-       esquina izquierda, la CÁPSULA de búsqueda centrada y los chips
-       abajo, también centrados. La cápsula es un cambio de marca
-       explícito y confirmado — ver el comentario grande de la cápsula
-       más abajo.
-
-       El renglón de arriba es una grilla de tres columnas
-       —`1fr auto 1fr`— y no un flex con `justify-between`. La
-       diferencia importa: con flex, la cápsula queda centrada
-       respecto al espacio QUE SOBRA después del título, así que se
-       corre a la derecha y el centro es mentira. Con las dos columnas
-       laterales del mismo ancho, la cápsula cae en el centro real de
-       la franja, mida lo que mida el título. La tercera columna está
-       vacía a propósito: es el contrapeso.
-
-       En teléfono la grilla se apaga y los tres bloques se apilan, que
-       es la única forma en que una cápsula ancha y ocho chips caben. */
-    <div className="flex min-w-0 flex-col gap-3">
-      <div className="grid min-w-0 items-center gap-2 lg:grid-cols-[1fr_auto_1fr] lg:gap-4">
-        {titulo !== undefined ? (
-          <div className="min-w-0 lg:justify-self-start">{titulo}</div>
-        ) : (
-          <span aria-hidden className="hidden lg:block" />
-        )}
-      {/* ── LA CÁPSULA DE BÚSQUEDA ──────────────────────────────────
-          Cambio de marca pedido y confirmado por el dueño (ago 2026):
-          antes esto era un rectángulo de esquinas suaves «nunca
-          píldora» — esa regla queda retirada A PROPÓSITO para esta
-          barra puntual (ver CLAUDE.md, sección Diseño, actualizado el
-          mismo día). Un solo óvalo de extremo a extremo (`rounded-full`
-          en los CUATRO segmentos: el borde exterior y el botón de la
-          derecha), con divisores finos entre buscador y selector, y el
-          botón «Buscar» como el círculo de acento al final — el mismo
-          lenguaje que Airbnb, que es exactamente lo que se pidió. */}
+    /* ── TODO EN UNA LÍNEA ────────────────────────────────────────
+       Pedido del dueño, tercera pasada (ago 2026): nada de renglón
+       propio ni de cápsula centrada — el buscador y las categorías
+       comparten la MISMA fila que el logo y las acciones, adentro de
+       `SiteHeader` (`segundaFila`, ver ese componente). Acá adentro ya
+       no hay grilla de tres columnas ni título: un buscador angosto de
+       ancho fijo y, al lado, las categorías en una fila que se encoge
+       y scrollea (`min-w-0 flex-1`) en vez de reventar el header. */
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      {/* ── LA CÁPSULA DE BÚSQUEDA, COMPACTA ─────────────────────────
+          Sigue siendo la píldora estilo Airbnb (cambio de marca
+          confirmado por el dueño, ver CLAUDE.md), pero angosta: ya no
+          tiene una fila entera para ella sola. El selector de
+          directorio se esconde bajo `lg` — a ese ancho ya no sobra
+          lugar para tres controles más el logo y las acciones — y el
+          botón de enviar es un círculo de solo ícono, sin el texto
+          «Buscar» que sí cabía en la versión ancha. */}
       <Form
         action={destino}
-        className="flex h-12 w-full shrink-0 items-center gap-1 rounded-full border border-aventurea-line bg-white pl-4 pr-1.5 shadow-[0_10px_30px_-14px_rgba(16,47,82,0.28)] transition-shadow focus-within:shadow-[0_14px_34px_-12px_rgba(16,47,82,0.35)] lg:w-[460px]"
+        className="flex h-9 w-[104px] shrink-0 items-center gap-1 rounded-full border border-aventurea-line bg-white pl-2.5 pr-1 shadow-sm transition-shadow focus-within:shadow-md sm:w-[210px] lg:w-[260px]"
       >
         <span aria-hidden className="shrink-0 text-aventurea-ink-soft">
-          <IconSearch className="h-[18px] w-[18px]" />
+          <IconSearch className="h-[15px] w-[15px]" />
         </span>
         <label htmlFor="busqueda-portada" className="sr-only">
           Qué negocio, lugar o servicio buscás
@@ -290,15 +273,16 @@ export default function NavCategorias({ titulo }: { titulo?: ReactNode }) {
           // Neutro a propósito: el destino ya no está clavado en
           // Eventos, así que un placeholder que solo nombre eventos
           // contradiría al selector de al lado.
-          placeholder="Buscá un negocio o lugar…"
-          className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-[13.5px] text-aventurea-ink outline-none placeholder:text-aventurea-ink-soft"
+          placeholder="Buscar…"
+          className="h-full min-w-0 flex-1 bg-transparent px-1.5 text-[12.5px] text-aventurea-ink outline-none placeholder:text-aventurea-ink-soft"
         />
 
         {/* Dónde buscar. Un `<select>` nativo y no un menú propio: es
             accesible de fábrica (teclado, lector de pantalla, la rueda
             nativa del teléfono), no suma un solo desplegable más que
-            cerrar, y ocupa lo mínimo. */}
-        <span aria-hidden className="hidden h-6 w-px shrink-0 bg-aventurea-line sm:block" />
+            cerrar, y ocupa lo mínimo. Escondido hasta `lg`: en la
+            versión compacta no hay ancho de sobra para mostrarlo
+            siempre — sigue mandando al mismo destino por default. */}
         <label htmlFor="destino-portada" className="sr-only">
           En qué directorio buscar
         </label>
@@ -306,7 +290,7 @@ export default function NavCategorias({ titulo }: { titulo?: ReactNode }) {
           id="destino-portada"
           value={destino}
           onChange={(e) => setDestino(e.target.value)}
-          className="hidden h-8 shrink-0 cursor-pointer rounded-full bg-transparent pl-2.5 pr-1 text-[12.5px] font-bold text-aventurea-navy outline-none sm:block"
+          className="hidden h-7 shrink-0 cursor-pointer rounded-full border-l border-aventurea-line bg-transparent pl-1.5 pr-0.5 text-[11px] font-bold text-aventurea-navy outline-none lg:block"
         >
           {OPCIONES_BUSQUEDA.map((o) => (
             <option key={o.href} value={o.href}>
@@ -317,44 +301,25 @@ export default function NavCategorias({ titulo }: { titulo?: ReactNode }) {
 
         {/* El círculo de acento al final de la cápsula — el gesto
             visual que hace que se lea «Airbnb» y no «un input con
-            botón». `aria-label` porque en pantallas chicas el texto se
-            esconde y solo queda el ícono. */}
+            botón». Solo ícono, siempre: la versión compacta no tiene
+            lugar para el texto «Buscar» que sí llevaba la ancha. */}
         <button
           type="submit"
           aria-label="Buscar"
-          className="flex h-9 w-9 shrink-0 items-center justify-center gap-1.5 rounded-full bg-aventurea-navy text-white transition-colors hover:bg-aventurea-navy-2 sm:w-auto sm:px-4"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-aventurea-navy text-white transition-colors hover:bg-aventurea-navy-2"
         >
-          <IconSearch className="h-3.5 w-3.5 sm:hidden" aria-hidden />
-          <span className="hidden text-[12.5px] font-bold sm:inline">Buscar</span>
+          <IconSearch className="h-3 w-3" aria-hidden />
         </button>
       </Form>
 
-        {/* El contrapeso de la columna izquierda. No lleva contenido:
-            existe para que la cápsula quede en el centro y no
-            corrida. */}
-        <span aria-hidden className="hidden lg:block" />
-      </div>
-
-      {/* ── Los chips, centrados de VERDAD ──────────────────────────
-          Pedido del dueño: que la fila de categorías quede centrada
-          bajo la cápsula, no pegada a la izquierda.
-
-          `justify-center` a secas en el contenedor que scrollea es la
-          trampa de siempre (barra-filtros-directorio.tsx la sufrió):
-          si el contenido desborda, el navegador reparte el desborde a
-          los dos lados y el primer chip queda en una posición a la
-          que el scroll no llega. Acá el caso común es que los chips
-          SÍ entran (son seis, no dieciocho), así que en vez de esa
-          trampa se centra el CONTENEDOR: `<nav>` se encoge a lo que
-          mide su contenido (`w-fit`) y `mx-auto` lo centra en la franja
-          entera. Si en una pantalla angosta el contenido no entra,
-          `max-w-full` frena al `<nav>` en el ancho disponible y el
-          `overflow-x-auto` de ADENTRO sigue scrolleando sin el bug de
-          la centrada — porque ahí adentro ya no hay `justify-center`
-          peleando con el desborde. */}
+      {/* ── Las categorías, en lo que quede de la fila ────────────────
+          `min-w-0 flex-1`: se lleva el ancho que sobra después del
+          buscador, y si ni así entran todas, el `overflow-x-auto` de
+          adentro scrollea — el mismo patrón que ya usaba esta fila
+          antes de compartir línea con el buscador. */}
       <nav
         aria-label="Categorías de Bookea"
-        className="relative mx-auto w-fit max-w-full"
+        className="relative min-w-[64px] flex-1"
       >
         <div
           ref={filaRef}
