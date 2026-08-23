@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Fonts, Radios, Spacing, Sombras } from "@/constants/theme";
 import type { TarjetaFood } from "@/lib/food-datos";
-import { CRC } from "@/lib/food-tipos";
+import { TIPOS_COCINA } from "@/lib/food-tipos";
 import { useAuth } from "@/lib/auth-context";
 import { alternarFavorito } from "@/lib/food-acciones";
 
@@ -12,10 +12,10 @@ import { alternarFavorito } from "@/lib/food-acciones";
  * La tarjeta del directorio — espejo de RestauranteCard en /web
  * (src/components/food/restaurante-card.tsx): foto grande, badge de
  * descuento y de "Nuevo", ubicación real, platos del menú (no un tipo
- * de cocina inventado), descripción, etiqueta + horarios de la fecha
- * más próxima, precio (con tachado si hay descuento), cantidad de
- * reservas y el corazón de favoritos (real desde food_favoritos). Sin
- * CTA de texto: la tarjeta entera es el botón.
+ * de cocina inventado), la clasificación gastronómica del negocio (en
+ * vez de una descripción libre), y los horarios con descuento de la
+ * fecha más próxima en forma de cupón (borde punteado + muescas). Sin
+ * precio ni CTA de texto: la tarjeta entera es el botón.
  */
 export default function TarjetaRestaurante({
   tarjeta,
@@ -31,7 +31,7 @@ export default function TarjetaRestaurante({
   const { session } = useAuth();
   const [favoritoLocal, setFavoritoLocal] = useState(favorito);
   const mejorDelDia = tarjeta.franjasProximas.reduce((max, f) => Math.max(max, f.descuento), 0);
-  const tieneOferta = tarjeta.precioConDescuento != null;
+  const clasificacion = tarjeta.tipoCocina ? TIPOS_COCINA[tarjeta.tipoCocina].nombre : "Varios";
 
   async function tocarFavorito() {
     if (!logueado || !session) {
@@ -89,9 +89,7 @@ export default function TarjetaRestaurante({
             {[tarjeta.ubicacion, tarjeta.platos.join(" · ")].filter(Boolean).join(" · ")}
           </Text>
         )}
-        {tarjeta.descripcion && (
-          <Text style={styles.descripcion} numberOfLines={2}>{tarjeta.descripcion}</Text>
-        )}
+        <Text style={styles.clasificacion} numberOfLines={1}>{clasificacion}</Text>
 
         {tarjeta.franjasProximas.length > 0 && (
           <View style={{ marginTop: 10 }}>
@@ -99,49 +97,38 @@ export default function TarjetaRestaurante({
               <Text style={styles.etiquetaFranjas}>{tarjeta.franjasProximasEtiqueta}</Text>
             )}
             <View style={[styles.filaHorarios, { marginTop: 4 }]}>
-              {tarjeta.franjasProximas.map((f) => (
-                <View
-                  key={f.hora}
-                  style={[
-                    styles.chipHora,
-                    f.descuento > 0 && f.descuento === mejorDelDia && styles.chipHoraDestacado,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipHoraTexto,
-                      f.descuento > 0 && f.descuento === mejorDelDia && styles.chipHoraTextoDestacado,
-                    ]}
-                  >
-                    {f.hora}
-                    {f.descuento > 0 ? ` −${f.descuento}%` : ""}
-                  </Text>
-                </View>
-              ))}
+              {tarjeta.franjasProximas.map((f) => {
+                const esOferta = f.descuento > 0;
+                if (!esOferta) {
+                  return (
+                    <View key={f.hora} style={styles.chipHora}>
+                      <Text style={styles.chipHoraTexto}>{f.hora}</Text>
+                    </View>
+                  );
+                }
+                const esLaMejor = f.descuento === mejorDelDia;
+                return (
+                  <View key={f.hora} style={[styles.cupon, esLaMejor && styles.cuponDestacado]}>
+                    <View style={[styles.cuponMuesca, styles.cuponMuescaIzq]} />
+                    <Text style={[styles.cuponTexto, esLaMejor && styles.cuponTextoDestacado]}>{f.hora}</Text>
+                    <View style={[styles.cuponDivisor, esLaMejor && styles.cuponDivisorDestacado]} />
+                    <Text style={[styles.cuponTexto, styles.cuponDescuento, esLaMejor && styles.cuponTextoDestacado]}>
+                      −{f.descuento}%
+                    </Text>
+                    <View style={[styles.cuponMuesca, styles.cuponMuescaDer]} />
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
 
-        {(tieneOferta || tarjeta.precioDesde != null || tarjeta.conteoReservas > 0) && (
-          <View style={styles.filaPie}>
-            {tieneOferta ? (
-              <View style={styles.filaPrecio}>
-                <Text style={styles.precioConDescuento}>{CRC.format(tarjeta.precioConDescuento!)}</Text>
-                <Text style={styles.precioTachado}>{CRC.format(tarjeta.precioDesde!)}</Text>
-              </View>
-            ) : tarjeta.precioDesde != null ? (
-              <Text style={styles.precioDesde}>Desde {CRC.format(tarjeta.precioDesde)}</Text>
-            ) : (
-              <View />
-            )}
-            {tarjeta.conteoReservas > 0 && (
-              <View style={styles.filaConfianza}>
-                <Ionicons name="people-outline" size={13} color={Colors.inkMuted} />
-                <Text style={styles.confianzaTexto}>
-                  {tarjeta.conteoReservas} {tarjeta.conteoReservas === 1 ? "reserva" : "reservas"}
-                </Text>
-              </View>
-            )}
+        {tarjeta.conteoReservas > 0 && (
+          <View style={styles.filaConfianza}>
+            <Ionicons name="people-outline" size={13} color={Colors.inkMuted} />
+            <Text style={styles.confianzaTexto}>
+              {tarjeta.conteoReservas} {tarjeta.conteoReservas === 1 ? "reserva" : "reservas"}
+            </Text>
           </View>
         )}
       </View>
@@ -200,12 +187,11 @@ const styles = StyleSheet.create({
   cuerpo: { padding: Spacing.three, paddingBottom: Spacing.two },
   nombre: { fontFamily: Fonts.extraBold, fontSize: 16, color: Colors.ink },
   meta: { marginTop: 3, fontFamily: Fonts.medium, fontSize: 12, color: Colors.inkSoft },
-  descripcion: {
+  clasificacion: {
     marginTop: 4,
-    fontFamily: Fonts.regular,
+    fontFamily: Fonts.bold,
     fontSize: 12,
-    lineHeight: 16,
-    color: Colors.inkSoft,
+    color: Colors.accentDark,
   },
   etiquetaFranjas: {
     fontFamily: Fonts.extraBold,
@@ -221,29 +207,47 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     backgroundColor: Colors.canvas,
   },
-  chipHoraDestacado: { backgroundColor: Colors.navy },
   chipHoraTexto: { fontFamily: Fonts.bold, fontSize: 11, color: Colors.inkSoft },
-  chipHoraTextoDestacado: { color: "#fff" },
-  filaPie: {
+  /** El "cupón": borde punteado + una muesca circular a cada lado que
+   *  recorta el fondo de la tarjeta (Colors.surface), simulando el
+   *  perforado de un cupón de verdad. */
+  cupon: {
+    position: "relative",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: Spacing.two,
-    marginTop: 12,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: Colors.line,
+    backgroundColor: Colors.surface,
+    borderRadius: Radios.sm,
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+    borderStyle: "dashed",
+    paddingVertical: 6,
+    paddingHorizontal: 11,
   },
-  filaPrecio: { flexDirection: "row", alignItems: "baseline", gap: 6 },
-  precioConDescuento: { fontFamily: Fonts.extraBold, fontSize: 16, color: Colors.navy },
-  precioTachado: {
-    fontFamily: Fonts.medium,
-    fontSize: 12,
-    color: Colors.inkSoft,
-    textDecorationLine: "line-through",
+  cuponDestacado: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  cuponTexto: { fontFamily: Fonts.bold, fontSize: 11.5, color: Colors.ink },
+  cuponDescuento: { color: Colors.accentDark },
+  cuponTextoDestacado: { color: "#fff" },
+  cuponDivisor: {
+    height: 14,
+    marginHorizontal: 7,
+    borderLeftWidth: 1.5,
+    borderLeftColor: Colors.accent,
+    borderStyle: "dashed",
   },
-  precioDesde: { fontFamily: Fonts.bold, fontSize: 13.5, color: Colors.ink },
+  cuponDivisorDestacado: { borderLeftColor: "rgba(255,255,255,0.6)" },
+  cuponMuesca: {
+    position: "absolute",
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.surface,
+    top: "50%",
+    transform: [{ translateY: -4 }],
+  },
+  cuponMuescaIzq: { left: -3.5 },
+  cuponMuescaDer: { right: -3.5 },
   filaConfianza: {
+    marginTop: 10,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,

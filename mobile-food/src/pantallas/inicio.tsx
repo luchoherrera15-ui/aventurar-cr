@@ -180,7 +180,7 @@ export default function Inicio({ activa }: { activa: boolean }) {
                       {foto ? (
                         <Image source={{ uri: foto }} style={styles.categoriaFoto} resizeMode="cover" />
                       ) : (
-                        <Ionicons name={cat.icono} size={22} color={activa ? "#ffffff" : Colors.accent} />
+                        <Ionicons name={cat.icono} size={24} color={activa ? "#ffffff" : Colors.accent} />
                       )}
                     </View>
                     <Text
@@ -341,10 +341,10 @@ const styles = StyleSheet.create({
   },
   buscadorTexto: { fontFamily: Fonts.medium, fontSize: 14, color: Colors.inkMuted },
   categorias: { gap: Spacing.three, paddingRight: Spacing.two },
-  categoriaItem: { alignItems: "center", width: 60 },
+  categoriaItem: { alignItems: "center", width: 66 },
   categoriaCirculo: {
-    width: 56,
-    height: 56,
+    width: 62,
+    height: 62,
     borderRadius: Radios.full,
     overflow: "hidden",
     backgroundColor: Colors.accentLight,
