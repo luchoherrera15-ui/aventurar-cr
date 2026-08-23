@@ -114,14 +114,30 @@ import {
  * El chip de un grupo: ícono chiquito + nombre + flechita, todo en una
  * línea de 36 px. `whitespace-nowrap` para que «Salud y belleza» no
  * parta en dos y descuadre la altura de la fila.
+ *
+ * `chipCls` NO lleva color de fondo: eso vive entero en
+ * `chipInactivoCls`/`chipActivoCls`, y un chip usa SIEMPRE uno de los
+ * dos, nunca los dos a la vez. Antes `chipCls` traía
+ * `bg-aventurea-surface` fijo y el activo le SUMABA `bg-aventurea-navy`
+ * encima —dos utilidades de fondo en la misma clase—, y Tailwind
+ * ordena las reglas por nombre y no por dónde aparecen en el string:
+ * "aventurea-navy" queda antes que "aventurea-surface" en la hoja
+ * generada, así que el fondo BLANCO ganaba la cascada siempre, con
+ * letra blanca encima — el botón activo quedaba invisible (blanco
+ * sobre blanco). Mismo criterio abajo, en `burbujaCls`.
  */
 const chipCls =
-  "flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-aventurea-line bg-aventurea-surface pl-1.5 pr-2.5 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy";
+  "flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border pl-1.5 pr-2.5 text-[12.5px] font-bold transition-colors";
+
+const chipInactivoCls =
+  "border-aventurea-line bg-aventurea-surface text-aventurea-ink hover:border-aventurea-navy";
 
 const chipActivoCls = "border-aventurea-navy bg-aventurea-navy text-white";
 
 const burbujaCls =
-  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-aventurea-sky/10 text-aventurea-orange [&_svg]:h-[14px] [&_svg]:w-[14px]";
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md [&_svg]:h-[14px] [&_svg]:w-[14px]";
+
+const burbujaInactivaCls = "bg-aventurea-sky/10 text-aventurea-orange";
 
 const burbujaActivaCls = "bg-white/15 text-white";
 
@@ -146,7 +162,11 @@ const panelCls =
  * selector dijera «Citas» y el chip «Salud y belleza», serían dos
  * secciones distintas para quien mira.
  */
-const DESTINOS_BUSQUEDA = ["eventos", "citas", "restaurantes"] as const;
+// "restaurantes" fuera por el momento (ago 2026) — ver la nota en
+// grupos-categorias.tsx. `OPCIONES_BUSQUEDA` de abajo ya ignora
+// cualquier id que no esté en GRUPOS, así que esto no rompe nada;
+// se deja aparte para no repetir el mismo id en dos comentarios.
+const DESTINOS_BUSQUEDA = ["eventos", "citas"] as const;
 
 /** Los destinos ya resueltos a `{ href, label }`, en ese orden. */
 const OPCIONES_BUSQUEDA: { href: string; label: string }[] =
@@ -354,10 +374,10 @@ export default function NavCategorias({ titulo }: { titulo?: ReactNode }) {
                 aria-haspopup="true"
                 aria-controls={`panel-${g.id}`}
                 onClick={() => setAbierto((v) => (v === g.id ? null : g.id))}
-                className={`${chipCls} ${activo ? chipActivoCls : ""}`}
+                className={`${chipCls} ${activo ? chipActivoCls : chipInactivoCls}`}
               >
                 <span
-                  className={`${burbujaCls} ${activo ? burbujaActivaCls : ""}`}
+                  className={`${burbujaCls} ${activo ? burbujaActivaCls : burbujaInactivaCls}`}
                 >
                   <g.Icono />
                 </span>
@@ -387,7 +407,7 @@ export default function NavCategorias({ titulo }: { titulo?: ReactNode }) {
             aria-controls="panel-ia"
             aria-label="Ver más servicios de Bookea"
             onClick={() => setAbierto((v) => (v === "ia" ? null : "ia"))}
-            className={`${chipCls} ${abierto === "ia" ? chipActivoCls : ""}`}
+            className={`${chipCls} ${abierto === "ia" ? chipActivoCls : chipInactivoCls}`}
           >
             {/* Los tres puntos, no el ícono de IA (pedido del dueño,
                 ago 2026): «IA» no le decía a nadie qué había detrás;

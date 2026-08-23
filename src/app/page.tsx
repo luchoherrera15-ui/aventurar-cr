@@ -120,57 +120,35 @@ export default async function Home() {
           `top-16` del sitio. */}
       <AvisoSuperior />
 
+      {/* El encabezado del documento: se queda como `<h1>` de verdad
+          para SEO y lectores de pantalla, pero `sr-only` — pedido del
+          dueño (ago 2026), «que todo esté compacto en la burbuja
+          flotante» no dejaba lugar visual para un renglón de texto
+          propio, y la portada ya dice lo mismo en el `<title>` y en el
+          botón de búsqueda. Vive ACÁ, en el servidor, y no adentro de
+          `NavCategorias` (un componente cliente): el encabezado
+          principal de la URL más indexada del sitio no puede depender
+          de que hidrate nada. */}
+      <h1 className="sr-only">Reservá servicios y lugares en Costa Rica</h1>
+
       {/* `conPublicar={false}` a propósito: `NavHome` ya trae «Cómo
           funciona» → /publicar, y «Publicá tu espacio» al lado sería la
           misma puerta dos veces. De paso se salta la consulta
           `tieneNegocioPropio()` — una ida menos a la base en la URL más
-          visitada del sitio. */}
+          visitada del sitio.
+
+          `segundaFila`: el buscador y las cuatro categorías vivían en su
+          propia franja blanca debajo (`<section className="border-b
+          ... bg-white">`, borrada). Pedido del dueño: que todo —logo,
+          buscador, categorías, cuenta— sea UNA sola burbuja de vidrio
+          compacta, no dos piezas apiladas. */}
       <SiteHeader
         ancho="max-w-[1200px]"
         extra={<NavHome />}
         conPublicar={false}
         flotante
+        segundaFila={<NavCategorias />}
       />
-
-      {/* ── LA BARRA COMPACTA ────────────────────────────────────────
-          Todo el mando de la portada en una franja. El h1 va acá, en el
-          SERVIDOR, y no adentro de `NavCategorias`, que es un
-          componente cliente: el encabezado principal de la URL más
-          indexada del sitio no puede depender de que hidrate nada. */}
-      <section className="border-b border-aventurea-line bg-white">
-        {/* ── POR QUÉ EL h1 VA ARRIBA Y NO AL LADO ──────────────────
-            La pasada anterior metía el h1, el buscador y los cuatro
-            chips en UNA fila de 1200 px. No entraban: los chips miden
-            ~680 px, el h1 se lleva ~166 y el buscador ~280, así que
-            entre 1024 y 1240 px de ancho el último chip («IA») salía
-            cortado a cuchillo en toda pantalla de escritorio normal —
-            está documentado en el propio comentario que había acá, y
-            el paliativo era un degradado que avisa que la fila se
-            desliza.
-
-            Con el h1 en su renglón, el buscador y los chips disponen
-            de los 1152 px enteros: nunca más se corta un chip, y hay
-            lugar para el selector de directorio del buscador. El costo
-            son ~25 px de alto en escritorio (la franja pasa de 64 a
-            ~89), que sigue siendo una BARRA y no un héroe — que es lo
-            que pidió el dueño. En teléfono no cuesta nada: ahí el h1
-            ya iba en su propia línea. */}
-        <div className="mx-auto w-full max-w-[1200px] px-4 py-3 lg:px-6">
-          {/* El h1 viaja como prop a la barra (`titulo`): la barra lo
-              coloca en la columna izquierda de su grilla para que el
-              buscador quede en el centro real de la franja. Se queda
-              declarado ACÁ, y no dentro del componente, porque es el
-              encabezado del documento: quien lea esta página tiene que
-              ver de qué habla sin abrir un componente de navegación. */}
-          <NavCategorias
-            titulo={
-              <h1 className="text-[13.5px] font-extrabold leading-tight text-aventurea-navy lg:text-[14px]">
-                Reservá servicios y lugares en Costa Rica
-              </h1>
-            }
-          />
-        </div>
-      </section>
 
       <main className="flex-1">
         <div className="mx-auto w-full max-w-[1200px] px-4 py-6 lg:px-6 lg:py-8">
