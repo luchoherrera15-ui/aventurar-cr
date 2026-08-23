@@ -3,11 +3,12 @@ import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
 import { PLANES_VIGENTES } from "@/lib/lealtad/planes";
-import { INDUSTRIAS } from "./industrias/datos";
+import { TIPOS_TARJETA_ID } from "@/lib/lealtad/tipos-tarjeta";
 import { Icono, type NombreIcono } from "./panel/[id]/iconos";
 import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 import NavLealtad from "./nav-lealtad";
 import BurbujaContacto from "./burbuja-contacto";
+import ConfiguradorLealtad from "./configurador-lealtad";
 import MockupRecorrido from "./mockup-recorrido";
 import MockupAnuncios from "./mockup-anuncios";
 import MockupRescate from "./mockup-rescate";
@@ -21,6 +22,7 @@ import SelectorTiposLanding from "./selector-tipos-landing";
 import FlujoAutomatizaciones from "./flujo-automatizaciones";
 import SeccionWallets from "./seccion-wallets";
 import SeccionConfianza from "./seccion-confianza";
+import SeccionBeneficios from "./seccion-beneficios";
 import PreciosLanding from "./precios-landing";
 import FaqAcordeon from "./faq-acordeon";
 
@@ -68,7 +70,8 @@ const ACENTO_CLARO = "var(--orange-acento-claro)";
 /** El degradado navy→azul para texto: se usa con cuenta gotas (hero,
  *  problema, panel, cierre) — no en cada encabezado de la página, o
  *  deja de leerse como énfasis y pasa a ser papel tapiz. */
-const DEGRADADO_TEXTO = "linear-gradient(110deg,#0b3168 0%,#0f4c9e 55%,#3672c9 100%)";
+const DEGRADADO_TEXTO =
+  "linear-gradient(110deg,#0b3168 0%,#0f4c9e 55%,#3672c9 100%)";
 
 function TextoDegradado({ children }: { children: React.ReactNode }) {
   return (
@@ -97,7 +100,8 @@ export const metadata: Metadata = {
     "Sellos, puntos, cupones y membresías directo en el Wallet de tus clientes. Sin apps que instalar, sin contratos, y armado en menos de 10 minutos.",
   alternates: { canonical: "/lealtad" },
   openGraph: {
-    title: "Bookea Lealtad — Convertí compradores de un día en clientes de por vida",
+    title:
+      "Bookea Lealtad — Convertí compradores de un día en clientes de por vida",
     description:
       "Tarjetas de sellos, puntos, cupones y membresías en Apple Wallet y Google Wallet. Sin apps, sin contratos, sin tarjeta de crédito.",
     url: "/lealtad",
@@ -197,6 +201,22 @@ export default async function LealtadPage() {
       <BurbujaContacto />
 
       {/* ============================================================
+          0 · ARMÁ TU TARJETA — pedido del dueño (esta sesión): el
+          configurador vuelve a vivir en la landing, ahora pegado al
+          header en vez de a mitad de página o en su propia pantalla
+          (/lealtad/crear sigue existiendo para quien llega por un
+          link directo). Los botones "¡Creá tu pase!" de esta misma
+          página hacen scroll hasta acá (BotonCrearPase) — es lo
+          primero interactivo que se ve, antes de cualquier texto de
+          venta.
+          ============================================================ */}
+      <section className="px-5 pt-6 sm:px-8">
+        <div className="mx-auto w-full max-w-[1180px]">
+          <ConfiguradorLealtad haySesion={sesion.logueado} />
+        </div>
+      </section>
+
+      {/* ============================================================
           1 · HERO — qué es, la promesa, el producto en la mano.
           ============================================================ */}
       <section
@@ -211,7 +231,10 @@ export default async function LealtadPage() {
         <span
           aria-hidden
           className="pointer-events-none absolute -right-[280px] -top-[220px] h-[720px] w-[720px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(214,226,248,.6), transparent 66%)" }}
+          style={{
+            background:
+              "radial-gradient(circle, rgba(214,226,248,.6), transparent 66%)",
+          }}
         />
 
         <div className="relative mx-auto grid w-[min(1180px,92vw)] items-center gap-8 pb-10 pt-10 sm:pt-14 lg:grid-cols-[49%_51%] lg:gap-2 lg:pb-16">
@@ -220,41 +243,64 @@ export default async function LealtadPage() {
               className="inline-flex items-center gap-2 rounded-full border border-[#dbe3f4] bg-white/75 px-3.5 py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] shadow-[0_6px_20px_rgba(20,40,90,.05)]"
               style={{ color: "var(--accion)" }}
             >
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: ACENTO_CLARO }} />
+              <span
+                aria-hidden
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: ACENTO_CLARO }}
+              />
               Bookea Lealtad · Apple y Google Wallet
             </p>
 
             <h1 className="titulo mt-5 max-w-[15ch] text-balance text-[clamp(38px,5.2vw,64px)] leading-[1.0] tracking-tight text-aventurea-navy">
-              Convertí compradores de un día en <TextoDegradado>clientes de por vida.</TextoDegradado>
+              Convertí compradores de un día en{" "}
+              <TextoDegradado>clientes de por vida.</TextoDegradado>
             </h1>
 
             <p className="mt-5 max-w-[50ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Una tarjeta de fidelización que vive en el teléfono de tus clientes y trae más
-              visitas y más recompra.{" "}
-              <strong className="text-aventurea-navy">Apple Wallet y Google Wallet.</strong> Sin
-              apps. Sin tarjetas de cartón.
+              Una tarjeta de fidelización que vive en el teléfono de tus
+              clientes y trae más visitas y más recompra.{" "}
+              <strong className="text-aventurea-navy">
+                Apple Wallet y Google Wallet.
+              </strong>{" "}
+              Sin apps. Sin tarjetas de cartón.
             </p>
 
             <div className="mt-8">
-              <BotonCrearPase variante="primario">
-                ¡Creá tu pase de lealtad! <span aria-hidden>→</span>
+              <BotonCrearPase variante="primario" grande>
+                ¡Creá tu tarjeta de fidelidad gratis! <span aria-hidden>→</span>
               </BotonCrearPase>
               <p className="mt-3 flex items-center justify-center gap-2 text-[13.5px] font-bold text-aventurea-ink-soft lg:justify-start">
                 <span aria-hidden>📲</span>
-                Tus clientes lo tendrán en el Wallet de su móvil — sin instalar nada.
+                Tus clientes la agregan al Wallet al instante — sin instalar
+                nada.
               </p>
             </div>
 
-            <ul className="mt-7 flex flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] font-bold text-aventurea-ink-soft lg:justify-start">
-              {["Primera tarjeta gratis", "Sin apps que instalar", "Sin tarjeta de crédito"].map((t) => (
-                <li key={t} className="flex items-center gap-2">
-                  <span aria-hidden style={{ color: ACENTO_CLARO }}>
-                    ✓
-                  </span>
-                  {t}
-                </li>
+            {/* Tres hechos reales, no cifras inventadas — el mismo
+                lenguaje de "número prominente + etiqueta" del resto del
+                rediseño, en vez del checklist con palomitas. */}
+            <div className="mt-7 grid grid-cols-3 gap-2">
+              {[
+                { valor: "Gratis", etiqueta: "primera tarjeta" },
+                {
+                  valor: String(TIPOS_TARJETA_ID.length),
+                  etiqueta: "tipos de tarjeta",
+                },
+                { valor: "0", etiqueta: "apps que instalar" },
+              ].map((s) => (
+                <div
+                  key={s.etiqueta}
+                  className="rounded-xl border border-aventurea-line bg-white/80 px-3 py-2.5 text-center lg:text-left"
+                >
+                  <p className="text-[17px] font-extrabold leading-none text-aventurea-navy">
+                    {s.valor}
+                  </p>
+                  <p className="mt-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-aventurea-ink-soft">
+                    {s.etiqueta}
+                  </p>
+                </div>
               ))}
-            </ul>
+            </div>
 
             <p className="mt-6 text-[13px] text-aventurea-ink-soft/80">
               ¿Ya tenés el programa?{" "}
@@ -275,52 +321,6 @@ export default async function LealtadPage() {
       </section>
 
       {/* ============================================================
-          2 · PARA QUIÉN ES — franja liviana, casi parte del hero: en
-          dos segundos confirma "esto es para un negocio como el
-          mío" y lleva a la página de industria real correspondiente.
-          ============================================================ */}
-      <section className="px-5 pb-16 pt-2 sm:px-8">
-        <div className="mx-auto w-full max-w-[1120px]">
-          <p data-reveal className="text-center text-[13.5px] font-bold text-aventurea-ink-soft">
-            Hecho para negocios donde el cliente{" "}
-            <span className="text-aventurea-navy">vuelve</span>: cafeterías, sodas y restaurantes,
-            barberías y salas de belleza, lavacares, gasolineras, carnicerías y casilleros.
-          </p>
-
-          <ul className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
-            {INDUSTRIAS.map((industria, i) => (
-              <li
-                key={industria.slug}
-                data-reveal
-                style={{ "--reveal-delay": `${i * 50}ms` } as React.CSSProperties}
-              >
-                <Link
-                  href={`/lealtad/industrias/${industria.slug}`}
-                  className="group flex items-center gap-2.5 rounded-full border border-aventurea-line bg-white py-2 pl-2 pr-4 shadow-[0_10px_26px_-22px_rgba(16,47,82,0.45)] transition-colors hover:border-[color:var(--accion)]"
-                >
-                  <span
-                    aria-hidden
-                    className="grid h-6 w-6 shrink-0 place-items-center rounded-full"
-                    style={{ background: industria.colorFondo }}
-                  >
-                    <span className="h-2 w-2 rounded-full" style={{ background: industria.colorSello }} />
-                  </span>
-                  <span className="text-[13px] font-extrabold text-aventurea-navy">{industria.nombre}</span>
-                  <span
-                    aria-hidden
-                    className="text-[13px] font-extrabold opacity-0 transition-opacity group-hover:opacity-100"
-                    style={{ color: "var(--accion)" }}
-                  >
-                    →
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-
-      {/* ============================================================
           3 · EL PROBLEMA — contra qué compite Bookea Lealtad. No es
           "qué es" (eso ya lo hizo el hero): es "por qué importa".
           ============================================================ */}
@@ -331,36 +331,47 @@ export default async function LealtadPage() {
               El problema del cartón
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[24ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
-              Cuatro cosas que una tarjeta de cartón <TextoDegradado>nunca va a hacer.</TextoDegradado>
+              Cuatro cosas que una tarjeta de cartón{" "}
+              <TextoDegradado>nunca va a hacer.</TextoDegradado>
             </h2>
             <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              No es la misma tarjeta de siempre en versión digital. Es lo que se vuelve posible
-              cuando el sello deja de vivir en un papel.
+              No es la misma tarjeta de siempre en versión digital. Es lo que se
+              vuelve posible cuando el sello deja de vivir en un papel.
             </p>
           </div>
 
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-12 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {PILARES.map((pilar, i) => (
               <div
                 key={pilar.titulo}
                 data-reveal
-                className="elevar flex flex-col rounded-3xl border border-aventurea-line bg-white p-6 shadow-[0_10px_28px_-20px_rgba(22,41,94,0.4)]"
-                style={{ "--reveal-delay": `${i * 70}ms` } as React.CSSProperties}
+                className="group flex flex-col rounded-2xl border border-aventurea-line bg-white p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[color:var(--accion)]/40 hover:shadow-[0_8px_24px_-16px_rgba(22,41,94,0.35)]"
+                style={
+                  { "--reveal-delay": `${i * 70}ms` } as React.CSSProperties
+                }
               >
-                <span
-                  className="grid h-11 w-11 place-items-center rounded-2xl"
-                  style={{ background: "var(--accion-suave)", color: "var(--accion-fuerte)" }}
-                >
-                  <Icono nombre={pilar.icono} className="h-5 w-5" />
-                </span>
-                <h3 className="mt-4 text-[16.5px] font-extrabold leading-tight text-aventurea-navy">
+                <div className="flex items-center justify-between">
+                  <span
+                    className="grid h-10 w-10 place-items-center rounded-xl transition-colors group-hover:bg-[color:var(--accion)] group-hover:text-white"
+                    style={{
+                      background: "var(--accion-suave)",
+                      color: "var(--accion-fuerte)",
+                    }}
+                  >
+                    <Icono nombre={pilar.icono} className="h-[18px] w-[18px]" />
+                  </span>
+                  <span className="rounded-full bg-aventurea-cream-2 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                </div>
+                <h3 className="mt-4 text-[15px] font-bold leading-tight text-aventurea-navy">
                   {pilar.titulo}
                 </h3>
-                <p className="mt-2 flex-1 text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+                <p className="mt-1.5 flex-1 text-[13px] leading-relaxed text-aventurea-ink-soft">
                   {pilar.texto}
                 </p>
-                <p className="mt-4 border-t border-aventurea-line pt-3 text-[12px] font-bold text-aventurea-ink-soft/80">
-                  <span aria-hidden className="mr-1.5">
+                <p className="mt-3.5 border-t border-aventurea-line pt-3 text-[11.5px] font-semibold text-aventurea-ink-soft/75">
+                  <span aria-hidden className="mr-1.5 text-red-400">
                     ✕
                   </span>
                   {pilar.contraste}
@@ -387,7 +398,8 @@ export default async function LealtadPage() {
               En diez minutos tenés tu tarjeta andando
             </h2>
             <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Sin diseñador, sin desarrollador y sin que tus clientes instalen nada.
+              Sin diseñador, sin desarrollador y sin que tus clientes instalen
+              nada.
             </p>
           </div>
 
@@ -422,8 +434,9 @@ export default async function LealtadPage() {
               Tu programa vive donde tus clientes ya están.
             </h2>
             <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Nada de instalar una app aparte: la tarjeta entra directo a la billetera que el
-              teléfono ya trae instalada, junto a la del banco y el pase de abordar.
+              Nada de instalar una app aparte: la tarjeta entra directo a la
+              billetera que el teléfono ya trae instalada, junto a la del banco
+              y el pase de abordar.
             </p>
           </div>
           <div data-reveal className="mt-14">
@@ -447,8 +460,8 @@ export default async function LealtadPage() {
               Elegí qué guardan en el teléfono
             </h2>
             <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Los ocho tipos de tarjeta que el producto arma de verdad. Tocá cada uno y mirá
-              cómo cambia la tarjeta en el teléfono.
+              Los ocho tipos de tarjeta que el producto arma de verdad. Tocá
+              cada uno y mirá cómo cambia la tarjeta en el teléfono.
             </p>
           </div>
 
@@ -474,11 +487,13 @@ export default async function LealtadPage() {
               El panel del negocio
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[24ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
-              No te prometemos clientes fieles. <TextoDegradado>Te mostramos cuánto compran.</TextoDegradado>
+              No te prometemos clientes fieles.{" "}
+              <TextoDegradado>Te mostramos cuánto compran.</TextoDegradado>
             </h2>
             <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Cada sello queda respaldado por su compra: tu panel te dice cuánto venden tus
-              clientes con tarjeta, cuánto gastan por visita y quiénes vuelven.
+              Cada sello queda respaldado por su compra: tu panel te dice cuánto
+              venden tus clientes con tarjeta, cuánto gastan por visita y
+              quiénes vuelven.
             </p>
           </div>
 
@@ -493,7 +508,10 @@ export default async function LealtadPage() {
               escribirle al cliente. Reusa la sección "Marketing"
               anterior, ahora como parte del panel en vez de una
               sección propia — es literalmente la misma pestaña. */}
-          <div data-reveal className="mt-20 border-t border-aventurea-line pt-16">
+          <div
+            data-reveal
+            className="mt-20 border-t border-aventurea-line pt-16"
+          >
             <div className="mx-auto max-w-[54ch] text-center">
               <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
                 Desde el mismo panel
@@ -502,9 +520,10 @@ export default async function LealtadPage() {
                 Escribís el anuncio. Les llega al teléfono.
               </h3>
               <p className="mx-auto mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
-                Tus anuncios les llegan como notificación a los clientes que ya tienen tu
-                tarjeta en su Wallet — sin pedir números ni armar listas de correo. Enviás
-                hasta {CUPO_MAX_ANUNCIOS} al mes según tu paquete.
+                Tus anuncios les llegan como notificación a los clientes que ya
+                tienen tu tarjeta en su Wallet — sin pedir números ni armar
+                listas de correo. Enviás hasta {CUPO_MAX_ANUNCIOS} al mes según
+                tu paquete.
               </p>
             </div>
             <div className="mt-12">
@@ -513,7 +532,10 @@ export default async function LealtadPage() {
           </div>
 
           {/* Sub-movimiento: por qué se puede confiar en lo de arriba. */}
-          <div data-reveal className="mt-20 border-t border-aventurea-line pt-16">
+          <div
+            data-reveal
+            className="mt-20 border-t border-aventurea-line pt-16"
+          >
             <p className="mx-auto max-w-[54ch] text-center text-[13px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft">
               Y nada de esto depende de la palabra de nadie
             </p>
@@ -530,9 +552,14 @@ export default async function LealtadPage() {
           ============================================================ */}
       <section className="px-5 pb-4 pt-16 sm:px-8">
         <div className="mx-auto w-full max-w-[1120px]">
-          <p data-reveal className="mx-auto mb-8 max-w-[62ch] text-center text-[13px] leading-relaxed text-aventurea-ink-soft">
+          <p
+            data-reveal
+            className="mx-auto mb-8 max-w-[62ch] text-center text-[13px] leading-relaxed text-aventurea-ink-soft"
+          >
             Vos seguís atendiendo tu negocio.{" "}
-            <strong className="text-aventurea-navy">Bookea se encarga de que nadie se olvide de volver.</strong>
+            <strong className="text-aventurea-navy">
+              Bookea se encarga de que nadie se olvide de volver.
+            </strong>
           </p>
           <div data-reveal className="mx-auto max-w-[56ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
@@ -542,7 +569,11 @@ export default async function LealtadPage() {
               Bookea se acuerda, aunque nadie esté pendiente.
             </h2>
           </div>
-          <div data-reveal className="mt-10" style={{ "--reveal-delay": "80ms" } as React.CSSProperties}>
+          <div
+            data-reveal
+            className="mt-10"
+            style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
+          >
             <FlujoAutomatizaciones />
           </div>
         </div>
@@ -559,17 +590,21 @@ export default async function LealtadPage() {
               El cliente que dejó de venir no se pierde solo.
             </h3>
             <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
-              La mayoría de los clientes no se van enojados: se van sin darse cuenta. Tu
-              panel te muestra quiénes tenían la tarjeta andando y hace semanas no
-              aparecen. Con tu asesor armás el anuncio que los trae de vuelta, y les llega
-              al teléfono donde ya tienen tus sellos guardados.
+              La mayoría de los clientes no se van enojados: se van sin darse
+              cuenta. Tu panel te muestra quiénes tenían la tarjeta andando y
+              hace semanas no aparecen. Con tu asesor armás el anuncio que los
+              trae de vuelta, y les llega al teléfono donde ya tienen tus sellos
+              guardados.
             </p>
             <p className="mt-5 rounded-xl bg-[#f2f4f8] px-3.5 py-3 text-[12.5px] font-bold text-[#5a6478]">
-              Esta es la única de las tres que hoy hacés con ayuda, no sola — y lo decimos
-              así de claro.
+              Esta es la única de las tres que hoy hacés con ayuda, no sola — y
+              lo decimos así de claro.
             </p>
           </div>
-          <div data-reveal style={{ "--reveal-delay": "80ms" } as React.CSSProperties}>
+          <div
+            data-reveal
+            style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
+          >
             <MockupRescate />
           </div>
         </div>
@@ -581,7 +616,11 @@ export default async function LealtadPage() {
           <div data-reveal className="order-2 lg:order-1">
             <MockupHitos />
           </div>
-          <div data-reveal className="order-1 lg:order-2" style={{ "--reveal-delay": "80ms" } as React.CSSProperties}>
+          <div
+            data-reveal
+            className="order-1 lg:order-2"
+            style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
+          >
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
               Trabaja solo · Automático
             </p>
@@ -589,14 +628,19 @@ export default async function LealtadPage() {
               Los hitos que le importan, sin que nadie se acuerde.
             </h3>
             <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
-              El primer sello, el penúltimo y el premio alcanzado salen solos por correo.
-              Son los tres momentos en que un cliente decide si el programa le importa, y
-              ninguno depende de que alguien en tu negocio se acuerde de escribirle.
+              El primer sello, el penúltimo y el premio alcanzado salen solos
+              por correo. Son los tres momentos en que un cliente decide si el
+              programa le importa, y ninguno depende de que alguien en tu
+              negocio se acuerde de escribirle.
             </p>
             <ul className="mt-5 flex flex-col gap-2 text-[13.5px] font-semibold text-aventurea-navy">
-              <li>🎉 &ldquo;¡Tu tarjeta ya arrancó!&rdquo; — con el primer sello</li>
+              <li>
+                🎉 &ldquo;¡Tu tarjeta ya arrancó!&rdquo; — con el primer sello
+              </li>
               <li>☕ &ldquo;¡Te falta uno!&rdquo; — con el penúltimo</li>
-              <li>🏆 &ldquo;¡Premio desbloqueado!&rdquo; — al completar la meta</li>
+              <li>
+                🏆 &ldquo;¡Premio desbloqueado!&rdquo; — al completar la meta
+              </li>
             </ul>
           </div>
         </div>
@@ -613,16 +657,20 @@ export default async function LealtadPage() {
               Un recordatorio justo cuando puede entrar.
             </h3>
             <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
-              Con las ubicaciones activadas, el pase aparece en la pantalla del teléfono
-              cuando el cliente está a unas cuadras de tu local. No es un correo que se lee
-              en la noche: es un recordatorio en el momento exacto en que puede entrar.
+              Con las ubicaciones activadas, el pase aparece en la pantalla del
+              teléfono cuando el cliente está a unas cuadras de tu local. No es
+              un correo que se lee en la noche: es un recordatorio en el momento
+              exacto en que puede entrar.
             </p>
             <p className="mt-5 text-[13px] font-bold text-aventurea-ink-soft">
-              📍 Disponible desde el paquete Impulso — mirá &ldquo;Elegí qué guardan en el
-              teléfono&rdquo; más arriba.
+              📍 Disponible desde el paquete Impulso — mirá &ldquo;Elegí qué
+              guardan en el teléfono&rdquo; más arriba.
             </p>
           </div>
-          <div data-reveal style={{ "--reveal-delay": "80ms" } as React.CSSProperties}>
+          <div
+            data-reveal
+            style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
+          >
             <MockupCercania />
           </div>
         </div>
@@ -636,7 +684,10 @@ export default async function LealtadPage() {
         <div
           data-tema="oscuro"
           className="relative mx-auto w-full max-w-[1160px] overflow-hidden rounded-[32px] px-6 py-12 sm:px-10 sm:py-14"
-          style={{ background: NAVY, boxShadow: "0 35px 80px rgba(12,25,64,.18)" }}
+          style={{
+            background: NAVY,
+            boxShadow: "0 35px 80px rgba(12,25,64,.18)",
+          }}
         >
           <span
             aria-hidden
@@ -644,15 +695,18 @@ export default async function LealtadPage() {
           />
           <div data-reveal className="relative">
             <div className="mx-auto max-w-[56ch] text-center">
-              <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: ACCION_OSCURO }}>
+              <p
+                className="text-[12px] font-bold uppercase tracking-[0.22em]"
+                style={{ color: ACCION_OSCURO }}
+              >
                 Beneficios y planes
               </p>
               <h2 className="titulo mx-auto mt-4 max-w-[18ch] text-[clamp(28px,4.4vw,44px)] leading-[1.08] text-white">
                 Empezá pequeño y crecé cuando lo necesités.
               </h2>
               <p className="mx-auto mt-4 max-w-[48ch] text-[15px] leading-relaxed text-white/60">
-                Empezá gratis, sin tarjeta de crédito y sin vencimiento. Cuando tu programa crezca,
-                subís de paquete — nunca antes.
+                Empezá gratis, sin tarjeta de crédito y sin vencimiento. Cuando
+                tu programa crezca, subís de paquete — nunca antes.
               </p>
             </div>
 
@@ -661,7 +715,10 @@ export default async function LealtadPage() {
             </div>
 
             <p className="mt-8 text-center text-[12px] font-bold text-white/55">
-              <Link href="/lealtad/planes" className="underline transition-colors hover:text-white">
+              <Link
+                href="/lealtad/planes"
+                className="underline transition-colors hover:text-white"
+              >
                 Ver el detalle completo de cada paquete →
               </Link>
             </p>
@@ -703,7 +760,10 @@ export default async function LealtadPage() {
           data-tema="oscuro"
           data-reveal
           className="relative mx-auto w-full max-w-[980px] overflow-hidden rounded-[32px] px-6 py-16 sm:px-10 sm:py-20"
-          style={{ background: NAVY_PROFUNDO, boxShadow: "0 35px 80px rgba(12,25,64,.2)" }}
+          style={{
+            background: NAVY_PROFUNDO,
+            boxShadow: "0 35px 80px rgba(12,25,64,.2)",
+          }}
         >
           <span
             aria-hidden
@@ -714,16 +774,40 @@ export default async function LealtadPage() {
             <h2 className="titulo text-[clamp(30px,4.8vw,54px)] leading-[1.05] text-white">
               Tu competencia reparte tarjetas de cartón.
               <br />
-              <span style={{ color: ACCION_OSCURO }}>Vos, sellos en el teléfono.</span>
+              <span style={{ color: ACCION_OSCURO }}>
+                Vos, sellos en el teléfono.
+              </span>
             </h2>
             <p className="mx-auto mt-5 max-w-[48ch] text-[clamp(15px,1.8vw,18px)] leading-relaxed text-white/60">
-              Contanos de tu negocio y armamos tu programa — sin contratos, sin permanencia mínima.
+              Contanos de tu negocio y armamos tu programa — sin contratos, sin
+              permanencia mínima.
             </p>
             <div className="mt-9">
               <BotonCrearPase variante="oscuro">
-                ¡Creá tu pase de lealtad! <span aria-hidden>→</span>
+                ¡Creá tu tarjeta de fidelidad gratis! <span aria-hidden>→</span>
               </BotonCrearPase>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          BENEFICIOS — cierra el recorrido con cuatro capacidades reales
+          del producto (antes acá vivía el listado "Para qué rubros";
+          pedido del dueño, ago 2026: reemplazarlo por tarjetas con
+          mini-maqueta, ver seccion-beneficios.tsx).
+          ============================================================ */}
+      <section className="px-5 py-16 sm:px-8">
+        <div className="mx-auto w-full max-w-[1120px]">
+          <p
+            data-reveal
+            className="text-center text-[13.5px] font-bold text-aventurea-ink-soft"
+          >
+            Hecho para negocios donde el cliente{" "}
+            <span className="text-aventurea-navy">vuelve</span>.
+          </p>
+          <div data-reveal className="mt-8">
+            <SeccionBeneficios />
           </div>
         </div>
       </section>

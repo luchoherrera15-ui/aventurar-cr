@@ -1,31 +1,36 @@
-import Link from "next/link";
+"use client";
 
 /**
- * EL BOTÓN «¡Creá tu pase de lealtad!» — desde ago 2026 lleva a la
- * PANTALLA DEDICADA `/lealtad/crear` (pedido del dueño), en vez de
- * desplegar el configurador a mitad de la landing como hacía antes.
+ * EL BOTÓN «¡Creá tu pase de lealtad!».
  *
- * Con eso deja de necesitar estado: es un `<Link>` de servidor, no un
- * client component con un CustomEvent — armar la tarjeta es una tarea
- * con su propia pantalla, no una sección que se abre.
+ * Vuelve a comportarse como antes de ago 2026 (pedido del dueño, esta
+ * sesión): en vez de llevar a la pantalla dedicada `/lealtad/crear`,
+ * hace scroll al configurador que ahora vive embebido debajo del
+ * header de la propia landing (`ConfiguradorLealtad`, montado en
+ * page.tsx con id="configurador-lealtad"). Por eso es un client
+ * component con `onClick` y no un `<Link>` de servidor — y por eso
+ * solo tiene sentido en ESTA página, donde ese id existe siempre.
  *
- * `variante`: "primario" es el gradiente azul del hero; "oscuro" es el
+ * `variante`: "primario" es el navy sólido del hero; "oscuro" es el
  * mismo botón sobre la franja navy del cierre (ahí el azul de acción
  * desaparece — usa el par claro, igual que el resto de la landing).
  */
 export default function BotonCrearPase({
   variante = "primario",
+  grande = false,
   children,
 }: {
   variante?: "primario" | "oscuro";
+  /** El del hero (0163: pedido del dueño, "hazlo más grande"). */
+  grande?: boolean;
   children: React.ReactNode;
 }) {
   const estilo =
     variante === "primario"
       ? {
-          background: "linear-gradient(135deg,#0b3168,#0f4c9e 55%,#3672c9)",
+          background: "#0a1226",
           color: "#ffffff",
-          boxShadow: "0 14px 34px rgba(15,60,130,.28)",
+          boxShadow: "0 6px 16px -10px rgba(10,18,38,.45)",
         }
       : {
           background: "var(--accion-claro)",
@@ -33,12 +38,19 @@ export default function BotonCrearPase({
         };
 
   return (
-    <Link
-      href="/lealtad/crear"
-      className="presionable inline-flex items-center justify-center gap-2 rounded-2xl px-7 py-4 text-[15px] font-extrabold transition-transform hover:-translate-y-0.5"
+    <button
+      type="button"
+      onClick={() =>
+        document
+          .getElementById("configurador-lealtad")
+          ?.scrollIntoView({ behavior: "smooth", block: "start" })
+      }
+      className={`presionable inline-flex items-center justify-center gap-2 rounded-xl font-bold transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 ${
+        grande ? "px-8 py-4.5 text-[17px] sm:text-[18px]" : "px-6 py-3.5 text-[14px]"
+      }`}
       style={estilo}
     >
       {children}
-    </Link>
+    </button>
   );
 }
