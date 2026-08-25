@@ -13,6 +13,7 @@ import {
   IconHome,
   IconStar,
   IconStore,
+  IconUserCircle,
 } from "@/components/icons";
 import { Card, GrillaTablero, PildoraEstado } from "@/components/panel/piezas";
 import {
@@ -295,26 +296,43 @@ export default function TableroModos({
               <p className={RAIL_GRUPO}>Ajustes</p>
               <div className="grid gap-0.5">
                 <EditarPerfil nombreActual={nombreCrudo} telefonoActual={telefono} variante="oscuro" />
+
+                {/* ── LOS DOS MODOS, LOS DOS A LA VISTA ──────────────
+                    Antes esto era UN botón que cambiaba de texto:
+                    decía «Modo Negocio» o «Volver a mi perfil» según
+                    dónde estuvieras. El problema es que un botón que
+                    dice a dónde vas NO dice dónde estás — había que
+                    deducir el modo actual leyendo el nombre del botón
+                    al revés.
+
+                    Ahora son dos renglones fijos y el punto verde marca
+                    en cuál estás. El que está activo no navega a ningún
+                    lado (`disabled`): tocar el modo en el que ya estás
+                    no puede hacer nada, y un botón que no hace nada
+                    tiene que verse así.
+
+                    Se cayó de acá el «Entrás como proveedor» que vivía
+                    al pie: decía lo mismo que el punto verde, pero en
+                    letra chica y sin señalar nada. */}
                 {tieneNegocio && (
-                  <button
-                    type="button"
-                    onClick={toggleModo}
-                    className={`${RAIL_ITEM} text-aventurea-rail hover:bg-white/10 hover:text-white`}
-                  >
-                    <span aria-hidden="true">
-                      <IconStore className="h-[14px] w-[14px]" />
-                    </span>
-                    {modoNegocio ? "Volver a mi perfil" : "Modo Negocio"}
-                  </button>
+                  <>
+                    <BotonModo
+                      activo={!modoNegocio}
+                      onClick={toggleModo}
+                      icono={<IconUserCircle className="h-[14px] w-[14px]" />}
+                    >
+                      {modoNegocio ? "Volver a mi perfil" : "Mi perfil"}
+                    </BotonModo>
+                    <BotonModo
+                      activo={modoNegocio}
+                      onClick={toggleModo}
+                      icono={<IconStore className="h-[14px] w-[14px]" />}
+                    >
+                      Modo Negocio
+                    </BotonModo>
+                  </>
                 )}
               </div>
-              <p className="mt-3 px-3 text-[11px] text-aventurea-rail">
-                Entrás como{" "}
-                <strong className="font-bold text-white">
-                  {tieneNegocio ? "proveedor" : "cliente"}
-                </strong>
-                .
-              </p>
             </div>
           </div>
         </aside>
@@ -447,8 +465,10 @@ export default function TableroModos({
             />
           </div>
 
-          <footer className="mt-6 flex items-center justify-between gap-4 border-t border-aventurea-line pt-5 text-[11px] text-aventurea-ink-soft">
-            <span>Bookea · Cuenta protegida</span>
+          {/* «Bookea · Cuenta protegida» se fue: era una etiqueta que no
+              informaba nada —toda cuenta está protegida— y ocupaba el
+              lugar de la única acción real de este pie. */}
+          <footer className="mt-6 flex items-center justify-end gap-4 border-t border-aventurea-line pt-5 text-[11px] text-aventurea-ink-soft">
             <form action={cerrarSesion}>
               {/* red-700 y no red-600: sobre el lienzo gris del panel el
                   600 daba 4,47:1 y este da 5,98:1. */}
@@ -474,6 +494,82 @@ function capitalizar(texto: string): string {
    significado. Lo demás (alto 38, radio 12, 13px/bold) es idéntico. */
 const RAIL_ITEM =
   "flex min-h-[38px] w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-bold transition-colors";
+
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  UN MODO DEL RAIL, CON SU LUZ DE «ACÁ ESTÁS»
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Pedido del dueño (ago 2026): que «Volver a mi perfil» y «Modo
+ * Negocio» estén los dos a la vista, uno encima del otro, y que un
+ * punto verde tipo «online» marque en cuál estás.
+ *
+ * ── EL PUNTO SON DOS ELEMENTOS, NO UNO ──────────────────────────────
+ * El de abajo late (`animate-ping`: escala hasta 2× y se desvanece) y
+ * el de arriba se queda quieto y sólido. Con uno solo, el punto
+ * desaparecería en cada ciclo — la luz de «en línea» tiene que estar
+ * SIEMPRE encendida; lo que late es el halo, no la luz.
+ *
+ * `animate-ping` anima `transform` y `opacity`, que es exactamente lo
+ * que globals.css permite: corre en el compositor y no toca layout.
+ *
+ * ⚠️ `motion-reduce:animate-none` va SOLO en el halo. Si se apagara
+ * también el punto sólido, quien pidió menos movimiento se quedaría sin
+ * saber en qué modo está — y eso no es movimiento, es información. Es
+ * la misma regla que ya aplica el bloque grande de globals.css: se
+ * apagan los desplazamientos, no la interfaz.
+ *
+ * ── EL ACTIVO NO SE PUEDE TOCAR ─────────────────────────────────────
+ * `disabled` porque tocar el modo en el que ya estás no puede hacer
+ * nada, y un botón que no hace nada tiene que verse así. Además le
+ * quita el `hover`, que prometía una acción inexistente.
+ */
+function BotonModo({
+  activo,
+  onClick,
+  icono,
+  children,
+}: {
+  activo: boolean;
+  onClick: () => void;
+  icono: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={activo}
+      aria-current={activo ? "true" : undefined}
+      className={`${RAIL_ITEM} ${
+        activo
+          ? "bg-white/10 text-white"
+          : "text-aventurea-rail hover:bg-white/10 hover:text-white"
+      }`}
+    >
+      <span aria-hidden="true">{icono}</span>
+      <span className="flex-1">{children}</span>
+
+      {activo && (
+        <span className="relative flex h-2 w-2 shrink-0">
+          <span
+            aria-hidden
+            className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75 motion-reduce:animate-none"
+          />
+          <span
+            aria-hidden
+            className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400"
+          />
+          {/* El punto es verde y eso ya se lee como «acá estás», pero el
+              color solo no le llega a quien no lo ve: el texto va en
+              `sr-only` para que un lector de pantalla lo anuncie. El
+              `aria-current` de arriba dice lo mismo en su idioma. */}
+          <span className="sr-only">Modo activo</span>
+        </span>
+      )}
+    </button>
+  );
+}
 
 const RAIL_GRUPO =
   "mb-1.5 px-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-aventurea-rail";
