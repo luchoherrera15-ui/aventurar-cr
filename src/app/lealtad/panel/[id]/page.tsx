@@ -40,7 +40,7 @@ import {
 } from "@/lib/wallet/programa-principal";
 import { llaveDeTarjeta, tarjetaConLlaveDeFila } from "@/lib/lealtad/llave-tarjeta";
 import { cupoLleno, lasQueOcupanCupo } from "./cupo-tarjetas";
-import { TIPOS_TARJETA, tipoDe } from "@/lib/lealtad/tipos-tarjeta";
+import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
 import { registraCompraElTipo } from "@/lib/lealtad/mostrador";
 import { permisosDeFila } from "@/lib/lealtad/permisos";
 import { cargarLealtad } from "./datos-lealtad";
@@ -50,7 +50,7 @@ import InicioLealtad, {
   type ClienteRecurrente,
   type EnlacesInicio,
   type EstadoPaquete,
-  type PasoPrimero,
+
 } from "./inicio-lealtad";
 import ModoMostrador from "./modo-mostrador";
 import BotonEscanear from "./boton-escanear";
@@ -407,7 +407,6 @@ export default async function PanelNegocioLealtad({
   // así que se responde con `operaAhora`: una tarjeta con estado activo
   // pero vencida NO emite pases, y decir que sí mandaría a imprimir un
   // póster con un código que responde «no encontrado».
-  const programaActivo = principal ? operaAhora(principal, ahoraCR) : false;
 
   // Las archivadas no cuentan como tarjetas que el negocio tenga: para
   // volver a emitir hay que crear otra, no reanimar la archivada. El
@@ -648,73 +647,13 @@ export default async function PanelNegocioLealtad({
   // callejón sin salida: el ancla solo se pinta si la sección existe.
   const visibles = new Set(grupos.flatMap((g) => g.items).map((i) => i.id));
   const ancla = (seccion: string) => (visibles.has(seccion) ? `#${seccion}` : null);
-  const irA = (seccion: string, texto: string) => {
-    const href = ancla(seccion);
-    return href ? { texto, href } : null;
-  };
 
   // El tipo de la tarjeta principal sale del CATÁLOGO de ocho, con
   // `tipoDe` para tolerar lo desconocido. Antes se casteaba a mano a
   // tres valores («sellos» | «puntos» | «cashback»): con un cupón, una
   // gift card o un evento, esa lista mentía y los textos salían mal.
   const tipoPrincipal = tipoDe(p?.modo ?? null);
-  const acumula = TIPOS_TARJETA[tipoPrincipal].acumula;
 
-  const reglasDan = p ? p.puntos_por_visita > 0 || Number(p.puntos_por_colon) > 0 : false;
-  const pasos: PasoPrimero[] = [
-    {
-      titulo: "Tu negocio está creado",
-      detalle: `${rancho.nombre} ya existe en Bookea con su programa de lealtad.`,
-      listo: true,
-      // «Negocio» vive adentro de Configuración desde la 0163 (primera
-      // pestaña, así que este ancla cae ahí directo).
-      cta: irA("configuracion", "Ver los datos"),
-    },
-    {
-      // La recompensa la pide lo que ACUMULA. Un cupón, un evento o una
-      // membresía llevan su beneficio adentro de la tarjeta: pedirles
-      // una recompensa activa dejaba este paso en rojo para siempre,
-      // sin que faltara nada.
-      titulo: acumula ? "Definí cómo se gana y qué se gana" : "Configurá el beneficio",
-      detalle: acumula
-        ? meta
-          ? `La meta es ${meta.nombre} a los ${meta.costo_puntos}.`
-          : "Sin una recompensa activa, la tarjeta no promete nada."
-        : `Tu ${TIPOS_TARJETA[tipoPrincipal].nombre.toLowerCase()} ya trae su beneficio adentro.`,
-      listo: acumula ? !!meta && reglasDan : !!p,
-      // Al editor DE ESA TARJETA, no a la sección. Los cinco tipos que
-      // llevan el beneficio adentro (cupón, descuento, membresía,
-      // evento, gift card) no se configuran en «Recompensas»: mandarlos
-      // ahí era mandarlos a una pantalla que les dice que no hay nada
-      // que hacer. Sin tarjeta todavía, el paso lleva al asistente.
-      cta: !puedeDisenar
-        ? null
-        : p
-          ? { texto: "Configurar", href: `/lealtad/panel/${id}/editar/${p.id}` }
-          : { texto: "Crear la tarjeta", href: `/lealtad/panel/${id}/crear` },
-    },
-    {
-      // "Listo" = el QR EXISTE y lleva a algún lado (programa activo y
-      // página publicada). Si el programa está pausado o el negocio no
-      // tiene slug, el póster imprimiría un código que responde "no
-      // encontrado" — eso no es un paso cumplido.
-      titulo: "Publicá tu tarjeta y tu QR",
-      detalle: programaActivo && slug
-        ? "Ya funciona: imprimí el póster y pegalo en la caja para que se afilien solos."
-        : "Con el programa activo y tu página publicada, el QR queda listo para imprimir.",
-      listo: programaActivo && !!slug,
-      cta: irA("poster", "Imprimir el póster"),
-    },
-    {
-      titulo: "Conseguí tu primer cliente",
-      detalle:
-        miembros > 0
-          ? `Ya llevás ${miembros} ${miembros === 1 ? "afiliado" : "afiliados"}.`
-          : "Nadie se ha afiliado todavía. El QR y el link son el camino.",
-      listo: miembros > 0,
-      cta: irA("clientes", "Ver clientes"),
-    },
-  ];
 
   // El asistente vive en su propia pantalla (ancho completo para el
   // formulario más la vista previa), la misma a la que manda la sección
@@ -776,7 +715,6 @@ export default async function PanelNegocioLealtad({
         regalia={meta ? { nombre: meta.nombre, costo: meta.costo_puntos } : null}
         resumen={datosLealtad?.resumen ?? null}
         paquete={paquete}
-        pasos={pasos}
         enlaces={enlaces}
         avisosOcultos={avisosOcultos}
         topRecurrentes={topRecurrentes}

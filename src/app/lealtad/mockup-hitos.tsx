@@ -79,13 +79,26 @@ export default function MockupHitos() {
   const notificacionVisible = fase === "notificacion";
 
   return (
-    <div aria-hidden className="flex justify-center">
+    /* ⚠️ EL `aria-hidden` ESTABA EN ESTE DIV, O SEA ENVOLVIENDO AL
+       PROPIO `sr-only`. Un `aria-hidden` esconde el subárbol ENTERO,
+       así que el párrafo que explica la demostración NO le llegaba a
+       nadie: quien no ve la pantalla se encontraba con un hueco mudo.
+
+       Es exactamente el mismo bug que ya se había encontrado y
+       corregido en `mockup-cercania.tsx` —ver el comentario largo de
+       ese archivo—, que quedó vivo acá porque los dos mockups se
+       escribieron copiando el mismo molde.
+
+       Ahora el `aria-hidden` baja al teléfono, que es el dibujo, y el
+       texto queda afuera: es lo único que ese público recibe. */
+    <div className="flex justify-center">
       <p className="sr-only">
         Demostración: a medida que un cliente junta sellos, recibe un correo solo en tres
         momentos — el primer sello, el penúltimo y cuando completa su tarjeta.
       </p>
 
       <div
+        aria-hidden
         className="relative h-[560px] w-[300px] rotate-[1.5deg] rounded-[46px] p-[9px] sm:h-[600px] sm:w-[322px]"
         style={{
           background: "linear-gradient(145deg,#121827,#3d4557 50%,#0c101a)",

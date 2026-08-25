@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icono } from "./panel/[id]/iconos";
 import { INDUSTRIAS } from "./industrias/datos";
@@ -46,14 +46,67 @@ export default function NavLealtad({
 }) {
   const [abierto, setAbierto] = useState(false);
   const [abiertoCuenta, setAbiertoCuenta] = useState(false);
+
+  /**
+   * ── LA BURBUJA REACCIONA AL SCROLL ────────────────────────────────
+   * Arriba del todo la burbuja es casi invisible: apenas un vidrio
+   * sobre el héroe. Apenas el visitante baja, se opaca, saca borde y
+   * levanta sombra — porque a partir de ahí flota sobre contenido y
+   * necesita despegarse de él para seguir siendo legible.
+   *
+   * `{ passive: true }` NO es de trámite: sin eso el navegador tiene
+   * que esperar a ver si el handler llama a `preventDefault()` antes de
+   * dejar correr el scroll, y eso se siente como un tirón en el dedo.
+   *
+   * Se llama una vez a mano antes de suscribirse porque quien recarga a
+   * media página ya arranca scrolleado: sin esa primera lectura, la
+   * burbuja aparecería transparente encima del contenido hasta que la
+   * persona moviera el dedo.
+   */
+  const [scrolleado, setScrolleado] = useState(false);
+  useEffect(() => {
+    const alScrollear = () => setScrolleado(window.scrollY > 16);
+    alScrollear();
+    window.addEventListener("scroll", alScrollear, { passive: true });
+    return () => window.removeEventListener("scroll", alScrollear);
+  }, []);
   // Pedido del dueño: que arriba se vea DE QUIÉN es la sesión. Con
   // nombre se muestra el nombre; sin él (sesión sin perfil cargado),
   // «Mi cuenta»; sin sesión, «Ingresar».
   const etiquetaCuenta = logueado ? nombre || "Mi cuenta" : "Ingresar";
 
   return (
-    <header className="sticky top-0 z-50 border-b border-aventurea-line bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-16 w-full max-w-[1240px] items-center justify-between gap-4 px-5 sm:px-8">
+    /**
+     * ⚠️ `pointer-events-none` EN EL <header> NO ES OPCIONAL.
+     *
+     * El header dejó de ser una barra y pasó a ser un CARRIL
+     * TRANSPARENTE de ancho completo con la burbuja adentro. Ese carril
+     * sigue estando ahí aunque no se vea: sin esto, la franja invisible
+     * a los costados de la burbuja se come cada clic de los primeros
+     * ~76px de la página, y el visitante no puede tocar nada de lo que
+     * ve debajo. Los hijos que sí se tocan lo vuelven a encender con
+     * `pointer-events-auto`.
+     */
+    <header className="pointer-events-none sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
+      {/* LA BURBUJA. `rounded-full` de verdad (es una píldora, no una
+          card), vidrio esmerilado siempre puesto, y el fondo/borde/
+          sombra suben de intensidad al scrollear.
+
+          Solo transiciona color, sombra y transform — que es
+          exactamente lo que globals.css permite animar. Nada de ancho
+          ni de alto: eso dispararía layout en cada scroll.
+
+          `motion-reduce:` apaga el desplazamiento de 2px para quien
+          pidió menos movimiento, pero DEJA el cambio de fondo y sombra:
+          eso no es decoración, es lo que mantiene el texto legible
+          sobre el contenido que pasa por debajo. */}
+      <div
+        className={`pointer-events-auto mx-auto flex h-16 w-full max-w-[1180px] items-center justify-between gap-4 rounded-full border px-5 backdrop-blur-xl transition-[background-color,border-color,box-shadow,transform] duration-300 sm:px-7 motion-reduce:transition-none ${
+          scrolleado
+            ? "-translate-y-0.5 border-aventurea-line bg-white/80 shadow-[0_18px_44px_-20px_rgba(16,38,88,.34)] motion-reduce:translate-y-0"
+            : "translate-y-0 border-transparent bg-white/45 shadow-none"
+        }`}
+      >
         <Link href="/" className="flex shrink-0 items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element -- mismo
               logo estático que site-header.tsx: next/image no aporta
@@ -196,9 +249,15 @@ export default function NavLealtad({
       </div>
 
       {abierto && (
+        /* El menú de móvil también se despega: era una franja pegada al
+           borde inferior de la barra, y ahora esa barra no existe. Es
+           una hoja flotante debajo de la burbuja, con el mismo ancho.
+           Fondo casi sólido —no translúcido como la burbuja— porque acá
+           hay una lista de enlaces que tiene que leerse sí o sí sobre
+           cualquier cosa que pase por detrás. */
         <div
           id="menu-lealtad"
-          className="border-t border-aventurea-line bg-white px-5 py-5 lg:hidden"
+          className="pointer-events-auto mx-auto mt-2 w-full max-w-[1180px] rounded-3xl border border-aventurea-line bg-white/95 px-5 py-5 shadow-[0_24px_60px_-24px_rgba(16,38,88,.35)] backdrop-blur-xl lg:hidden"
         >
           <nav
             className="flex flex-col gap-4"

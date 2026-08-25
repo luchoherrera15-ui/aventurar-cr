@@ -7,7 +7,9 @@ import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 import { IMAGEN_OG } from "@/lib/sitio";
 import NavLealtad from "./nav-lealtad";
 import BurbujaContacto from "./burbuja-contacto";
-import MockupRecorrido from "./mockup-recorrido";
+import MockupCreacion from "./mockup-creacion";
+import MockupEscaneo from "./mockup-escaneo";
+import MockupFidelidad from "./mockup-fidelidad";
 import MockupAnuncios from "./mockup-anuncios";
 import MockupRescate from "./mockup-rescate";
 import MockupHitos from "./mockup-hitos";
@@ -16,7 +18,6 @@ import MockupHeroPase from "./mockup-hero-pase";
 import MockupPanelNegocio from "./mockup-panel-negocio";
 import BotonCrearPase from "./boton-crear-pase";
 import BotonAyudaPersonalizada from "./boton-ayuda-personalizada";
-import AsiFunciona from "./asi-funciona";
 import SelectorTiposLanding from "./selector-tipos-landing";
 import FlujoAutomatizaciones from "./flujo-automatizaciones";
 import SeccionWallets from "./seccion-wallets";
@@ -72,6 +73,62 @@ const ACENTO_CLARO = "var(--orange-acento-claro)";
  *  deja de leerse como énfasis y pasa a ser papel tapiz. */
 const DEGRADADO_TEXTO =
   "linear-gradient(110deg,#0b3168 0%,#0f4c9e 55%,#3672c9 100%)";
+
+/**
+ * UN PASO DE «¿CÓMO FUNCIONA?»: su número, su encabezado y su demo.
+ *
+ * Existe para que los tres pasos no se escriban tres veces con el mismo
+ * markup copiado — que es exactamente cómo se despegan entre sí a la
+ * primera corrección.
+ *
+ * El número va en un disco y NO como cifra fantasma de fondo (que es lo
+ * que hacía `asi-funciona.tsx`): acá debajo hay un mockup a color con
+ * teléfonos y controles, y una cifra gigante translúcida detrás pelearía
+ * con él. Arriba de un texto suelto funcionaba; arriba de esto, no.
+ */
+function PasoFunciona({
+  numero,
+  eyebrow,
+  titulo,
+  bajada,
+  children,
+  ultimo = false,
+}: {
+  numero: number;
+  eyebrow: string;
+  titulo: string;
+  bajada: string;
+  children: React.ReactNode;
+  /** El último no lleva la línea de abajo: no separa de nada. */
+  ultimo?: boolean;
+}) {
+  return (
+    <div
+      data-reveal
+      className={`mt-16 ${ultimo ? "" : "border-b border-aventurea-line pb-16"}`}
+    >
+      <div className="mx-auto max-w-[56ch] text-center">
+        <span
+          aria-hidden
+          className="mx-auto grid h-9 w-9 place-items-center rounded-full text-[14px] font-extrabold"
+          style={{ background: "var(--accion-suave)", color: "var(--accion-fuerte)" }}
+        >
+          {numero}
+        </span>
+        <p className="mt-4 text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
+          {eyebrow}
+        </p>
+        <h3 className="titulo mx-auto mt-3 max-w-[20ch] text-[clamp(22px,3.2vw,32px)] leading-tight text-aventurea-navy">
+          {titulo}
+        </h3>
+        <p className="mx-auto mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
+          {bajada}
+        </p>
+      </div>
+      <div className="mt-10">{children}</div>
+    </div>
+  );
+}
 
 function TextoDegradado({ children }: { children: React.ReactNode }) {
   return (
@@ -299,41 +356,82 @@ export default async function LealtadPage() {
       </section>
 
       {/* ============================================================
-          4 · CÓMO FUNCIONA — la mecánica general (timeline editorial,
-          no cards) y, como su prueba visual inmediata, el recorrido
-          de una visita real en el mostrador. Antes eran dos secciones
-          separadas con dos encabezados; acá es un solo movimiento.
+          4 · ¿CÓMO FUNCIONA? — TRES MOCKUPS ANIMADOS E INTERACTIVOS
+
+          Pedido del dueño (ago 2026), textual: «Pondremos 3 mockups
+          animados e interactivos: creación del pase, scan por parte de
+          los clientes, y fidelidad de los clientes y aumento de visitas
+          — QUEREMOS MOCKUPS PROFESIONALES ANIMADOS E INTERACTIVOS».
+
+          ── QUÉ SE FUE DE ACÁ, Y POR QUÉ ──────────────────────────────
+          Esta franja tenía dos piezas y las dos eran ESTÁTICAS:
+
+            · <AsiFunciona/>      — cuatro pasos de texto con un número
+                                    de fondo. Un folleto, no una demo.
+            · <MockupRecorrido/>  — tres aros conectados por una línea.
+                                    Un diagrama abstracto del escaneo,
+                                    sin un solo pixel de producto real.
+
+          Las dos EXPLICABAN el producto en vez de MOSTRARLO. Los tres
+          mockups nuevos lo muestran, y además se tocan: se elige el
+          tipo de tarjeta y el color, se sella una visita, se compara un
+          cliente con tarjeta contra uno sin ella.
+
+          Los dos componentes viejos siguen enteros en el repo —solo
+          dejaron de importarse acá—, igual que ya pasó con las franjas
+          de la portada. Borrarlos es otra pasada y necesita su visto
+          bueno.
+
+          ── EL ORDEN CUENTA UNA HISTORIA ──────────────────────────────
+          Armás la tarjeta → se la sellás a un cliente → ese cliente
+          vuelve más seguido. Es el ciclo entero del producto, en tres
+          pantallas y sin una línea de texto de más.
           ============================================================ */}
-      <section id="como-funciona" className="scroll-mt-16 px-5 py-24 sm:px-8">
+      <section id="como-funciona" className="scroll-mt-28 px-5 py-24 sm:px-8">
         <div className="mx-auto w-full max-w-[1120px]">
           <div data-reveal className="mx-auto max-w-[52ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              Así funciona
+              Paso a paso
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
-              En diez minutos tenés tu tarjeta andando
+              ¿Cómo funciona?
             </h2>
             <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Sin diseñador, sin desarrollador y sin que tus clientes instalen
-              nada.
+              Tres pantallas, y las tres se tocan. Probá el producto acá mismo,
+              sin crear una cuenta.
             </p>
           </div>
 
-          <AsiFunciona />
+          {/* Cada paso va en su propio bloque numerado, separado por una
+              línea: son tres demos distintas, no una grilla de cards. El
+              `--reveal-delay` escalona la entrada al scrollear. */}
+          <PasoFunciona
+            numero={1}
+            eyebrow="Creá tu pase"
+            titulo="Armás la tarjeta y la ves al instante"
+            bajada="Elegí el tipo, el color y qué se gana. La vista previa de la derecha es el pase que va a llevar tu cliente en el teléfono."
+          >
+            <MockupCreacion />
+          </PasoFunciona>
 
-          <div data-reveal className="mt-20">
-            <div className="mx-auto max-w-[52ch] text-center">
-              <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-                En el mostrador
-              </p>
-              <h3 className="titulo mx-auto mt-3 text-[22px] leading-tight text-aventurea-navy sm:text-[26px]">
-                Así se registra cada visita
-              </h3>
-            </div>
-            <div className="mt-10">
-              <MockupRecorrido />
-            </div>
-          </div>
+          <PasoFunciona
+            numero={2}
+            eyebrow="El escaneo"
+            titulo="Le sellás la visita en dos segundos"
+            bajada="Tu cliente muestra su pase, vos lo escaneás desde el panel, y el sello aparece solo en su teléfono. Tocá el botón para verlo."
+          >
+            <MockupEscaneo />
+          </PasoFunciona>
+
+          <PasoFunciona
+            numero={3}
+            eyebrow="La fidelidad"
+            titulo="Y por eso vuelve más seguido"
+            bajada="Una tarjeta a medio llenar es una razón para volver a tu negocio y no al de al lado. Cambiá el interruptor para ver la diferencia."
+            ultimo
+          >
+            <MockupFidelidad />
+          </PasoFunciona>
         </div>
       </section>
 
@@ -366,7 +464,7 @@ export default async function LealtadPage() {
           cambian juntas. El único selector interactivo de la página
           que decide qué mostrar, no solo cómo se ve.
           ============================================================ */}
-      <section id="soluciones" className="scroll-mt-16 px-5 py-24 sm:px-8">
+      <section id="soluciones" className="scroll-mt-28 px-5 py-24 sm:px-8">
         <div className="mx-auto w-full max-w-[1180px]">
           <div data-reveal className="mx-auto max-w-[56ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
@@ -396,7 +494,7 @@ export default async function LealtadPage() {
           acá son un solo panel con tres pestañas de contenido, que es
           justamente la metáfora correcta.
           ============================================================ */}
-      <section id="panel" className="scroll-mt-16 px-5 py-24 sm:px-8">
+      <section id="panel" className="scroll-mt-28 px-5 py-24 sm:px-8">
         <div className="mx-auto w-full max-w-[1120px]">
           <div data-reveal className="mx-auto max-w-[56ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
@@ -596,7 +694,7 @@ export default async function LealtadPage() {
           9 · PRECIOS — panel navy redondeado, los cuatro paquetes
           reales de src/lib/lealtad/planes.ts.
           ============================================================ */}
-      <section id="planes" className="scroll-mt-16 px-5 py-24 sm:px-8">
+      <section id="planes" className="scroll-mt-28 px-5 py-24 sm:px-8">
         <div
           data-tema="oscuro"
           className="relative mx-auto w-full max-w-[1160px] overflow-hidden rounded-[32px] px-6 py-12 sm:px-10 sm:py-14"

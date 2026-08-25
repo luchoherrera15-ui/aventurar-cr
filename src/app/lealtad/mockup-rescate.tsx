@@ -65,13 +65,23 @@ export default function MockupRescate() {
   const enviando = fase === "envio";
 
   return (
-    <div aria-hidden className="w-full max-w-[460px]">
+    /* ⚠️ EL `aria-hidden` ESTABA ACÁ ARRIBA, ENVOLVIENDO AL `sr-only`.
+       Esconde el subárbol ENTERO, así que el párrafo que explica la
+       demostración no le llegaba a nadie: un hueco mudo para quien no
+       ve la pantalla.
+
+       Mismo bug que ya se había corregido en `mockup-cercania.tsx` y
+       que también quedó vivo en `mockup-hitos.tsx`: los tres salieron
+       del mismo molde y el arreglo original no se propagó. Baja al
+       dibujo, que es lo que corresponde esconder. */
+    <div className="w-full max-w-[460px]">
       <p className="sr-only">
         Demostración: el panel te muestra al cliente en riesgo, armás el mensaje con tu
         asesor, lo enviás y el cliente vuelve a estar activo.
       </p>
 
       <div
+        aria-hidden
         className="rounded-3xl border border-[#e6eaf3] bg-white p-6 sm:p-7"
         style={{ boxShadow: "0 26px 60px rgba(16,30,66,.12)" }}
       >

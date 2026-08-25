@@ -11,6 +11,7 @@ import SelectorImagenNegocio from "@/components/lealtad/selector-imagen-negocio"
 import PasoBeneficio from "@/components/lealtad/paso-beneficio";
 import CampoColor from "@/components/campo-color";
 import SubirImagen from "@/components/subir-imagen";
+import { PAISES, COSTA_RICA } from "@/lib/paises";
 import VistaPase, { type DatosVista } from "@/components/lealtad/vista-pase";
 import FormularioAuth from "@/app/cuenta/formulario-auth";
 import { contraste } from "@/lib/invitaciones/paleta";
@@ -172,6 +173,100 @@ function Obligatorio() {
     <span aria-hidden className="ml-0.5 text-bookea-azul">
       *
     </span>
+  );
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  EL TELÉFONO, CON SU EXTENSIÓN DE PAÍS
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Pedido del dueño (ago 2026): «que salga elegir extensión del país y
+ * luego número de teléfono», y que se caiga el «(para coordinar)».
+ *
+ * ── LA LISTA DE PAÍSES NO SE ESCRIBE ACÁ ────────────────────────────
+ * Sale de `@/lib/paises`, que es el catálogo único del sitio (el mismo
+ * que usan las regiones, las monedas y las zonas horarias). Escribir
+ * ocho prefijos a mano habría creado un segundo catálogo que se despega
+ * en cuanto entre el noveno país — y el propio `paises.ts` cuenta que
+ * eso YA pasó una vez con las zonas horarias.
+ *
+ * ── SE GUARDA UN SOLO TEXTO, NO DOS CAMPOS ──────────────────────────
+ * `valor.telefono` sigue siendo UN string, ahora con la forma
+ * «+506 8888 8888». Es deliberado: partirlo en dos campos obligaba a
+ * tocar la acción que crea el negocio, la tabla y todo lo que ya lee ese
+ * dato. Acá se parte solo para pintarlo y se vuelve a unir al escribir.
+ *
+ * ⚠️ EL ORDEN DE BÚSQUEDA DEL PREFIJO VA POR LARGO, NO POR LISTA. Con
+ * ocho países cuyos prefijos comparten raíz (+506, +507, +505, +502…),
+ * buscar en el orden del arreglo funciona hoy de casualidad. Ordenar de
+ * más largo a más corto es lo que lo hace correcto para siempre: si
+ * algún día entra un «+5» genérico, seguiría ganando el específico.
+ */
+const PREFIJOS_POR_LARGO = [...PAISES].sort(
+  (a, b) => b.prefijoTelefono.length - a.prefijoTelefono.length,
+);
+
+function CampoTelefono({
+  valor,
+  alCambiar,
+}: {
+  valor: string;
+  alCambiar: (telefono: string) => void;
+}) {
+  const guardado = valor.trim();
+  const pais =
+    PREFIJOS_POR_LARGO.find((p) => guardado.startsWith(p.prefijoTelefono)) ??
+    COSTA_RICA;
+  const numero = guardado.startsWith(pais.prefijoTelefono)
+    ? guardado.slice(pais.prefijoTelefono.length).trim()
+    : guardado;
+
+  /* Se vuelve a unir en cada cambio. Si el número está vacío se manda
+     vacío y NO «+506 » solo: `puedeGuardar` mira `telefono.trim()`, y un
+     prefijo suelto lo daría por completo — el botón se encendería con un
+     teléfono que no existe. */
+  const unir = (pref: string, num: string) =>
+    num.trim() ? `${pref} ${num.trim()}` : "";
+
+  return (
+    <div className="block">
+      <span className={etiqueta} id="etiqueta-telefono">
+        Teléfono
+        <Obligatorio />
+      </span>
+      <div className="flex gap-2">
+        <select
+          aria-label="Extensión del país"
+          value={pais.codigo}
+          onChange={(e) => {
+            const elegido =
+              PAISES.find((p) => p.codigo === e.target.value) ?? COSTA_RICA;
+            alCambiar(unir(elegido.prefijoTelefono, numero));
+          }}
+          className={`${campo} w-[132px] shrink-0 cursor-pointer`}
+        >
+          {PAISES.map((p) => (
+            <option key={p.codigo} value={p.codigo}>
+              {p.bandera} {p.prefijoTelefono}
+            </option>
+          ))}
+        </select>
+        <input
+          required
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel-national"
+          aria-labelledby="etiqueta-telefono"
+          value={numero}
+          onChange={(e) =>
+            alCambiar(unir(pais.prefijoTelefono, e.target.value.slice(0, 24)))
+          }
+          placeholder="8888 8888"
+          className={`${campo} min-w-0 flex-1`}
+        />
+      </div>
+    </div>
   );
 }
 const campo =
@@ -976,21 +1071,7 @@ export default function TarjetaFormulario({
                   </dl>
                 </div>
 
-                {esPublico && (
-                  <label className="block">
-                    <span className={etiqueta}>
-                      Teléfono (para coordinar)
-                      <Obligatorio />
-                    </span>
-                    <input
-                      required
-                      value={valor.telefono}
-                      onChange={(e) => patch({ telefono: e.target.value.slice(0, 30) })}
-                      placeholder="8888 8888"
-                      className={campo}
-                    />
-                  </label>
-                )}
+                {esPublico && <CampoTelefono valor={valor.telefono} alCambiar={(t) => patch({ telefono: t })} />}
 
                 {requierePago && planACobrar && (
                   <div>

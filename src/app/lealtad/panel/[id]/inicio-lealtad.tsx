@@ -102,12 +102,6 @@ import { textoRestante, type EstadoPrueba } from "@/lib/lealtad/prueba";
  * salida.
  */
 
-export type PasoPrimero = {
-  titulo: string;
-  detalle: string;
-  listo: boolean;
-  cta: { texto: string; href: string } | null;
-};
 
 /** A dónde puede llevar el tablero. `null` = quien mira no lo tiene. */
 export type EnlacesInicio = {
@@ -182,7 +176,7 @@ export default function InicioLealtad({
   regalia,
   resumen,
   paquete,
-  pasos,
+
   enlaces,
   avisosOcultos,
   accion,
@@ -203,7 +197,6 @@ export default function InicioLealtad({
   resumen: ResumenLealtad | null;
   /** El paquete y cómo va contra sus topes. */
   paquete: EstadoPaquete;
-  pasos: PasoPrimero[];
   enlaces: EnlacesInicio;
   /** Las claves de aviso que este navegador ya cerró (de la cookie). */
   avisosOcultos: string[];
@@ -236,7 +229,7 @@ export default function InicioLealtad({
     return <Bienvenida nombre={nombre} enlaces={enlaces} />;
   }
 
-  const pendientes = pasos.filter((p) => !p.listo).length;
+
 
   /* Los avisos de puesta en marcha, en el orden en que hay que
      atenderlos. La clave lleva el MOMENTO adentro y no un «puesta»
@@ -304,13 +297,18 @@ export default function InicioLealtad({
     });
   }
 
-  if (pendientes > 0) {
-    avisos.push({
-      clave: "pasos",
-      etiqueta: "Primeros pasos con Bookea",
-      nodo: <ListaPasos pasos={pasos} />,
-    });
-  }
+  /* ── «PRIMEROS PASOS CON BOOKEA» SE FUE (pedido del dueño, ago 2026) ──
+     Era la lista de puesta en marcha con su barra de avance. Se sacó del
+     tablero: para cuando alguien abre este panel ya creó el negocio y ya
+     armó la tarjeta —dos de los cuatro pasos siempre salían marcados—, y
+     los que quedaban («imprimí el póster», «conseguí tu primer cliente»)
+     ya viven arriba como avisos propios, con más contexto que un renglón
+     de checklist.
+
+     `ListaPasos` y el tipo `PasoPrimero` NO se borraron: el panel sigue
+     recibiendo `pasos` por props desde la página, y el día que se quiera
+     volver a mostrar la lista es una línea. Borrar la prop obligaría a
+     tocar la consulta que la calcula, que es otra pasada. */
 
   return (
     <div className={`flex flex-col ${GAP_TABLERO}`}>
@@ -1086,117 +1084,6 @@ function Dato({ icono, texto }: { icono: NombreIcono; texto: string }) {
       </span>
       <span className={CUERPO_SUAVE}>{texto}</span>
     </li>
-  );
-}
-
-/**
- * «Primeros pasos». Cada casilla se marca con una SEÑAL REAL de la
- * base (¿hay recompensa activa?, ¿hay tarjeta publicada?, ¿hay
- * miembros?), nunca con un booleano que alguien tocó: una lista que se
- * auto-completa sin que nada haya pasado es peor que no tenerla.
- *
- * Desaparece SOLA cuando están los cuatro. Una lista toda en verde para
- * siempre es decoración, y el tablero necesita ese espacio para los
- * datos. Y mientras quede alguno, se puede cerrar a mano con la X que
- * le pone <AvisosCerrables> — cerrarla no marca nada como hecho: la
- * lista vuelve entera desde la barrita de abajo.
- */
-function ListaPasos({ pasos }: { pasos: PasoPrimero[] }) {
-  const listos = pasos.filter((p) => p.listo).length;
-  const avance = pasos.length ? Math.round((listos / pasos.length) * 100) : 0;
-  // El primero que falta es el que se resalta: una lista con cuatro
-  // llamados a la acción a la vez no dice por dónde empezar.
-  const siguiente = pasos.findIndex((p) => !p.listo);
-
-  return (
-    /* El contador va en el slot de acción del encabezado, que es donde
-       la maqueta pone el dato de una tarjeta. `pr-9` sigue haciendo
-       falta: es el hueco de la X que le pone <AvisosCerrables>. */
-    <Card
-      eyebrow="Puesta en marcha"
-      titulo="Primeros pasos con Bookea"
-      nivel="h3"
-      accion={
-        <span className={`pr-9 ${DETALLE}`}>
-          {listos} de {pasos.length} listos
-        </span>
-      }
-    >
-      {/* La barra de progreso del sistema: 6px, carril hundido, relleno
-          del color de acción. */}
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/25">
-        <div
-          className="h-full rounded-full transition-[width] duration-500"
-          style={{ width: `${avance}%`, background: ACCION }}
-        />
-      </div>
-
-      <ol className="mt-4 space-y-2">
-        {pasos.map((paso, i) => {
-          const destacado = i === siguiente;
-          return (
-            <li
-              key={paso.titulo}
-              className={`flex flex-wrap items-center gap-x-3 gap-y-2.5 ${RADIO_TILE} border border-aventurea-line bg-aventurea-surface px-4 py-3`}
-              style={
-                destacado
-                  ? { borderColor: ACCION_BORDE, background: ACCION_TINTE }
-                  : undefined
-              }
-            >
-              {paso.listo ? (
-                <span aria-hidden className="shrink-0 text-aventurea-green">
-                  <Icono nombre="listo" className="h-[22px] w-[22px]" />
-                </span>
-              ) : (
-                /* El número del paso pendiente. Antes su borde y su
-                   letra eran alfas de blanco (.25 y .5): el mismo
-                   estado se veía de dos colores según cayera sobre la
-                   fila normal o sobre la destacada, y el .25 daba 1,6:1
-                   contra la fila. Ahora los dos casos salen de tokens
-                   sólidos — el de acción cuando es el próximo, y el
-                   gris de texto del panel (6,81:1) cuando no. */
-                <span
-                  className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full border text-[11px] font-extrabold ${
-                    destacado ? "" : "border-aventurea-line text-aventurea-ink-soft"
-                  }`}
-                  style={destacado ? { borderColor: ACCION, color: ACCION } : undefined}
-                >
-                  {i + 1}
-                </span>
-              )}
-
-              <span className="min-w-0 flex-1 basis-[min(100%,240px)]">
-                <span
-                  className={`block text-[13.5px] font-bold leading-tight ${
-                    paso.listo ? "text-aventurea-ink-soft" : "text-aventurea-ink"
-                  }`}
-                >
-                  {paso.titulo}
-                </span>
-                <span className="mt-0.5 block text-[12px] leading-snug text-aventurea-ink-soft">
-                  {paso.detalle}
-                </span>
-              </span>
-
-              {paso.cta && (
-                <a
-                  href={paso.cta.href}
-                  className={`inline-flex h-9 shrink-0 items-center rounded-xl px-3.5 text-[12.5px] font-bold transition-colors ${
-                    destacado
-                      ? "font-extrabold"
-                      : "border border-aventurea-line text-aventurea-ink-soft hover:text-aventurea-ink"
-                  }`}
-                  style={destacado ? { background: ACCION, color: ACCION_TINTA } : undefined}
-                >
-                  {paso.cta.texto} →
-                </a>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-    </Card>
   );
 }
 
