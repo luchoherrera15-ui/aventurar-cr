@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
-import NavLealtad from "../nav-lealtad";
 import FormularioAuth from "@/app/cuenta/formulario-auth";
 
 /**
@@ -62,15 +61,10 @@ export default async function IngresarLealtadPage() {
   if (sesion.logueado) redirect("/lealtad/entrar");
 
   return (
-    /* ⚠️ SIN `overflow-hidden` ACÁ, Y NO ES UN OLVIDO.
-       Un ancestro con `overflow: hidden` ANULA el `position: sticky` de
-       sus descendientes: pasa a ser el contenedor de scroll, y como ese
-       contenedor no scrollea, el nav en burbuja se quedaría clavado
-       arriba de todo en vez de seguir a la persona.
-
-       El recorte de las manchas no hace falta acá: `aurora-lienzo` trae
-       el suyo. Es exactamente lo que ya advierte globals.css — «el
-       recorte vive en su propia caja, NUNCA en la sección». */
+    /* Sin `overflow-hidden`: el recorte de las manchas ya lo trae
+       `aurora-lienzo`. Es lo que advierte globals.css — «el recorte vive
+       en su propia caja, NUNCA en la sección». Y de paso un ancestro con
+       overflow anularía cualquier `position: sticky` de adentro. */
     <main className="relative min-h-svh bg-[#fbfcff]">
       {/* ⚠️ NADA DE `-z-10` ACÁ. Lo tenía y la aurora NO SE VEÍA.
           Un z-index NEGATIVO en un hijo lo manda detrás del FONDO DE SU
@@ -88,9 +82,33 @@ export default async function IngresarLealtadPage() {
         <div className="aurora-mancha-lenta aurora-lenta-3" />
       </div>
 
-      <NavLealtad logueado={sesion.logueado} nombre={sesion.nombre} />
+      {/* ── ACÁ VIVÍA EL NAV COMPLETO DE LEALTAD, Y SOBRABA ──────────
+          Traía «Cómo funciona», «Soluciones», «Planes», «Industrias» y
+          un botón «Ingresar» — en la página de ingresar. Todo eso es
+          material de venta, y quien llegó hasta acá YA DECIDIÓ: lo único
+          que quiere es que aparezca el campo del correo.
 
-      <section className="relative px-5 pb-20 pt-14 sm:px-8 sm:pt-20">
+          Peor: el «Ingresar» del nav apuntaba a esta misma página, así
+          que el header ofrecía como acción justo lo que la persona
+          estaba haciendo.
+
+          Queda el logo —que es orientación, no venta— y una salida
+          clara abajo. */}
+      <header className="relative px-5 pt-6 sm:px-8 sm:pt-8">
+        <div className="mx-auto flex w-full max-w-[420px] items-center">
+          <Link href="/lealtad" className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element -- mismo
+                logo estático que el resto del sitio: next/image no aporta
+                nada para un PNG de 4 KB que no cambia. */}
+            <img src="/logo-bookea-nav-v4.png" alt="Bookea" className="h-7 w-auto" />
+            <span className="text-[13px] font-bold text-aventurea-ink-soft">
+              Lealtad
+            </span>
+          </Link>
+        </div>
+      </header>
+
+      <section className="relative px-5 pb-20 pt-10 sm:px-8 sm:pt-14">
         <div className="mx-auto w-full max-w-[420px]">
           {/* ── DÓNDE VA A VIVIR LA TARJETA ─────────────────────────
               Arriba del formulario porque contesta la pregunta que

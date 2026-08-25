@@ -14,7 +14,10 @@ import { ImageResponse } from "next/og";
  * sin DOM), así que se repiten a mano — son solo cuatro valores.
  */
 
-export const runtime = "edge";
+/* Sin `runtime = "edge"`: en edge esta ruta se ejecuta en CADA
+   petición y `ImageResponse` cuesta ~444 ms de CPU. En Node, Next la
+   prerenderiza en el build y después sale del CDN. Ver el comentario
+   largo en src/app/opengraph-image.tsx. */
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

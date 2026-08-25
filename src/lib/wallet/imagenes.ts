@@ -479,12 +479,48 @@ export function inicialesDe(nombre: string): string {
  * iPhone entero (ver `empaquetar.ts`), así que acá no hay lugar para
  * que una imagen mala deje a alguien sin pase.
  */
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  EL ÍCONO DE RESPALDO, DIBUJADO UNA VEZ POR TAMAÑO
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * `icono-emisor.png` redimensionado a `lado` es COMPLETAMENTE
+ * determinístico: mismo archivo del disco, mismo tamaño, mismo PNG de
+ * salida. Y se pide en dos caminos muy transitados — el negocio sin
+ * logo, y el `catch` de cuando el logo del negocio no se puede
+ * procesar.
+ *
+ * Cada llamada abría el archivo, lo decodificaba, lo redimensionaba y
+ * lo volvía a codificar a PNG con `sharp`. Por pase, y por cada uno de
+ * los tres tamaños que pide Apple (1×, 2×, 3×).
+ *
+ * El caché va por TAMAÑO porque el resultado depende de él. Son tres
+ * entradas de unos pocos KB que viven lo que viva el contenedor.
+ *
+ * ⚠️ Solo cachea el camino SIN negocio o con el logo caído. El ícono
+ * con logo propio NO se cachea: depende del logo de cada negocio, y
+ * guardarlo por `lado` serviría el logo de un negocio a otro.
+ */
+const cacheIconoEmisor = new Map<number, Buffer>();
+
+async function iconoDeRespaldo(lado: number): Promise<Buffer> {
+  const guardado = cacheIconoEmisor.get(lado);
+  if (guardado) return guardado;
+
+  const png = await sharp(join(ASSETS, "icono-emisor.png"))
+    .resize(lado, lado)
+    .png()
+    .toBuffer();
+  cacheIconoEmisor.set(lado, png);
+  return png;
+}
+
 export async function dibujarIcono(
   lado: number,
   negocio?: { nombre: string; logo: Buffer | null; colorFondo?: string | null },
 ): Promise<Buffer> {
   if (!negocio) {
-    return sharp(join(ASSETS, "icono-emisor.png")).resize(lado, lado).png().toBuffer();
+    return iconoDeRespaldo(lado);
   }
 
   if (negocio.logo) {
@@ -548,6 +584,6 @@ export async function dibujarIcono(
       .png()
       .toBuffer();
   } catch {
-    return sharp(join(ASSETS, "icono-emisor.png")).resize(lado, lado).png().toBuffer();
+    return iconoDeRespaldo(lado);
   }
 }

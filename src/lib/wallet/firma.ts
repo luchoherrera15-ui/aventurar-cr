@@ -78,13 +78,72 @@ export function construirManifest(archivos: Record<string, Buffer>): string {
  * Adjuntarlo produce un archivo que openssl valida igual pero que el
  * iPhone rechaza.
  */
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  LOS CERTIFICADOS SE PARSEAN UNA VEZ, NO EN CADA PASE
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ ESTE CACHÉ ES UN ARREGLO DE COSTO REAL, MEDIDO.
+ *
+ * `firmarManifest` corre una vez por cada `.pkpass` que se genera, y
+ * hacía esto adentro:
+ *
+ *     forge.pki.certificateFromPem(cred.certificado)
+ *     forge.pki.certificateFromPem(cred.wwdr)
+ *     forge.pki.privateKeyFromPem(cred.llave)      ← el caro
+ *
+ * `node-forge` es JavaScript PURO: parsear una llave RSA de 2048 bits
+ * significa decodificar ASN.1 y construir BigIntegers a mano, sin
+ * ayuda del runtime. Es de las cosas más caras que hace esta ruta.
+ *
+ * Y los tres objetos son IDÉNTICOS para todos los pases: salen de
+ * variables de entorno que no cambian mientras el proceso viva.
+ *
+ * Panel de Vercel, 12 horas: 53 invocaciones de la ruta del pase a
+ * ~358 ms de CPU activa cada una, con el proyecto al 75 % del límite
+ * mensual del plan.
+ *
+ * ── POR QUÉ LA CLAVE ES EL PEM Y NO UN BOOLEANO ────────────────────
+ * Si algún día rotan el certificado (vence, o se cambia el emisor), el
+ * PEM cambia y el caché falla solo — se vuelve a parsear con el nuevo.
+ * Un `let yaParseado = true` habría dejado el certificado VIEJO en
+ * memoria hasta que el contenedor muriera, firmando pases con una
+ * credencial revocada.
+ *
+ * ── LO QUE ESTO NO CAMBIA ──────────────────────────────────────────
+ * Ni un byte del `.pkpass`. `p7.sign()`, la firma y el manifest se
+ * siguen calculando por pase, que es lo único que de verdad es único.
+ */
+type CredencialesParseadas = {
+  certificado: forge.pki.Certificate;
+  wwdr: forge.pki.Certificate;
+  /* El tipo sale de la propia función: `forge.pki.PrivateKey` es más
+     ancho de lo que devuelve `privateKeyFromPem` y no encaja en
+     `addSigner`. */
+  llave: ReturnType<typeof forge.pki.privateKeyFromPem>;
+};
+
+let cacheCredenciales: { clave: string; valor: CredencialesParseadas } | null = null;
+
+function parsearCredenciales(cred: CredencialesPase): CredencialesParseadas {
+  // El PEM entero como clave: si rota el certificado, el caché falla solo.
+  const clave = `${cred.certificado}|${cred.wwdr}|${cred.llave}`;
+  if (cacheCredenciales?.clave === clave) return cacheCredenciales.valor;
+
+  const valor: CredencialesParseadas = {
+    certificado: forge.pki.certificateFromPem(cred.certificado),
+    wwdr: forge.pki.certificateFromPem(cred.wwdr),
+    llave: forge.pki.privateKeyFromPem(cred.llave),
+  };
+  cacheCredenciales = { clave, valor };
+  return valor;
+}
+
 export function firmarManifest(manifest: string, cred: CredencialesPase): Buffer {
   const p7 = forge.pkcs7.createSignedData();
   p7.content = forge.util.createBuffer(manifest, "utf8");
 
-  const certificado = forge.pki.certificateFromPem(cred.certificado);
-  const wwdr = forge.pki.certificateFromPem(cred.wwdr);
-  const llave = forge.pki.privateKeyFromPem(cred.llave);
+  const { certificado, wwdr, llave } = parsearCredenciales(cred);
 
   // Los DOS certificados van adentro: el del pase y el intermedio. Con
   // uno solo la cadena queda cortada y el pase no abre.
@@ -118,7 +177,10 @@ export function certificadoVigente(
   cred: CredencialesPase,
   ahora: Date,
 ): { vigente: true } | { vigente: false; motivo: string } {
-  const cert = forge.pki.certificateFromPem(cred.certificado);
+  /* Reusa el MISMO caché que la firma. Esta función se llama justo
+     antes de `firmarManifest` en cada pase, así que sin esto el
+     certificado se parseaba DOS VECES por pase en vez de cero. */
+  const { certificado: cert } = parsearCredenciales(cred);
   const { notBefore, notAfter } = cert.validity;
 
   if (ahora < notBefore) {

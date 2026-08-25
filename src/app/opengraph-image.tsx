@@ -28,7 +28,26 @@ import { ImageResponse } from "next/og";
  * runtime edge, sin DOM y sin la hoja de estilos. Son tres valores.
  */
 
-export const runtime = "edge";
+/**
+ * ⚠️ ACÁ DECÍA `runtime = "edge"` Y ESO ERA LO CARO.
+ *
+ * Una ruta de metadata en runtime EDGE no se prerenderiza: Next la
+ * compila como función y la ejecuta EN CADA PETICIÓN. Y `ImageResponse`
+ * no es barato — monta un motor de layout (Satori), arma un SVG y lo
+ * rasteriza a PNG.
+ *
+ * Medido en el panel de Vercel: 135 invocaciones en 12 horas, ~444 ms
+ * de CPU activa cada una. Un minuto entero de CPU para dibujar una
+ * imagen que NUNCA CAMBIA — colores fijos, texto fijo, sin parámetros
+ * ni datos.
+ *
+ * Sin esa línea la ruta corre en Node y Next la PRERENDERIZA en el
+ * build: se dibuja una vez al desplegar y después sale del CDN. Cero
+ * invocaciones, cero CPU.
+ *
+ * El comentario de arriba sigue valiendo igual: los colores van
+ * literales porque esto no tiene DOM ni hoja de estilos.
+ */
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const alt = "Bookea — Convertí cada interacción en una experiencia";
