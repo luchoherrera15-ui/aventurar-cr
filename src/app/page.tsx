@@ -94,10 +94,57 @@ export default async function Home({
       />
 
       <AvisoSuperior />
-      <HeaderSimple />
+
+      {/* ════════════════════════════════════════════════════════════
+          LA ATMÓSFERA: EL HEADER Y EL HÉROE, BAJO LA MISMA LUZ
+          ════════════════════════════════════════════════════════════
+
+          Pedido del dueño (ago 2026): «el blur naranja es estático,
+          hacé que se mueva lentamente por todo el header».
+
+          No se movía por el header por una razón estructural, no de
+          animación: la aurora vivía DENTRO de `<HeroBusqueda>`, que
+          empieza debajo del header. Y su caja lleva `overflow: hidden`
+          —lo necesita para recortar las manchas—, así que no podía
+          pintar ni un pixel fuera de esa sección.
+
+          Ahora el degradado y la aurora envuelven a los dos. El header
+          deja de llevar su propio `#fff4e6` y se vuelve transparente:
+          ese color existía justo para tapar la franja blanca que se
+          veía entre la banda navy y el arranque del héroe, y ahora esa
+          franja es la MISMA superficie que el héroe.
+
+          ⚠️ `isolate` NO ES DECORATIVO. Crea el contexto de apilado que
+          hace que el `-z-10` de la aurora se quede ADENTRO. Sin él, un
+          z-index negativo se escapa al contexto del documento y la
+          aurora termina pintada detrás del fondo de este mismo div —
+          invisible. Es exactamente el bug que tuvo /lealtad/ingresar.
+
+          El degradado arranca en `#fff4e6` y toca el blanco recién al
+          final: con tres paradas el empalme con el catálogo es continuo
+          y no se lee como un corte. */}
+      <div
+        className="relative isolate"
+        style={{
+          background:
+            "linear-gradient(180deg,#fff4e6 0%,#fff6ea 22%,#fffaf3 58%,#fffdfa 82%,#ffffff 100%)",
+        }}
+      >
+        <div aria-hidden className="aurora-caja -z-10">
+          {/* Las LENTAS, no las del héroe original: recorren 18-26 % en
+              48-67 s en vez de 6-9 % en 23-31 s. Ahora la aurora cruza
+              una superficie más alta (header + héroe), y con el viaje
+              corto el movimiento se perdía contra ese tamaño. */}
+          <div className="aurora-mancha-lenta aurora-lenta-1" />
+          <div className="aurora-mancha-lenta aurora-lenta-2" />
+          <div className="aurora-mancha-lenta aurora-lenta-3" />
+        </div>
+
+        <HeaderSimple />
+        <HeroBusqueda rubroActivo={rubro ? `${rubro.vertical}-${rubro.categoria}` : null} />
+      </div>
 
       <main className="flex-1">
-        <HeroBusqueda rubroActivo={rubro ? `${rubro.vertical}-${rubro.categoria}` : null} />
         {/* Debajo del héroe queda SOLO el marketplace (pedido del dueño,
             ago 2026). Se sacaron las cards de «Explorá Bookea» y la
             franja de rubros del final: las cinco puertas ya viven en el

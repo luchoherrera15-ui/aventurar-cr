@@ -50,7 +50,16 @@ export default async function HeaderSimple() {
        costura y la página arranca en color. Si algún día cambia esa
        primera parada en `hero-busqueda.tsx`, tiene que cambiar acá:
        son los dos extremos del mismo empalme. */
-    <header className="relative z-40" style={{ background: "#fff4e6" }}>
+    /* ⚠️ SIN FONDO PROPIO, Y ESO ES LO CORRECTO AHORA.
+       Llevaba `#fff4e6` sólido para tapar la franja blanca que se veía
+       entre la banda navy de arriba y el arranque del degradado del
+       héroe. Esa franja ya no existe: `AtmosferaPortada` (page.tsx)
+       envuelve al header Y al héroe con un solo degradado, así que el
+       header está parado sobre la misma superficie.
+
+       Y tiene que ser transparente sí o sí: con un fondo opaco taparía
+       la aurora justo en la franja donde el dueño la quiere ver. */
+    <header className="relative z-40">
       <div className="mx-auto flex h-[72px] w-full max-w-[1280px] items-center gap-6 px-4 lg:px-6">
         <Link href="/" className="titulo shrink-0 text-[22px] text-[color:var(--navy)]">
           Bookea

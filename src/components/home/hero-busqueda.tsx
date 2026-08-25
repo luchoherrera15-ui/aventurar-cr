@@ -45,24 +45,17 @@ export default function HeroBusqueda({
          encontrar lo único que la portada tiene de verdad. El `pt`
          también bajó — el titular no necesita tanto respiro arriba
          cuando ya viene precedido por la franja navy y el header. */
-      className="relative isolate px-5 pb-12 pt-12 sm:pb-16 sm:pt-16"
-      /* EL LAVADO ESTÁTICO, y sus paradas también están elegidas.
-         Antes llegaba a blanco puro en el 64 % y de ahí seguía blanco:
-         eso deja el último tercio de la sección plano, y contra el
-         degradado de arriba se lee como un corte. Ahora se apaga con
-         tres paradas y toca el blanco recién al final, así que el
-         empalme con el catálogo es continuo. El `pb` largo le da a la
-         máscara de la aurora dónde apagarse sin comerse el buscador. */
-      style={{
-        background: "linear-gradient(180deg,#fff4e6 0%,#fffaf3 46%,#fffdfa 76%,#ffffff 100%)",
-      }}
+      /* ⚠️ EL FONDO Y LA AURORA YA NO VIVEN ACÁ.
+         Se subieron a `AtmosferaPortada` (page.tsx), que envuelve al
+         header Y al héroe. El motivo es del dueño: «el blur naranja es
+         estático, hacé que se mueva lentamente por todo el header» — y
+         no podía, porque la aurora estaba encerrada en esta sección,
+         que empieza DEBAJO del header. Una caja con `overflow: hidden`
+         no puede pintar fuera de sí misma.
+         El `pb` corto lo decide `AtmosferaPortada`, que ahora es quien
+         le da a la máscara dónde apagarse. */
+      className="relative px-5 pb-12 pt-12 sm:pb-16 sm:pt-16"
     >
-      <div aria-hidden className="aurora-caja -z-10">
-        <div className="aurora-mancha aurora-1" />
-        <div className="aurora-mancha aurora-2" />
-        <div className="aurora-mancha aurora-3" />
-      </div>
-
       <div className="relative z-10 mx-auto max-w-[860px] text-center">
         <h1 className="titulo text-[clamp(32px,5.2vw,58px)] leading-[1.04] text-[color:var(--navy)]">
           ¿Qué querés reservar?
