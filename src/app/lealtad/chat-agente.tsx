@@ -67,13 +67,30 @@ export default function ChatAgente() {
     setMensajes(conNuevo);
     setEnviando(true);
 
-    const resultado = await responderAgenteLealtad(conNuevo);
-    setEnviando(false);
-
-    if (resultado.ok) {
-      setMensajes((prev) => [...prev, { role: "assistant", content: resultado.texto }]);
-    } else {
-      setError(resultado.motivo);
+    /**
+     * EL `try` NO ES DECORATIVO — sin él el chat se congelaba PARA
+     * SIEMPRE. `responderAgenteLealtad` es una Server Action, y una
+     * Server Action que revienta (se cae la red, la función se pasa
+     * del tiempo en Vercel, el visitante pierde el wifi a media
+     * respuesta) hace que este `await` LANCE. Sin `catch`, el
+     * `setEnviando(false)` de abajo nunca corría: quedaban los puntitos
+     * animados eternos, el campo deshabilitado, y ni un mensaje de
+     * error — para el visitante, un chat muerto sin explicación.
+     *
+     * El `finally` es lo que lo garantiza: apaga el "enviando" pase lo
+     * que pase, no solo cuando la respuesta llega bien.
+     */
+    try {
+      const resultado = await responderAgenteLealtad(conNuevo);
+      if (resultado.ok) {
+        setMensajes((prev) => [...prev, { role: "assistant", content: resultado.texto }]);
+      } else {
+        setError(resultado.motivo);
+      }
+    } catch {
+      setError("Se cortó la conexión. Probá de nuevo o escribinos por correo.");
+    } finally {
+      setEnviando(false);
     }
   }
 

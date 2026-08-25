@@ -145,6 +145,35 @@ const CLAVE_SESION_RESPALDO = "bookea-lealtad-wizard:nuevo";
 const ANCLA = "/lealtad#configurador-lealtad";
 
 const etiqueta = "mb-1.5 block text-[9.5px] font-bold uppercase tracking-wide text-bookea-gris";
+
+/**
+ * EL ASTERISCO DE «ESTO SÍ HACE FALTA» — pedido del dueño (ago 2026).
+ *
+ * No es decoración ni se reparte a gusto: lo llevan EXACTAMENTE los dos
+ * campos que `puedeGuardar` (más abajo) exige para dejar crear la
+ * tarjeta en el alta pública — `nombre.length > 0` y `telefonoListo`.
+ * Ya eran obligatorios; lo único que faltaba era decirlo. Sin la marca
+ * el botón de crear se quedaba apagado sin explicar cuál de los dos
+ * campos lo estaba frenando.
+ *
+ * ⚠️ Si algún día se agrega o se saca una condición de `puedeGuardar`,
+ * esta marca tiene que moverse con ella — un asterisco que miente es
+ * peor que ninguno.
+ *
+ * Va `aria-hidden` a propósito: un lector de pantalla leyendo
+ * «asterisco» no informa nada. Quien informa es el `required` del
+ * input, que el navegador traduce a `aria-required`. Uno para el ojo,
+ * el otro para el lector; no se pisan. Y `required` acá no dispara la
+ * validación nativa del navegador porque estos campos no viven dentro
+ * de un `<form>` — el guardado va por el botón, no por un submit.
+ */
+function Obligatorio() {
+  return (
+    <span aria-hidden className="ml-0.5 text-bookea-azul">
+      *
+    </span>
+  );
+}
 const campo =
   "w-full rounded-xl border border-bookea-linea bg-white px-3 py-2.5 text-[13.5px] font-medium text-bookea-tinta placeholder:text-bookea-gris/70 outline-none focus:border-bookea-azul";
 
@@ -566,8 +595,12 @@ export default function TarjetaFormulario({
           <Seccion numero={paso + 1} titulo="Tu negocio" bajada="Cómo se llama y qué tipo de tarjeta es." primera>
             <div className="space-y-4">
               <label className="block">
-                <span className={etiqueta}>{esPublico ? "Nombre del negocio" : "Nombre de la tarjeta"}</span>
+                <span className={etiqueta}>
+                  {esPublico ? "Nombre del negocio" : "Nombre de la tarjeta"}
+                  <Obligatorio />
+                </span>
                 <input
+                  required
                   autoFocus={esPublico}
                   value={valor.nombre}
                   onChange={(e) => patch({ nombre: e.target.value.slice(0, 80) })}
@@ -945,8 +978,12 @@ export default function TarjetaFormulario({
 
                 {esPublico && (
                   <label className="block">
-                    <span className={etiqueta}>Teléfono (para coordinar)</span>
+                    <span className={etiqueta}>
+                      Teléfono (para coordinar)
+                      <Obligatorio />
+                    </span>
                     <input
+                      required
                       value={valor.telefono}
                       onChange={(e) => patch({ telefono: e.target.value.slice(0, 30) })}
                       placeholder="8888 8888"

@@ -54,19 +54,19 @@ export type DemoInvitacion = {
   };
 };
 
+/**
+ * ⚠️ EL ORDEN DE ESTE ARREGLO ES EL ORDEN EN PANTALLA — no es alfabético
+ * ni cronológico, y no se reordena "para acomodar". La vitrina de
+ * /invitaciones y su slider recorren el catálogo tal cual, así que la
+ * primera entrada de cada categoría es la que ve quien llega.
+ *
+ * «Carta de Amor» va primera por pedido del dueño (ago 2026): es la
+ * demo que mejor muestra el producto —sobre lacrado, música, historia
+ * por capítulos— y estaba segunda, detrás de una más sobria. Al ser
+ * también la primera del arreglo entero queda de primera en las dos
+ * lecturas posibles: la pestaña de Bodas y el orden general.
+ */
 export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
-  {
-    slug: "demo-boda-estandar",
-    categoria: "bodas",
-    nombre: "Seda & Marfil",
-    ocasion: "Bodas",
-    descripcion:
-      "Una sola pantalla en blanco y seda: nombres en serif, cuenta regresiva viva y confirmación por WhatsApp.",
-    lienzo: "bg-aventurea-navy",
-    icono: "corazon",
-    iconoClase: "text-white/90",
-    muestra: { fondo: "#ffffff", tinta: "#6b2233", acento: "#c9a227" },
-  },
   {
     slug: "demo-boda-premium",
     categoria: "bodas",
@@ -78,6 +78,18 @@ export const CATALOGO_INVITACIONES: DemoInvitacion[] = [
     icono: "corazon",
     iconoClase: "text-white/90",
     muestra: { fondo: "#f7f2ea", tinta: "#6b2233", acento: "#c9a227" },
+  },
+  {
+    slug: "demo-boda-estandar",
+    categoria: "bodas",
+    nombre: "Seda & Marfil",
+    ocasion: "Bodas",
+    descripcion:
+      "Una sola pantalla en blanco y seda: nombres en serif, cuenta regresiva viva y confirmación por WhatsApp.",
+    lienzo: "bg-aventurea-navy",
+    icono: "corazon",
+    iconoClase: "text-white/90",
+    muestra: { fondo: "#ffffff", tinta: "#6b2233", acento: "#c9a227" },
   },
   {
     slug: "demo-invitacion",
