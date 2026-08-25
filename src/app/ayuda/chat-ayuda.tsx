@@ -350,6 +350,20 @@ export default function ChatAyuda({
             </div>
           </div>
         ))}
+        {/* ── «ESPERÁ, YA TE TOMAMOS EL CHAT» (ago 2026) ────────────
+            Mientras nadie del equipo haya contestado, el hilo se ve
+            igual que uno abandonado: los mensajes propios y silencio.
+            Esta línea es la diferencia entre «no sé si esto llegó» y
+            «llegó, esperá», y es honesta: no finge una respuesta
+            automática del otro lado —no hay bot acá—, dice que hay
+            alguien por tomarlo. Desaparece sola con la primera
+            respuesta de Bookea. */}
+        {!cerrado && hilo.mensajes.length > 0 && !hilo.mensajes.some((m) => m.deBookea) && (
+          <p className="px-4 pt-1 text-center text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            Ya le llegó a nuestro equipo. Quedate en esta página: en un momento alguien toma el
+            chat y te contesta acá mismo.
+          </p>
+        )}
         <div ref={finRef} />
       </div>
 

@@ -1,17 +1,21 @@
-"use client";
-
-import { EVENTO_MOSTRAR_CONFIGURADOR } from "./revelar-configurador";
+import Link from "next/link";
 
 /**
- * EL BOTÓN «¡Creá tu pase de lealtad!».
+ * EL BOTÓN «¡Creá tu tarjeta de fidelidad gratis!».
  *
- * En vez de llevar a la pantalla dedicada `/lealtad/crear`, dispara el
- * evento que revela el configurador embebido en esta misma landing
- * (`RevelarConfigurador`, envolviendo a `ConfiguradorLealtad` en
- * page.tsx) — arranca oculto y recién se monta y hace scroll hacia sí
- * mismo cuando algún botón de esta familia lo pide. Por eso es un
- * client component con `onClick` y no un `<Link>` de servidor, y por
- * eso solo tiene sentido en ESTA página.
+ * ── AGO 2026: VUELVE A SER UN LINK, NO UN DISPARADOR ───────────────
+ * Durante una pasada este botón revelaba el configurador embebido a
+ * mitad de la landing (`RevelarConfigurador`). Pedido del dueño: que
+ * abra la pantalla propia `/lealtad/crear`, en blanco, aparte de la
+ * landing. Armar la tarjeta es una tarea con principio y fin y
+ * merece su pantalla: en la landing quedaba compitiendo con nueve
+ * secciones de marketing, y la persona que ya decidió crear su pase
+ * no necesita que le sigan vendiendo el producto mientras lo arma.
+ *
+ * Al dejar de ser un `onClick` vuelve a ser un componente de
+ * SERVIDOR: un `<Link>` de verdad, que se puede abrir en otra
+ * pestaña, copiar, indexar y precargar. Un `<button>` con
+ * `router.push` no hace ninguna de esas cuatro cosas.
  *
  * `variante`: "primario" es el navy sólido del hero; "oscuro" es el
  * mismo botón sobre la franja navy del cierre (ahí el azul de acción
@@ -40,15 +44,14 @@ export default function BotonCrearPase({
         };
 
   return (
-    <button
-      type="button"
-      onClick={() => window.dispatchEvent(new Event(EVENTO_MOSTRAR_CONFIGURADOR))}
+    <Link
+      href="/lealtad/crear"
       className={`presionable inline-flex items-center justify-center gap-2 rounded-xl font-bold transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 ${
         grande ? "px-8 py-4.5 text-[17px] sm:text-[18px]" : "px-6 py-3.5 text-[14px]"
       }`}
       style={estilo}
     >
       {children}
-    </button>
+    </Link>
   );
 }

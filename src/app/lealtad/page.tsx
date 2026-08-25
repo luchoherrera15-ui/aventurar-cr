@@ -7,8 +7,6 @@ import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 import { IMAGEN_OG } from "@/lib/sitio";
 import NavLealtad from "./nav-lealtad";
 import BurbujaContacto from "./burbuja-contacto";
-import ConfiguradorLealtad from "./configurador-lealtad";
-import RevelarConfigurador from "./revelar-configurador";
 import MockupRecorrido from "./mockup-recorrido";
 import MockupAnuncios from "./mockup-anuncios";
 import MockupRescate from "./mockup-rescate";
@@ -182,24 +180,6 @@ export default async function LealtadPage() {
       <RevealOnScroll />
       <NavLealtad logueado={sesion.logueado} nombre={sesion.nombre} />
       <BurbujaContacto />
-
-      {/* ============================================================
-          0 · ARMÁ TU TARJETA — el configurador vive en la landing,
-          pero OCULTO hasta que se lo pida (pedido del dueño, ago
-          2026: "eso no se debe ver hasta que la persona presione el
-          botón de crearla"). RevelarConfigurador lo mantiene sin
-          montar hasta que algún <BotonCrearPase> de esta página
-          dispara el evento — recién ahí aparece y hace scroll hacia
-          sí mismo. /lealtad/crear sigue existiendo para quien llega
-          por un link directo.
-          ============================================================ */}
-      <RevelarConfigurador>
-        <section className="px-5 pt-6 sm:px-8">
-          <div className="mx-auto w-full max-w-[1180px]">
-            <ConfiguradorLealtad haySesion={sesion.logueado} />
-          </div>
-        </section>
-      </RevelarConfigurador>
 
       {/* ============================================================
           1 · HERO — qué es, la promesa, el producto en la mano.

@@ -87,10 +87,10 @@ export default function BandejaAyuda({
       <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
         Panel Admin
       </p>
-      <h1 className="titulo mt-1 text-2xl text-aventurea-ink">Hablá con Bookea</h1>
+      <h1 className="titulo mt-1 text-2xl text-aventurea-ink">Chats</h1>
       <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">
         {ordenados.length === 0
-          ? "Todavía no hay ningún hilo de soporte."
+          ? "Todavía no hay ningún chat abierto."
           : `${ordenados.length} hilo${ordenados.length === 1 ? "" : "s"}` +
             (sinContestarTotal > 0
               ? ` · ${sinContestarTotal} sin contestar`

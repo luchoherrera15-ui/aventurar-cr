@@ -94,7 +94,7 @@ export const GRUPOS_ADMIN: GrupoAdmin[] = [
     titulo: "Personas",
     items: [
       { href: "/admin/usuarios", etiqueta: "Cuentas y accesos", icono: "users" },
-      { href: "/admin/ayuda", etiqueta: "Hablá con Bookea", icono: "chat" },
+      { href: "/admin/ayuda", etiqueta: "Chats", icono: "chat", chip: "En vivo" },
       { href: "/admin/developers", etiqueta: "Developers de la API", icono: "llave" },
     ],
   },
