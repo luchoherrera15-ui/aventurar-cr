@@ -2,22 +2,24 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
-import ChipsVerticales from "@/components/chips-verticales";
 import Buscador from "@/components/buscador";
 import BuscadorDesplegable, { recordarBusqueda } from "@/components/buscador-desplegable";
 import TarjetaNegocio from "@/components/tarjeta-negocio";
 import { esNegocioNuevo } from "@/components/tag-nuevo";
-import { ChipCategoria, Encabezado, Vacio } from "@/components/ui";
+import { Encabezado, Vacio } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
-import { Colors, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
 import { normalizarTexto } from "@/lib/busqueda";
 import {
@@ -26,6 +28,77 @@ import {
   normalizarCategoriaCita,
   type CategoriaCita,
 } from "@/lib/citas";
+
+type IconoNombre = keyof typeof Ionicons.glyphMap;
+
+/**
+ * Un ícono por rubro. Son los MISMOS conceptos que la portada web
+ * (tijeras para belleza, poste para barbería, esmalte para uñas, loto
+ * para spa, estetoscopio para consultorio): la web los dibuja a mano en
+ * SVG y acá se toman de Ionicons, que es lo que la app ya usa en todas
+ * las demás pantallas. Traer los SVG de la web habría sido un juego de
+ * íconos paralelo para nueve dibujos.
+ */
+const CATEGORIA_CITA_ICONO: Record<CategoriaCita, IconoNombre> = {
+  belleza: "cut-outline",
+  barberia: "man-outline",
+  unas: "hand-left-outline",
+  spa: "flower-outline",
+  consultorio: "medkit-outline",
+  otros: "ellipsis-horizontal-outline",
+};
+
+/**
+ * Un rubro del riel: disco con ícono arriba, rótulo abajo.
+ *
+ * El disco es blanco SÓLIDO y no translúcido: debajo está el lavado
+ * naranja, y un fondo translúcido haría que el ícono cambiara de
+ * contraste según dónde caiga.
+ */
+function RubroIcono({
+  icono,
+  label,
+  activo,
+  apagado,
+  onPress,
+}: {
+  icono: IconoNombre;
+  label: string;
+  activo: boolean;
+  apagado?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={apagado ? `${label} — todavía sin negocios` : label}
+      accessibilityState={{ selected: activo, disabled: apagado }}
+      disabled={apagado}
+      onPress={onPress}
+      style={styles.rubro}
+    >
+      <View
+        style={[
+          styles.rubroDisco,
+          activo && styles.rubroDiscoActivo,
+          apagado && styles.rubroApagado,
+        ]}
+      >
+        <Ionicons
+          name={icono}
+          size={22}
+          color={activo ? "#ffffff" : Colors.navy}
+        />
+      </View>
+      <Text
+        numberOfLines={1}
+        style={[styles.rubroTexto, apagado && styles.rubroTextoApagado]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
 
 type Negocio = {
   id: string;
@@ -62,7 +135,7 @@ const TITULO_FILA: Record<CategoriaCita, string> = {
  *
  * Eventos era la pestaña de aterrizaje antes; ahora es pantalla
  * aparte (`/eventos`, ver `pantallas/explorar.tsx`) y se llega con el
- * chip "Eventos" de `ChipsVerticales`, arriba.
+ * chip "Eventos" que vivía arriba (ver el comentario del lavado).
  *
  * Usa las mismas piezas que las otras verticales: `Buscador` arriba,
  * `TarjetaNegocio` en las listas y `Vacio` en los estados sin
@@ -195,13 +268,29 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
 
   return (
     <View style={styles.contenedor}>
-      {/* Sin barra nativa en las pestañas: los chips arrancan justo
-          debajo del notch, igual que hacía Explorar. */}
-      <View style={[styles.verticalesZona, { paddingTop: insets.top + Spacing.two }]}>
-        {/* El mismo menú de verticales que Eventos: saltar ahí con un
-            toque, sin depender de la flecha de volver (acá no hay). */}
-        <ChipsVerticales activo="citas" />
+      {/* ── EL LAVADO NARANJA, igual que la portada web ────────────────
+          Tres capas de color que se apagan hacia abajo. En React Native
+          no hay radial-gradient ni CSS mask, así que el degradado se
+          arma apilando vistas con opacidad decreciente: es la misma
+          idea —color arriba, nada abajo— con las herramientas que hay.
+
+          `pointerEvents="none"` para que la capa no se coma los toques
+          del buscador que va encima, y `position: absolute` para que no
+          empuje el layout ni un píxel.
+
+          ⚠️ ACÁ VIVÍA `ChipsVerticales` (el selector Eventos /
+          Servicios). Se fue (pedido del dueño, ago 2026) por lo mismo
+          que en la web: «Eventos» y «Servicios» son NUESTRA
+          arquitectura, no la de quien entra a reservar. La fila de
+          rubros de abajo dice directo lo que se puede pedir. La
+          pantalla de Eventos sigue viva en `/eventos`. */}
+      <View pointerEvents="none" style={styles.auroraCaja}>
+        <View style={[styles.auroraCapa, styles.auroraUno]} />
+        <View style={[styles.auroraCapa, styles.auroraDos]} />
+        <View style={[styles.auroraCapa, styles.auroraTres]} />
       </View>
+
+      <View style={{ paddingTop: insets.top + Spacing.two }} />
 
       {errorCarga && negocios === null ? (
         <View style={styles.centro}>
@@ -263,24 +352,38 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
               siempre, en el orden oficial: las vacías van apagadas y no
               se pueden tocar, pero se ven — es la vitrina de rubros,
               no un filtro de resultados. */}
+          {/* ── LOS RUBROS COMO ÍCONOS, igual que la portada web ───────
+              Eran chips de texto con el conteo entre paréntesis. Ahora
+              son discos con ícono, que es lo que se reconoce de un
+              vistazo con el teléfono en la mano.
+
+              ⚠️ EL CONTEO SALIÓ DEL RÓTULO. «Belleza (0)» delante de
+              alguien que llega es un cartel que dice que Bookea está
+              vacío. Lo que quedó es el mismo criterio de antes —el
+              rubro sin negocios se ve APAGADO y no se puede tocar— pero
+              sin poner el número enfrente. Se siguen mostrando todos:
+              es la vitrina de lo que Bookea cubre, no un filtro de
+              resultados. */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             style={styles.chipsScroll}
-            contentContainerStyle={styles.chips}
+            contentContainerStyle={styles.rubros}
             keyboardShouldPersistTaps="handled"
           >
-            <ChipCategoria
-              texto={`Todos (${negocios.length})`}
+            <RubroIcono
+              icono="apps-outline"
+              label="Todos"
               activo={categoriaActiva === null}
               onPress={() => setCategoriaActiva(null)}
             />
             {CATEGORIAS_CITAS.map((c) => {
               const n = conteo[c] ?? 0;
               return (
-                <ChipCategoria
+                <RubroIcono
                   key={c}
-                  texto={n > 0 ? `${CATEGORIA_CITA_LABEL[c]} (${n})` : CATEGORIA_CITA_LABEL[c]}
+                  icono={CATEGORIA_CITA_ICONO[c]}
+                  label={CATEGORIA_CITA_LABEL[c]}
                   activo={categoriaActiva === c}
                   apagado={n === 0}
                   onPress={() => n > 0 && setCategoriaActiva(categoriaActiva === c ? null : c)}
@@ -356,7 +459,6 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
 
 const styles = StyleSheet.create({
   contenedor: { backgroundColor: Colors.canvas, flex: 1 },
-  verticalesZona: { paddingHorizontal: Spacing.three, paddingTop: Spacing.two },
   centro: {
     flex: 1,
     justifyContent: "center",
@@ -382,4 +484,53 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.three,
     paddingVertical: 2,
   },
+
+  // ── LOS RUBROS CON ÍCONO ─────────────────────────────────────────
+  rubros: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: Spacing.two + 2,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 2,
+  },
+  rubro: { alignItems: "center", gap: 6, width: 68 },
+  rubroDisco: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 26,
+    height: 52,
+    justifyContent: "center",
+    width: 52,
+    // La sombra es la que despega el disco del lavado naranja. Va suave:
+    // ocho discos con sombra fuerte se leen como ocho botones gritando.
+    elevation: 2,
+    shadowColor: Colors.navy,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+  },
+  rubroDiscoActivo: { backgroundColor: Colors.navy },
+  // Apagado = todavía no hay negocios de ese rubro. Se ve, pero no se
+  // toca: es la vitrina de lo que Bookea cubre.
+  rubroApagado: { opacity: 0.4, shadowOpacity: 0 },
+  rubroTexto: {
+    color: Colors.navy,
+    fontFamily: Fonts.bold,
+    fontSize: 11.5,
+    textAlign: "center",
+  },
+  rubroTextoApagado: { opacity: 0.55 },
+
+  // ── EL LAVADO NARANJA ────────────────────────────────────────────
+  // Tres bandas apiladas con opacidad decreciente. React Native no tiene
+  // radial-gradient ni máscara, así que el apagado se consigue con la
+  // altura y el alfa de cada banda: la de arriba es la más saturada y la
+  // de abajo casi no se ve. El resultado es el mismo que en la web
+  // —color arriba, blanco abajo, sin un borde donde termina— con lo que
+  // hay en la plataforma.
+  auroraCaja: { height: 320, left: 0, position: "absolute", right: 0, top: 0 },
+  auroraCapa: { left: 0, position: "absolute", right: 0 },
+  auroraUno: { backgroundColor: "#fdf0e2", height: 190, top: 0 },
+  auroraDos: { backgroundColor: "#fdf0e2", height: 70, opacity: 0.55, top: 190 },
+  auroraTres: { backgroundColor: "#fdf0e2", height: 60, opacity: 0.22, top: 260 },
 });
