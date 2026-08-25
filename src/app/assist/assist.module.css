@@ -165,7 +165,171 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   1 · HERO
+   1 · HERO — negro tecnológico (rediseño ago 2026)
+   ═══════════════════════════════════════════════════════════════════
+
+   Ver la cabecera de hero.tsx para el porqué. Acá solo lo que no se
+   entiende leyendo el JSX:
+
+   `--void-tech` es MÁS NEGRO que `--void` de la paleta, y esa es toda
+   la diferencia entre «oscuro» y «tecnológico»: sobre navy, la malla y
+   el resplandor se leen como decoración; sobre casi negro, como
+   pantalla.
+
+   Las clases del hero VIEJO (.hero, .heroInner, .heroTexto,
+   .heroTelefono, .heroChips, .chip, .chatFondo…) siguen abajo y NO se
+   borraron: `como-funciona.tsx` reusa varias, y un módulo CSS no avisa
+   cuando se borra una clase que alguien todavía pide — el estilo
+   simplemente desaparece en silencio. Se limpian cuando se pueda
+   comprobar una por una, no de memoria. */
+
+.heroTech {
+  position: relative;
+  --void-tech: #08090c;
+  background: var(--void-tech);
+  padding: clamp(120px, 20vh, 210px) 0 clamp(96px, 16vh, 170px);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.heroTechFondo {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* La malla: un punto cada 32px, dibujado con un gradiente repetido en
+   vez de un SVG o un PNG — es un fondo, no un elemento, así que no suma
+   nodos al DOM ni un pedido de red. Se desvanece hacia abajo con
+   `mask-image` para que no termine en un borde recto contra la banda
+   siguiente. */
+.heroTechMalla {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.075) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(115% 85% at 50% 32%, #000 0%, #000 42%, transparent 82%);
+}
+
+/* El resplandor naranja detrás del título. Opacidad baja a propósito:
+   tiene que sentirse como luz, no como una mancha de color. */
+.heroTechResplandor {
+  position: absolute;
+  left: 50%;
+  top: 26%;
+  width: min(880px, 108vw);
+  height: min(560px, 62vh);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center, rgba(238, 116, 32, 0.3) 0%, rgba(238, 116, 32, 0.09) 38%, transparent 70%);
+  filter: blur(28px);
+}
+
+/* La viñeta cierra las esquinas para que la malla no se vea cortada
+   por el borde de la pantalla. */
+.heroTechVineta {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(125% 105% at 50% 38%, transparent 42%, rgba(8, 9, 12, 0.86) 100%);
+}
+
+.heroTechInner {
+  position: relative;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 24px;
+  text-align: center;
+}
+
+.heroTechKicker {
+  margin: 0 0 26px;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--orange);
+}
+
+/* Más grande y más apretado que `.d1`: es lo único que hay en la
+   pantalla, así que puede ocupar el lugar de todo lo que se sacó. */
+.heroTechTitulo {
+  margin: 0;
+  font-size: clamp(44px, 8.4vw, 104px);
+  font-weight: 900;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  color: #ffffff;
+  text-wrap: balance;
+}
+
+/* Lo único con color en toda la pantalla: la marca. */
+.heroTechMarca {
+  background: linear-gradient(96deg, var(--orange) 0%, var(--ember) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.heroTechAccion {
+  margin-top: clamp(38px, 5.5vh, 58px);
+}
+
+.botonTech {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 58px;
+  padding: 0 40px;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform 0.2s var(--ease), background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  box-shadow: 0 18px 44px -14px rgba(238, 116, 32, 0.72);
+}
+
+.botonTech:hover {
+  background: #ff8a3d;
+  transform: translateY(-2px);
+  box-shadow: 0 22px 52px -14px rgba(238, 116, 32, 0.85);
+}
+
+/* La entrada escalonada del kicker, cada palabra y el botón. */
+.heroTechPalabra {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+  transition-delay: calc(var(--i, 0) * 75ms);
+}
+
+.heroTechVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/**
+ * Con `prefers-reduced-motion` se apaga el MOVIMIENTO, no el
+ * contenido: sin este bloque, quien tenga la preferencia activada
+ * vería la pantalla en blanco para siempre — el estado inicial de
+ * `.heroTechPalabra` es `opacity: 0`, y si la transición no corre,
+ * nada lo saca de ahí.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .heroTechPalabra {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   1b · HERO viejo — lo sigue usando `como-funciona.tsx` (ver arriba)
    ═══════════════════════════════════════════════════════════════════ */
 
 .hero {
