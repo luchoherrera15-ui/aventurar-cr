@@ -235,7 +235,11 @@ function CampoTelefono({
         Teléfono
         <Obligatorio />
       </span>
-      <div className="flex gap-2">
+      <div className="flex items-stretch gap-2">
+        {/* El país va CHICO y a la izquierda: es un dato que se elige una
+            vez y casi siempre queda en +506. El protagonista de la fila
+            es el número. `w-[104px]` entra justo con la bandera, el
+            prefijo de hasta cuatro dígitos y la flechita del select. */}
         <select
           aria-label="Extensión del país"
           value={pais.codigo}
@@ -244,7 +248,7 @@ function CampoTelefono({
               PAISES.find((p) => p.codigo === e.target.value) ?? COSTA_RICA;
             alCambiar(unir(elegido.prefijoTelefono, numero));
           }}
-          className={`${campo} w-[132px] shrink-0 cursor-pointer`}
+          className={`${CAMPO_BASE} w-[104px] shrink-0 cursor-pointer px-2.5`}
         >
           {PAISES.map((p) => (
             <option key={p.codigo} value={p.codigo}>
@@ -252,6 +256,10 @@ function CampoTelefono({
             </option>
           ))}
         </select>
+        {/* `min-w-0` sobre un hijo de flex NO es de adorno: por defecto
+            un input tiene `min-width:auto`, o sea que se niega a
+            achicarse por debajo de su ancho intrínseco y desborda la
+            fila en pantallas angostas en vez de encogerse. */}
         <input
           required
           type="tel"
@@ -263,14 +271,29 @@ function CampoTelefono({
             alCambiar(unir(pais.prefijoTelefono, e.target.value.slice(0, 24)))
           }
           placeholder="8888 8888"
-          className={`${campo} min-w-0 flex-1`}
+          className={`${CAMPO_BASE} min-w-0 flex-1`}
         />
       </div>
     </div>
   );
 }
-const campo =
-  "w-full rounded-xl border border-bookea-linea bg-white px-3 py-2.5 text-[13.5px] font-medium text-bookea-tinta placeholder:text-bookea-gris/70 outline-none focus:border-bookea-azul";
+/**
+ * El estilo de un campo, SIN el ancho.
+ *
+ * ⚠️ El ancho salió de acá y no es cosmético. `campo` empezaba con
+ * `w-full`, y cuando dos campos comparten una fila —el selector de país
+ * y el número de teléfono— ese `w-full` pelea con el ancho que se le
+ * quiera dar: Tailwind emite las dos clases y gana la que vaya después
+ * en la HOJA, no en el atributo. Resultado real: el selector se comía
+ * la fila entera y la caja del número desaparecía de la pantalla.
+ *
+ * Ahora `campo` sigue trayendo su `w-full` para el 99 % de los casos, y
+ * quien comparte fila usa `CAMPO_BASE` y decide el ancho él.
+ */
+const CAMPO_BASE =
+  "rounded-xl border border-bookea-linea bg-white px-3 py-2.5 text-[13.5px] font-medium text-bookea-tinta placeholder:text-bookea-gris/70 outline-none focus:border-bookea-azul";
+
+const campo = `w-full ${CAMPO_BASE}`;
 
 /** WCAG AA para texto — mismo umbral que ya usaba el editor autenticado. */
 const CONTRASTE_TEXTO = 4.5;
