@@ -19,7 +19,9 @@ import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import { useAuth } from "@/lib/auth-context";
 import { cargarFavoritosIds, cargarTarjetasFood, type TarjetaFood } from "@/lib/food-datos";
 import { PROVINCIAS, PROVINCIAS_ID, TIPOS_COCINA, TIPOS_COCINA_ID, type Provincia, type TipoCocina } from "@/lib/food-tipos";
+import { useModoPedido } from "@/lib/modo-pedido";
 import TarjetaRestaurante from "@/components/tarjeta-restaurante";
+import SelectorModo from "@/components/selector-modo";
 
 /** "Todos" + las 10 del catálogo cerrado (0202) — icono ya viene del
  *  catálogo, pero acá se pinta como foto (ver FOTOS_CATEGORIA); "Todos"
@@ -82,6 +84,7 @@ export default function Inicio({ activa }: { activa: boolean }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
+  const { modo } = useModoPedido();
   const [tarjetas, setTarjetas] = useState<TarjetaFood[] | null>(null);
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set());
   const [refrescando, setRefrescando] = useState(false);
@@ -107,10 +110,13 @@ export default function Inicio({ activa }: { activa: boolean }) {
   const tarjetasFiltradas = useMemo(() => {
     if (!tarjetas) return [];
     let lista = tarjetas;
+    // En "To Go" solo entran los negocios que lo tienen prendido Y ya
+    // tienen menú cargado (0207) — sin menú no hay qué pedir.
+    if (modo === "togo") lista = lista.filter((t) => t.aceptaParaLlevar && t.platos.length > 0);
     if (categoriaActiva !== "todos") lista = lista.filter((t) => t.tipoCocina === categoriaActiva);
     if (provinciaActiva) lista = lista.filter((t) => t.provincia === provinciaActiva);
     return lista;
-  }, [tarjetas, categoriaActiva, provinciaActiva]);
+  }, [tarjetas, modo, categoriaActiva, provinciaActiva]);
 
   const categoriaLabel = CATEGORIAS.find((c) => c.id === categoriaActiva)?.nombre ?? "";
   const ubicacionLabel = provinciaActiva ? PROVINCIAS[provinciaActiva] : "Costa Rica";
@@ -134,6 +140,10 @@ export default function Inicio({ activa }: { activa: boolean }) {
         }
         ListHeaderComponent={
           <View style={{ marginBottom: Spacing.four }}>
+            <View style={{ marginBottom: Spacing.four }}>
+              <SelectorModo />
+            </View>
+
             <Pressable
               onPress={() => {
                 setPasoUbicacion("pais");
@@ -194,7 +204,9 @@ export default function Inicio({ activa }: { activa: boolean }) {
               })}
             </ScrollView>
 
-            <Text style={[Tipo.titulo2, { marginTop: Spacing.five }]}>Ofertas cerca de vos</Text>
+            <Text style={[Tipo.titulo2, { marginTop: Spacing.five }]}>
+              {modo === "togo" ? "Para llevar cerca de vos" : "Ofertas cerca de vos"}
+            </Text>
           </View>
         }
         renderItem={({ item }) => (
@@ -208,6 +220,13 @@ export default function Inicio({ activa }: { activa: boolean }) {
         ListEmptyComponent={
           tarjetas === null ? (
             <ActivityIndicator color={Colors.accent} style={{ marginTop: Spacing.five }} />
+          ) : tarjetasFiltradas.length === 0 && modo === "togo" && categoriaActiva === "todos" && !provinciaActiva ? (
+            <View style={styles.vacio}>
+              <Ionicons name="bag-handle-outline" size={28} color={Colors.inkMuted} />
+              <Text style={styles.vacioTexto}>
+                Todavía ningún restaurante ofrece pedidos para llevar. Volvé pronto.
+              </Text>
+            </View>
           ) : tarjetas.length === 0 ? (
             <View style={styles.vacio}>
               <Ionicons name="restaurant-outline" size={28} color={Colors.inkMuted} />

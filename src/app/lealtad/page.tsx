@@ -17,6 +17,7 @@ import MockupCercania from "./mockup-cercania";
 import MockupHeroPase from "./mockup-hero-pase";
 import MockupPanelNegocio from "./mockup-panel-negocio";
 import BotonCrearPase from "./boton-crear-pase";
+import BotonAyudaPersonalizada from "./boton-ayuda-personalizada";
 import AsiFunciona from "./asi-funciona";
 import SelectorTiposLanding from "./selector-tipos-landing";
 import FlujoAutomatizaciones from "./flujo-automatizaciones";
@@ -223,9 +224,12 @@ export default async function LealtadPage() {
             </p>
 
             <div className="mt-8">
-              <BotonCrearPase variante="primario" grande>
-                ¡Creá tu tarjeta de fidelidad gratis! <span aria-hidden>→</span>
-              </BotonCrearPase>
+              <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+                <BotonCrearPase variante="primario" grande>
+                  ¡Creá tu tarjeta de fidelidad gratis! <span aria-hidden>→</span>
+                </BotonCrearPase>
+                <BotonAyudaPersonalizada grande />
+              </div>
               <p className="mt-3 flex items-center justify-center gap-2 text-[13.5px] font-bold text-aventurea-ink-soft lg:justify-start">
                 <span aria-hidden>📲</span>
                 Tus clientes la agregan al Wallet al instante — sin instalar
@@ -406,8 +410,8 @@ export default async function LealtadPage() {
               El panel del negocio
             </p>
             <h2 className="titulo mx-auto mt-4 max-w-[24ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
-              No te prometemos clientes fieles.{" "}
-              <TextoDegradado>Te mostramos cuánto compran.</TextoDegradado>
+              Fidelizás clientes.{" "}
+              <TextoDegradado>Y ves exactamente cuánto compran.</TextoDegradado>
             </h2>
             <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
               Cada sello queda respaldado por su compra: tu panel te dice cuánto

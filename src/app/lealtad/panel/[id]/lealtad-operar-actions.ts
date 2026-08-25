@@ -7,19 +7,13 @@ import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
 import { llaveDeCanje } from "@/lib/lealtad/canje";
-import {
-  reglaDeSellos,
-  sellosPorCompra,
-  traducirErrorDeBase,
-  traducirMotivo,
-} from "@/lib/lealtad/mostrador";
-import {
-  recortarProducto,
-  registrarTransaccionComercial,
-} from "@/lib/lealtad/transacciones";
-import { productoDelNegocio } from "@/lib/lealtad/productos-db";
-import { formatearCRC } from "@/lib/dinero";
-import { TIPOS_TARJETA, leerBeneficio, tipoDe } from "@/lib/lealtad/tipos-tarjeta";
+import { traducirErrorDeBase, traducirMotivo } from "@/lib/lealtad/mostrador";
+// Los nueve imports que faltan acá —la regla de sellos, el registro
+// comercial, el catálogo de productos, los tipos de tarjeta— se fueron
+// con `acreditarOperacion` a `@/lib/lealtad/operar-core`. Que este
+// archivo ya no los necesite es la señal de que la extracción quedó
+// completa: si vuelven, alguien está recalculando sellos acá.
+import { acreditarPorMiembroCore } from "@/lib/lealtad/operar-core";
 import { minutoISOCR } from "@/lib/fechas";
 import type { PermisoLealtad } from "@/lib/lealtad/permisos";
 import { identidadesDeMiembros, miembrosConIdentidad } from "@/lib/lealtad/identidades-db";
@@ -139,150 +133,53 @@ export async function acreditarOperacion(
    */
   productoId?: string | null,
 ): Promise<Resultado<{ puntos: number; saldo: number; yaEstaba: boolean }>> {
-  if (monto !== null && (!Number.isInteger(monto) || monto < 0 || monto > 10_000_000)) {
-    return { ok: false, motivo: "El monto debe ser una cantidad entera de colones." };
-  }
+  // ── LA LÓGICA SE MUDÓ A `@/lib/lealtad/operar-core` ────────────────
+  // La app móvil necesita exactamente esto, y un server action no se
+  // puede llamar desde React Native. Acá queda lo que solo tiene sentido
+  // en el navegador: la identidad por cookie, el redirect al login y la
+  // revalidación. Ver la cabecera de ese archivo.
+  const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
+  if (!user) redirect("/lealtad/login");
+  if (!ok) return { ok: false, motivo: "No tenés acceso a este negocio." };
 
-  const g = await guardYMiembro(ranchoId, miembroId, "acreditar");
-  if (!g.ok) return g;
+  const db = createAdminClient();
+  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
 
-  // LA REGLA DE ACUMULACIÓN (0197): la decide el servidor leyendo el
-  // beneficio guardado — el navegador manda el hecho, no los sellos.
-  // Config vieja o rota cae a «1 por compra», lo de siempre. El mismo
-  // camino que el escáner (escaner-actions.ts).
-  const tipo = tipoDe(g.modo);
-  const acumula = TIPOS_TARJETA[tipo].acumula;
-  const beneficio = tipo === "sellos" ? leerBeneficio(g.beneficio, "sellos") : null;
-  const regla = reglaDeSellos(beneficio);
-  const porMonto = tipo === "sellos" && regla.por === "monto" && monto !== null;
-  const sellos = porMonto ? sellosPorCompra(beneficio, monto) : null;
-
-  // EL PRODUCTO DEL CATÁLOGO (0198), comprobado contra ESTE negocio —
-  // el id llega de fuera, igual que el del miembro. Si no pasa el
-  // filtro (o la 0198 no está), la venta se registra con el texto que
-  // haya: el catálogo nunca puede frenar un sello. El nombre guardado
-  // es el del catálogo, que es la foto del menú al momento de la venta.
-  const delCatalogo =
-    productoId && productoId.trim() ? await productoDelNegocio(g.db, ranchoId, productoId) : null;
-  const productoLimpio = recortarProducto(delCatalogo?.nombre ?? producto);
-
+  // LA REFERENCIA LA ARMA ESTE CAMINO, y se preserva tal cual estaba.
+  //
+  // Con `randomUUID()` el unique del ledger
+  // (`transacciones_puntos_referencia_unica`, 0060:187) no rebotaba el
+  // doble toque y el cliente se llevaba dos sellos por una visita. Por
+  // eso lleva el MINUTO adentro.
+  //
+  // Consecuencia aceptada: no se acredita dos veces al mismo miembro por
+  // el mismo monto dentro del mismo minuto. Para la venta seguida de
+  // verdad está el número de factura, que entra por `referencia` y gana.
+  //
+  // El endpoint del app NO usa esta forma: allá el `intentoId` es
+  // obligatorio y la llave es `mostrador:<miembro>:<intento>`, que no
+  // tiene el problema del minuto de calendario.
   const referenciaFinal =
-    // Mismo problema y mismo arreglo que en el canje: con `randomUUID()`
-    // el unique del ledger (`transacciones_puntos_referencia_unica`,
-    // 0060:187) no rebotaba el doble toque y el cliente se llevaba dos
-    // sellos por una visita. Se sigue el patrón que el escáner ya usa
-    // bien (`referenciaDelMinuto`, escaner-actions.ts:44): el minuto
-    // adentro de la llave.
-    //
-    // Consecuencia aceptada, la misma del escáner: no se acredita dos
-    // veces al mismo miembro por el mismo monto dentro del mismo minuto.
-    // Para la venta seguida de verdad está el número de factura, que
-    // entra por `referencia` y gana.
     referencia?.trim() || `panel:${miembroId}:${monto ?? "visita"}:${minutoISOCR()}`;
 
-  // La compra que no llega al monto por sello no suma, y se dice con
-  // el número enfrente. La venta SÍ queda registrada (0197).
-  if (porMonto && sellos !== null && sellos < 1) {
-    await registrarTransaccionComercial(g.db, {
-      ranchoId,
-      programaId: g.programaId,
-      miembroId,
-      monto,
-      producto: productoLimpio,
-      productoId: delCatalogo?.id ?? null,
-      sellosOtorgados: 0,
-      puntosOtorgados: null,
-      referencia: referenciaFinal,
-      registradoPor: g.usuarioId,
-    });
-    return {
-      ok: false,
-      motivo: `La compra quedó registrada, pero no llega a ${formatearCRC(
-        regla.por === "monto" ? regla.montoPorSello : 0,
-      )}: no suma sello.`,
-    };
-  }
-
-  const argumentos = {
-    p_miembro_id: miembroId,
-    p_monto: monto,
-    p_referencia: referenciaFinal,
-    p_usuario_id: g.usuarioId,
-    p_motivo: monto === null ? "Sello por visita" : "Compra",
-  };
-
-  // Con regla por monto, los sellos van ya calculados (`p_sellos`,
-  // 0197). Si esa migración no está pegada, el RPC de 6 argumentos no
-  // existe: se degrada al camino de siempre — un sello por compra.
-  let respuesta =
-    porMonto && sellos !== null
-      ? await g.db.rpc("acreditar_lealtad", { ...argumentos, p_sellos: sellos })
-      : await g.db.rpc("acreditar_lealtad", argumentos);
-  if (
-    respuesta.error &&
-    porMonto &&
-    (respuesta.error.code === "PGRST202" || respuesta.error.code === "42883")
-  ) {
-    respuesta = await g.db.rpc("acreditar_lealtad", argumentos);
-  }
-  const { data, error } = respuesta;
-
-  if (error) return { ok: false, motivo: traducirErrorDeBase(error, "dar el sello") };
-
-  const r = data as { otorgado: boolean; puntos?: number; saldo?: number; motivo?: string };
-  if (!r.otorgado && r.motivo !== "ya-otorgado") {
-    return { ok: false, motivo: traducirMotivo(r.motivo, "No se pudo dar el sello.") };
-  }
-  const yaEstaba = r.motivo === "ya-otorgado";
-
-  // EL EVENTO COMERCIAL (0197): la compra detrás del sello. Degrada en
-  // silencio si la tabla no existe; un reintento rebota por la misma
-  // referencia. Solo en tarjetas acumulativas: presentar un cupón no
-  // es una compra.
-  if (acumula && !yaEstaba) {
-    await registrarTransaccionComercial(g.db, {
-      ranchoId,
-      programaId: g.programaId,
-      miembroId,
-      monto,
-      producto: productoLimpio,
-      productoId: delCatalogo?.id ?? null,
-      sellosOtorgados: tipo === "sellos" ? (r.puntos ?? 0) : 0,
-      puntosOtorgados: tipo === "sellos" ? null : (r.puntos ?? null),
-      referencia: referenciaFinal,
-      registradoPor: g.usuarioId,
-    });
-  }
-
-  // El aviso al teléfono nunca frena la operación (los puntos ya
-  // están), pero un `void` suelto muere cuando Vercel congela la
-  // función al responder: `after` lo mantiene vivo.
-  after(() => avisarCambioDePase(miembroId));
-
-  // El respaldo por correo — este camino (acreditar desde el panel, sin
-  // escanear) tenía el MISMO hueco que el escáner: acredita directo
-  // contra `acreditar_lealtad` y nunca pasaba por `motor.ts`, que es
-  // donde vive `avisarSelloPorCorreo`. Ver el comentario largo en
-  // escaner-actions.ts — es el mismo bug, portado acá.
-  if (!yaEstaba) {
-    after(async () => {
-      try {
-        const { avisarSelloPorCorreo } = await import("@/lib/correo/sello-acreditado");
-        await avisarSelloPorCorreo(miembroId, r.saldo ?? 0);
-      } catch (e) {
-        console.warn("[correo] No salió el respaldo de sello acreditado:", e);
-      }
-    });
-  }
+  const r = await acreditarPorMiembroCore({
+    db,
+    ranchoId,
+    quien: { usuarioId: user.id, permisos },
+    miembroId,
+    monto,
+    referencia: referenciaFinal,
+    // `panel` conserva el texto que este camino ya escribía en el
+    // ledger («Sello por visita» / «Compra», sin sufijo).
+    via: "panel",
+    producto,
+    productoId,
+  });
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
 
-  return {
-    ok: true,
-    puntos: r.puntos ?? 0,
-    saldo: r.saldo ?? 0,
-    yaEstaba,
-  };
+  if (!r.ok) return { ok: false, motivo: r.motivo };
+  return { ok: true, puntos: r.puntos, saldo: r.saldo, yaEstaba: r.yaEstaba };
 }
 
 /**

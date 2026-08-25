@@ -1,14 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import {
-  COOKIE_AVISOS,
-  VIDA_COOKIE_AVISOS,
-  avisosOcultosDe,
-  conAvisoCerrado,
-  sinAvisosCerrados,
-} from "@/lib/lealtad/avisos-ocultos";
-import { CUERPO_SUAVE, RADIO_TILE } from "@/components/panel/sistema";
+import { COOKIE_AVISOS, VIDA_COOKIE_AVISOS, avisosOcultosDe, conAvisoCerrado } from "@/lib/lealtad/avisos-ocultos";
 import { Icono } from "./iconos";
 
 /**
@@ -26,11 +19,13 @@ import { Icono } from "./iconos";
  *    `ocultosIniciales`, así que el primer render —el del servidor y el
  *    de la hidratación— ya sale sin el aviso cerrado: no parpadea.
  *
- * 2. NADA SE PIERDE. Un aviso cerrado sigue contando en la barrita de
- *    abajo, que los devuelve todos de un toque. Los avisos dicen lo que
- *    todavía hay que hacer para que el programa funcione: esconderlos
- *    para siempre y sin rastro sería esconderle al dueño la razón por
- *    la que su tarjeta no anda.
+ * 2. CERRAR ES DEFINITIVO (pedido del dueño, ago 2026): antes quedaba
+ *    una barrita "Cerraste N avisos · Volver a mostrarlos" debajo del
+ *    tablero — se sacó a propósito, para no tapar los datos del
+ *    negocio con una invitación a volver a la guía que ya se leyó. El
+ *    aviso igual reaparece solo si la RAZÓN de fondo cambia (otro
+ *    `momento`, ver inicio-lealtad.tsx): lo que se cierra es ESE
+ *    aviso puntual, no el tema para siempre.
  *
  * 3. LOS NODOS LLEGAN YA PINTADOS desde el servidor. Este componente no
  *    sabe qué dice cada aviso —solo lo muestra o no—, así que los
@@ -89,16 +84,9 @@ export default function AvisosCerrables({
   if (avisos.length === 0) return null;
 
   const visibles = avisos.filter((a) => !ocultos.includes(a.clave));
-  const cerrados = avisos.length - visibles.length;
 
   function cerrar(clave: string) {
     const valor = conAvisoCerrado(cookieActual(), negocioId, clave);
-    guardar(valor);
-    setOcultos(avisosOcultosDe(valor, negocioId));
-  }
-
-  function reabrir() {
-    const valor = sinAvisosCerrados(cookieActual(), negocioId);
     guardar(valor);
     setOcultos(avisosOcultosDe(valor, negocioId));
   }
@@ -124,23 +112,6 @@ export default function AvisosCerrables({
           </button>
         </div>
       ))}
-
-      {cerrados > 0 && (
-        <button
-          type="button"
-          onClick={reabrir}
-          className={`flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 ${RADIO_TILE} border border-dashed border-aventurea-line px-4 py-2.5 text-left transition-colors hover:border-aventurea-navy`}
-        >
-          <span className={CUERPO_SUAVE}>
-            {cerrados === 1
-              ? "Cerraste 1 aviso de puesta en marcha"
-              : `Cerraste ${cerrados} avisos de puesta en marcha`}
-          </span>
-          <span className="text-[12.5px] font-bold text-aventurea-navy">
-            {cerrados === 1 ? "Volver a mostrarlo" : "Volver a mostrarlos"} →
-          </span>
-        </button>
-      )}
     </div>
   );
 }

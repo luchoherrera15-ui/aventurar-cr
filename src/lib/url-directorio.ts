@@ -29,6 +29,17 @@ import { PAIS_POR_DEFECTO, codigoPaisDe } from "@/lib/paises";
 /** Los filtros que puede llevar un directorio en la query. */
 export type FiltrosDirectorio = {
   categoria?: string | null;
+  /**
+   * EL SEGUNDO NIVEL. Hoy lo lee UN SOLO directorio: /eventos
+   * (`directorio.tsx` lo levanta de la URL y filtra por él). /citas,
+   * /hospedajes y /restaurantes son de un solo nivel y lo ignorarían,
+   * así que mandárselos sería un parámetro que promete un filtro que no
+   * ocurre — el mismo pecado que este archivo existe para evitar.
+   *
+   * Quien arma el enlace decide si corresponde; acá solo se garantiza
+   * que, cuando viaja, viaja siempre en el mismo lugar de la cadena.
+   */
+  subcategoria?: string | null;
   /** El texto de la lupa. */
   q?: string | null;
   /** ISO alfa-2. Ausente, desconocido o "cr" = no viaja. */
@@ -42,13 +53,16 @@ export type FiltrosDirectorio = {
  * viaja: un `?q=&provincia=` ensucia la barra de direcciones, arruina
  * el historial y hace que dos URLs distintas muestren lo mismo.
  *
- * El orden de los parámetros es fijo (categoria, q, pais, provincia)
- * para que la misma búsqueda produzca siempre la misma cadena — si no,
- * el caché y el historial la ven como dos páginas distintas.
+ * El orden de los parámetros es fijo (categoria, subcategoria, q, pais,
+ * provincia) para que la misma búsqueda produzca siempre la misma
+ * cadena — si no, el caché y el historial la ven como dos páginas
+ * distintas. `subcategoria` va pegada a `categoria` porque es su
+ * segundo nivel: leídas juntas, la URL se entiende de un vistazo.
  */
 export function urlDirectorio(ruta: string, filtros: FiltrosDirectorio): string {
   const p = new URLSearchParams();
   if (filtros.categoria) p.set("categoria", filtros.categoria);
+  if (filtros.subcategoria) p.set("subcategoria", filtros.subcategoria);
   if (filtros.q) p.set("q", filtros.q);
 
   // Un país desconocido cae en Costa Rica, y Costa Rica no se emite.

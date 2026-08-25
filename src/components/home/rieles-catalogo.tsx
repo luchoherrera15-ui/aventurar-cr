@@ -67,6 +67,15 @@ import type { CatalogoPortada } from "@/app/home-datos";
 const SIN_CALIFICACIONES = new Map<string, Calificacion>();
 const SIN_DISPONIBILIDAD = new Map<string, string | null>();
 
+// Tarjetas "un poco más pequeñas" que las del directorio (pedido del
+// dueño, ago 2026): acá cada riel mezcla varias tarjetas por vertical y
+// la portada ya trae el buscador + "Explorá por rubro" debajo, así que
+// no hace falta que cada tarjeta pelee por el mismo ancho que en
+// /eventos. Se pasa como prop a `RielProveedores` — el directorio real
+// sigue con su tamaño de siempre.
+const ANCHO_TARJETA_PORTADA = "clamp(196px, 56vw, 250px)";
+const SIZES_TARJETA_PORTADA = "(max-width: 471px) 56vw, 250px";
+
 export default function RielesCatalogo({
   pintables,
   totalPorVertical,
@@ -119,6 +128,8 @@ export default function RielesCatalogo({
           // serían cinco imágenes compitiendo por el mismo ancho de
           // banda.
           prioridad
+          anchoTarjeta={ANCHO_TARJETA_PORTADA}
+          sizesTarjeta={SIZES_TARJETA_PORTADA}
         />
       )}
 
@@ -147,6 +158,8 @@ export default function RielesCatalogo({
           conUnidad={riel.vertical === "eventos" || riel.vertical === "hospedajes"}
           // La primera foto de la página pide prioridad UNA sola vez.
           prioridad={!conRecientes && i === 0}
+          anchoTarjeta={ANCHO_TARJETA_PORTADA}
+          sizesTarjeta={SIZES_TARJETA_PORTADA}
         />
       ))}
     </div>

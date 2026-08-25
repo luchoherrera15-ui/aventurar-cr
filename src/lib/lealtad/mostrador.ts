@@ -181,6 +181,21 @@ export function llaveDeIntento(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
+/**
+ * La forma que tiene que tener un intento para ser aceptado: letras,
+ * números y guiones. Un uuid entra; el respaldo de arriba también.
+ *
+ * Vive PEGADO a `llaveDeIntento` a propósito — es el validador de lo
+ * que esa función genera, y separarlos es cómo se llega a que el
+ * generador produzca algo que el validador rechaza. Se exporta porque
+ * ahora lo comprueban dos puertas: el server action del panel web y el
+ * endpoint de la app móvil. Un segundo regex escrito a mano en el
+ * endpoint (más largo, más corto, sin guiones) haría que la misma
+ * llave se acepte por un lado y se rechace por el otro, y la llave es
+ * justo lo que evita el sello doble.
+ */
+export const INTENTO_VALIDO = /^[A-Za-z0-9_-]{8,64}$/;
+
 // ── 3. El monto de la compra ───────────────────────────────────────
 
 /** El tope que ya validaban el escáner y el panel. */

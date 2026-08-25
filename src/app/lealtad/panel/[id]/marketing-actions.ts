@@ -361,3 +361,68 @@ export async function enviarNotificacionPromocional(
     },
   };
 }
+
+/** El tope del mensaje de hito (0205) — el mismo que exige el CHECK de la columna. */
+const TOPE_MENSAJE_HITO = 120;
+
+/** El mensaje de hito guardado hoy, o "" si nunca se configuró uno. */
+export async function obtenerMensajeHito(
+  ranchoId: string,
+  programaId: string,
+): Promise<Resultado<string>> {
+  const acceso = await accesoDeNegocio(ranchoId);
+  if (!acceso.ok) return { ok: false, motivo: acceso.motivo };
+
+  const db = createAdminClient();
+  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+
+  const { data: programa } = await db
+    .from("programa_lealtad")
+    .select("rancho_id, mensaje_hito")
+    .eq("id", programaId)
+    .maybeSingle();
+  if (!programa || programa.rancho_id !== ranchoId) {
+    return { ok: false, motivo: "Esa tarjeta no es de este negocio." };
+  }
+
+  return { ok: true, datos: (programa.mensaje_hito as string | null) ?? "" };
+}
+
+/**
+ * Guarda el mensaje de hito (0205). Vacío = apagado: de ahí en
+ * adelante los tres momentos (primer sello, penúltimo, meta) no
+ * mandan ningún texto propio.
+ */
+export async function guardarMensajeHito(
+  ranchoId: string,
+  programaId: string,
+  mensaje: string,
+): Promise<Resultado<string>> {
+  const acceso = await accesoDeNegocio(ranchoId);
+  if (!acceso.ok) return { ok: false, motivo: acceso.motivo };
+
+  const limpio = mensaje.trim();
+  if (limpio.length > TOPE_MENSAJE_HITO) {
+    return { ok: false, motivo: `El mensaje no puede pasar de ${TOPE_MENSAJE_HITO} caracteres.` };
+  }
+
+  const db = createAdminClient();
+  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+
+  const { data: programa } = await db
+    .from("programa_lealtad")
+    .select("rancho_id")
+    .eq("id", programaId)
+    .maybeSingle();
+  if (!programa || programa.rancho_id !== ranchoId) {
+    return { ok: false, motivo: "Esa tarjeta no es de este negocio." };
+  }
+
+  const { error } = await db
+    .from("programa_lealtad")
+    .update({ mensaje_hito: limpio || null })
+    .eq("id", programaId);
+  if (error) return { ok: false, motivo: "No se pudo guardar: " + error.message };
+
+  return { ok: true, datos: limpio };
+}

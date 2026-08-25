@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useSearchParams } from "next/navigation";
 import { iniciales } from "@/lib/iniciales";
 import { Icono, type NombreIcono } from "./iconos";
 import "../panel-oscuro.css";
@@ -43,6 +50,87 @@ import {
  */
 
 const NAVY_PROFUNDO = "#0a1226";
+
+/* ── LOS DOS TEMAS DEL PANEL ────────────────────────────────────────
+   El tema CLARO no es una segunda hoja de estilos: es el panel SIN el
+   dialecto `.lealtad-oscuro`. Ese bloque de globals.css existe para
+   re-mapear los componentes del panel claro de mi-negocio (tarjeta
+   blanca, tinta navy) a sus equivalentes translúcidos sobre navy — o
+   sea que quitarlo devuelve a cada componente su aspecto NATIVO, ya
+   medido y con contraste probado. Escribir un tercer juego de colores
+   habría sido inventar un tema nuevo para algo que ya existe.
+
+   Lo que sí cambia por tema es el LIENZO, y nada más. El menú lateral y
+   la barra de arriba se quedan navy en los dos: su texto es blanco y su
+   contraste está medido contra ese fondo, así que aclararlos obligaría a
+   re-mapear cada `text-white` del chrome — y un `text-white` remapeado
+   rompe todos los botones de relleno sólido que llevan letra blanca a
+   propósito. Rail oscuro + contenido claro es además el patrón que ya
+   usan los paneles de administración serios. */
+const LIENZO_CLARO = "#e9eff9";
+
+/* Los BLURS naranjas que el dueño pidió para el modo claro: dos manchas
+   grandes y muy diluidas, no un degradado de borde a borde. Van al
+   ~10 % porque abajo se apoyan tarjetas BLANCAS — más saturación las
+   teñiría de durazno y el panel dejaría de leerse como una superficie
+   neutra. */
+const BLURS_CLARO =
+  "radial-gradient(60rem 30rem at 12% -8%, rgba(243,146,0,.13), transparent 62%)," +
+  "radial-gradient(46rem 26rem at 96% 8%, rgba(243,146,0,.10), transparent 60%)," +
+  "radial-gradient(52rem 34rem at 78% 105%, rgba(38,56,111,.10), transparent 62%)";
+
+/* ── DÓNDE VIVE LA PREFERENCIA DE TEMA ──────────────────────────────
+   En `localStorage`, que para React es un sistema EXTERNO: no es
+   estado suyo, puede cambiar sin que él se entere (otra pestaña del
+   mismo panel) y en el servidor no existe.
+
+   Por eso se lee con `useSyncExternalStore` y no con
+   `useState` + `useEffect`. Ese par parece más simple pero pinta DOS
+   veces —primero el valor por defecto, después el guardado—, que es
+   justo el parpadeo de oscuro-a-claro al entrar; y además React
+   desaconseja el `setState` sincrónico dentro de un efecto (lo marca
+   el linter). `useSyncExternalStore` está hecho para esto: se le da
+   una lectura para el cliente y otra para el servidor, y él resuelve
+   la hidratación sin descuadrarla.
+
+   La instantánea del SERVIDOR es siempre `false` (oscuro): es el tema
+   con el que el módulo nació y el que conocen los negocios que ya lo
+   usan, así que el HTML servido y el primer render del cliente
+   coinciden. */
+const LLAVE_TEMA = "bookea:lealtad:tema";
+
+const oyentesDelTema = new Set<() => void>();
+
+function suscribirseAlTema(alCambiar: () => void): () => void {
+  oyentesDelTema.add(alCambiar);
+  // `storage` solo lo dispara OTRA pestaña, nunca la que escribió. Es
+  // lo que hace que cambiar el tema en una pestaña del panel lo cambie
+  // en las demás; a la propia la avisa `escribirTema`.
+  window.addEventListener("storage", alCambiar);
+  return () => {
+    oyentesDelTema.delete(alCambiar);
+    window.removeEventListener("storage", alCambiar);
+  };
+}
+
+function leerTemaClaro(): boolean {
+  try {
+    return window.localStorage.getItem(LLAVE_TEMA) === "claro";
+  } catch {
+    // Navegador con el almacenamiento bloqueado: se queda en oscuro.
+    return false;
+  }
+}
+
+function escribirTema(claro: boolean): void {
+  try {
+    window.localStorage.setItem(LLAVE_TEMA, claro ? "claro" : "oscuro");
+  } catch {
+    // No poder recordarlo no puede impedir cambiarlo en esta visita:
+    // se avisa igual y el panel cambia hasta que se recargue.
+  }
+  for (const avisar of oyentesDelTema) avisar();
+}
 
 /* La barra del menú, un escalón por DEBAJO del lienzo. Es la anatomía
    de la maqueta: el rail no es una franja del mismo color con un borde,
@@ -99,6 +187,10 @@ export default function ShellLealtad({
   // mostraba el nombre.
   const [menuUsuarioAbierto, setMenuUsuarioAbierto] = useState(false);
 
+  // Ver el bloque de `LLAVE_TEMA` arriba: la preferencia vive en
+  // localStorage y se lee como lo que es, un sistema externo.
+  const claro = useSyncExternalStore(suscribirseAlTema, leerTemaClaro, () => false);
+
   function entrarAlMostrador() {
     setMenuAbierto(false);
     setPidiendoSalida(false);
@@ -110,17 +202,29 @@ export default function ShellLealtad({
     setEnMostrador(false);
   }
 
+  // Qué tarjeta se está mirando. NO se usa para nada más que como
+  // disparador del efecto de abajo — ver ahí por qué hace falta.
+  const tarjetaEnUrl = useSearchParams().get("tarjeta");
+
   // El hash manda. Se lee en un efecto y no en el estado inicial para
   // que el HTML del servidor y el del cliente coincidan en el primer
   // render — leer `location` durante el render es un error de
   // hidratación esperando a pasar.
   //
-  // Sin dependencias A PROPÓSITO: cada server action del panel llama a
-  // `revalidatePath`, y con `items` en la lista el efecto se volvía a
-  // correr en cada refresco. Eso sacaba del modo mostrador a quien
-  // estaba escaneando — la acción que MÁS revalida. Un hash que no
-  // corresponde a ninguna sección no rompe nada: `efectiva`, abajo,
-  // cae a la primera visible.
+  // La única dependencia es `?tarjeta=`, y es la que arregla el selector
+  // de tarjetas. `hashchange` NO cubre ese caso: el selector navega con
+  // <Link>, o sea `history.pushState`, y pushState no dispara
+  // `hashchange` NUNCA (solo lo hace un cambio de hash escrito en la
+  // barra del navegador o un <a> normal). Resultado: se cambiaba de
+  // tarjeta, la URL se actualizaba, el servidor devolvía los datos de la
+  // otra tarjeta… y la sección visible seguía siendo la de antes, con el
+  // hash y la pantalla dicíéndose cosas distintas.
+  //
+  // `items` sigue FUERA de la lista a propósito: cada server action del
+  // panel llama a `revalidatePath` y con `items` adentro el efecto se
+  // volvía a correr en cada refresco, sacando del modo mostrador a quien
+  // estaba escaneando —la acción que MÁS revalida—. `?tarjeta=` no
+  // cambia por una revalidación, así que ese problema no vuelve.
   useEffect(() => {
     const aplicarHash = () => {
       const destino = window.location.hash.replace("#", "");
@@ -132,7 +236,7 @@ export default function ShellLealtad({
     aplicarHash();
     window.addEventListener("hashchange", aplicarHash);
     return () => window.removeEventListener("hashchange", aplicarHash);
-  }, []);
+  }, [tarjetaEnUrl]);
 
   // Si a quien mira le quitaron un permiso, la sección elegida puede ya
   // no venir en la lista del servidor: se cae a la primera visible.
@@ -140,7 +244,14 @@ export default function ShellLealtad({
   const actual = items.find((i) => i.id === efectiva);
 
   return (
-    <div className="lealtad-oscuro min-h-svh" style={{ background: NAVY_PROFUNDO }}>
+    <div
+      className={`min-h-svh ${claro ? "" : "lealtad-oscuro"}`}
+      style={
+        claro
+          ? { background: BLURS_CLARO, backgroundColor: LIENZO_CLARO }
+          : { background: NAVY_PROFUNDO }
+      }
+    >
       {/* EN MODO MOSTRADOR NO HAY COLUMNA DE MENÚ. Ver el comentario del
           <aside>: el menú no se esconde con CSS, no se monta. */}
       <div className={enMostrador ? "" : "lg:grid lg:grid-cols-[254px_minmax(0,1fr)]"}>
@@ -332,6 +443,30 @@ export default function ShellLealtad({
                 justo donde el pulgar agarra el teléfono: un roce y el
                 empleado quedaba en el panel completo sin haber querido
                 ir a ningún lado. */}
+            {/* CLARO / OSCURO. Va en la barra y no enterrado en
+                Configuración porque es una preferencia de VISTA que se
+                cambia mirando la pantalla: quien atiende de día junto a
+                una ventana lo necesita a mano, no a tres clics.
+
+                Es un <button> con `aria-pressed` y no un checkbox: no
+                envía nada ni forma parte de un formulario, y el estado
+                que comunica es «esta opción está activada», que es
+                exactamente lo que `aria-pressed` significa. */}
+            <button
+              type="button"
+              onClick={() => escribirTema(!claro)}
+              aria-pressed={claro}
+              title={claro ? "Cambiar a modo oscuro" : "Cambiar a modo claro"}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-[12px] font-bold text-aventurea-rail transition-colors hover:text-white"
+              style={{ borderColor: RAIL_LINEA, background: "rgba(255,255,255,.06)" }}
+            >
+              <Icono
+                nombre={claro ? "sol" : "luna"}
+                className="h-[15px] w-[15px] shrink-0"
+              />
+              <span className="hidden sm:block">{claro ? "Claro" : "Oscuro"}</span>
+            </button>
+
             {mostrador && !enMostrador && (
               <label className="flex shrink-0 cursor-pointer items-center gap-2">
                 <span className="hidden text-[12px] font-bold text-aventurea-rail sm:block">

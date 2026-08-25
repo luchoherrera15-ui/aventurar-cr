@@ -192,13 +192,23 @@
   color: var(--accion-fuerte);
 }
 
-/* Foco visible en todo lo enfocable DENTRO de Lealtad. Va sobre
-   :focus-visible y no :focus para que el anillo salga al navegar con
-   teclado y no al hacer clic con el mouse.
+/* ── FOCO VISIBLE, EN TODO EL SITIO ────────────────────────────────
+   Estuvo scopeado a `.lealtad` hasta ago 2026, con el comentario
+   «agregarlo global cambiaría el foco de todo el sitio». Salió de ahí
+   porque el header nuevo de la portada agrega decenas de enlaces de
+   navegación en un mega menú: sin anillo, recorrerlo con teclado es a
+   ciegas, y ese menú es la navegación PRINCIPAL del sitio.
 
-   Scopeado a propósito: agregarlo global cambiaría el foco de todo el
-   sitio, que está fuera del alcance de este módulo. */
-.lealtad :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+   Es el mismo bloque, ya escrito y medido — lo único que cambió es que
+   perdió el prefijo. Navy sobre el peor fondo de la aurora naranja
+   (≈rgb(244,168,123)) da 9,2:1, así que el MISMO anillo sirve sobre el
+   héroe y sobre blanco.
+
+   Va sobre :focus-visible y no :focus para que el anillo salga al
+   navegar con teclado y no al hacer clic con el mouse.
+
+   ⚠️ Y prohibido `outline-none` sin un reemplazo medido. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--navy);
   outline-offset: 2px;
   border-radius: 8px;
@@ -448,6 +458,232 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
+   LA MANCHA NARANJA DE HeroBusqueda: deriva en vez de quedarse fija
+   ═══════════════════════════════════════════════════════════════════
+
+   Pedido del dueño (ago 2026): la mancha naranja del fondo del héroe
+   —hasta acá un radial-gradient QUIETO, ver el comentario grande de
+   `hero-busqueda.tsx`— pasa a moverse despacio por la pantalla
+   principal del header, para que se sienta un efecto vivo y no un
+   degradado pegado en la esquina.
+
+   Sigue la MISMA idea que ya evitaba el canto recto contra el
+   `overflow-hidden` de la sección: el desenfoque es el propio
+   radial-gradient —se apaga solo, DENTRO de su radio fijo en
+   píxeles— y no un `filter: blur()`. Eso es justo lo que permite
+   animarla sin reabrir ese problema: un blur() que se mueve expone el
+   borde recto de su caja contra el recorte; un radial-gradient que se
+   mueve solo desplaza DÓNDE termina de apagarse, nunca corta en seco.
+   La caja además vive en su propio `div`, más grande que la sección
+   (`-inset-[18%]` en el componente) — margen de sobra para que la
+   deriva no acerque el centro de la mancha al borde recortado.
+
+   Solo anima `transform` (traslada + escala apenas) — corre en el
+   compositor, no dispara layout ni recalcula el gradiente cuadro a
+   cuadro. Lenta a propósito (26s): se siente atmósfera, no un anuncio
+   parpadeando. */
+@keyframes deriva-mancha-naranja {
+  0%,
+  100% {
+    transform: translate(0%, 0%) scale(1);
+  }
+  50% {
+    transform: translate(-14%, -12%) scale(1.12);
+  }
+}
+
+@utility mancha-flotante {
+  animation: deriva-mancha-naranja 26s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   AURORA NARANJA — el fondo vivo del héroe de la portada
+   ═══════════════════════════════════════════════════════════════════
+
+   Tres capas de radial-gradient con radio FIJO EN PÍXELES, que se
+   apagan solas. Misma técnica que `.mancha-flotante` de acá arriba, y
+   por los mismos tres motivos —que no se negocian porque los tres ya
+   costaron un bug en este repo:
+
+     1. El desenfoque ES el radial-gradient. Un `filter: blur()` que se
+        mueve expone el canto recto de su caja contra cualquier recorte.
+     2. Radio en px, NUNCA en %. Con `%` el punto donde llega a
+        transparente escala con la sección, así que en una sección baja
+        el «transparente» queda más allá del borde real: la mancha llega
+        con color al borde y ahí se ve el corte.
+     3. Se anima ÚNICAMENTE `transform`. Corre en el compositor. Animar
+        `background-position`, los stops, `filter` u `opacity` repinta la
+        mancha entera 60 veces por segundo en el hilo principal — que es
+        el mismo que atiende los clics (INP).
+
+   ── POR QUÉ TRES Y NO UNA ────────────────────────────────────────
+   Una sola mancha que va y viene se lee como UN OBJETO DESLIZÁNDOSE,
+   no como luz. Con duraciones primas entre sí (23/29/31s) y delays
+   negativos distintos, las fases no vuelven a coincidir en horas: el
+   ojo nunca encuentra el bucle. Eso es lo que lo hace sentir líquido.
+
+   ── TECHO DE ALFA: 0,60 ACUMULADA EN CUALQUIER PUNTO ─────────────
+   Estos alfas están elegidos, no estimados. Debajo va el subtítulo del
+   héroe. En el punto de máximo solapamiento el fondo compuesto no baja
+   de L≈0,63, o sea que el texto en `--text` queda muy por encima de
+   4,5:1. SI ALGUIEN SUBE UN ALFA, HAY QUE VOLVER A MEDIRLO: el
+   contraste sobre un fondo animado es una función del tiempo y no se
+   puede medir una sola vez.
+
+   rgba() literales y no `color-mix()`: `globals.test.ts` exige que todo
+   color-mix() viaje dentro de un @supports, y acá el mezclado iría
+   sobre var(--orange), que Lightning CSS no resuelve.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes aurora-deriva-1 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-9%, 7%, 0) scale(1.12);
+  }
+}
+
+@keyframes aurora-deriva-2 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.04);
+  }
+  50% {
+    transform: translate3d(8%, -6%, 0) scale(0.94);
+  }
+}
+
+@keyframes aurora-deriva-3 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.98);
+  }
+  33% {
+    transform: translate3d(7%, -6%, 0) scale(1.1);
+  }
+  66% {
+    transform: translate3d(-6%, 5%, 0) scale(0.97);
+  }
+}
+
+/* ⚠️ EL RECORTE VIVE ACÁ, EN SU PROPIA CAJA — NUNCA EN LA <section>.
+   Ya pasó una vez (ver el comentario de `hero-busqueda.tsx`): con el
+   overflow en la sección, el panel desplegable quedaba cortado a la
+   mitad, con pinta de bug. El mega menú es MÁS ALTO que el héroe.
+
+   `contain: layout paint` le promete al navegador que nada de adentro
+   afecta ni pinta afuera: al mover una mancha no revisa el resto de la
+   página. `pointer-events: none` importa para el INP — una capa a
+   pantalla completa que participe del hit-testing suma trabajo en CADA
+   evento de puntero. */
+@utility aurora-caja {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  contain: layout paint;
+  pointer-events: none;
+}
+
+/* `inset: -22%`: la caja de cada mancha es más grande que el envoltorio,
+   margen de sobra para que la deriva nunca acerque el centro de la
+   mancha al borde recortado. */
+@utility aurora-mancha {
+  position: absolute;
+  inset: -22%;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Capa 1 · NARANJA DE MARCA (#ee7420 = --orange), arriba a la izquierda */
+.aurora-1 {
+  background: radial-gradient(
+    circle 900px at 18% 14%,
+    rgba(238, 116, 32, 0.2) 0%,
+    rgba(238, 116, 32, 0.09) 34%,
+    transparent 52%
+  );
+  animation: aurora-deriva-1 23s ease-in-out infinite;
+}
+
+/* Capa 2 · CORAL / DURAZNO, centro-derecha */
+.aurora-2 {
+  background: radial-gradient(
+    circle 820px at 84% 28%,
+    rgba(255, 150, 80, 0.2) 0%,
+    rgba(255, 150, 80, 0.08) 36%,
+    transparent 50%
+  );
+  animation: aurora-deriva-2 29s ease-in-out infinite;
+  animation-delay: -7s;
+}
+
+/* Capa 3 · ÁMBAR CÁLIDO, abajo — la que da profundidad */
+.aurora-3 {
+  background: radial-gradient(
+    circle 760px at 52% 94%,
+    rgba(250, 200, 112, 0.2) 0%,
+    rgba(250, 200, 112, 0.08) 38%,
+    transparent 48%
+  );
+  animation: aurora-deriva-3 31s ease-in-out infinite;
+  animation-delay: -13s;
+}
+
+/* En teléfono se cae la tercera capa: cada mancha es una capa de GPU del
+   tamaño del héroe × 1,44, y en un Android de gama baja tres capas
+   grandes son memoria de vídeo tirada para un efecto que a ese ancho ni
+   se distingue. */
+@media (max-width: 639px) {
+  .aurora-3 {
+    display: none;
+  }
+}
+
+/* ── LA ENTRADA DEL PANEL DEL MEGA MENÚ ────────────────────────────
+   180ms y nada más: es un menú de navegación, no una escena. Más lento
+   se siente pesado cuando alguien recorre las cinco puertas seguidas.
+
+   Solo `opacity` y `transform`, o sea compositor puro. Y ojo con lo que
+   NO lleva: nada de `backdrop-filter`. Un backdrop-filter encima de un
+   fondo animado obliga al navegador a releer el backdrop en CADA
+   fotograma — jank al scrollear y el INP por el piso. La variante
+   `flotante` de `SiteHeader` usa `backdrop-blur-xl`, y es justamente lo
+   que acá no se copia. */
+@keyframes entra-mega-panel {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.anim-mega-panel {
+  animation: entra-mega-panel 180ms var(--ease-bookea, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+/* El cajón de categorías en el teléfono: entra desde la derecha. */
+@keyframes entra-cajon-nav {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.anim-cajon-nav {
+  animation: entra-cajon-nav 240ms var(--ease-bookea, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
    EL TELÉFONO DIBUJADO
    ═══════════════════════════════════════════════════════════════════
 
@@ -613,6 +849,37 @@
   .organico::before,
   .organico:hover::before {
     animation: none;
+  }
+  /* La mancha naranja del héroe deja de moverse, pero se queda pintada
+     donde estaba en reposo — sigue siendo la atmósfera de la sección. */
+  .mancha-flotante {
+    animation: none;
+  }
+  /* ── LA AURORA, QUIETA ──────────────────────────────────────────
+     Se queda PINTADA, no desaparece: es la atmósfera de la portada, no
+     un adorno — misma política que `.organico` y `.mancha-flotante`.
+
+     ⚠️ EL FOTOGRAMA QUIETO ES UNA COMPOSICIÓN, NO UN RESIDUO. Con
+     `animation: none` el elemento NO se queda «donde estaba en reposo»:
+     se queda en su transform BASE, o sea SIN transform. Por eso las tres
+     keyframes arrancan y terminan en un transform que se ve bien por sí
+     solo, y por eso cada capa lleva su posición de reposo en el
+     `at X% Y%` de su propio gradiente y no en la animación. Ese
+     fotograma es el que ve quien pidió menos movimiento — y es el fondo
+     sobre el que también hay que medir el contraste del subtítulo. */
+  .aurora-1,
+  .aurora-2,
+  .aurora-3 {
+    animation: none;
+  }
+  /* El panel y el cajón APARECEN, sin deslizarse. No se les pone
+     `animation: none` porque los dos arrancan en `opacity: 0` o
+     desplazados: sin animación se quedarían invisibles o fuera de
+     pantalla. Se acortan a 1ms, que es el patrón que ya usa el resto de
+     este bloque para las entradas. */
+  .anim-mega-panel,
+  .anim-cajon-nav {
+    animation-duration: 1ms !important;
   }
   /* El teléfono deja de flotar y el vidrio de brillar. Los sellos se
      muestran puestos, sin el rebote de entrada. */

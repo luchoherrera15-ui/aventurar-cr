@@ -14,6 +14,7 @@ import {
   Figtree_800ExtraBold,
 } from "@expo-google-fonts/figtree";
 import { AuthProvider } from "@/lib/auth-context";
+import { ModoPedidoProvider } from "@/lib/modo-pedido";
 import { Colors } from "@/constants/theme";
 import PantallaBoot from "@/components/pantalla-boot";
 
@@ -79,15 +80,17 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <StatusBar style="dark" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: Colors.canvas },
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false,
-          }}
-        />
+        <ModoPedidoProvider>
+          <StatusBar style="dark" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: Colors.canvas },
+              gestureEnabled: true,
+              fullScreenGestureEnabled: false,
+            }}
+          />
+        </ModoPedidoProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

@@ -1,15 +1,14 @@
 import type { Metadata } from "next";
-import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import AvisoSuperior from "@/components/home/aviso-superior";
-import NavHome from "@/components/home/nav-home";
-import NavCategorias from "@/components/home/nav-categorias";
+import HeaderSimple from "@/components/home/header-simple";
+import HeroBusqueda from "@/components/home/hero-busqueda";
+import ExploraBookea from "@/components/home/explora-bookea";
 import RielesCatalogo from "@/components/home/rieles-catalogo";
 import ExplorarRubros from "@/components/home/explorar-rubros";
-import BloqueNegocios from "@/components/home/bloque-negocios";
-import { leerCatalogoPortada } from "@/app/home-datos";
 import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
+import { leerCatalogoPortada } from "./home-datos";
 import { urlSitio } from "@/lib/sitio";
 
 /**
@@ -17,82 +16,51 @@ import { urlSitio } from "@/lib/sitio";
  * LA PORTADA DE BOOKEA — `bookea.lat`
  * ============================================================
  *
- * ── LA PASADA DE AGOSTO 2026: LA PORTADA VUELVE A SER UN CATÁLOGO ──
+ * ── TERCERA VUELTA (pedido del dueño, ago 2026) ───────────────────
  *
- * Pedido textual del dueño:
+ * El buscador sobre el fondo difuminado y los rieles por vertical
+ * (`HeroBusqueda` + `RielesCatalogo`, de la vuelta anterior) se quedan
+ * tal cual. Lo que cambió es TODO lo que iba abajo: "Todo lo que
+ * Bookea te da" (`CarruselServicios`), la banda de llamada
+ * (`CtaLlamada`), la vidriera de 5 negocios (`MarketplaceVidriera`) y
+ * "Tu talento merece ser encontrado" (`BloqueNegocios`) quedan
+ * afuera — el pedido explícito fue «los rieles es lo que tendrá esta
+ * página abajo». En su lugar, justo debajo de los rieles, va
+ * `ExplorarRubros` ("cards pequeños con cada categoría"): 36 rubros
+ * reales agrupados por vertical, ya armado desde antes pero huérfano
+ * (sin ningún consumidor) hasta ahora.
  *
- *   «Necesito un marketplace de todos los lugares que tenemos
- *    registrados. Que abarque toda la página. Solo la parte de arriba
- *    con íconos pequeñitos y una barra de buscar pequeñita. Todo el
- *    resto: los negocios que tenemos registrados, POR CARRIL. Un carril
- *    que diga Eventos y salga todo en general. Un carril que diga Salud
- *    y belleza y salgan barberías, uñas, estilistas, todo en el mismo
- *    riel.»
+ * Los cuatro componentes retirados NO se borraron del repo — solo
+ * dejaron de importarse acá. Si hacen falta en otro lado, siguen
+ * enteros en `src/components/home/`.
  *
- * La pasada anterior había dejado la portada en DOS controles (un
- * héroe grande con el buscador y cuatro grupos desplegables) y cero
- * consultas a la base. Esta la da vuelta: el héroe se comprime a una
- * barra de ~89 px de alto (contra los ~450 del héroe) y el cuerpo se
- * llena de rieles con los negocios reales del directorio.
+ * ── EL ORDEN DE LA PÁGINA ─────────────────────────────────────────
  *
- * ── EL ORDEN DE LA PÁGINA, Y POR QUÉ ESE ─────────────────────────
+ *   1. `AvisoSuperior`            — arriba del header, igual que antes.
+ *   2. `HeaderSimple`             — logo, LOGIN, "¡Une tu negocio!". Sin
+ *                                    buscador propio: el buscador vive
+ *                                    en el héroe, no en la barra.
+ *   3. `HeroBusqueda`             — título + buscador + "Otros servicios".
+ *   4. `RielesCatalogo`           — el catálogo real, un riel por vertical
+ *                                    (datos de `leerCatalogoPortada()`),
+ *                                    con tarjetas más chicas que en el
+ *                                    directorio (ver `rieles-catalogo.tsx`).
+ *   5. `ExplorarRubros`           — "Explorá por rubro", 36 tiles chicos.
+ *   6. `SiteFooter`.
  *
- *   1. `AvisoSuperior`   — arriba del header, nunca adentro.
- *   2. `SiteHeader`      — con `NavHome` («Cómo funciona» → /publicar).
- *   3. LA BARRA COMPACTA — el h1 en una línea + `NavCategorias`
- *      (buscador chico, cuatro grupos con íconos chicos, botón IA).
- *      Va en una franja blanca con borde: separa el mando del catálogo
- *      sin gastar media pantalla en un héroe.
- *   4. `RielesCatalogo`  — EL PROTAGONISTA. Un riel por vertical, con
- *      los negocios aprobados. Es lo único que consulta la base.
- *   5. `ExplorarRubros`  — los 36 rubros reales como puertas al
- *      directorio. Es lo que sostiene la página mientras el catálogo
- *      esté chico, y sigue siendo útil cuando esté lleno.
- *   6. `BloqueNegocios`  — «Tu talento merece ser encontrado» → el otro
- *      lado del marketplace: publicar es gratis. Ya existía y no lleva
- *      una sola cifra inventada; se reusa tal cual.
- *   7. `SiteFooter`.
- *
- * ── LA REGLA QUE NO SE NEGOCIA ───────────────────────────────────
- *
- * Ni estrellas, ni «4,2 km», ni «Hoy 3:30 p.m.», ni «+500 negocios», ni
- * un solo negocio de mentira para rellenar. En producción `resenas`
- * tiene CERO filas y hoy hay DOS negocios aprobados. La portada tiene
- * que verse digna con esos dos y llenarse sola cuando entren más — de
- * ahí que las filas vacías no se dibujen (`agruparPorVertical`), que
- * las tarjetas lleven ancho fijo (una fila corta queda corta, no
- * deforme) y que el hueco de abajo lo llenen rubros que EXISTEN, no
- * inventario que no.
- *
- * ── EL COSTO EN LA URL MÁS VISITADA DEL SITIO ────────────────────
- *
- * `leerCatalogoPortada()` hace UNA consulta a `ranchos` (más
- * `auth.getUser`, que para un visitante anónimo ni sale a la red) y el
- * reparto en cuatro rieles se hace en memoria. Se lee con `await`
- * directo y no dentro de un `<Suspense>`: un esqueleto con una altura
- * distinta a la del riel real mueve la página cuando llegan los datos,
- * y el CLS de esta pantalla es exactamente lo que Google mide.
- *
- * ── LA BIENVENIDA ANIMADA SE FUE, Y NO ES UN DESCUIDO ────────────
- *
- * Los cuatro archivos del velo blanco con el logo (`portada-intro.tsx`,
- * `intro.css`, `intro-visita.ts` y su prueba) están BORRADOS, no
- * comentados: tapaban justo la primera pantalla, que es lo que Google
- * mide. Ya revivieron una vez por accidente. No vuelven.
+ * ── LA REGLA QUE NO SE NEGOCIA ────────────────────────────────────
+ * Ni estrellas, ni cifras inventadas, ni negocios de mentira. Los
+ * rieles consultan la base — ver `rieles-catalogo.tsx`. `ExplorarRubros`
+ * no promete negocios, solo abre la puerta a cada rubro (ver el doc
+ * comment de ese archivo).
  */
 
 export const metadata: Metadata = {
-  // `absolute` y no un string suelto: el layout raíz declara el
-  // template "%s | Bookea", así que un título normal saldría como
-  // "Bookea — … | Bookea".
   title: {
     absolute: "Bookea — Reservá servicios y encontrá proveedores para eventos",
   },
   description:
     "Reservá citas de belleza, barbería, spa y salud, y encontrá lugares, catering, música y decoración para tu evento en todo Costa Rica. Precios en colones, a la vista, y reserva directa sin cadenas de WhatsApp.",
-  // Acá SÍ se puede usar la Metadata API —y no un <link> en el JSX
-  // como hace el directorio— porque el archivo y la ruta coinciden:
-  // esta metadata cubre `/` y nada más.
   alternates: { canonical: urlSitio("/") },
 };
 
@@ -100,81 +68,27 @@ export default async function Home() {
   const catalogo = await leerCatalogoPortada();
 
   return (
-    // `overflow-x-clip`: protege contra cualquier desborde horizontal
-    // (los rieles scrollean adentro de su propia caja) sin romper el
-    // `position: sticky` del header — `clip` no crea contexto de
-    // scroll; `hidden` sí lo haría.
-    <div className="flex min-h-screen flex-col overflow-x-clip bg-aventurea-cream-2">
-      {/* Quién es Bookea, en el idioma que leen los buscadores. Se
-          declara UNA vez en todo el sitio y es acá: la recomendación de
-          Google es la portada, no cada pantalla. JSON serializado por
-          nosotros, sin nada que venga de la base: no hay entrada de
-          usuario que escapar. */}
+    <div className="flex min-h-screen flex-col overflow-x-clip bg-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(DATOS_ORGANIZACION) }}
       />
 
-      {/* Arriba del header, nunca adentro: el header tiene una altura
-          fija de 64px de la que se cuelgan media docena de barras
-          `top-16` del sitio. */}
       <AvisoSuperior />
-
-      {/* El encabezado del documento: se queda como `<h1>` de verdad
-          para SEO y lectores de pantalla, pero `sr-only` — pedido del
-          dueño (ago 2026), «que todo esté compacto en la burbuja
-          flotante» no dejaba lugar visual para un renglón de texto
-          propio, y la portada ya dice lo mismo en el `<title>` y en el
-          botón de búsqueda. Vive ACÁ, en el servidor, y no adentro de
-          `NavCategorias` (un componente cliente): el encabezado
-          principal de la URL más indexada del sitio no puede depender
-          de que hidrate nada. */}
-      <h1 className="sr-only">Reservá servicios y lugares en Costa Rica</h1>
-
-      {/* `conPublicar={false}` a propósito: `NavHome` ya trae «Cómo
-          funciona» → /publicar, y «Publicá tu espacio» al lado sería la
-          misma puerta dos veces. De paso se salta la consulta
-          `tieneNegocioPropio()` — una ida menos a la base en la URL más
-          visitada del sitio.
-
-          `segundaFila`: el buscador y las cuatro categorías vivían en su
-          propia franja blanca debajo (`<section className="border-b
-          ... bg-white">`, borrada). Pedido del dueño: que todo —logo,
-          buscador, categorías, cuenta— sea UNA sola burbuja de vidrio
-          compacta, no dos piezas apiladas. */}
-      <SiteHeader
-        ancho="max-w-[1200px]"
-        extra={<NavHome />}
-        conPublicar={false}
-        flotante
-        segundaFila={<NavCategorias />}
-      />
+      <HeaderSimple />
 
       <main className="flex-1">
-        <div className="mx-auto w-full max-w-[1200px] px-4 py-6 lg:px-6 lg:py-8">
-          <RielesCatalogo {...catalogo} />
-
-          {/* `mt-0` cuando no hay ni un riel: sin negocios publicados,
-              `RielesCatalogo` devuelve null y esta franja pasa a ser lo
-              primero del cuerpo. */}
-          <div className={catalogo.pintables.length > 0 ? "mt-11" : ""}>
+        <HeroBusqueda />
+        <div className="px-5 py-12 sm:px-8">
+          <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-14 sm:gap-16">
+            <ExploraBookea />
+            <RielesCatalogo {...catalogo} />
             <ExplorarRubros />
           </div>
         </div>
-
-        {/* Trae su propio `px`/`py` y su propio `max-w-[1200px]`. */}
-        <BloqueNegocios />
       </main>
 
-      {/* El pie va en CLARO aunque la sección de arriba también lo sea:
-          es decisión propia de SiteFooter («dos navys pegados se leen
-          como uno solo») y no se toca desde acá. */}
       <SiteFooter />
-
-      {/* La animación de entrada de las tarjetas. Va al final y es
-          puro adorno: el estado por defecto de `[data-reveal]` es
-          VISIBLE, así que si el JS tarda, falla o no corre, la portada
-          se ve igual (ver el comentario de globals.css). */}
       <RevealOnScroll />
     </div>
   );

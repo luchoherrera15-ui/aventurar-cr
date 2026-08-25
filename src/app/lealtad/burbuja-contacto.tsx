@@ -1,7 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { enviarConsultaLanding } from "./contacto-actions";
+import {
+  alternarBurbujaContacto,
+  cerrarBurbujaContacto,
+  irACorreoBurbuja,
+  irAChatBurbuja,
+  leerBurbujaContacto,
+  leerBurbujaContactoServidor,
+  suscribirBurbujaContacto,
+  volverAlSelectorBurbuja,
+} from "./burbuja-contacto-estado";
+import ChatAgente from "./chat-agente";
 
 /* La burbuja FLOTA sobre las dos clases de franja de la landing —las
    navy y las blancas— y ningún azul solo sirve para las dos: el de
@@ -26,7 +37,14 @@ const ARO_SOBRE_OSCURO = "var(--accion-claro)";
  * colgar nada).
  */
 export default function BurbujaContacto() {
-  const [abierta, setAbierta] = useState(false);
+  // Compartido: el botón "Solicitar ayuda personalizada" del héroe
+  // también la abre, sin que este componente tenga que saber que existe.
+  const vista = useSyncExternalStore(
+    suscribirBurbujaContacto,
+    leerBurbujaContacto,
+    leerBurbujaContactoServidor,
+  );
+  const abierta = vista !== "cerrada";
   const [enviado, setEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,24 +76,86 @@ export default function BurbujaContacto() {
           className="fixed inset-x-4 bottom-[92px] z-[70] w-auto overflow-hidden rounded-2xl border shadow-2xl sm:inset-x-auto sm:right-5 sm:w-[340px]"
           style={{ background: "#0e1730", borderColor: "rgba(255,255,255,.14)" }}
         >
-          <div
-            className="flex items-center justify-between border-b px-4 py-3.5"
-            style={{ borderColor: "rgba(255,255,255,.1)" }}
-          >
-            <div>
-              <p className="text-[13.5px] font-extrabold text-white">Hablá con Bookea</p>
-              <p className="text-[11.5px] text-white/50">Te contestamos por acá mismo.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setAbierta(false)}
-              aria-label="Cerrar"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"
+          {/* El chat tiene su propio encabezado (← Atrás + contador +
+              su propio cierre no hace falta, `cerrarBurbujaContacto`
+              sigue disponible por el botón flotante): acá solo se
+              pinta el genérico para el selector y el correo. */}
+          {vista !== "chat" && (
+            <div
+              className="flex items-center justify-between border-b px-4 py-3.5"
+              style={{ borderColor: "rgba(255,255,255,.1)" }}
             >
-              ✕
-            </button>
-          </div>
+              <div>
+                {vista === "correo" && (
+                  <button
+                    type="button"
+                    onClick={volverAlSelectorBurbuja}
+                    className="mb-1 text-[11.5px] font-bold text-white/50 hover:text-white"
+                  >
+                    ← Atrás
+                  </button>
+                )}
+                <p className="text-[13.5px] font-extrabold text-white">
+                  {vista === "correo" ? "Escribinos" : "¿Cómo te ayudamos?"}
+                </p>
+                <p className="text-[11.5px] text-white/50">
+                  {vista === "correo" ? "Te contestamos por acá mismo." : "Elegí como preferís hablar con nosotros."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={cerrarBurbujaContacto}
+                aria-label="Cerrar"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white/50 hover:bg-white/10 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+          )}
 
+          {vista === "selector" && (
+            <div className="flex flex-col gap-2.5 p-4">
+              <button
+                type="button"
+                onClick={irAChatBurbuja}
+                className="presionable flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors hover:border-white/30"
+                style={{ borderColor: "rgba(255,255,255,.14)", background: "rgba(255,255,255,.04)" }}
+              >
+                <span
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[16px]"
+                  style={{ background: "var(--accion-claro)", color: "var(--accion-claro-tinta)" }}
+                >
+                  💬
+                </span>
+                <span>
+                  <span className="block text-[13.5px] font-bold text-white">Chatear con un agente</span>
+                  <span className="block text-[11.5px] text-white/50">Respuesta al instante, ahora mismo.</span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={irACorreoBurbuja}
+                className="presionable flex items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors hover:border-white/30"
+                style={{ borderColor: "rgba(255,255,255,.14)", background: "rgba(255,255,255,.04)" }}
+              >
+                <span
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[16px]"
+                  style={{ background: "rgba(255,255,255,.1)", color: "#fff" }}
+                >
+                  ✉️
+                </span>
+                <span>
+                  <span className="block text-[13.5px] font-bold text-white">Enviar un correo</span>
+                  <span className="block text-[11.5px] text-white/50">Te contestamos por fuera de acá.</span>
+                </span>
+              </button>
+            </div>
+          )}
+
+          {vista === "chat" && <ChatAgente />}
+
+          {vista === "correo" && (
           <div className="p-4">
             {enviado ? (
               <p className="rounded-xl px-3.5 py-3 text-[13px] leading-relaxed text-white/85" style={{ background: "rgba(255,255,255,.06)" }}>
@@ -146,13 +226,14 @@ export default function BurbujaContacto() {
               </form>
             )}
           </div>
+          )}
         </div>
       )}
 
       {/* ── El botón flotante ───────────────────────────────────── */}
       <button
         type="button"
-        onClick={() => setAbierta((v) => !v)}
+        onClick={alternarBurbujaContacto}
         aria-label={abierta ? "Cerrar el chat" : "Hablar con Bookea"}
         aria-expanded={abierta}
         className="presionable fixed bottom-5 right-5 z-[70] flex h-14 w-14 items-center justify-center rounded-full border-2 shadow-2xl transition-transform hover:scale-105"

@@ -21,6 +21,12 @@ import {
   IconUtensils,
   IconWand,
 } from "@/components/icons";
+import {
+  MockupWalletTelefono,
+  MockupWhatsApp,
+  MockupInvitacion,
+  MockupMapa,
+} from "@/components/home/carrusel-hero-servicios";
 import { CATEGORIA_ICONO } from "../mi-negocio/types";
 import EscenaCitas from "./escena-citas";
 import EscenaEventos from "./escena-eventos";
@@ -46,6 +52,55 @@ export const metadata: Metadata = {
   description:
     "Citas, eventos, restaurantes y hospedajes: tus clientes reservan en línea y vos administrás agenda, chat, correos y cobros en un solo lugar. Publicar es gratis.",
 };
+
+/**
+ * ¡NUESTROS SERVICIOS! — pedido del dueño: quien llega acá desde
+ * "¡Une tu negocio!" (el header de todo el sitio) vea los CUATRO
+ * productos de Bookea, no solo el marketplace de reservas que domina
+ * el resto de esta página. Cada uno manda a su propia landing real
+ * (`/lealtad`, `/assist`, `/invitaciones`) — nada de anclas falsas.
+ */
+const SERVICIOS_BOOKEA: {
+  titulo: string;
+  texto: string;
+  cta: string;
+  href: string;
+  color: string;
+  Mockup: React.ComponentType<{ activo: boolean; mostrarFlotante?: boolean }>;
+}[] = [
+  {
+    titulo: "Planes de lealtad",
+    texto: "Sellos, puntos y membresías en Apple Wallet y Google Wallet, para que tus clientes vuelvan.",
+    cta: "Conocer Bookea Lealtad",
+    href: "/lealtad",
+    color: NARANJA,
+    Mockup: MockupWalletTelefono,
+  },
+  {
+    titulo: "Automatización por WhatsApp",
+    texto: "Un asistente que contesta, revisa tu agenda real y agenda la cita solo, en tu propio número.",
+    cta: "Conocer Bookea Assist",
+    href: "/assist",
+    color: "#3fa77a",
+    Mockup: MockupWhatsApp,
+  },
+  {
+    titulo: "Marketplace: publicá tu negocio",
+    texto: "Tu página con fotos, precios y reserva directa — sin comisión por publicar.",
+    cta: "Publicar mi negocio",
+    href: "/mi-negocio/nuevo",
+    color: "#2f7cbe",
+    Mockup: MockupMapa,
+  },
+  {
+    titulo: "Invitaciones digitales",
+    texto: "Invitación con diseño propio y confirmaciones en tiempo real, lista para compartir por WhatsApp.",
+    cta: "Crear una invitación",
+    href: "/invitaciones",
+    color: "#a35fb0",
+    Mockup: MockupInvitacion,
+  },
+];
 
 type VerticalNegocio = "Citas" | "Eventos" | "Restaurantes" | "Hospedajes";
 
@@ -146,6 +201,54 @@ export default function PublicarPage() {
             <Dato numero="0" texto="comisión por publicar" />
             <Dato numero="24/7" texto="la plataforma reserva por vos" />
             <Dato numero="100%" texto="en línea, sin papeleo" />
+          </div>
+        </div>
+      </section>
+
+      {/* ================= NUESTROS SERVICIOS =================
+          Fondo BLANCO a propósito (pedido del dueño) — es la única
+          franja clara de toda la página, así que las cards y su
+          mockup de teléfono se leen como el "producto real", no como
+          decoración navy más. Cada card muestra el MOCKUP animado de
+          su producto (los mismos 4 que ya usa la portada en "Todo lo
+          que Bookea te da") en vez de un ícono en un círculo — pedido
+          explícito: "no iconos, mockups de teléfonos". */}
+      <section className="bg-white px-5 py-20 sm:px-8">
+        <div className="mx-auto w-full max-w-[1160px]">
+          <div data-reveal className="mx-auto max-w-[52ch] text-center">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em]" style={{ color: NARANJA }}>
+              Todo Bookea, en una cuenta
+            </p>
+            <h2 className="titulo mx-auto mt-4 max-w-[18ch] text-[clamp(28px,4.6vw,46px)] leading-[1.08] text-[color:var(--navy)]">
+              ¡Nuestros servicios!
+            </h2>
+            <p className="mx-auto mt-4 text-[15px] leading-relaxed text-aventurea-ink-soft">
+              Cuatro herramientas conectadas entre sí — activá las que tu negocio necesite, cuando las necesite.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {SERVICIOS_BOOKEA.map((s, i) => (
+              <Link
+                key={s.titulo}
+                href={s.href}
+                data-reveal
+                style={{ "--reveal-delay": `${i * 80}ms` } as React.CSSProperties}
+                className="group flex flex-col items-center rounded-3xl border border-aventurea-line bg-white p-6 text-center shadow-[0_18px_45px_-30px_rgba(16,30,66,.35)] transition-colors hover:border-[color:var(--navy)]"
+              >
+                <div className="scale-[0.82] sm:scale-90">
+                  <s.Mockup activo mostrarFlotante={false} />
+                </div>
+                <h3 className="mt-3 text-[16px] font-extrabold leading-snug text-aventurea-ink">{s.titulo}</h3>
+                <p className="mt-2 flex-1 text-[13.5px] leading-relaxed text-aventurea-ink-soft">{s.texto}</p>
+                <span
+                  className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-bold transition-transform group-hover:translate-x-0.5"
+                  style={{ color: s.color }}
+                >
+                  {s.cta} →
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       </section>

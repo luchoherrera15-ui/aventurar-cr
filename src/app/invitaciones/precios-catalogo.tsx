@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import type { ComponentType } from "react";
 import {
   ahorroPack,
   descuentoPct,
@@ -12,6 +13,27 @@ import {
 
   type ProductoIndividual,
 } from "@/lib/paquetes-invitaciones";
+import { IconCalendarLine, IconCamera, IconMail, IconSparkles } from "@/components/icons";
+
+/**
+ * Un ícono por producto — antes la lista era puro texto en filas
+ * angostas ("eso enreda", pedido del dueño) y costaba distinguir un
+ * renglón del siguiente. Los álbumes comparten ícono (son el mismo
+ * producto en distintos tamaños); Estándar y Premium usan los mismos
+ * que ya identifican a cada invitación en el resto de la landing
+ * (`page.tsx`, `PIEZAS_EJEMPLO`), para no inventar una segunda lectura
+ * visual del mismo producto.
+ */
+const ICONO_PRODUCTO: Record<string, ComponentType<{ className?: string }>> = {
+  album_50: IconCamera,
+  album_150: IconCamera,
+  album_250: IconCamera,
+  album_400: IconCamera,
+  album_600: IconCamera,
+  inv_esencial: IconMail,
+  inv_premium: IconSparkles,
+  save_the_date: IconCalendarLine,
+};
 
 /**
  * El bloque de precios de /invitaciones.
@@ -61,7 +83,7 @@ export default function PreciosCatalogo({
         </p>
       )}
 
-      {/* ---------- Productos individuales ---------- */}
+      {/* ---------- Productos individuales, en cards ---------- */}
       <div className="grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
         {ORDEN_FAMILIAS.map((familia) => {
           const items = PRODUCTOS_INDIVIDUALES.filter((p) => p.familia === familia);
@@ -71,19 +93,26 @@ export default function PreciosCatalogo({
               <p className="border-b border-white/15 pb-3 text-[12px] font-bold uppercase tracking-[0.18em] text-[#ee7420]">
                 {FAMILIA_LABEL[familia]}
               </p>
-              <ul className="mt-1">
-                {items.map((p) => (
-                  <li key={p.id}>
+              <div className="mt-3 flex flex-col gap-2.5">
+                {items.map((p) => {
+                  const Icono = ICONO_PRODUCTO[p.id];
+                  return (
                     <Link
+                      key={p.id}
                       href={`/invitaciones/pedido/${p.id}`}
-                      className="group flex items-baseline justify-between gap-4 border-b border-white/5 py-3.5 transition-colors hover:border-white/20"
+                      className="group flex items-center gap-3.5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition-colors hover:border-white/25 hover:bg-white/[0.08]"
                     >
-                      <span className="min-w-0">
-                        <span className="block text-[15px] text-white/75 transition-colors group-hover:text-white">
+                      {Icono && (
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#ee7420]/15 text-[#ee7420] [&_svg]:h-5 [&_svg]:w-5">
+                          <Icono />
+                        </span>
+                      )}
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[15px] font-bold text-white/85 transition-colors group-hover:text-white">
                           {p.nombre}
                         </span>
                         {p.detalle && (
-                          <span className="mt-0.5 block text-[12.5px] leading-snug text-white/35">
+                          <span className="mt-0.5 block text-[12px] leading-snug text-white/40">
                             {p.detalle}
                           </span>
                         )}
@@ -109,9 +138,9 @@ export default function PreciosCatalogo({
                         )}
                       </span>
                     </Link>
-                  </li>
-                ))}
-              </ul>
+                  );
+                })}
+              </div>
             </div>
           );
         })}

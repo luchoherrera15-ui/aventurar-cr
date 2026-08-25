@@ -23,7 +23,7 @@ import {
   resumenDePlan,
   type ConceptoPlan,
 } from "@/lib/lealtad/regalias";
-import { perteneceASeccion, SECCION_CORTA, SECCION_LABEL, type SeccionAdmin } from "../vertical";
+import { SECCION_CORTA } from "../vertical";
 import { haceCuanto } from "@/lib/fechas";
 import VerPaseModal from "./ver-pase-modal";
 import VerClientesModal from "./ver-clientes-modal";
@@ -61,6 +61,8 @@ export type NegocioConAddons = {
   slug: string | null;
   vertical: string | null;
   estado: string | null;
+  /** 0187. false = nació en Bookea Lealtad, nunca se ofreció al directorio. */
+  enMarketplace: boolean;
   addons: FilaAddon[];
   /** El plan EFECTIVO: `cuentas.plan ?? ranchos.plan_lealtad` (0134). */
   planLealtad: string | null;
@@ -90,18 +92,14 @@ const ETIQUETA: Record<EstadoAddon, string> = {
 
 /**
  * El estado de `ranchos.estado` (CHECK: pendiente/aprobado/rechazado,
- * 0008), dicho con honestidad -no es un flag "publicado / solo lealtad"
- * inventado, porque la base HOY no distingue esos dos casos: un negocio
- * lealtad-only nace en "pendiente" a propósito (nunca lo aprueba nadie,
- * `alta-desde-solicitud.ts`) y un negocio de marketplace real esperando
- * revisión TAMBIÉN está en "pendiente". Mostrar el estado real, sin
- * fingir que se sabe la intención, es la decisión correcta hasta que
- * exista una columna que separe los dos casos.
- *
- * Se muestra SIEMPRE, no solo cuando no es "aprobado" -es una excepción
- * a propósito al resto del panel (que calla lo esperado y solo grita la
- * anomalía): el dueño pidió "forma o no parte del marketplace" como un
- * dato a leer en cada fila, no como una alarma condicional.
+ * 0008) es del MARKETPLACE — no le aplica a un negocio que nació en
+ * Bookea Lealtad y nunca se ofreció como proveedor del directorio.
+ * Hasta la 0187 la base no tenía cómo distinguir los dos casos (los dos
+ * nacían en "pendiente"), así que este badge mostraba el estado crudo
+ * para los dos. La 0187 agregó `ranchos.en_marketplace` justo para esto
+ * — mismo criterio que ya usan `/mi-negocio` y `/admin/ranchos`: un
+ * negocio de lealtad no está pendiente de nada, así que se dice "Lealtad"
+ * y no "Pendiente de aprobación".
  *
  * Los pares de clases son los que YA están en producción en este mismo
  * archivo (el chip "Activo" de arriba, la regalía vencida, el badge
@@ -119,9 +117,11 @@ const ESTADO_LABEL: Record<string, string> = {
   pendiente: "Pendiente de aprobación",
   rechazado: "Rechazado",
 };
+const ESTADO_BADGE_LEALTAD = "bg-aventurea-navy/10 text-aventurea-navy";
 
 /** Clases y texto del badge de estado, con el fallback honesto. */
-function estadoBadge(estado: string | null): { clase: string; texto: string } {
+function estadoBadge(estado: string | null, enMarketplace: boolean): { clase: string; texto: string } {
+  if (!enMarketplace) return { clase: ESTADO_BADGE_LEALTAD, texto: "Lealtad" };
   if (estado && ESTADO_BADGE[estado]) {
     return { clase: ESTADO_BADGE[estado], texto: ESTADO_LABEL[estado] };
   }
@@ -192,7 +192,6 @@ const FILTROS: { id: Filtro; label: string }[] = [
  */
 export default function ComplementosPanel({
   negocios,
-  seccion,
   faltaLaBitacora,
   negociosOcultosPorTope,
   totalNegocios,
@@ -201,8 +200,6 @@ export default function ComplementosPanel({
   tarjetasCompletas,
 }: {
   negocios: NegocioConAddons[];
-  /** Sección activa del panel (cookie admin_seccion). */
-  seccion: SeccionAdmin;
   /** La bitácora de planes no se pudo leer: falta pegar la 0173. */
   faltaLaBitacora: boolean;
   /** Negocios que quedaron fuera por el techo de la consulta. */
@@ -216,7 +213,6 @@ export default function ComplementosPanel({
   tarjetasCompletas: boolean;
 }) {
   const [busqueda, setBusqueda] = useState("");
-  const [soloSeccion, setSoloSeccion] = useState(seccion !== "todas");
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [filtroPlan, setFiltroPlan] = useState<string>("todos");
   const [campo, setCampo] = useState<Campo>("nombre");
@@ -247,9 +243,6 @@ export default function ComplementosPanel({
     }
 
     return negocios.filter((n) => {
-      if (soloSeccion && seccion !== "todas" && !perteneceASeccion(n.vertical, seccion)) {
-        return false;
-      }
       if (filtroPlan !== "todos") {
         if (filtroPlan === "sin" ? n.planLealtad !== null : n.planLealtad !== filtroPlan) {
           return false;
@@ -266,7 +259,7 @@ export default function ComplementosPanel({
       }
       return true;
     });
-  }, [negocios, busqueda, soloSeccion, seccion, filtro, filtroPlan]);
+  }, [negocios, busqueda, filtro, filtroPlan]);
 
   const ordenados = useMemo(() => {
     const orden = (a: NegocioConAddons, b: NegocioConAddons) => {
@@ -374,21 +367,6 @@ export default function ComplementosPanel({
             {f.label}
           </button>
         ))}
-
-        {!busqueda.trim() && seccion !== "todas" && (
-          <label className="flex cursor-pointer items-center gap-2 font-bold text-aventurea-ink-soft">
-            <input
-              type="checkbox"
-              checked={soloSeccion}
-              onChange={(e) => {
-                setSoloSeccion(e.target.checked);
-                setPagina(0);
-              }}
-              className="h-4 w-4 accent-aventurea-navy"
-            />
-            Solo {SECCION_LABEL[seccion]}
-          </label>
-        )}
 
         <span className="ml-auto text-aventurea-ink-soft">
           {ordenados.length} de {negocios.length} negocio{negocios.length === 1 ? "" : "s"}
@@ -605,7 +583,7 @@ function Fila({
   const dias = diasPara(proximo ?? null);
   const discrepa =
     n.tieneCuenta && n.planCuenta !== null && n.planCuenta !== n.planRancho;
-  const estado = estadoBadge(n.estado);
+  const estado = estadoBadge(n.estado, n.enMarketplace);
 
   return (
     <tr
@@ -970,7 +948,7 @@ function Detalle({
   onCerrar: () => void;
   faltaLaBitacora: boolean;
 }) {
-  const estado = estadoBadge(negocio.estado);
+  const estado = estadoBadge(negocio.estado, negocio.enMarketplace);
   return (
     <div className="mt-6 rounded-2xl border border-aventurea-line bg-white p-5">
       <div className="flex flex-wrap items-baseline gap-x-2.5">

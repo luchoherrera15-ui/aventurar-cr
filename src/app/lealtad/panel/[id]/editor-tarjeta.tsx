@@ -131,6 +131,7 @@ export default function EditorTarjeta({
     if (p.iconoUrl !== undefined) cambiosBorrador.iconoUrl = p.iconoUrl;
     if (p.logoUrl !== undefined) cambiosBorrador.logoUrl = p.logoUrl;
     if (p.bannerUrl !== undefined) cambiosBorrador.bannerUrl = p.bannerUrl;
+    if (p.notificacionLogoUrl !== undefined) cambiosBorrador.notificacionLogoUrl = p.notificacionLogoUrl;
     if (Object.keys(cambiosBorrador).length > 0) cambiar(cambiosBorrador);
   }
 
@@ -148,6 +149,7 @@ export default function EditorTarjeta({
     iconoUrl: borrador.iconoUrl,
     logoUrl: borrador.logoUrl,
     bannerUrl: borrador.bannerUrl,
+    notificacionLogoUrl: borrador.notificacionLogoUrl,
     reglas,
     vencenMeses,
     // Los tres de abajo no aplican en "editar" (son del banco de

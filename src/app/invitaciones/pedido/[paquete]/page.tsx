@@ -3,12 +3,21 @@ import { notFound } from "next/navigation";
 import SiteHeader from "@/components/site-header";
 import FormularioAuth from "@/app/cuenta/formulario-auth";
 import { createClient } from "@/lib/supabase/server";
+import { IconWhatsapp } from "@/components/icons";
 import {
   montoEnColones,
   precioPaquete,
   resolverPaquete,
 } from "@/lib/paquetes-invitaciones";
 import FormularioPedido from "./formulario-pedido";
+
+/**
+ * La línea de WhatsApp para quien quiere algo a medida en vez de un
+ * paquete fijo (pedido del dueño, ago 2026) — un número propio para
+ * esto, DISTINTO del de ventas general (`NEXT_PUBLIC_ASSIST_WHATSAPP`
+ * en cta-llamada.tsx).
+ */
+const WHATSAPP_PERSONALIZADO = "50687103739";
 
 export const metadata = {
   title: "Pedí tu invitación digital",
@@ -49,12 +58,28 @@ export default async function PedidoPage({
       <SiteHeader breadcrumb="Pedí tu invitación" />
 
       <section className="mx-auto max-w-[720px] px-5 py-8">
-        <Link
-          href="/invitaciones#paquetes"
-          className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
-        >
-          ← Ver los otros paquetes
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href="/invitaciones#paquetes"
+            className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
+          >
+            ← Ver los otros paquetes
+          </Link>
+
+          {/* Escape para quien no encuentra su caso en ningún paquete
+              fijo: habla directo con una persona, no con el formulario. */}
+          <a
+            href={`https://wa.me/${WHATSAPP_PERSONALIZADO}?text=${encodeURIComponent(
+              "Hola, quiero algo más personalizado para mi invitación digital.",
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full border border-aventurea-line bg-white px-4 py-2 text-[12.5px] font-bold text-aventurea-ink transition-colors hover:border-aventurea-navy"
+          >
+            <IconWhatsapp className="h-4 w-4 text-[#25D366]" />
+            Quiero algo más personalizado
+          </a>
+        </div>
 
         {/* Lo que está comprando, siempre a la vista */}
         <div className="mt-3 rounded-2xl bg-aventurea-navy px-6 py-5 text-white">

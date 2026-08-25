@@ -16,6 +16,7 @@ import {
 } from "@/lib/lealtad/planes";
 import { TIPOS_TARJETA, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { Icono } from "./panel/[id]/iconos";
+import BotonVerTipos from "./boton-ver-tipos";
 
 /**
  * MODO 2 — «al hacer clic en el botón se abren los paquetes que
@@ -181,10 +182,13 @@ function TarjetaPlanLectura({
       </p>
 
       <ul className="mt-3.5 flex-1 space-y-1.5">
-        {beneficios.map((b) => (
+        {beneficios.map((b, i) => (
           <li key={b} className="flex items-start gap-1.5 text-[11.5px] leading-snug text-bookea-gris">
             <Icono nombre="listo" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-bookea-azul" />
-            {b}
+            <span>
+              {b}
+              {i === 0 && <BotonVerTipos tipos={def.tipos} />}
+            </span>
           </li>
         ))}
       </ul>

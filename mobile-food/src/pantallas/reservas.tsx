@@ -6,11 +6,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, Fonts, Radios, Spacing, Sombras, Tipo } from "@/constants/theme";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import { useAuth } from "@/lib/auth-context";
-import { cargarMisReservas, type FilaMisReserva } from "@/lib/food-datos";
-import { fechaCorta, horaCorta } from "@/lib/food-tipos";
-import { cancelarReserva } from "@/lib/food-acciones";
+import { useModoPedido } from "@/lib/modo-pedido";
+import { cargarMisPedidos, cargarMisReservas, type FilaMiPedido, type FilaMisReserva } from "@/lib/food-datos";
+import { CRC, fechaCorta, horaCorta, type FoodPedidoEstado } from "@/lib/food-tipos";
+import { cancelarPedido, cancelarReserva } from "@/lib/food-acciones";
+import SelectorModo from "@/components/selector-modo";
 
-type PestanaLista = "proximas" | "pasadas" | "canceladas";
+type PestanaReserva = "proximas" | "pasadas" | "canceladas";
+type PestanaPedido = "activos" | "anteriores" | "cancelados";
 
 const ESTADO_LABEL: Record<FilaMisReserva["estado"], string> = {
   confirmada: "Confirmada",
@@ -19,24 +22,40 @@ const ESTADO_LABEL: Record<FilaMisReserva["estado"], string> = {
   cancelada: "Cancelada",
 };
 
+const ESTADO_PEDIDO_LABEL: Record<FoodPedidoEstado, string> = {
+  pendiente: "Pendiente",
+  confirmado: "En preparación",
+  listo: "Listo para retirar",
+  entregado: "Entregado",
+  cancelado: "Cancelado",
+};
+
 /**
- * Mis Reservas — mismo criterio de tres pestañas que /food/mis-reservas
- * en /web (reservas-tabs.tsx): Próximas (confirmada/check_in y no
- * pasada), Pasadas (pasada o no_show) y Canceladas, aparte.
+ * Mis Reservas / Mis Pedidos — la misma pestaña de abajo (0207), con
+ * el selector "Mesa"/"To Go" arriba decidiendo cuál de las dos listas
+ * se ve. Reservas sigue el mismo criterio de siempre (espejo de
+ * /food/mis-reservas en /web); Pedidos es su equivalente para "To Go":
+ * Activos (pendiente/confirmado/listo), Anteriores (entregado) y
+ * Cancelados, aparte.
  */
 export default function Reservas({ activa }: { activa: boolean }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session, cargando } = useAuth();
+  const { modo } = useModoPedido();
   const [reservas, setReservas] = useState<FilaMisReserva[] | null>(null);
-  const [pestana, setPestana] = useState<PestanaLista>("proximas");
+  const [pedidos, setPedidos] = useState<FilaMiPedido[] | null>(null);
+  const [pestana, setPestana] = useState<PestanaReserva>("proximas");
+  const [pestanaPedido, setPestanaPedido] = useState<PestanaPedido>("activos");
   const [cancelando, setCancelando] = useState<string | null>(null);
 
   const cargar = useCallback(() => {
     if (!session) return;
     let vigente = true;
-    cargarMisReservas(session.user.id).then((r) => {
-      if (vigente) setReservas(r);
+    Promise.all([cargarMisReservas(session.user.id), cargarMisPedidos(session.user.id)]).then(([r, p]) => {
+      if (!vigente) return;
+      setReservas(r);
+      setPedidos(p);
     });
     return () => {
       vigente = false;
@@ -68,6 +87,26 @@ export default function Reservas({ activa }: { activa: boolean }) {
     ]);
   }
 
+  async function tocarCancelarPedido(pedido: FilaMiPedido) {
+    Alert.alert("Cancelar pedido", `¿Cancelar tu pedido en ${pedido.negocioNombre}?`, [
+      { text: "No", style: "cancel" },
+      {
+        text: "Sí, cancelar",
+        style: "destructive",
+        onPress: async () => {
+          setCancelando(pedido.id);
+          const r = await cancelarPedido(pedido.id);
+          setCancelando(null);
+          if (!r.ok) {
+            Alert.alert("No se pudo cancelar", r.error ?? "Intentá de nuevo.");
+            return;
+          }
+          cargar();
+        },
+      },
+    ]);
+  }
+
   if (cargando) {
     return (
       <View style={styles.centro}>
@@ -79,10 +118,15 @@ export default function Reservas({ activa }: { activa: boolean }) {
   if (!session) {
     return (
       <View style={[styles.contenedor, { paddingTop: insets.top + Spacing.three }]}>
+        <View style={{ marginBottom: Spacing.three, alignItems: "center" }}>
+          <SelectorModo />
+        </View>
         <View style={styles.vacio}>
-          <Ionicons name="calendar-outline" size={30} color={Colors.inkMuted} />
+          <Ionicons name={modo === "togo" ? "bag-handle-outline" : "calendar-outline"} size={30} color={Colors.inkMuted} />
           <Text style={Tipo.titulo2}>Iniciá sesión</Text>
-          <Text style={styles.vacioTexto}>Entrá a tu cuenta para ver tus reservas.</Text>
+          <Text style={styles.vacioTexto}>
+            {modo === "togo" ? "Entrá a tu cuenta para ver tus pedidos." : "Entrá a tu cuenta para ver tus reservas."}
+          </Text>
           <Pressable style={styles.botonPrimario} onPress={() => router.push("/?tab=perfil")}>
             <Text style={styles.botonPrimarioTexto}>Ir a mi perfil</Text>
           </Pressable>
@@ -98,56 +142,110 @@ export default function Reservas({ activa }: { activa: boolean }) {
     (r) => r.estado !== "cancelada" && (r.pasada || r.estado === "no_show"),
   );
   const canceladas = (reservas ?? []).filter((r) => r.estado === "cancelada");
-
   const lista = pestana === "proximas" ? proximas : pestana === "pasadas" ? pasadas : canceladas;
+
+  const activos = (pedidos ?? []).filter((p) => p.estado === "pendiente" || p.estado === "confirmado" || p.estado === "listo");
+  const anteriores = (pedidos ?? []).filter((p) => p.estado === "entregado");
+  const cancelados = (pedidos ?? []).filter((p) => p.estado === "cancelado");
+  const listaPedidos = pestanaPedido === "activos" ? activos : pestanaPedido === "anteriores" ? anteriores : cancelados;
 
   return (
     <View style={[styles.contenedor, { paddingTop: insets.top + Spacing.three }]}>
       <View style={styles.encabezado}>
-        <Text style={Tipo.titulo1}>Mis reservas</Text>
-        <View style={styles.tabs}>
-          <TabBoton label={`Próximas (${proximas.length})`} activa={pestana === "proximas"} onPress={() => setPestana("proximas")} />
-          <TabBoton label={`Pasadas (${pasadas.length})`} activa={pestana === "pasadas"} onPress={() => setPestana("pasadas")} />
-          <TabBoton label={`Canceladas (${canceladas.length})`} activa={pestana === "canceladas"} onPress={() => setPestana("canceladas")} />
+        <View style={{ marginBottom: Spacing.three, alignItems: "center" }}>
+          <SelectorModo />
         </View>
+        <Text style={Tipo.titulo1}>{modo === "togo" ? "Mis pedidos" : "Mis reservas"}</Text>
+        {modo === "mesa" ? (
+          <View style={styles.tabs}>
+            <TabBoton label={`Próximas (${proximas.length})`} activa={pestana === "proximas"} onPress={() => setPestana("proximas")} />
+            <TabBoton label={`Pasadas (${pasadas.length})`} activa={pestana === "pasadas"} onPress={() => setPestana("pasadas")} />
+            <TabBoton label={`Canceladas (${canceladas.length})`} activa={pestana === "canceladas"} onPress={() => setPestana("canceladas")} />
+          </View>
+        ) : (
+          <View style={styles.tabs}>
+            <TabBoton label={`Activos (${activos.length})`} activa={pestanaPedido === "activos"} onPress={() => setPestanaPedido("activos")} />
+            <TabBoton label={`Anteriores (${anteriores.length})`} activa={pestanaPedido === "anteriores"} onPress={() => setPestanaPedido("anteriores")} />
+            <TabBoton label={`Cancelados (${cancelados.length})`} activa={pestanaPedido === "cancelados"} onPress={() => setPestanaPedido("cancelados")} />
+          </View>
+        )}
       </View>
 
-      {reservas === null ? (
+      {modo === "mesa" ? (
+        reservas === null ? (
+          <ActivityIndicator color={Colors.accent} style={{ marginTop: Spacing.five }} />
+        ) : lista.length === 0 ? (
+          <View style={styles.vacio}>
+            <Ionicons name="calendar-outline" size={26} color={Colors.inkMuted} />
+            <Text style={styles.vacioTexto}>
+              {pestana === "proximas"
+                ? "Todavía no tenés reservas próximas."
+                : pestana === "pasadas"
+                  ? "Acá vas a ver tus reservas pasadas."
+                  : "No tenés reservas canceladas."}
+            </Text>
+          </View>
+        ) : (
+          <ScrollView contentContainerStyle={{ padding: Spacing.four, paddingTop: 0, gap: Spacing.three, paddingBottom: TAB_BAR_ESPACIO }}>
+            {lista.map((r) => (
+              <Pressable key={r.id} onPress={() => router.push(`/reserva/${r.id}`)} style={styles.tarjeta}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.nombre} numberOfLines={1}>{r.negocioNombre}</Text>
+                  <Text style={styles.meta}>
+                    {r.fecha ? fechaCorta(r.fecha) : "Sin fecha"}
+                    {r.hora ? ` · ${horaCorta(r.hora)}` : ""} · {r.partySize} {r.partySize === 1 ? "persona" : "personas"}
+                  </Text>
+                  <Text style={styles.codigo}>Código {r.codigoConfirmacion}</Text>
+                </View>
+                <View style={{ alignItems: "flex-end", gap: Spacing.two }}>
+                  <View style={[styles.pildora, ESTILO_ESTADO[r.estado]]}>
+                    <Text style={[styles.pildoraTexto, ESTILO_TEXTO_ESTADO[r.estado]]}>{ESTADO_LABEL[r.estado]}</Text>
+                  </View>
+                  {(r.estado === "confirmada" || r.estado === "check_in") && !r.pasada && (
+                    <Pressable onPress={() => tocarCancelar(r)} disabled={cancelando === r.id} hitSlop={8}>
+                      {cancelando === r.id ? (
+                        <ActivityIndicator size="small" color={Colors.danger} />
+                      ) : (
+                        <Text style={styles.cancelar}>Cancelar</Text>
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        )
+      ) : pedidos === null ? (
         <ActivityIndicator color={Colors.accent} style={{ marginTop: Spacing.five }} />
-      ) : lista.length === 0 ? (
+      ) : listaPedidos.length === 0 ? (
         <View style={styles.vacio}>
-          <Ionicons name="calendar-outline" size={26} color={Colors.inkMuted} />
+          <Ionicons name="bag-handle-outline" size={26} color={Colors.inkMuted} />
           <Text style={styles.vacioTexto}>
-            {pestana === "proximas"
-              ? "Todavía no tenés reservas próximas."
-              : pestana === "pasadas"
-                ? "Acá vas a ver tus reservas pasadas."
-                : "No tenés reservas canceladas."}
+            {pestanaPedido === "activos"
+              ? "Todavía no tenés pedidos activos."
+              : pestanaPedido === "anteriores"
+                ? "Acá vas a ver tus pedidos ya entregados."
+                : "No tenés pedidos cancelados."}
           </Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ padding: Spacing.four, paddingTop: 0, gap: Spacing.three, paddingBottom: TAB_BAR_ESPACIO }}>
-          {lista.map((r) => (
-            <Pressable key={r.id} onPress={() => router.push(`/reserva/${r.id}`)} style={styles.tarjeta}>
+          {listaPedidos.map((p) => (
+            <Pressable key={p.id} onPress={() => router.push(`/pedido/${p.id}`)} style={styles.tarjeta}>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.nombre} numberOfLines={1}>{r.negocioNombre}</Text>
+                <Text style={styles.nombre} numberOfLines={1}>{p.negocioNombre}</Text>
                 <Text style={styles.meta}>
-                  {r.fecha ? fechaCorta(r.fecha) : "Sin fecha"}
-                  {r.hora ? ` · ${horaCorta(r.hora)}` : ""} · {r.partySize} {r.partySize === 1 ? "persona" : "personas"}
+                  {p.horaRetiro ? `Retiro: ${p.horaRetiro}` : "Retiro: lo antes posible"} · {CRC.format(p.total)}
                 </Text>
-                <Text style={styles.codigo}>Código {r.codigoConfirmacion}</Text>
+                <Text style={styles.codigo}>Código {p.codigoConfirmacion}</Text>
               </View>
               <View style={{ alignItems: "flex-end", gap: Spacing.two }}>
-                <View style={[styles.pildora, ESTILO_ESTADO[r.estado]]}>
-                  <Text style={[styles.pildoraTexto, ESTILO_TEXTO_ESTADO[r.estado]]}>{ESTADO_LABEL[r.estado]}</Text>
+                <View style={[styles.pildora, ESTILO_ESTADO_PEDIDO[p.estado]]}>
+                  <Text style={[styles.pildoraTexto, ESTILO_TEXTO_ESTADO_PEDIDO[p.estado]]}>{ESTADO_PEDIDO_LABEL[p.estado]}</Text>
                 </View>
-                {(r.estado === "confirmada" || r.estado === "check_in") && !r.pasada && (
-                  <Pressable
-                    onPress={() => tocarCancelar(r)}
-                    disabled={cancelando === r.id}
-                    hitSlop={8}
-                  >
-                    {cancelando === r.id ? (
+                {p.estado === "pendiente" && (
+                  <Pressable onPress={() => tocarCancelarPedido(p)} disabled={cancelando === p.id} hitSlop={8}>
+                    {cancelando === p.id ? (
                       <ActivityIndicator size="small" color={Colors.danger} />
                     ) : (
                       <Text style={styles.cancelar}>Cancelar</Text>
@@ -182,6 +280,21 @@ const ESTILO_TEXTO_ESTADO = StyleSheet.create({
   check_in: { color: Colors.accentDark },
   no_show: { color: Colors.danger },
   cancelada: { color: Colors.inkSoft },
+});
+
+const ESTILO_ESTADO_PEDIDO = StyleSheet.create({
+  pendiente: { backgroundColor: Colors.accentLight },
+  confirmado: { backgroundColor: Colors.accentLight },
+  listo: { backgroundColor: Colors.greenLight },
+  entregado: { backgroundColor: Colors.cream2 },
+  cancelado: { backgroundColor: Colors.cream2 },
+});
+const ESTILO_TEXTO_ESTADO_PEDIDO = StyleSheet.create({
+  pendiente: { color: Colors.accentDark },
+  confirmado: { color: Colors.accentDark },
+  listo: { color: Colors.green },
+  entregado: { color: Colors.inkSoft },
+  cancelado: { color: Colors.inkSoft },
 });
 
 const styles = StyleSheet.create({

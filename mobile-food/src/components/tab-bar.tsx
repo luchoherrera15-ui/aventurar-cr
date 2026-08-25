@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Fonts } from "@/constants/theme";
 import type { IdPestana } from "@/lib/pestanas";
+import { useModoPedido } from "@/lib/modo-pedido";
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
@@ -47,6 +48,7 @@ export default function TabBar({
   onCambiar: (indice: number) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const { modo } = useModoPedido();
   const [ancho, setAncho] = useState(0);
   const anchoItem = ancho > 0 ? (ancho - PAD * 2) / TABS.length : 0;
 
@@ -119,16 +121,22 @@ export default function TabBar({
             outputRange: [1, ESCALA_LUPA, 1],
             extrapolate: "clamp",
           });
+          // La pestaña "Reservas" es la misma pantalla para Mesa y
+          // To Go (0207) — el rótulo sigue el modo global para no
+          // decir "Reservas" mientras adentro se ven pedidos.
+          const label = item.id === "reservas" && modo === "togo" ? "Pedidos" : item.label;
+          const icono = item.id === "reservas" && modo === "togo" ? "bag-handle-outline" : item.icono;
+          const iconoActivo = item.id === "reservas" && modo === "togo" ? "bag-handle" : item.iconoActivo;
           return (
             <Pressable key={item.id} onPress={() => onCambiar(i)} style={styles.item}>
               <Animated.View style={{ transform: [{ scale: escala }] }}>
                 <Ionicons
-                  name={esActiva ? item.iconoActivo : item.icono}
+                  name={esActiva ? iconoActivo : icono}
                   size={21}
                   color={esActiva ? Colors.navy : Colors.inkMuted}
                 />
               </Animated.View>
-              <Text style={[styles.label, esActiva && styles.labelActiva]}>{item.label}</Text>
+              <Text style={[styles.label, esActiva && styles.labelActiva]}>{label}</Text>
             </Pressable>
           );
         })}

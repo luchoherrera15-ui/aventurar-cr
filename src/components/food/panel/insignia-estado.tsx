@@ -19,7 +19,14 @@ export type EstadoInsignia =
   | "no_show"
   | "check_in"
   | "activa"
-  | "pausada";
+  | "pausada"
+  // Pedidos "To Go" (0207) — "pedido" es masculino, de ahí "cancelado"
+  // aparte de "cancelada" (reservas); confirmado/listo/entregado son
+  // sus propios pasos, sin equivalente en el resto del panel.
+  | "confirmado"
+  | "listo"
+  | "entregado"
+  | "cancelado";
 
 const ESTILO: Record<EstadoInsignia, { etiqueta: string; clases: string; punto: string }> = {
   confirmada: {
@@ -61,6 +68,26 @@ const ESTILO: Record<EstadoInsignia, { etiqueta: string; clases: string; punto: 
     etiqueta: "Pausada",
     clases: "bg-aventurea-cream-2 text-aventurea-ink-soft",
     punto: "bg-aventurea-line-fuerte",
+  },
+  confirmado: {
+    etiqueta: "En preparación",
+    clases: "bg-aventurea-sky-light text-aventurea-sky-dark",
+    punto: "bg-aventurea-sky",
+  },
+  listo: {
+    etiqueta: "Listo para retirar",
+    clases: "bg-aventurea-green-light text-aventurea-green",
+    punto: "bg-aventurea-green",
+  },
+  entregado: {
+    etiqueta: "Entregado",
+    clases: "bg-aventurea-cream-2 text-aventurea-ink-soft",
+    punto: "bg-aventurea-line-fuerte",
+  },
+  cancelado: {
+    etiqueta: "Cancelado",
+    clases: "bg-red-50 text-red-700",
+    punto: "bg-red-500",
   },
 };
 

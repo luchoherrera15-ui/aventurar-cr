@@ -15,7 +15,9 @@ import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import { useAuth } from "@/lib/auth-context";
 import { cargarFavoritosIds, cargarTarjetasFood, type TarjetaFood } from "@/lib/food-datos";
 import { hoyISOCR, normalizarBusquedaFood } from "@/lib/food-tipos";
+import { useModoPedido } from "@/lib/modo-pedido";
 import TarjetaRestaurante from "@/components/tarjeta-restaurante";
+import SelectorModo from "@/components/selector-modo";
 
 type ChipFecha = "hoy" | "manana" | "semana" | null;
 
@@ -34,6 +36,7 @@ function fechaISO(offsetDias: number): string {
 export default function Descubrir({ activa }: { activa: boolean }) {
   const insets = useSafeAreaInsets();
   const { session } = useAuth();
+  const { modo } = useModoPedido();
   const [tarjetas, setTarjetas] = useState<TarjetaFood[] | null>(null);
   const [favoritos, setFavoritos] = useState<Set<string>>(new Set());
   const [texto, setTexto] = useState("");
@@ -57,6 +60,7 @@ export default function Descubrir({ activa }: { activa: boolean }) {
 
   const filtrados = useMemo(() => {
     let lista = tarjetas ?? [];
+    if (modo === "togo") lista = lista.filter((n) => n.aceptaParaLlevar && n.platos.length > 0);
     if (texto) {
       const aguja = normalizarBusquedaFood(texto);
       lista = lista.filter((n) =>
@@ -69,7 +73,7 @@ export default function Descubrir({ activa }: { activa: boolean }) {
     else if (chipFecha === "semana")
       lista = lista.filter((n) => n.fechasConOferta.some((f) => semana.includes(f)));
     return [...lista].sort((a, b) => b.descuentoPorcentaje - a.descuentoPorcentaje);
-  }, [tarjetas, texto, soloDescuento, chipFecha, hoy, manana, semana]);
+  }, [tarjetas, modo, texto, soloDescuento, chipFecha, hoy, manana, semana]);
 
   return (
     <View style={[styles.contenedor, { paddingTop: insets.top + Spacing.three }]}>
@@ -79,6 +83,9 @@ export default function Descubrir({ activa }: { activa: boolean }) {
         contentContainerStyle={{ paddingBottom: TAB_BAR_ESPACIO, paddingHorizontal: Spacing.four }}
         ListHeaderComponent={
           <View style={{ marginBottom: Spacing.three }}>
+            <View style={{ marginBottom: Spacing.four }}>
+              <SelectorModo />
+            </View>
             <Text style={Tipo.titulo1}>Descubrir</Text>
             <View style={styles.buscador}>
               <Ionicons name="search" size={16} color={Colors.inkMuted} />

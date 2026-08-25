@@ -116,6 +116,8 @@ export type ProgramaFila = {
    * pantalla leería `undefined` donde promete un booleano.
    */
   pase_banner_url?: string | null;
+  /** El logo del AVISO de Wallet (0208) — no el de la tarjeta. Opcional por lo mismo. */
+  pase_notificacion_logo_url?: string | null;
   /** El icono de cada sello (0145). Opcional por lo mismo. */
   pase_sello_icono?: string | null;
   /** El ícono propio que subió el negocio (0174). Opcional por lo mismo. */
@@ -167,6 +169,8 @@ export type ProgramaInput = {
   logoUrl: string;
   /** Banda superior: `strip.png` en Apple, `heroImage` en Google. */
   bannerUrl: string;
+  /** El logo del AVISO de Wallet (0208), no el de la tarjeta. */
+  notificacionLogoUrl: string;
   /**
    * El dibujo de cada sello (0145). null = el logo del negocio;
    * 'propio' = el archivo de `iconoUrl` (0174).
@@ -360,6 +364,9 @@ export async function guardarPrograma(
   if (imagenAjena(datos.bannerUrl, previo?.pase_banner_url ?? null)) {
     return { error: "La banda no se subió bien — probá de nuevo." };
   }
+  if (imagenAjena(datos.notificacionLogoUrl, previo?.pase_notificacion_logo_url ?? null)) {
+    return { error: "El logo de notificaciones no se subió bien — probá de nuevo." };
+  }
   if (imagenAjena(datos.iconoUrl, previo?.pase_sello_icono_url ?? null)) {
     return { error: "El ícono no se subió bien — probá de nuevo." };
   }
@@ -433,6 +440,7 @@ export async function guardarPrograma(
   const fila = {
     ...base,
     pase_banner_url: datos.bannerUrl.trim() || null,
+    pase_notificacion_logo_url: datos.notificacionLogoUrl.trim() || null,
     pase_sello_icono: sello.icono,
     pase_sello_icono_url: sello.url,
     pase_codigo_formato: datos.codigoFormato,
@@ -474,6 +482,7 @@ export async function guardarPrograma(
   // abajo, en `traducir`, y sale en español diciendo qué corregir.
   const COLUMNAS_NUEVAS = [
     "pase_banner_url",
+    "pase_notificacion_logo_url",
     "pase_sello_icono",
     "pase_sello_icono_url",
     "pase_codigo_formato",

@@ -201,6 +201,18 @@ const nextConfig: NextConfig = {
         destination: "/mi-negocio/:path*",
         permanent: true,
       },
+      // URL corta pedida a mano para compartir el catálogo de demos de
+      // Lealtad (`/lealtad/demo/[tipo]`) sin el prefijo `/lealtad`.
+      {
+        source: "/demos",
+        destination: "/lealtad/demo",
+        permanent: true,
+      },
+      {
+        source: "/demos/:path*",
+        destination: "/lealtad/demo/:path*",
+        permanent: true,
+      },
     ];
   },
 };

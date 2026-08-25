@@ -53,6 +53,7 @@ export default function CreadorTarjeta({
     iconoUrl: "",
     logoUrl: "",
     bannerUrl: "",
+    notificacionLogoUrl: "",
     reglas: REGLAS_VACIAS,
     vencenMeses: null,
     telefono: "",
@@ -80,6 +81,7 @@ export default function CreadorTarjeta({
       iconoUrl: valor.tipo === "sellos" ? valor.iconoUrl.trim() : "",
       logoUrl: valor.logoUrl.trim(),
       bannerUrl: valor.bannerUrl.trim(),
+      notificacionLogoUrl: valor.notificacionLogoUrl.trim(),
       reglas: valor.reglas,
       sellosVencenMeses: valor.tipo === "sellos" ? valor.vencenMeses : null,
     };

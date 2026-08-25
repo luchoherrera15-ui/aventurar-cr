@@ -87,6 +87,21 @@ function texto(datos: DatosPedido, campo: keyof DatosPedido, max = 400): string 
     .slice(0, max);
 }
 
+/**
+ * El link de Google Maps, con esquema garantizado. El campo del
+ * formulario ya no es `type="url"` (esa validación nativa rechazaba
+ * links pegados sin "https://" y bloqueaba el envío), así que puede
+ * llegar algo como "maps.app.goo.gl/xyz" — sin el `https://` delante,
+ * `invitacion-vista.tsx` lo usaría tal cual en un `href` y el navegador
+ * lo trataría como una ruta RELATIVA (`/i/tu-slug/maps.app.goo.gl/xyz`),
+ * un link roto. Se le agrega el esquema acá, una sola vez, al guardar.
+ */
+function urlMaps(datos: DatosPedido): string {
+  const v = texto(datos, "maps_url", 500);
+  if (!v || /^https?:\/\//i.test(v)) return v;
+  return `https://${v}`;
+}
+
 const ES_FECHA = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
@@ -156,7 +171,7 @@ export async function crearPedidoInvitacion({
     p_hora: texto(datos, "hora", 20) || null,
     p_lugar_nombre: texto(datos, "lugar_nombre", 160) || null,
     p_lugar_direccion: texto(datos, "lugar_direccion", 300) || null,
-    p_maps_url: texto(datos, "maps_url", 500) || null,
+    p_maps_url: urlMaps(datos) || null,
     p_tematica: texto(datos, "tematica", 200) || null,
     p_colores: texto(datos, "colores", 160) || null,
     p_cantidad_invitados:
@@ -286,7 +301,7 @@ async function crearPedidoDirecto({
       hora: texto(datos, "hora", 20) || null,
       lugar_nombre: texto(datos, "lugar_nombre", 160) || null,
       lugar_direccion: texto(datos, "lugar_direccion", 300) || null,
-      maps_url: texto(datos, "maps_url", 500) || null,
+      maps_url: urlMaps(datos) || null,
       tematica: texto(datos, "tematica", 200) || null,
       colores: texto(datos, "colores", 160) || null,
       cantidad_invitados:

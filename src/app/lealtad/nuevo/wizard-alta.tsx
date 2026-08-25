@@ -169,7 +169,14 @@ function sanearGuardado(crudo: unknown, plan: string | null, topePasos: number):
   const c = crudo as Record<string, unknown>;
 
   const texto = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
-  limpio.nombreNegocio = texto(c.nombreNegocio, 80);
+  // El camino "prellenado" (irAlPlanPago() en tarjeta-formulario.tsx)
+  // guarda el nombre bajo la clave `nombre` (el campo se llama así en
+  // `ValorFormulario`, compartido con el creador y el editor) — nunca
+  // escribió `nombreNegocio`. Sin este respaldo, "Revisar" llegaba con
+  // el nombre vacío, "Enviar"/"Pagar" bloqueados, y ninguna pantalla
+  // donde escribirlo: "Revisar" es la ÚNICA pantalla de este camino
+  // (ver `pantallas` más abajo), así que no hay a dónde "volver".
+  limpio.nombreNegocio = texto(c.nombreNegocio ?? c.nombre, 80);
   limpio.detalleOtro = texto(c.detalleOtro, 80);
   limpio.telefono = texto(c.telefono, 30);
   limpio.descripcion = texto(c.descripcion, 500);
@@ -428,6 +435,9 @@ export default function WizardAlta({
         iconoUrl: "",
         logoUrl: estado.logoUrl ?? "",
         bannerUrl: estado.bannerUrl ?? "",
+        // Igual que el ícono propio: sin sesión todavía no hay dónde
+        // subirlo. Se agrega después, desde el editor de la tarjeta.
+        notificacionLogoUrl: "",
         reglas: {
           desde: "",
           desdePrimerSello: false,

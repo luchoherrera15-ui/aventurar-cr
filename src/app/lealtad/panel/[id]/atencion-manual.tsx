@@ -312,9 +312,15 @@ function FilaCliente({
         {/* En una tarjeta que no acumula no hay contador que enseñar: un
             «1 de 1» debajo de un cupón es ruido que el empleado tiene
             que descifrar con un cliente esperando. */}
+        {/* La unidad viaja SIEMPRE con el número. «3 de 10» a secas
+            obliga a quien atiende a acordarse de qué se están contando
+            —sellos, puntos, visitas cambian según el tipo de tarjeta— y
+            es el dato que se lee de reojo con un cliente enfrente. */}
         {textos.muestraSaldo && (
           <span className="text-[12.5px] font-bold text-aventurea-ink">
-            {meta === null ? `${saldo} ${textos.unidad}` : `${saldo} de ${meta}`}
+            {meta === null
+              ? `${saldo} ${textos.unidad}`
+              : `${saldo} de ${meta} ${textos.unidad}`}
           </span>
         )}
 
@@ -326,7 +332,7 @@ function FilaCliente({
           {puedeCanjear
             ? "puede canjear"
             : meta !== null && textos.muestraSaldo
-              ? `faltan ${Math.max(0, meta - saldo)}`
+              ? `le faltan ${Math.max(0, meta - saldo)} para su regalía`
               : ""}
         </span>
 

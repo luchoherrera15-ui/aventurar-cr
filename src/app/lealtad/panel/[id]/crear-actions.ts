@@ -82,6 +82,8 @@ export type BorradorTarjeta = {
   logoUrl: string;
   /** La banda de arriba del pase: `strip` en Apple, `heroImage` en Google. */
   bannerUrl: string;
+  /** El logo del AVISO de Wallet (0208) — no el de la tarjeta. */
+  notificacionLogoUrl: string;
   reglas: {
     desde: string;
     /** true = la tarjeta de cada cliente vale desde su primer sello o
@@ -128,6 +130,7 @@ const COLUMNAS_DEGRADABLES = [
   "cuenta_id",
   "estado",
   "pase_banner_url",
+  "pase_notificacion_logo_url",
   "pase_sello_icono",
   "pase_sello_icono_url",
   "compra_minima",
@@ -221,6 +224,11 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
   const banner = datos.bannerUrl.trim();
   if (banner && !esUrlDeNuestroStorage(banner, "ranchos-fotos")) {
     return { ok: false, motivo: "La banda no se subió bien — probá de nuevo." };
+  }
+
+  const notificacionLogo = datos.notificacionLogoUrl.trim();
+  if (notificacionLogo && !esUrlDeNuestroStorage(notificacionLogo, "ranchos-fotos")) {
+    return { ok: false, motivo: "El logo de notificaciones no se subió bien — probá de nuevo." };
   }
 
   if (sello.url) {
@@ -398,6 +406,7 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     pase_sello_icono_url: sello.url,
     pase_logo_url: logo || null,
     pase_banner_url: banner || null,
+    pase_notificacion_logo_url: notificacionLogo || null,
     ...estadoAlCrear(),
     // ── LO QUE LA TARJETA ACUMULA ───────────────────────────────
     // El motor (`acreditar_lealtad`, 0125) calcula

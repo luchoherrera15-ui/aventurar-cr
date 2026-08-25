@@ -33,6 +33,15 @@ export function IconTagLine({ className = base }: IconProps) {
   );
 }
 
+export function IconBag({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 8h12l-1 12.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 20.5L6 8Z" />
+      <path strokeLinecap="round" d="M9 8V6.5a3 3 0 0 1 6 0V8" />
+    </svg>
+  );
+}
+
 export function IconClock({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
@@ -885,6 +894,18 @@ export function IconSalir({ className = base }: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M14.5 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6.5a2 2 0 0 0 2-2v-2" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h10m0 0-3-3m3 3-3 3" />
+    </svg>
+  );
+}
+
+/** Pases de lealtad: la tarjeta de Wallet con su sello marcado. */
+export function IconWallet({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+      <rect x="2.5" y="5.5" width="19" height="13" rx="2.4" />
+      <path strokeLinecap="round" d="M2.5 10h19" />
+      <circle cx="16.5" cy="14.3" r="1.7" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m15.7 14.3.6.6 1-1.2" />
     </svg>
   );
 }

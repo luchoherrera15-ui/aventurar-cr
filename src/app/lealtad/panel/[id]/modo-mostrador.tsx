@@ -44,6 +44,7 @@ export default function ModoMostrador({
   tipo = null,
   permisos = { acreditar: true, canjear: true, revertir: false },
   productos = [],
+  permitirManual = true,
 }: {
   ranchoId: string;
   /** El programa que se opera en esta caja — lo necesita el alta de
@@ -72,6 +73,14 @@ export default function ModoMostrador({
    * aplicada— el mostrador queda exactamente como estaba: monto a mano.
    */
   productos?: ProductoDeVenta[];
+  /**
+   * Si además del escáner se puede buscar al cliente por nombre (0206).
+   * Por defecto sí — el panel completo siempre lo ofreció. En `false`
+   * solo lo pone el link directo de la caja (`/[slug]/scan`) cuando el
+   * dueño lo apagó ahí: esa pantalla la pidió el dueño para que "solo
+   * deje escanear".
+   */
+  permitirManual?: boolean;
 }) {
   const tipoTarjeta = tipoDe(tipo);
 
@@ -98,18 +107,20 @@ export default function ModoMostrador({
         />
       </div>
 
-      <div className="mt-4">
-        <BuscarYAtender
-          ranchoId={ranchoId}
-          programaId={programaId}
-          tipo={tipoTarjeta}
-          meta={recompensa?.costo ?? null}
-          recompensa={recompensa}
-          permisos={permisos}
-          pideMonto={pideMonto}
-          productos={productos}
-        />
-      </div>
+      {permitirManual && (
+        <div className="mt-4">
+          <BuscarYAtender
+            ranchoId={ranchoId}
+            programaId={programaId}
+            tipo={tipoTarjeta}
+            meta={recompensa?.costo ?? null}
+            recompensa={recompensa}
+            permisos={permisos}
+            pideMonto={pideMonto}
+            productos={productos}
+          />
+        </div>
+      )}
     </Card>
   );
 }

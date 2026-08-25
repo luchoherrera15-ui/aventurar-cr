@@ -433,7 +433,16 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 className={inputCls}
               >
                 <option value="">Selecciona una opción</option>
-                {SUBCATEGORIAS[categoria as Categoria].map((s) => (
+                {/* El `?? []` no es cosmético: `SUBCATEGORIAS` solo
+                    tiene las seis claves de EVENTOS, y la única guarda
+                    de este bloque es `usaSubcategoria()`. El día que esa
+                    función devuelva true para otra vertical —cuyas
+                    categorías no son claves de este mapa— esto sería
+                    `undefined.map`: TypeError, y la pantalla de editar de
+                    todo negocio de esa vertical deja de abrir. Su
+                    hermano `editar/actions.ts` ya tiene el mismo
+                    resguardo. */}
+                {(SUBCATEGORIAS[categoria as Categoria] ?? []).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.label}
                   </option>

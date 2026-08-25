@@ -30,21 +30,31 @@ export type SolicitudPendiente = {
 
 export default function SolicitudesPanel({ solicitudes }: { solicitudes: SolicitudPendiente[] }) {
   const [filas, setFilas] = useState(solicitudes);
-  if (filas.length === 0) return null;
 
   return (
     <div className="mb-6 overflow-hidden rounded-2xl border-2 border-aventurea-navy bg-white">
       <p className="border-b border-aventurea-line bg-aventurea-navy px-4 py-2.5 text-[12px] font-bold uppercase tracking-wide text-white">
-        Solicitudes del plan de lealtad · {filas.length}
+        Solicitudes · {filas.length}
       </p>
-      {filas.map((s, i) => (
-        <Fila
-          key={s.id}
-          solicitud={s}
-          primera={i === 0}
-          alResolver={() => setFilas((prev) => prev.filter((x) => x.id !== s.id))}
-        />
-      ))}
+      {filas.length === 0 ? (
+        // Se dice explícito, no se esconde: un panel de administración
+        // que desaparece solo cuando no hay nada deja la duda de si la
+        // sección existe. Acá se ve que SÍ se está mirando, y que hoy
+        // no hay ningún pago por SINPE (ni alta) esperando revisión.
+        <p className="px-4 py-4 text-[13px] text-aventurea-ink-soft">
+          No hay ninguna esperando revisión. Acá van a aparecer los altas y los pagos por SINPE
+          con su comprobante, para aprobarlos o rechazarlos.
+        </p>
+      ) : (
+        filas.map((s, i) => (
+          <Fila
+            key={s.id}
+            solicitud={s}
+            primera={i === 0}
+            alResolver={() => setFilas((prev) => prev.filter((x) => x.id !== s.id))}
+          />
+        ))
+      )}
     </div>
   );
 }

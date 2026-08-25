@@ -11,6 +11,7 @@ import {
 } from "@/lib/lealtad/planes";
 import { bulletsDe } from "./panel-paquetes-lealtad";
 import { Icono } from "./panel/[id]/iconos";
+import BotonVerTipos from "./boton-ver-tipos";
 
 /**
  * LOS CUATRO PAQUETES, EN LA PORTADA.
@@ -117,7 +118,7 @@ function TarjetaPlan({ def, periodo }: { def: DefinicionPlan; periodo: "mes" | "
       )}
 
       <ul className="mt-5 flex-1 space-y-2">
-        {beneficios.map((b) => (
+        {beneficios.map((b, i) => (
           <li
             key={b}
             className={`flex items-start gap-1.5 text-[12px] leading-snug ${destacado ? "text-aventurea-ink-soft" : "text-white/70"}`}
@@ -128,7 +129,10 @@ function TarjetaPlan({ def, periodo }: { def: DefinicionPlan; periodo: "mes" | "
             >
               <Icono nombre="listo" className="h-3.5 w-3.5" />
             </span>
-            {b}
+            <span>
+              {b}
+              {i === 0 && <BotonVerTipos tipos={def.tipos} claro={!destacado} />}
+            </span>
           </li>
         ))}
       </ul>

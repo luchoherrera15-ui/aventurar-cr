@@ -300,6 +300,10 @@ export default function ConfiguradorLealtad({
     iconoUrl: estado.iconoUrl ?? "",
     logoUrl: estado.logoUrl ?? "",
     bannerUrl: estado.bannerUrl ?? "",
+    // El logo de notificaciones (0208) no se ofrece en el alta pública:
+    // sin rancho todavía no hay dónde subirlo. Se completa recién en el
+    // panel autenticado (crear/editar).
+    notificacionLogoUrl: "",
     reglas: REGLAS_VACIAS,
     vencenMeses: null,
     telefono: estado.telefono,

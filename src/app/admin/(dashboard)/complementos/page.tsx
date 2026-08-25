@@ -3,8 +3,6 @@ import { estadoDeAddon } from "@/lib/addons";
 import { planEfectivo } from "@/lib/lealtad/cuenta";
 import { estadoVisible } from "@/lib/lealtad/programas";
 import { minutoISOCR } from "@/lib/fechas";
-import { SECCION_LABEL, type SeccionAdmin } from "../vertical";
-import { seccionActiva } from "../vertical-server";
 import { clientesPorNegocio } from "./clientes-por-negocio";
 import ComplementosPanel, {
   type FilaAddon,
@@ -51,12 +49,11 @@ const TOPE_HISTORIAL = 500;
 
 export default async function AdminComplementosPage() {
   const admin = createAdminClient();
-  const seccion = await seccionActiva();
 
   if (!admin) {
     return (
       <div>
-        <Encabezado seccion={seccion} activos={0} vencidos={0} cortesias={0} />
+        <Encabezado activos={0} vencidos={0} cortesias={0} />
         <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{FALTA_SERVICE_KEY}</p>
       </div>
     );
@@ -254,6 +251,11 @@ export default async function AdminComplementosPage() {
         slug: r.slug ?? null,
         vertical: r.vertical,
         estado: r.estado ?? null,
+        // 0187: un negocio de Lealtad nunca se postuló al directorio, así
+        // que su `estado` (pendiente/aprobado/rechazado) es del marketplace
+        // y no le aplica — mismo criterio que ya usan /mi-negocio y
+        // /admin/ranchos.
+        enMarketplace: r.en_marketplace !== false,
         addons: porRancho.get(r.id) ?? [],
         // El plan EFECTIVO, con la misma función que usa el resto del
         // módulo. Mostrar `ranchos.plan_lealtad` a secas hacía que la
@@ -343,7 +345,7 @@ export default async function AdminComplementosPage() {
 
   return (
     <div>
-      <Encabezado seccion={seccion} activos={activos} vencidos={vencidos} cortesias={cortesias} />
+      <Encabezado activos={activos} vencidos={vencidos} cortesias={cortesias} />
 
       {addonsRes.error && (
         <p className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">
@@ -357,7 +359,6 @@ export default async function AdminComplementosPage() {
       <AyudaPanel hilos={hilosAyuda} />
       <ComplementosPanel
         negocios={negocios}
-        seccion={seccion}
         faltaLaBitacora={faltaLaBitacora}
         negociosOcultosPorTope={negociosOcultosPorTope}
         totalNegocios={totalNegocios}
@@ -380,6 +381,8 @@ type FilaRanchoAdmin = {
   owner_id: string;
   created_at?: string | null;
   lealtad_aprobado_en?: string | null;
+  /** 0187. false = nació en Bookea Lealtad, nunca se ofreció al directorio. */
+  en_marketplace?: boolean | null;
 };
 
 type FilaSolicitud = {
@@ -437,12 +440,10 @@ function leerAddon(fila: Record<string, unknown>): FilaAddon | null {
 }
 
 function Encabezado({
-  seccion,
   activos,
   vencidos,
   cortesias,
 }: {
-  seccion: SeccionAdmin;
   activos: number;
   vencidos: number;
   cortesias: number;
@@ -450,7 +451,7 @@ function Encabezado({
   return (
     <div className="mb-6">
       <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
-        Monetización{seccion !== "todas" ? ` · ${SECCION_LABEL[seccion]}` : ""}
+        Monetización
       </p>
       <h1 className="mt-1 text-2xl font-bold text-aventurea-ink">Lealtad y complementos</h1>
       <p className="mt-1 text-[13.5px] text-aventurea-ink-soft">

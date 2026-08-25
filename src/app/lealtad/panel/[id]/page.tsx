@@ -26,6 +26,7 @@ import { verificarAccesoLealtad } from "@/lib/auth";
 import { COOKIE_AVISOS, avisosOcultosDe } from "@/lib/lealtad/avisos-ocultos";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { definicionDe, estadoDelLimite } from "@/lib/lealtad/planes";
+import { estadoCupoNotificaciones } from "@/lib/lealtad/cupo-notificaciones";
 import { estadoDePrueba } from "@/lib/lealtad/prueba";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { minutoISOCR } from "@/lib/fechas";
@@ -45,6 +46,7 @@ import { permisosDeFila } from "@/lib/lealtad/permisos";
 import { cargarLealtad } from "./datos-lealtad";
 import ShellLealtad, { type GrupoLealtad } from "./shell-lealtad";
 import InicioLealtad, {
+  type ClienteComprador,
   type ClienteRecurrente,
   type EnlacesInicio,
   type EstadoPaquete,
@@ -440,6 +442,17 @@ export default async function PanelNegocioLealtad({
     .slice(0, 5)
     .map((c) => ({ miembroId: c.miembroId, nombre: c.nombre, visitas: c.visitas }));
 
+  // Misma fuente, ordenada por PLATA en vez de visitas — el otro lado
+  // de "quién más vuelve". `gastoTotal` sale de `lealtad_transacciones`
+  // (colones reales); en 0 cuando el negocio no registra montos, así
+  // que esos clientes se filtran en vez de pintar un ₡0 que no dice
+  // nada de ellos.
+  const topGasto: ClienteComprador[] = (datosClientesPrincipal?.clientes ?? [])
+    .filter((c) => c.gastoTotal > 0)
+    .sort((a, b) => b.gastoTotal - a.gastoTotal)
+    .slice(0, 5)
+    .map((c) => ({ miembroId: c.miembroId, nombre: c.nombre, gastoTotal: c.gastoTotal }));
+
   // La vista de auditoría (clientes-datos.ts) se apoya en la MISMA
   // `cargarLealtad` de arriba — cache() por render, no es una segunda
   // consulta del padrón. null cuando no hay programa todavía: la
@@ -582,6 +595,12 @@ export default async function PanelNegocioLealtad({
 
   const topeProgramas = def?.limites.programas ?? null;
   const limiteClientes = estadoDelLimite(plan, "clientesActivos", miembros);
+  // El mismo cupo que hace cumplir marketing-actions.ts (0183) contra
+  // `notificaciones_promocionales` — fail-open sin `admin`, mismo
+  // criterio que el resto de este archivo.
+  const limiteNotificaciones = admin
+    ? await estadoCupoNotificaciones(admin, id, plan)
+    : estadoDelLimite(plan, "notificacionesMes", 0);
 
   // Qué avisos de puesta en marcha cerró QUIEN MIRA (la X del tablero).
   // Se lee acá, en el servidor, para que el aviso cerrado ni siquiera se
@@ -731,6 +750,7 @@ export default async function PanelNegocioLealtad({
     plan,
     clientes: limiteClientes,
     tarjetas: estadoDelLimite(plan, "programas", vivas.length),
+    notificaciones: limiteNotificaciones,
     prueba,
     // Comparar paquetes es decidir plata: solo el dueño. El resto del
     // equipo ve el status —les sirve saber que el cupo está lleno— sin
@@ -760,6 +780,7 @@ export default async function PanelNegocioLealtad({
         enlaces={enlaces}
         avisosOcultos={avisosOcultos}
         topRecurrentes={topRecurrentes}
+        topGasto={topGasto}
         accion={
           p && permisos.acreditar ? (
             <BotonEscanear

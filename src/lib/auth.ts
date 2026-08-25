@@ -1,7 +1,8 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { sesionDesdeBearer } from "@/lib/supabase/bearer";
-import { permisosDeFila, PERMISOS_TODO, PERMISOS_NADA } from "@/lib/lealtad/permisos";
+import { PERMISOS_NADA } from "@/lib/lealtad/permisos";
+import { accesoRanchoCon, resolverAccesoLealtad } from "@/lib/lealtad/acceso";
 
 /**
  * ¿Quién está viendo esta página? UNA sola vez por render.
@@ -122,13 +123,10 @@ export async function verificarAccesoRancho(ranchoId: string) {
   } = await supabase.auth.getUser();
   if (!user) return { supabase, user: null, ok: false as const, esAdmin: false };
 
-  const [{ data: rancho }, { data: perfil }] = await Promise.all([
-    supabase.from("ranchos").select("owner_id").eq("id", ranchoId).maybeSingle(),
-    supabase.from("perfiles").select("rol").eq("id", user.id).maybeSingle(),
-  ]);
-
-  const esAdmin = perfil?.rol === "admin";
-  const ok = !!rancho && (rancho.owner_id === user.id || esAdmin);
+  // El reparto vive en `@/lib/lealtad/acceso`, que lo resuelve para la
+  // puerta de cookies y la del app con el MISMO código. Acá solo se
+  // resuelve la identidad —la cookie— y se le pasa. Ver ese archivo.
+  const { ok, esAdmin } = await accesoRanchoCon(supabase, user.id, ranchoId);
   return { supabase, user, ok, esAdmin };
 }
 
@@ -214,62 +212,47 @@ export async function verificarAccesoOperativo(ranchoId: string) {
  * recortado revertía movimientos. En permisos, el empate se pierde.
  */
 export async function verificarAccesoLealtad(ranchoId: string) {
-  const base = await verificarAccesoRancho(ranchoId);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!base.user) {
-    return { ...base, esDueno: false, esColaborador: false, permisos: PERMISOS_NADA };
-  }
-  if (base.ok) {
+  if (!user) {
     return {
-      ...base,
-      esDueno: !base.esAdmin,
+      supabase,
+      user: null,
+      ok: false as const,
+      esAdmin: false,
+      esDueno: false,
       esColaborador: false,
-      permisos: PERMISOS_TODO,
+      permisos: PERMISOS_NADA,
     };
   }
 
-  const comun = { ...base, esDueno: false };
+  // Los siete chequeos de la 0127 viven en `@/lib/lealtad/acceso`, que
+  // es también lo que usa la puerta del app. Una sola implementación:
+  // el día que cambie el reparto, cambia para las dos a la vez.
+  return { supabase, user, ...(await resolverAccesoLealtad(supabase, user.id, ranchoId)) };
+}
 
-  const { data, error } = await base.supabase
-    .from("rancho_colaboradores")
-    .select("rol, permisos_lealtad")
-    .eq("rancho_id", ranchoId)
-    .eq("usuario_id", base.user.id)
-    .maybeSingle();
+/**
+ * LA MISMA PREGUNTA, PERO PARA LA APP MÓVIL.
+ *
+ * Vive al lado de `adminDeLaPeticion`, que ya autentica por bearer, y
+ * comparte con `verificarAccesoLealtad` el reparto entero — lo único
+ * distinto es de dónde sale la identidad.
+ *
+ * ⚠️ NUNCA se cae a la cookie. Sin `Authorization` devuelve null y el
+ * llamador responde 401. Aceptar «bearer o cookie» en un endpoint con
+ * `Access-Control-Allow-Origin: *` es la receta del CSRF: un formulario
+ * de cualquier sitio podría acreditarle sellos al negocio usando la
+ * sesión abierta del dueño. `adminDeLaPeticion` sí acepta las dos porque
+ * atiende también al panel web; estas rutas son solo del teléfono.
+ */
+export async function accesoLealtadDeLaPeticion(req: Request, ranchoId: string) {
+  const sesion = await sesionDesdeBearer(req);
+  if (!sesion) return null;
 
-  if (!error) {
-    if (!data) return { ...comun, esColaborador: false, permisos: PERMISOS_NADA };
-    return {
-      ...comun,
-      ok: true,
-      esColaborador: true,
-      permisos: permisosDeFila(data.rol as string | null, data.permisos_lealtad),
-    };
-  }
-
-  // ¿El error es "esas columnas no existen" (0127 sin correr)?
-  // 42703 = undefined_column en Postgres; PGRST204 = PostgREST sin la
-  // columna en su caché de esquema. Todo lo demás NIEGA.
-  const columnaAusente =
-    error.code === "42703" ||
-    error.code === "PGRST204" ||
-    (/rol|permisos_lealtad/.test(error.message) && /column|columna/i.test(error.message));
-  if (!columnaAusente) {
-    return { ...comun, esColaborador: false, permisos: PERMISOS_NADA };
-  }
-
-  const { data: fila, error: error2 } = await base.supabase
-    .from("rancho_colaboradores")
-    .select("usuario_id")
-    .eq("rancho_id", ranchoId)
-    .eq("usuario_id", base.user.id)
-    .maybeSingle();
-
-  const esColaborador = !error2 && !!fila;
-  return {
-    ...comun,
-    ok: esColaborador,
-    esColaborador,
-    permisos: esColaborador ? PERMISOS_TODO : PERMISOS_NADA,
-  };
+  const acceso = await resolverAccesoLealtad(sesion.supabase, sesion.usuarioId, ranchoId);
+  return { ...acceso, supabase: sesion.supabase, usuarioId: sesion.usuarioId };
 }

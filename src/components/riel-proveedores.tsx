@@ -50,6 +50,8 @@ export default function RielProveedores({
   cardExtra,
   conUnidad = true,
   prioridad = true,
+  anchoTarjeta = ANCHO_TARJETA,
+  sizesTarjeta = SIZES_TARJETA,
 }: {
   titulo: string;
   subtitulo?: string;
@@ -98,6 +100,15 @@ export default function RielProveedores({
    * `true`.
    */
   prioridad?: boolean;
+  /**
+   * Ancho CSS por tarjeta y su `sizes` correspondiente. Por defecto los
+   * de siempre (`ANCHO_TARJETA`/`SIZES_TARJETA`, pensados para el
+   * directorio de Eventos). La portada pasa un par más chico —"un poco
+   * más pequeños" fue el pedido puntual del dueño para esta página—
+   * sin tocar el directorio real, que sigue con el tamaño de siempre.
+   */
+  anchoTarjeta?: string;
+  sizesTarjeta?: string;
 }) {
   const rielRef = useRef<HTMLDivElement>(null);
   const [puedeIzq, setPuedeIzq] = useState(false);
@@ -239,14 +250,14 @@ export default function RielProveedores({
         className="mt-3.5 flex snap-x snap-mandatory gap-3.5 overflow-x-auto pb-1 pt-0.5"
         style={{ scrollbarWidth: "none" }}
       >
-        {cardExtra && <div className="snap-start">{cardExtra(ANCHO_TARJETA)}</div>}
+        {cardExtra && <div className="snap-start">{cardExtra(anchoTarjeta)}</div>}
         {items.map((r, i) => (
           <div key={r.id} className="snap-start">
             <RanchoCard
               rancho={r}
               index={i}
-              ancho={ANCHO_TARJETA}
-              sizes={SIZES_TARJETA}
+              ancho={anchoTarjeta}
+              sizes={sizesTarjeta}
               calificacion={calificaciones.get(r.id) ?? null}
               proximaLibre={r.categoria === "lugares" ? proximasLibres.get(r.id) : undefined}
               favoritoInicial={favoritosIds.has(r.id)}

@@ -15,6 +15,12 @@ export const RESERVED_SLUGS = new Set([
   "booking",
   "hospedajes",
   "restaurantes",
+  // Las dos puertas nuevas del header. No son verticales de `ranchos`
+  // (ver src/components/nav/taxonomia-navegacion.ts) pero sí son
+  // carpetas reales en src/app, así que la ruta literal le gana a
+  // /[slug] y un negocio que se llamara así quedaría inalcanzable.
+  "experiencias",
+  "servicios",
   "food",
   "invitaciones",
   "invitacion",

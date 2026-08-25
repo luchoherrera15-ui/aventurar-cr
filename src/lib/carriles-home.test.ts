@@ -416,7 +416,7 @@ describe("el reparto por vertical", () => {
       negocio({ categoria: "lugares", vertical: "eventos" }),
       negocio({ categoria: "barberia", vertical: "citas" }),
     ]);
-    expect(rieles.map((r) => r.vertical)).toEqual(["eventos", "citas"]);
+    expect(rieles.map((r) => r.vertical)).toEqual(["citas", "eventos"]);
     expect(rieles.every((r) => r.items.length === 1)).toBe(true);
   });
 

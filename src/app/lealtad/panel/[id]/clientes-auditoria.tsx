@@ -68,6 +68,28 @@ export default function ClientesAuditoria({
   const [tramosActivos, setTramosActivos] = useState<Set<TramoCliente>>(new Set());
   const [diasMin, setDiasMin] = useState("");
   const [gastoMin, setGastoMin] = useState("");
+  /**
+   * EL RANGO DE FECHAS, y sobre QUÉ fecha se aplica.
+   *
+   * Son dos preguntas distintas que el dueño hace seguido y que sin
+   * esto no se podían contestar desde la pantalla:
+   *   · «¿quiénes vinieron en Semana Santa?»        → última visita
+   *   · «¿a quiénes afilié desde que puse el póster?» → afiliación
+   *
+   * Un solo par de campos con un selector de cuál fecha, en vez de dos
+   * pares: cuatro campos de fecha en la misma fila se confunden entre
+   * sí, y filtrar por los dos rangos a la vez no es algo que nadie
+   * pida en una caja.
+   *
+   * Los dos extremos son INCLUSIVOS y se comparan como texto, sin
+   * `new Date`: las fechas ya vienen del servidor en YYYY-MM-DD (hora
+   * de Costa Rica, resuelta allá) y el orden alfabético de ese formato
+   * ES el orden cronológico. Parsearlas acá las movería a la zona
+   * horaria del navegador y correría un día a quien vino de noche.
+   */
+  const [campoFecha, setCampoFecha] = useState<"ultimaVisita" | "desde">("ultimaVisita");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
   const [orden, setOrden] = useState<Orden>("recientes");
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
   const [abierto, setAbierto] = useState<string | null>(null);
@@ -85,6 +107,15 @@ export default function ClientesAuditoria({
       if (gMin !== null && c.gastoTotal < gMin) return false;
       if (aguja && !`${c.nombre} ${c.contacto.join(" ")}`.toLowerCase().includes(aguja)) {
         return false;
+      }
+      if (fechaDesde || fechaHasta) {
+        const fecha = campoFecha === "desde" ? c.desde : c.ultimaVisita;
+        // Quien nunca vino no entra en un rango de «última visita»: no
+        // tiene fecha que comparar, y colarlo sería decir que vino en
+        // un período en el que no vino. Con el filtro apagado sí sale.
+        if (fecha === null) return false;
+        if (fechaDesde && fecha < fechaDesde) return false;
+        if (fechaHasta && fecha > fechaHasta) return false;
       }
       return true;
     });
@@ -105,7 +136,17 @@ export default function ClientesAuditoria({
       }
     });
     return lista;
-  }, [datos.clientes, busqueda, tramosActivos, diasMin, gastoMin, orden]);
+  }, [
+    datos.clientes,
+    busqueda,
+    tramosActivos,
+    diasMin,
+    gastoMin,
+    campoFecha,
+    fechaDesde,
+    fechaHasta,
+    orden,
+  ]);
 
   const rescatablesFiltrados = filtrados.filter(
     (c) => c.tramo === "en_riesgo" || c.tramo === "dormido",
@@ -251,7 +292,56 @@ export default function ClientesAuditoria({
             </select>
           </label>
         </div>
-        {(tramosActivos.size > 0 || busqueda || diasMin || gastoMin) && (
+
+        {/* ── El rango de fechas, en su propia fila ──────────────────
+            Renglón aparte y no una quinta columna de la grilla de
+            arriba: son TRES controles que se leen como una sola frase
+            («última visita, entre el X y el Y») y partirlos entre dos
+            filas de la grilla los desarma. */}
+        <div className="mt-3 grid gap-3 border-t border-aventurea-line pt-3 sm:grid-cols-3">
+          <label className="flex flex-col gap-1">
+            <span className={ROTULO_CAMPO}>Filtrar por fecha de</span>
+            <select
+              value={campoFecha}
+              onChange={(e) => setCampoFecha(e.target.value as "ultimaVisita" | "desde")}
+              className={CAMPO_PANEL}
+            >
+              <option value="ultimaVisita">Última visita</option>
+              <option value="desde">Afiliación</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={ROTULO_CAMPO}>Desde</span>
+            <input
+              type="date"
+              value={fechaDesde}
+              // El tope alto lo pone el otro extremo: un rango con el
+              // «desde» después del «hasta» no devuelve nada y se lee
+              // como que no hay clientes, cuando el problema es el
+              // filtro. El navegador lo impide antes de que pase.
+              max={fechaHasta || undefined}
+              onChange={(e) => setFechaDesde(e.target.value)}
+              className={CAMPO_PANEL}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className={ROTULO_CAMPO}>Hasta</span>
+            <input
+              type="date"
+              value={fechaHasta}
+              min={fechaDesde || undefined}
+              onChange={(e) => setFechaHasta(e.target.value)}
+              className={CAMPO_PANEL}
+            />
+          </label>
+        </div>
+
+        {(tramosActivos.size > 0 ||
+          busqueda ||
+          diasMin ||
+          gastoMin ||
+          fechaDesde ||
+          fechaHasta) && (
           <button
             type="button"
             onClick={() => {
@@ -259,6 +349,8 @@ export default function ClientesAuditoria({
               setTramosActivos(new Set());
               setDiasMin("");
               setGastoMin("");
+              setFechaDesde("");
+              setFechaHasta("");
             }}
             className="mt-3 text-[12.5px] font-bold text-aventurea-navy hover:underline"
           >

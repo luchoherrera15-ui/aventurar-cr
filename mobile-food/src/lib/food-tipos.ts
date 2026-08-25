@@ -84,6 +84,8 @@ export type FoodBusiness = {
   tipo_cocina: TipoCocina | null;
   /** 0203. null = el dueño todavía no ubicó su negocio. */
   provincia: Provincia | null;
+  /** 0207. false = el dueño apagó "To Go" aunque tenga menú. */
+  acepta_para_llevar: boolean;
 };
 
 /** El perfil del CLIENTE de FOOD (0204) — dirección y género, aparte
@@ -135,6 +137,9 @@ export type FoodFranja = {
 };
 
 export type FoodReservationEstado = "confirmada" | "check_in" | "no_show" | "cancelada";
+
+/** "To Go" (0207) — se paga al retirar, sin franja ni cupo. */
+export type FoodPedidoEstado = "pendiente" | "confirmado" | "listo" | "entregado" | "cancelado";
 
 export type FoodReservation = {
   id: string;

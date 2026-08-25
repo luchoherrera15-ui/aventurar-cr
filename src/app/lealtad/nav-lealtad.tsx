@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Icono } from "./panel/[id]/iconos";
 import { INDUSTRIAS } from "./industrias/datos";
+import { iniciales } from "@/lib/iniciales";
+import { cerrarSesionLealtad } from "./sesion-actions";
 
 /**
  * EL NAV COMPACTO DE /lealtad.
@@ -20,29 +22,17 @@ import { INDUSTRIAS } from "./industrias/datos";
  * las dos.
  */
 
-/* La barra es BLANCA, así que el CTA usa el par de acción para fondo
-   claro: relleno azul con letra blanca. Sale de los tokens de
-   `.lealtad` y no de un hex copiado — este archivo tenía su propia
-   `const NARANJA` y por eso su botón ya no coincidía con el de la
-   landing. */
-const ACCION = "var(--accion)";
-const ACCION_TINTA = "var(--accion-tinta)";
-
 const ENLACES: { href: string; label: string }[] = [
   { href: "#como-funciona", label: "Cómo funciona" },
   { href: "#soluciones", label: "Soluciones" },
   { href: "#planes", label: "Planes" },
 ];
 
-/** Las iniciales para el disco de la esquina: «Luis Herrera» → «LH». */
-function iniciales(nombre: string): string {
-  return nombre
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("");
-}
+/** Los ítems del menú de cuenta — desktop y mobile dibujan la misma lista. */
+const ITEMS_CUENTA: { href: string; label: string }[] = [
+  { href: "/lealtad/panel", label: "Ver mis negocios con planes" },
+  { href: "/cuenta", label: "Configuración de perfil" },
+];
 
 export default function NavLealtad({
   logueado = false,
@@ -55,6 +45,7 @@ export default function NavLealtad({
   nombre?: string | null;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const [abiertoCuenta, setAbiertoCuenta] = useState(false);
   // Pedido del dueño: que arriba se vea DE QUIÉN es la sesión. Con
   // nombre se muestra el nombre; sin él (sesión sin perfil cargado),
   // «Mi cuenta»; sin sesión, «Ingresar».
@@ -128,24 +119,68 @@ export default function NavLealtad({
         </nav>
 
         <div className="hidden items-center gap-5 lg:flex">
-          <Link
-            href={logueado ? "/lealtad/panel" : "/cuenta"}
-            className="flex items-center gap-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
-          >
-            {logueado && (
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-aventurea-navy text-[9.5px] font-extrabold text-white">
-                {nombre ? iniciales(nombre) : "✓"}
-              </span>
-            )}
-            <span className="max-w-[150px] truncate">{etiquetaCuenta}</span>
-          </Link>
-          <Link
-            href="/lealtad/crear"
-            className="presionable whitespace-nowrap rounded-full px-5 py-2.5 text-[13.5px] font-extrabold"
-            style={{ background: ACCION, color: ACCION_TINTA }}
-          >
-            Crear mi tarjeta de fidelidad gratis
-          </Link>
+          {logueado ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setAbiertoCuenta((v) => !v)}
+                aria-haspopup="true"
+                aria-expanded={abiertoCuenta}
+                className="flex items-center gap-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+              >
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-aventurea-navy text-[9.5px] font-extrabold text-white">
+                  {nombre ? iniciales(nombre) : "✓"}
+                </span>
+                <span className="max-w-[150px] truncate">{etiquetaCuenta}</span>
+                <span
+                  aria-hidden
+                  className={`text-[9px] transition-transform ${abiertoCuenta ? "rotate-180" : ""}`}
+                >
+                  ▼
+                </span>
+              </button>
+
+              {abiertoCuenta && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Cerrar menú"
+                    onClick={() => setAbiertoCuenta(false)}
+                    className="fixed inset-0 z-40 cursor-default"
+                  />
+                  <div className="absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-2xl border border-aventurea-line bg-white p-1.5 shadow-[0_24px_60px_-24px_rgba(16,38,88,0.35)]">
+                    {ITEMS_CUENTA.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setAbiertoCuenta(false)}
+                        className="block whitespace-nowrap rounded-xl px-3.5 py-2.5 text-left text-[13.5px] font-bold text-aventurea-ink hover:bg-[#f2f5fb]"
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                    <div className="my-1 border-t border-aventurea-line" />
+                    <form action={cerrarSesionLealtad}>
+                      <button
+                        type="submit"
+                        className="block w-full whitespace-nowrap rounded-xl px-3.5 py-2.5 text-left text-[13.5px] font-bold text-aventurea-ink hover:bg-[#f2f5fb]"
+                      >
+                        Cerrar sesión
+                      </button>
+                    </form>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <Link
+              href="/lealtad/ingresar"
+              className="flex items-center gap-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+            >
+              <Icono nombre="perfil" className="h-4 w-4 shrink-0" />
+              {etiquetaCuenta}
+            </Link>
+          )}
         </div>
 
         <button
@@ -192,26 +227,40 @@ export default function NavLealtad({
                 {i.nombre}
               </Link>
             ))}
-            <Link
-              href={logueado ? "/lealtad/panel" : "/cuenta"}
-              onClick={() => setAbierto(false)}
-              className="flex items-center gap-2 text-[15px] font-bold text-aventurea-ink"
-            >
-              {logueado && (
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-aventurea-navy text-[9.5px] font-extrabold text-white">
-                  {nombre ? iniciales(nombre) : "✓"}
-                </span>
-              )}
-              <span className="truncate">{etiquetaCuenta}</span>
-            </Link>
-            <Link
-              href="/lealtad/crear"
-              onClick={() => setAbierto(false)}
-              className="presionable mt-1 rounded-full px-5 py-3.5 text-center text-[15px] font-extrabold"
-              style={{ background: ACCION, color: ACCION_TINTA }}
-            >
-              Crear mi tarjeta de fidelidad gratis
-            </Link>
+            {logueado ? (
+              <>
+                <div className="mt-1 flex items-center gap-2 text-[15px] font-bold text-aventurea-ink">
+                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-aventurea-navy text-[9.5px] font-extrabold text-white">
+                    {nombre ? iniciales(nombre) : "✓"}
+                  </span>
+                  <span className="truncate">{etiquetaCuenta}</span>
+                </div>
+                {ITEMS_CUENTA.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setAbierto(false)}
+                    className="pl-3 text-[14px] font-bold text-aventurea-ink"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+                <form action={cerrarSesionLealtad}>
+                  <button type="submit" className="pl-3 text-[14px] font-bold text-aventurea-ink">
+                    Cerrar sesión
+                  </button>
+                </form>
+              </>
+            ) : (
+              <Link
+                href="/lealtad/ingresar"
+                onClick={() => setAbierto(false)}
+                className="flex items-center gap-2 text-[15px] font-bold text-aventurea-ink"
+              >
+                <Icono nombre="perfil" className="h-4 w-4 shrink-0" />
+                {etiquetaCuenta}
+              </Link>
+            )}
           </nav>
         </div>
       )}

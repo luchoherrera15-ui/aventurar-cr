@@ -156,7 +156,7 @@ export const PRODUCTOS_INDIVIDUALES: ProductoIndividual[] = [
     // referencian, y el id nunca se muestra en pantalla.
     id: "inv_esencial",
     nombre: "Invitación Estándar",
-    precioUSD: 19,
+    precioUSD: 14.99,
     precioAntesUSD: 25,
     familia: "invitacion",
     tienePanel: false,
@@ -165,7 +165,7 @@ export const PRODUCTOS_INDIVIDUALES: ProductoIndividual[] = [
   {
     id: "inv_premium",
     nombre: "Invitación Premium",
-    precioUSD: 45,
+    precioUSD: 19.99,
     precioAntesUSD: 85,
     familia: "invitacion",
     detalle: "Con panel de confirmaciones, GPS y cuenta regresiva.",
@@ -220,8 +220,8 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
   {
     id: "perla",
     nombre: "El Brindis",
-    precioUSD: 75,
-    precioAntesUSD: 113,
+    precioUSD: 35,
+    precioAntesUSD: 75,
     albumId: "album_50",
     badge: "Álbum de regalo",
     lema: "La invitación completa, con el álbum de la fiesta incluido.",
@@ -233,10 +233,13 @@ export const PACKS_INVITACIONES: PackInvitacion[] = [
     ],
   },
   {
+    // EL COMBO PROMOCIONADO (pedido del dueño, ago 2026): Premium +
+    // álbum de 150 fotos por $45 — el precio con el que se promociona
+    // el catálogo. Ver el resto de la nota en PROMO_INVITACIONES.
     id: "zafiro",
     nombre: "El Gran Día",
-    precioUSD: 99,
-    precioAntesUSD: 138,
+    precioUSD: 45,
+    precioAntesUSD: 99,
     albumId: "album_150",
     badge: "El favorito",
     destacado: true,

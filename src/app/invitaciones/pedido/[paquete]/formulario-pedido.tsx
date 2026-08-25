@@ -105,9 +105,15 @@ export default function FormularioPedido({
             etiqueta="Link de Google Maps"
             ayuda="Opcional — así tus invitados llegan de un toque"
           >
+            {/* `type="text"` y no `"url"`: la validación nativa exige un
+                esquema (https://) y rechazaba algo tan común como pegar
+                "maps.app.goo.gl/xyz" sin el protocolo — el campo dejaba
+                de dejar avanzar el formulario. Se normaliza en el
+                servidor (ver `crearPedidoInvitacion`), no acá. */}
             <input
               name="maps_url"
-              type="url"
+              type="text"
+              inputMode="url"
               maxLength={500}
               placeholder="https://maps.app.goo.gl/..."
               className={inputCls}

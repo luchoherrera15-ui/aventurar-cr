@@ -392,8 +392,11 @@ export function agruparEnCarriles(
  * visitas según quién publicó ayer.
  */
 export const ORDEN_VERTICALES = [
-  "eventos",
+  // "citas" primero (pedido del dueño, ago 2026: "pon Barberías al
+  // inicio, de primero que Eventos" — el riel de esa vertical se
+  // titula "Salud y belleza" y agrupa barberías, uñas, spas...).
   "citas",
+  "eventos",
   "hospedajes",
   "restaurantes",
 ] as const;

@@ -1,0 +1,267 @@
+- generic [active] [ref=f7e1]:
+  - main [ref=f7e2]:
+    - generic [ref=f7e4]:
+      - paragraph [ref=f7e5]: Invitaciones digitales
+      - heading "Tu invitación personalizada." [level=1] [ref=f7e6]: Tu invitaciónpersonalizada.
+      - paragraph [ref=f7e7]: Un link que se abre en cualquier teléfono. Tus invitados confirman con un toque y la lista se te arma sola.
+      - generic [ref=f7e8]:
+        - link "Ver los paquetes" [ref=f7e9] [cursor=pointer]:
+          - /url: "#paquetes"
+        - link "Ver ejemplos reales" [ref=f7e10] [cursor=pointer]:
+          - /url: "#ejemplos"
+      - paragraph [ref=f7e11]: Desde $19 · ₡9 900 aproximadamente
+      - generic [ref=f7e12]: Mirá cómo funciona
+    - generic [ref=f7e18]:
+      - generic [ref=f7e19]:
+        - paragraph [ref=f7e20]: En vivo, ahora mismo
+        - heading "Del link de tu invitado a tu lista de confirmados" [level=2] [ref=f7e21]
+        - paragraph [ref=f7e22]: "Esto no es un dibujo: es lo que ve tu invitado en su teléfono y lo que ves vos en tu cuenta, al mismo tiempo."
+        - generic [ref=f7e23]:
+          - generic [ref=f7e24]:
+            - generic [ref=f7e25]: "1"
+            - generic [ref=f7e26]:
+              - heading "Le llega por WhatsApp o correo" [level=3] [ref=f7e27]
+              - paragraph [ref=f7e28]: Un link, nada que instalar. Se abre a pantalla completa en cualquier teléfono.
+          - generic [ref=f7e29]:
+            - generic [ref=f7e30]: "2"
+            - generic [ref=f7e31]:
+              - heading "La acepta con un toque" [level=3] [ref=f7e32]
+              - paragraph [ref=f7e33]: Sin cuentas ni formularios. Dice si va, con cuántos, y lo que vos preguntes.
+          - generic [ref=f7e34]:
+            - generic [ref=f7e35]: "3"
+            - generic [ref=f7e36]:
+              - heading "El aviso te llega al instante" [level=3] [ref=f7e37]
+              - paragraph [ref=f7e38]: La confirmación viaja a tu cuenta apenas la tocan, no cuando revisás WhatsApp.
+          - generic [ref=f7e39]:
+            - generic [ref=f7e40]: "4"
+            - generic [ref=f7e41]:
+              - heading "Tu lista se arma sola" [level=3] [ref=f7e42]
+              - paragraph [ref=f7e43]: Ves quién va y quién no, con el conteo de personas al día. Ese número le pasás al salón.
+      - generic [ref=f7e44]:
+        - generic [ref=f7e48]:
+          - paragraph [ref=f7e49]: Nos casamos
+          - paragraph [ref=f7e50]: Sofía&Andrés
+          - paragraph [ref=f7e52]: 12 de diciembre · 4:00 p. m.
+          - paragraph [ref=f7e53]: Hacienda La Chimba, Atenas
+          - generic [ref=f7e54]:
+            - generic [ref=f7e55]:
+              - paragraph [ref=f7e56]: "108"
+              - paragraph [ref=f7e57]: días
+            - generic [ref=f7e58]:
+              - paragraph [ref=f7e59]: "06"
+              - paragraph [ref=f7e60]: horas
+            - generic [ref=f7e61]:
+              - paragraph [ref=f7e62]: "42"
+              - paragraph [ref=f7e63]: min
+          - generic [ref=f7e64]: S ♥ A
+          - generic [ref=f7e66]:
+            - paragraph [ref=f7e67]: ¿Nos acompañás?
+            - paragraph [ref=f7e68]: Confirmá antes del 30 de octubre
+            - generic [ref=f7e69]:
+              - generic [ref=f7e70]: Sí, ahí estaré
+              - generic [ref=f7e71]: ¡Confirmado!
+            - generic [ref=f7e75]: No podré ir
+          - paragraph [ref=f7e76]: Con cariño, Sofía & Andrés
+        - paragraph [ref=f7e87]: En menos de un segundo
+        - generic [ref=f7e88]:
+          - generic [ref=f7e94]:
+            - paragraph [ref=f7e95]: Nueva confirmación
+            - paragraph [ref=f7e96]: Ana & Beto · 2 personas
+          - generic [ref=f7e97]:
+            - generic [ref=f7e98]:
+              - paragraph [ref=f7e99]: Tu panel
+              - generic [ref=f7e100]: En vivo
+            - generic [ref=f7e102]:
+              - generic [ref=f7e103]:
+                - generic [ref=f7e104]: "6"
+                - generic [ref=f7e105]: "8"
+              - generic [ref=f7e106]: personas confirmadas
+            - generic [ref=f7e107]:
+              - generic [ref=f7e108]:
+                - generic [ref=f7e109]: FJ
+                - generic [ref=f7e110]: Familia Jiménez
+                - generic [ref=f7e111]: +4 ✓
+              - generic [ref=f7e112]:
+                - generic [ref=f7e113]: TR
+                - generic [ref=f7e114]: Tía Rosa
+                - generic [ref=f7e115]: +2 ✓
+              - generic [ref=f7e116]:
+                - generic [ref=f7e117]: CM
+                - generic [ref=f7e118]: Carlos M.
+                - generic [ref=f7e119]: No va
+              - generic [ref=f7e120]:
+                - generic [ref=f7e121]: AB
+                - generic [ref=f7e122]: Ana & Beto
+                - generic [ref=f7e123]: +2 ✓
+    - generic [ref=f7e125]:
+      - generic [ref=f7e126]:
+        - paragraph [ref=f7e127]: Ejemplos
+        - heading "Invitaciones que ya están andando." [level=2] [ref=f7e128]
+        - paragraph [ref=f7e129]: "No son maquetas: son invitaciones de verdad. Tocá cualquiera y se te abre como se le abre a un invitado."
+      - generic [ref=f7e131]:
+        - tablist "Categorías de invitaciones" [ref=f7e132]:
+          - tab "Fiestas Infantiles" [selected] [ref=f7e133]
+          - tab "Bodas" [ref=f7e134]
+          - tab "Quince Años" [ref=f7e135]
+          - tab "Fiestas en General" [ref=f7e136]
+          - tab "Invitaciones Corporativas" [ref=f7e137]
+        - generic [ref=f7e138]:
+          - generic [ref=f7e139]:
+            - paragraph [ref=f7e140]: Cumples infantiles
+            - paragraph [ref=f7e141]: Héroe Arácnido
+            - paragraph [ref=f7e143]: "Estilo cómic rojo y azul: la araña baja por su hilo, telarañas y onomatopeyas por toda la pantalla."
+            - link "Abrir la invitación" [ref=f7e144] [cursor=pointer]:
+              - /url: /i/demo-aracnida
+          - generic [ref=f7e147]:
+            - paragraph [ref=f7e148]: Cumples infantiles
+            - paragraph [ref=f7e149]: Safari de Colores
+            - paragraph [ref=f7e151]: "Un zoológico que se anima al scrollear: la jirafa crece, el mono se columpia y el elefante saluda."
+            - link "Abrir la invitación" [ref=f7e152] [cursor=pointer]:
+              - /url: /i/demo-zoologico
+          - generic [ref=f7e155]:
+            - paragraph [ref=f7e156]: Cumples infantiles
+            - paragraph [ref=f7e157]: Academia Candelaria
+            - paragraph [ref=f7e159]: "La carta de admisión llega con su lacre: se abre, suena el vals y el búho cruza la noche mientras el mapa se dibuja solo."
+            - link "Abrir la invitación" [ref=f7e160] [cursor=pointer]:
+              - /url: /i/demo-magia
+          - generic [ref=f7e163]:
+            - paragraph [ref=f7e164]: Cumples infantiles
+            - paragraph [ref=f7e165]: Selva Jurásica
+            - paragraph [ref=f7e167]: "Verde selva y naranja lava: el dinosaurio camina mientras bajás, las huellas marcan el camino y el huevo se abre."
+            - link "Abrir la invitación" [ref=f7e168] [cursor=pointer]:
+              - /url: /i/demo-dinosaurios
+          - generic [ref=f7e171]:
+            - paragraph [ref=f7e172]: Cumples infantiles
+            - paragraph [ref=f7e173]: Castillo Encantado
+            - paragraph [ref=f7e175]: "El telón se abre y el castillo se levanta: torres que se encienden, carruaje con estela y polvo de hadas."
+            - link "Abrir la invitación" [ref=f7e176] [cursor=pointer]:
+              - /url: /i/demo-princesas
+        - generic [ref=f7e179]:
+          - 'button "Ir al ejemplo 1 de 5: Héroe Arácnido" [ref=f7e180]'
+          - 'button "Ir al ejemplo 2 de 5: Safari de Colores" [ref=f7e183]'
+          - 'button "Ir al ejemplo 3 de 5: Academia Candelaria" [ref=f7e185]'
+          - 'button "Ir al ejemplo 4 de 5: Selva Jurásica" [ref=f7e187]'
+          - 'button "Ir al ejemplo 5 de 5: Castillo Encantado" [ref=f7e189]'
+          - button "Pausar el avance automático" [ref=f7e191]
+      - generic [ref=f7e194]:
+        - heading "Y esto es lo que se lleva." [level=3] [ref=f7e195]
+        - generic [ref=f7e196]:
+          - generic [ref=f7e197]:
+            - paragraph [ref=f7e202]: Invitación Estándar
+            - paragraph [ref=f7e203]: "Una sola pantalla, elegante: cuenta regresiva, cómo llegar y confirmación por WhatsApp."
+            - link "Ver ejemplo →" [ref=f7e204] [cursor=pointer]:
+              - /url: /i/demo-boda-estandar
+          - generic [ref=f7e205]:
+            - paragraph [ref=f7e209]: Invitación Premium
+            - paragraph [ref=f7e210]: "Un sobre que se abre con música: capítulos, código de vestimenta y confirmación de asistencia."
+            - link "Ver ejemplo →" [ref=f7e211] [cursor=pointer]:
+              - /url: /i/demo-boda-premium
+          - generic [ref=f7e212]:
+            - paragraph [ref=f7e217]: Confirmaciones
+            - paragraph [ref=f7e218]: Mirá en tiempo real quién confirmó y cuántos van a tu evento.
+            - link "Ver ejemplo →" [ref=f7e219] [cursor=pointer]:
+              - /url: /invitaciones/ejemplo/confirmaciones
+          - generic [ref=f7e220]:
+            - paragraph [ref=f7e225]: Álbum digital
+            - paragraph [ref=f7e226]: Las fotos de tus invitados, todas en un solo lugar y con código QR.
+            - link "Ver ejemplo →" [ref=f7e227] [cursor=pointer]:
+              - /url: /a/fotos-ejemplo-cumpleanos-star-wars-de-luis-herrera
+    - generic [ref=f7e229]:
+      - generic [ref=f7e230]:
+        - paragraph [ref=f7e231]: Precios
+        - heading "Elegí lo que necesitás." [level=2] [ref=f7e232]
+        - paragraph [ref=f7e233]: Todo se diseña desde cero para tu evento. Llevá una pieza suelta, o el pack completo si querés la invitación y el álbum juntos.
+      - generic [ref=f7e235]:
+        - paragraph [ref=f7e236]:
+          - generic [ref=f7e237]: Precio de lanzamiento
+          - text: Las invitaciones están rebajadas hasta el
+          - generic [ref=f7e238]: 6 de setiembre
+          - text: .
+        - generic [ref=f7e239]:
+          - generic [ref=f7e240]:
+            - paragraph [ref=f7e241]: Álbumes digitales
+            - list [ref=f7e242]:
+              - listitem [ref=f7e243]:
+                - link "50 fotos $39 ≈ ₡20 300" [ref=f7e244] [cursor=pointer]:
+                  - /url: /invitaciones/pedido/album_50
+                  - generic [ref=f7e245]: 50 fotos
+                  - generic [ref=f7e247]:
+                    - generic [ref=f7e248]: $39
+                    - generic [ref=f7e250]: ≈ ₡20 300
+              - listitem [ref=f7e251]:
+                - link "150 fotos $69 ≈ ₡35 900" [ref=f7e252] [cursor=pointer]:
+                  - /url: /invitaciones/pedido/album_150
+                  - generic [ref=f7e253]: 150 fotos
+                  - generic [ref=f7e255]:
+                    - generic [ref=f7e256]: $69
+                    - generic [ref=f7e258]: ≈ ₡35 900
+              - listitem [ref=f7e259]:
+                - link "250 fotos $99 ≈ ₡51 500" [ref=f7e260] [cursor=pointer]:
+                  - /url: /invitaciones/pedido/album_250
+                  - generic [ref=f7e261]: 250 fotos
+                  - generic [ref=f7e263]:
+                    - generic [ref=f7e264]: $99
+                    - generic [ref=f7e266]: ≈ ₡51 500
+              - listitem [ref=f7e267]:
+                - link "400 fotos $139 ≈ ₡72 300" [ref=f7e268] [cursor=pointer]:
+                  - /url: /invitaciones/pedido/album_400
+                  - generic [ref=f7e269]: 400 fotos
+                  - generic [ref=f7e271]:
+                    - generic [ref=f7e272]: $139
+                    - generic [ref=f7e274]: ≈ ₡72 300
+              - listitem [ref=f7e275]:
+                - link "600 fotos $189 ≈ ₡98 300" [ref=f7e276] [cursor=pointer]:
+                  - /url: /invitaciones/pedido/album_600
+                  - generic [ref=f7e277]: 600 fotos
+                  - generic [ref=f7e279]:
+                    - generic [ref=f7e280]: $189
+                    - generic [ref=f7e282]: ≈ ₡98 300
+          - generic [ref=f7e283]:
+            - paragraph [ref=f7e284]: Invitaciones
+            - list [ref=f7e285]:
+              - listitem [ref=f7e286]:
+                - link "Invitación Estándar Diseño a tu medida y confirmación por WhatsApp. $25 $19 ≈ ₡9 900 −24%" [ref=f7e287] [cursor=pointer]:
+                  - /url: /invitaciones/pedido/inv_esencial
+                  - generic [ref=f7e288]:
+                    - generic [ref=f7e289]: Invitación Estándar
+                    - generic [ref=f7e290]: Diseño a tu medida y confirmación por WhatsApp.
+                  - generic [ref=f7e291]:
+                    - generic [ref=f7e292]:
+                      - generic [ref=f7e293]: $25
+                      - generic [ref=f7e294]: $19
+                    - generic [ref=f7e295]: ≈ ₡9 900
+                    - generic [ref=f7e296]: −24%
+              - listitem [ref=f7e297]:
+                - link "Invitación Premium Con panel de confirmaciones, GPS y cuenta regresiva. $85 $25 ≈ ₡13 000 −71%" [ref=f7e298] [cursor=pointer]:
+                  - /url: /invitaciones/pedido/inv_premium
+                  - generic [ref=f7e299]:
+                    - generic [ref=f7e300]: Invitación Premium
+                    - generic [ref=f7e301]: Con panel de confirmaciones, GPS y cuenta regresiva.
+                  - generic [ref=f7e302]:
+                    - generic [ref=f7e303]:
+                      - generic [ref=f7e304]: $85
+                      - generic [ref=f7e305]: $25
+                    - generic [ref=f7e306]: ≈ ₡13 000
+                    - generic [ref=f7e307]: −71%
+          - generic [ref=f7e308]:
+            - paragraph [ref=f7e309]: Save the date
+            - list [ref=f7e310]:
+              - listitem [ref=f7e311]:
+                - link "Diseño Save the Date El anuncio previo, con la fecha y el enlace a tu invitación. $29 ≈ ₡15 100" [ref=f7e312] [cursor=pointer]:
+                  - /url: /invitaciones/pedido/save_the_date
+                  - generic [ref=f7e313]:
+                    - generic [ref=f7e314]: Diseño Save the Date
+                    - generic [ref=f7e315]: El anuncio previo, con la fecha y el enlace a tu invitación.
+                  - generic [ref=f7e316]:
+                    - generic [ref=f7e317]: $29
+                    - generic [ref=f7e319]: ≈ ₡15 100
+        - generic [ref=f7e320]:
+          - paragraph [ref=f7e321]: ¿Querés la invitación y el álbum juntos? Los packs salen más baratos.
+          - button "Ver packs" [ref=f7e322]
+    - generic [ref=f7e324]:
+      - heading "Dejá de perseguir invitados por WhatsApp." [level=2] [ref=f7e325]
+      - paragraph [ref=f7e326]: Contanos de tu evento y te mandamos una propuesta. Si no te gusta, no pagás nada.
+      - link "Quiero la mía" [ref=f7e327] [cursor=pointer]:
+        - /url: /invitaciones/pedido/intermedio
+  - button "Open Next.js Dev Tools" [ref=f7e333] [cursor=pointer]
+  - alert [ref=f7e338]

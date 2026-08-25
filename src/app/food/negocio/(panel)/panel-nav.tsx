@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   IconAyuda,
+  IconBag,
   IconBell,
   IconCalendarLine,
   IconChartBars,
@@ -76,6 +77,7 @@ const GRUPOS_NAV: GrupoNav[] = [
     items: [
       { href: "/food/negocio", label: "Dashboard", icono: <IconChartBars className="h-[15px] w-[15px]" /> },
       { href: "/food/negocio/reservas", label: "Reservas", icono: <IconCalendarLine className="h-[15px] w-[15px]" /> },
+      { href: "/food/negocio/pedidos", label: "Pedidos", icono: <IconBag className="h-[15px] w-[15px]" /> },
       { href: "/food/negocio/clientes", label: "Clientes", icono: <IconUsers className="h-[15px] w-[15px]" /> },
       { href: "/food/negocio/rendimiento", label: "Rendimiento", icono: <IconChartBars className="h-[15px] w-[15px]" /> },
     ],

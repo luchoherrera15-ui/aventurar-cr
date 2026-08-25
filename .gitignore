@@ -59,3 +59,37 @@ credentials*.json
 
 # Arnés de medición de rendimiento (Lighthouse pesa mucho; ver scripts/rendimiento/README.md)
 /.rendimiento/
+
+# Capturas y snapshots del navegador de pruebas (artefactos de herramienta)
+/.playwright-mcp/
+
+# CONFIGURACIÓN DEL SERVICIO .NET — trae secretos en texto plano.
+#
+# `appsettings.json` tenía el VerifyToken del webhook de WhatsApp
+# escrito completo, y `appsettings.Development.json` está preparado para
+# que alguien le pegue ahí su access token de Meta y su API key de
+# Anthropic. Un token de verificación en el historial de git es un
+# secreto compartido publicado: con él se puede reclamar la suscripción
+# del webhook.
+#
+# Lo que va en su lugar: `dotnet user-secrets` en desarrollo y variables
+# de entorno en el servidor. Si hace falta versionar la FORMA del
+# archivo, va un `appsettings.example.json` con los valores vacíos.
+bookea-assist/**/appsettings.json
+bookea-assist/**/appsettings.*.json
+!bookea-assist/**/appsettings.example.json
+
+# MATERIAL FUENTE DE LAS MAQUETAS — 28 MB de video e imágenes en crudo.
+#
+# El código solo nombra `referencia/*.html` en comentarios, como maqueta
+# de diseño; esos HTML sí están versionados. Lo que se ignora acá es el
+# material del que salieron los assets, que ya vive CONVERTIDO y liviano
+# en `/public` (ej. `public/lealtad/video/wallet-header.mp4`, que sí se
+# sirve y sí está en el repo).
+#
+# Van afuera porque git guarda cada blob para siempre: 28 MB de fuentes
+# que el sitio no usa se pagan en cada clon, para siempre, sin que nadie
+# los necesite. Si algún día hay que versionarlos, es con Git LFS.
+/referencia/videos/
+/referencia/images/
+/referencia/logobookeafoods.png

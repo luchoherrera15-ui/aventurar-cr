@@ -132,6 +132,15 @@ export type ClienteRecurrente = {
   visitas: number;
 };
 
+/** Un renglón del Top 5 por plata — mismo `gastoTotal` que ya calcula
+ *  la Auditoría de clientes (colones reales de `lealtad_transacciones`,
+ *  no un cálculo nuevo). */
+export type ClienteComprador = {
+  miembroId: string;
+  nombre: string;
+  gastoTotal: number;
+};
+
 /**
  * EL STATUS DEL PAQUETE, tal cual lo necesita el tablero.
  *
@@ -147,6 +156,9 @@ export type EstadoPaquete = {
   clientes: EstadoLimite;
   /** Cuántas tarjetas puede tener publicables a la vez. */
   tarjetas: EstadoLimite;
+  /** Cuántos envíos promocionales lleva ESTE mes calendario (0183),
+   *  contra `notificaciones_promocionales` — cupo real, no decorativo. */
+  notificaciones: EstadoLimite;
   /** La cuenta regresiva, si su paquete es la prueba. */
   prueba: EstadoPrueba;
   /** Dónde comparar paquetes. null = quien mira no decide la plata. */
@@ -168,6 +180,7 @@ export default function InicioLealtad({
   avisosOcultos,
   accion,
   topRecurrentes,
+  topGasto,
 }: {
   /** El id del negocio: con él se guarda qué avisos se cerraron. */
   negocioId: string;
@@ -192,6 +205,11 @@ export default function InicioLealtad({
   /** Los 5 con más visitas, ya ordenados. Vacío = nadie con una visita
    *  todavía — la card no se pinta, cero no es información. */
   topRecurrentes: ClienteRecurrente[];
+  /** Los 5 que más gastaron (colones reales), ya ordenados. Vacío =
+   *  nadie con un monto registrado — el negocio puede no cobrar por
+   *  Bookea, o no anotar montos, y esa card no promete un dato que no
+   *  tiene. */
+  topGasto: ClienteComprador[];
 }) {
   const tipo = tarjeta?.tipo ?? "puntos";
   const definicion = TIPOS_TARJETA[tipo];
@@ -398,47 +416,91 @@ export default function InicioLealtad({
         <AccesosRapidos enlaces={enlaces} />
       </GrillaTablero>
 
-      {/* ── Top 5 clientes más recurrentes ────────────────────────
-          Mismo conteo de `visitas` que ya valida la Auditoría de
-          clientes (movimientos 'ganado' del ledger) — no una cifra
-          nueva. Ordenado por visitas y no por saldo: el saldo baja con
-          cada canje, así que el cliente más fiel podría verse "bajo" si
-          se midiera por ahí. */}
-      {topRecurrentes.length > 0 && (
-        <Card
-          eyebrow="Quién más vuelve"
-          titulo="Top 5 clientes más recurrentes"
-          nivel="h3"
-          accion={
-            enlaces.clientes ? (
-              <a href={enlaces.clientes} className={ENLACE_CARD}>
-                Ver todos →
-              </a>
-            ) : undefined
-          }
-        >
-          <ol className="space-y-2">
-            {topRecurrentes.map((c, i) => (
-              <li
-                key={c.miembroId}
-                className={`flex items-center gap-3 ${RADIO_TILE} border border-aventurea-line bg-aventurea-surface px-3.5 py-2.5`}
-              >
-                <span
-                  className="grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] font-extrabold text-aventurea-ink"
-                  style={{ borderColor: ACCION_BORDE }}
-                >
-                  {i + 1}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-aventurea-ink">
-                  {c.nombre}
-                </span>
-                <span className={`shrink-0 ${DETALLE}`}>
-                  {c.visitas.toLocaleString("es-CR")} visita{c.visitas === 1 ? "" : "s"}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </Card>
+      {/* ── Mejores clientes y mejores compras, lado a lado ───────
+          Dos vistas del mismo padrón (`cargarClientesAuditados`), no
+          dos cifras nuevas: una por VISITAS (fidelidad) y otra por
+          PLATA (`gastoTotal`, colones reales de
+          `lealtad_transacciones`). Cada una se pinta sola si la otra
+          está vacía —un negocio que no registra montos igual ve quién
+          más vuelve— y las dos comparten fila cuando ambas tienen
+          datos, para que "quién más vuelve" y "quién más gasta" se
+          lean como las dos caras de la misma pregunta. */}
+      {(topRecurrentes.length > 0 || topGasto.length > 0) && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {topRecurrentes.length > 0 && (
+            <Card
+              eyebrow="Quién más vuelve"
+              titulo="Top 5 clientes más recurrentes"
+              nivel="h3"
+              accion={
+                enlaces.clientes ? (
+                  <a href={enlaces.clientes} className={ENLACE_CARD}>
+                    Ver todos →
+                  </a>
+                ) : undefined
+              }
+            >
+              <ol className="space-y-2">
+                {topRecurrentes.map((c, i) => (
+                  <li
+                    key={c.miembroId}
+                    className={`flex items-center gap-3 ${RADIO_TILE} border border-aventurea-line bg-aventurea-surface px-3.5 py-2.5`}
+                  >
+                    <span
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] font-extrabold text-aventurea-ink"
+                      style={{ borderColor: ACCION_BORDE }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-aventurea-ink">
+                      {c.nombre}
+                    </span>
+                    <span className={`shrink-0 ${DETALLE}`}>
+                      {c.visitas.toLocaleString("es-CR")} visita{c.visitas === 1 ? "" : "s"}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </Card>
+          )}
+
+          {topGasto.length > 0 && (
+            <Card
+              eyebrow="Quién más gasta"
+              titulo="Top 5 mejores compras"
+              nivel="h3"
+              accion={
+                enlaces.clientes ? (
+                  <a href={enlaces.clientes} className={ENLACE_CARD}>
+                    Ver todos →
+                  </a>
+                ) : undefined
+              }
+            >
+              <ol className="space-y-2">
+                {topGasto.map((c, i) => (
+                  <li
+                    key={c.miembroId}
+                    className={`flex items-center gap-3 ${RADIO_TILE} border border-aventurea-line bg-aventurea-surface px-3.5 py-2.5`}
+                  >
+                    <span
+                      className="grid h-7 w-7 shrink-0 place-items-center rounded-full border text-[12px] font-extrabold text-aventurea-ink"
+                      style={{ borderColor: ACCION_BORDE }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-aventurea-ink">
+                      {c.nombre}
+                    </span>
+                    <span className={`shrink-0 ${DETALLE}`}>
+                      ₡{c.gastoTotal.toLocaleString("es-CR")}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </Card>
+          )}
+        </div>
       )}
 
       {/* ── Varias tarjetas: cuántas hay y cuántas están vivas ──── */}
@@ -707,11 +769,12 @@ function PanelAccion({
  * se pinta después del titular — antes de los avisos de puesta en
  * marcha, no después.
  *
- * Los DOS topes que se pintan son los dos que el servidor hace cumplir
- * de verdad —clientes y tarjetas—. Los otros cuatro de `LimitesPlan`
- * (notificaciones, sedes, automatizaciones…) no tienen producto detrás:
- * un medidor de algo que nadie puede consumir promete una función que
- * no existe.
+ * Los TRES topes que se pintan son los que el servidor hace cumplir de
+ * verdad —clientes, tarjetas y notificaciones (0183, contra
+ * `notificaciones_promocionales`, ver `cupo-notificaciones.ts`)—. Los
+ * otros de `LimitesPlan` (sedes, automatizaciones…) siguen sin
+ * medidor: un medidor de algo que nadie puede consumir promete una
+ * función que no existe.
  *
  * El botón dice «¡Mejorar plan!» salvo en el paquete más alto del
  * catálogo (`PLANES_OFRECIDOS` está de menor a mayor): ahí no hay nada
@@ -777,7 +840,7 @@ function PlanHero({ paquete }: { paquete: EstadoPaquete }) {
       {/* Lado a lado y no apilados: a todo el ancho de la pantalla hay
           lugar de sobra, y separados se leen más rápido que en una
           columna angosta. */}
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <Medidor
             icono="clientes"
@@ -809,6 +872,25 @@ function PlanHero({ paquete }: { paquete: EstadoPaquete }) {
           aviso={paquete.tarjetas.cerca}
           detalle="Sin tope de tarjetas en tu paquete."
         />
+
+        <div>
+          <Medidor
+            icono="campana"
+            etiqueta="Anuncios este mes"
+            usado={paquete.notificaciones.usado}
+            tope={paquete.notificaciones.limite}
+            alerta={paquete.notificaciones.lleno}
+            aviso={paquete.notificaciones.cerca}
+            detalle="Sin tope de anuncios en tu paquete."
+          />
+          {paquete.notificaciones.limite !== null && (
+            <p className="mt-1.5 text-[12px] leading-snug text-aventurea-ink-soft">
+              {paquete.notificaciones.lleno
+                ? "Llegaste al tope: el cupo vuelve a abrirse el mes que viene."
+                : `Te queda${paquete.notificaciones.disponibles === 1 ? "" : "n"} ${paquete.notificaciones.disponibles?.toLocaleString("es-CR")} por enviar este mes.`}
+            </p>
+          )}
+        </div>
       </div>
 
       {paquete.planes ? (

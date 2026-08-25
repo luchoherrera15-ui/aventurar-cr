@@ -45,6 +45,8 @@ export type Borrador = {
   logoUrl: string;
   /** Banda de arriba del pase (0132). */
   bannerUrl: string;
+  /** El logo del AVISO de Wallet (0208), no el de la tarjeta. */
+  notificacionLogoUrl: string;
   /**
    * El dibujo de cada sello (0145). null = el logo del negocio;
    * 'propio' = el ícono que subió el negocio, que vive en `iconoUrl`.
@@ -90,6 +92,7 @@ function dePrograma(p: ProgramaFila | null): Borrador {
     // interruptores encendidos y el QR— o el editor arrancaría
     // apagando cosas que nadie apagó.
     bannerUrl: p?.pase_banner_url ?? "",
+    notificacionLogoUrl: p?.pase_notificacion_logo_url ?? "",
     iconoSello: sello.icono,
     iconoUrl: sello.url ?? "",
     codigoFormato: p?.pase_codigo_formato === "code128" ? "code128" : "qr",
@@ -213,6 +216,7 @@ export function ProveedorPrograma({
       colorSello: borrador.colorSello,
       logoUrl: borrador.logoUrl,
       bannerUrl: borrador.bannerUrl,
+      notificacionLogoUrl: borrador.notificacionLogoUrl,
       iconoSello: borrador.iconoSello,
       iconoUrl: borrador.iconoUrl,
       codigoFormato: borrador.codigoFormato,
@@ -272,6 +276,7 @@ export function ProveedorPrograma({
         colorSello: borrador.colorSello,
         logoUrl: borrador.logoUrl,
         bannerUrl: borrador.bannerUrl,
+        notificacionLogoUrl: borrador.notificacionLogoUrl,
         iconoSello: datos.tipo === "sellos" ? borrador.iconoSello : null,
         iconoUrl: datos.tipo === "sellos" ? borrador.iconoUrl : "",
         codigoFormato: borrador.codigoFormato,

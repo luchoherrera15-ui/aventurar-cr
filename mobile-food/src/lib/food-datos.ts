@@ -7,6 +7,7 @@ import {
   type FoodFranja,
   type FoodMenuCategory,
   type FoodMenuItem,
+  type FoodPedidoEstado,
   type FoodReservationEstado,
   type Provincia,
   type TipoCocina,
@@ -32,6 +33,8 @@ export type TarjetaFood = {
   tipoCocina: TipoCocina | null;
   /** 0203. null = el dueño no ubicó su negocio. */
   provincia: Provincia | null;
+  /** 0207. false = el dueño apagó "To Go" aunque tenga menú. */
+  aceptaParaLlevar: boolean;
   /** 0204: cuenta real vía food_conteo_reservas() — nunca inventado,
    *  0 si no hay ninguna reserva (o falla la RPC, fail-safe a 0). */
   conteoReservas: number;
@@ -51,7 +54,7 @@ export async function cargarTarjetasFood(): Promise<TarjetaFood[]> {
 
   const { data: negociosData, error: errNegocios } = await supabase
     .from("food_businesses")
-    .select("id, nombre, slug, descripcion, foto_portada_url, created_at, tipo_cocina, provincia")
+    .select("id, nombre, slug, descripcion, foto_portada_url, created_at, tipo_cocina, provincia, acepta_para_llevar")
     .eq("activo", true)
     .eq("es_demo", false)
     .order("nombre");
@@ -166,6 +169,7 @@ export async function cargarTarjetasFood(): Promise<TarjetaFood[]> {
       platos,
       tipoCocina: (n.tipo_cocina as TipoCocina | null) ?? null,
       provincia: (n.provincia as Provincia | null) ?? null,
+      aceptaParaLlevar: n.acepta_para_llevar as boolean,
       conteoReservas: conteoReservasPorNegocio.get(n.id as string) ?? 0,
       precioDesde,
       precioConDescuento,
@@ -189,7 +193,9 @@ export type DetalleRestaurante = {
 export async function cargarDetalleRestaurante(slug: string): Promise<DetalleRestaurante | null> {
   const { data: negocio } = await supabase
     .from("food_businesses")
-    .select("id, owner_id, nombre, slug, descripcion, foto_portada_url, telefono, activo, es_demo, created_at")
+    .select(
+      "id, owner_id, nombre, slug, descripcion, foto_portada_url, telefono, activo, es_demo, created_at, acepta_para_llevar",
+    )
     .eq("slug", slug)
     .eq("activo", true)
     .maybeSingle();
@@ -321,6 +327,87 @@ export async function cargarReserva(reservaId: string): Promise<DetalleReserva |
     negocioTelefono: negocio?.telefono ?? null,
     fecha: franja?.fecha ?? null,
     hora: franja?.hora ?? null,
+  };
+}
+
+export type FilaMiPedido = {
+  id: string;
+  codigoConfirmacion: string;
+  estado: FoodPedidoEstado;
+  negocioNombre: string;
+  total: number;
+  horaRetiro: string | null;
+  createdAt: string;
+};
+
+/** "Mis pedidos" (To Go, 0207) — espejo de cargarMisReservas. */
+export async function cargarMisPedidos(customerId: string): Promise<FilaMiPedido[]> {
+  const { data, error } = await supabase
+    .from("food_pedidos")
+    .select("id, codigo_confirmacion, estado, total, hora_retiro, created_at, food_businesses(nombre)")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: false });
+  if (error || !data) return [];
+
+  return data.map((p) => {
+    const negocioRaw = p.food_businesses as { nombre: string } | { nombre: string }[] | null;
+    const negocio = Array.isArray(negocioRaw) ? negocioRaw[0] : negocioRaw;
+    return {
+      id: p.id as string,
+      codigoConfirmacion: p.codigo_confirmacion as string,
+      estado: p.estado as FoodPedidoEstado,
+      negocioNombre: negocio?.nombre ?? "Restaurante",
+      total: p.total as number,
+      horaRetiro: p.hora_retiro as string | null,
+      createdAt: p.created_at as string,
+    };
+  });
+}
+
+export type ItemDePedido = { nombre: string; precio: number; cantidad: number; subtotal: number };
+
+export type DetallePedido = {
+  id: string;
+  codigoConfirmacion: string;
+  estado: FoodPedidoEstado;
+  negocioNombre: string;
+  negocioTelefono: string | null;
+  total: number;
+  horaRetiro: string | null;
+  notas: string | null;
+  items: ItemDePedido[];
+};
+
+export async function cargarPedido(pedidoId: string): Promise<DetallePedido | null> {
+  const [{ data }, { data: items }] = await Promise.all([
+    supabase
+      .from("food_pedidos")
+      .select("id, codigo_confirmacion, estado, total, hora_retiro, notas, food_businesses(nombre, telefono)")
+      .eq("id", pedidoId)
+      .maybeSingle(),
+    supabase
+      .from("food_pedido_items")
+      .select("nombre, precio, cantidad, subtotal")
+      .eq("pedido_id", pedidoId),
+  ]);
+  if (!data) return null;
+
+  const negocioRaw = data.food_businesses as
+    | { nombre: string; telefono: string | null }
+    | { nombre: string; telefono: string | null }[]
+    | null;
+  const negocio = Array.isArray(negocioRaw) ? negocioRaw[0] : negocioRaw;
+
+  return {
+    id: data.id as string,
+    codigoConfirmacion: data.codigo_confirmacion as string,
+    estado: data.estado as FoodPedidoEstado,
+    negocioNombre: negocio?.nombre ?? "Restaurante",
+    negocioTelefono: negocio?.telefono ?? null,
+    total: data.total as number,
+    horaRetiro: data.hora_retiro as string | null,
+    notas: data.notas as string | null,
+    items: (items ?? []) as ItemDePedido[],
   };
 }
 

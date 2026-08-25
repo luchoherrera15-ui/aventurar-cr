@@ -1,7 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import PlantillasColor from "@/components/lealtad/plantillas-color";
 import SelectorTipo from "@/components/lealtad/selector-tipo";
@@ -35,8 +34,6 @@ import {
 import { Icono, type NombreIcono } from "@/app/lealtad/panel/[id]/iconos";
 import PasoReglas, { resumenDeReglas, type Reglas } from "@/app/lealtad/panel/[id]/paso-reglas";
 import AyudaDeDiseno from "@/app/lealtad/panel/[id]/ayuda-diseno";
-import EditorRecompensas from "@/app/lealtad/panel/[id]/editor-recompensas";
-import { BloqueEstado } from "@/app/lealtad/panel/[id]/pases-panel";
 import { AvisoError, AvisoGuardado } from "@/app/lealtad/panel/[id]/programa-contexto";
 import type { HiloAyuda } from "@/lib/lealtad/ayuda-hilo";
 
@@ -96,8 +93,13 @@ import type { HiloAyuda } from "@/lib/lealtad/ayuda-hilo";
  *     ofrecen. El alta pública se queda liviana a propósito — se
  *     afinan después, ya con el negocio creado.
  *   · "Tu cuenta": solo "publico" sin sesión.
- *   · "Regalías"/"Estado": solo "editar" — no existen recompensas ni
- *     estado que gestionar antes de que la tarjeta exista.
+ *   · Este panel YA NO dibuja "Regalías" ni "Estado" en modo "editar"
+ *     (se sacaron para que editar quede IGUAL a crear en estructura —
+ *     pedido del dueño, ago 2026): esas dos siguen viviendo en la
+ *     pestaña «Recompensas» del panel principal (`panel/[id]/page.tsx`),
+ *     aunque ahí solo editan la tarjeta PRINCIPAL. Con varias tarjetas,
+ *     archivar/pausar una que no es la principal se quedó sin pantalla
+ *     propia — es la contrapartida conocida de esta unificación.
  *   · El botón final: "Crear mi tarjeta YA" (publico, gratis) / aviso
  *     de paquete pago (publico, no gratis) / "Publicar tarjeta" (crear)
  *     / "Guardar cambios" sin sección "Revisar" (editar — el resto del
@@ -116,6 +118,12 @@ export type ValorFormulario = {
   iconoUrl: string;
   logoUrl: string;
   bannerUrl: string;
+  /**
+   * El logo del AVISO de Wallet (0208) — NO se dibuja en la tarjeta, es
+   * la imagen que Apple/Google muestran cuando el pase se actualiza.
+   * Solo crear/editar lo ofrecen: sin rancho no hay dónde subirlo.
+   */
+  notificacionLogoUrl: string;
   /** Vigencia/días/horas/topes. Solo crear/editar la muestran. */
   reglas: Reglas;
   vencenMeses: number | null;
@@ -385,15 +393,50 @@ export default function TarjetaFormulario({
     iconoUrl: valor.tipo === "sellos" ? valor.iconoUrl || null : null,
   };
 
-  // ── Numeración dinámica de las secciones ────────────────────────────
-  let n = 1;
-  const nTuNegocio = n++;
-  const nPrograma = n++;
-  const nApariencia = n++;
-  const nCuenta = esPublico && !haySesion ? n++ : null;
-  const nRevisar = !esEditar ? n++ : null;
-  const nRegalias = esEditar ? n++ : null;
-  const nEstado = esEditar ? n++ : null;
+  // ── Pasos del wizard ─────────────────────────────────────────────────
+  // Antes esto dibujaba las secciones apiladas, todas juntas, en un solo
+  // scroll largo — lo más lejos posible de "un panel" que pidió el
+  // dueño la primera vez, y el mismo problema volvió a aparecer una vez
+  // armado: mucho para bajar de una sola vez. Ahora es un wizard de
+  // verdad — una sección visible a la vez, con "Siguiente"/"Atrás" — y
+  // la lista de pasos varía por `modo` exactamente con el mismo criterio
+  // que antes decidía qué sección existía.
+  const pasos = [
+    "negocio",
+    "programa",
+    "apariencia",
+    ...(esPublico && !haySesion ? ["cuenta"] : []),
+    ...(!esEditar ? ["revisar"] : []),
+  ] as const;
+  const [paso, setPaso] = useState(0);
+  const pasoActual = pasos[Math.min(paso, pasos.length - 1)];
+  const esPasoNegocio = pasoActual === "negocio";
+  const esPasoPrograma = pasoActual === "programa";
+  const esPasoApariencia = pasoActual === "apariencia";
+  const esPasoCuenta = pasoActual === "cuenta";
+  const esPasoRevisar = pasoActual === "revisar";
+  function irAlSiguientePaso() {
+    setPaso((p) => Math.min(pasos.length - 1, p + 1));
+  }
+  function irAlPasoAnterior() {
+    setPaso((p) => Math.max(0, p - 1));
+  }
+
+  // Cada paso trae una altura distinta ("revisar" es mucho más largo
+  // que "apariencia"), así que sin esto el navegador conserva el
+  // scroll en el mismo PÍXEL de antes — y ese píxel cae en un punto
+  // distinto del paso nuevo, dando la sensación de que "la pantalla se
+  // scrolleó sola" al tocar Siguiente/Atrás. Se vuelve al principio del
+  // indicador "Paso X de Y", que existe en todos los pasos.
+  const inicioPasoRef = useRef<HTMLDivElement>(null);
+  const primerRender = useRef(true);
+  useEffect(() => {
+    if (primerRender.current) {
+      primerRender.current = false;
+      return;
+    }
+    inicioPasoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [paso]);
 
   const contrasteTexto = contraste(valor.colorFondo, "#ffffff");
   const contrasteSello = contraste(valor.colorSello, valor.colorFondo);
@@ -502,7 +545,25 @@ export default function TarjetaFormulario({
             </div>
           )}
 
-          <Seccion numero={nTuNegocio} titulo="Tu negocio" bajada="Cómo se llama y qué tipo de tarjeta es." primera>
+          <div ref={inicioPasoRef} className="mb-5 flex scroll-mt-20 items-center gap-3">
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-bookea-gris">
+              Paso {paso + 1} de {pasos.length}
+            </span>
+            <div className="flex items-center gap-1.5" role="presentation">
+              {pasos.map((p, i) => (
+                <span
+                  key={p}
+                  aria-hidden
+                  className={`h-1.5 rounded-full transition-all ${
+                    i === paso ? "w-5 bg-bookea-azul" : "w-1.5 bg-bookea-linea"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
+
+          {esPasoNegocio && (
+          <Seccion numero={paso + 1} titulo="Tu negocio" bajada="Cómo se llama y qué tipo de tarjeta es." primera>
             <div className="space-y-4">
               <label className="block">
                 <span className={etiqueta}>{esPublico ? "Nombre del negocio" : "Nombre de la tarjeta"}</span>
@@ -544,8 +605,10 @@ export default function TarjetaFormulario({
               </div>
             </div>
           </Seccion>
+          )}
 
-          <Seccion numero={nPrograma} titulo="Programa" bajada="Qué se gana y cómo.">
+          {esPasoPrograma && (
+          <Seccion numero={paso + 1} titulo="Programa" bajada="Qué se gana y cómo." primera>
             <div className="space-y-4">
               <PasoBeneficio
                 config={valor.beneficio}
@@ -587,8 +650,10 @@ export default function TarjetaFormulario({
               )}
             </div>
           </Seccion>
+          )}
 
-          <Seccion numero={nApariencia} titulo="Apariencia" bajada="Cómo se ve en el teléfono de tu cliente.">
+          {esPasoApariencia && (
+          <Seccion numero={paso + 1} titulo="Apariencia" bajada="Cómo se ve en el teléfono de tu cliente." primera>
             <div className="space-y-6">
               <div>
                 <span className={etiqueta}>Color de la tarjeta</span>
@@ -780,6 +845,22 @@ export default function TarjetaFormulario({
                 </div>
               )}
 
+              {!esPublico && (
+                <div className="border-t border-bookea-linea pt-4">
+                  <SubirImagen
+                    etiqueta="Logo para notificaciones"
+                    valor={valor.notificacionLogoUrl}
+                    alCambiar={(url) => patch({ notificacionLogoUrl: url })}
+                    destino="logo"
+                    carpeta="lealtad/notificaciones"
+                  />
+                  <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
+                    No va en la tarjeta — es la imagen que muestra el aviso del teléfono cuando el
+                    pase se actualiza.
+                  </p>
+                </div>
+              )}
+
               {esEditar && emitidos > 0 && (
                 <p className="rounded-xl bg-amber-50 px-3.5 py-3 text-[12.5px] font-bold leading-relaxed text-amber-800">
                   Ya hay {emitidos} {emitidos === 1 ? "tarjeta" : "tarjetas"} en teléfonos de clientes. Al guardar,{" "}
@@ -789,9 +870,10 @@ export default function TarjetaFormulario({
               )}
             </div>
           </Seccion>
+          )}
 
-          {esPublico && !haySesion && (
-            <Seccion numero={nCuenta!} titulo="Tu cuenta" bajada="Un correo y un código — sin contraseñas.">
+          {esPasoCuenta && (
+            <Seccion numero={paso + 1} titulo="Tu cuenta" bajada="Un correo y un código — sin contraseñas." primera>
               <div className="-mx-1">
                 <FormularioAuth
                   destino={ANCLA}
@@ -802,8 +884,40 @@ export default function TarjetaFormulario({
             </Seccion>
           )}
 
+          {/* ── Navegación del wizard: Atrás + Siguiente, mientras falte
+              paso. En el ÚLTIMO paso esta fila no se dibuja — ahí
+              "Atrás" vive pegado al botón de guardar/publicar de abajo,
+              no flotando solo arriba de él con una línea de por medio. */}
+          {paso < pasos.length - 1 && (
+            <div className="mt-7 flex items-center justify-between gap-3 border-t border-bookea-linea pt-7">
+              <button
+                type="button"
+                onClick={irAlPasoAnterior}
+                disabled={paso === 0}
+                className="presionable rounded-xl border border-bookea-linea px-4 py-2.5 text-[13px] font-bold text-bookea-tinta disabled:opacity-0"
+              >
+                ← Atrás
+              </button>
+              <button
+                type="button"
+                onClick={irAlSiguientePaso}
+                className="presionable rounded-xl bg-bookea-tinta px-5 py-2.5 text-[13px] font-extrabold text-white"
+              >
+                Siguiente →
+              </button>
+            </div>
+          )}
+
           {esEditar ? (
-            <div className="mt-7 flex flex-wrap items-center gap-3 border-t border-bookea-linea pt-7">
+            esPasoApariencia && (
+            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-bookea-linea pt-7">
+              <button
+                type="button"
+                onClick={irAlPasoAnterior}
+                className="presionable rounded-xl border border-bookea-linea px-4 py-2.5 text-[13px] font-bold text-bookea-tinta"
+              >
+                ← Atrás
+              </button>
               <button
                 type="button"
                 onClick={onGuardar}
@@ -813,8 +927,10 @@ export default function TarjetaFormulario({
                 {guardando ? "Guardando…" : "Guardar cambios"}
               </button>
             </div>
+            )
           ) : (
-            <Seccion numero={nRevisar!} titulo="Revisar y crear" bajada="Una última mirada antes de publicar.">
+            esPasoRevisar && (
+            <Seccion numero={paso + 1} titulo="Revisar y crear" bajada="Una última mirada antes de publicar." primera>
               <div className="space-y-4">
                 <div className="rounded-2xl border border-bookea-linea bg-white p-4">
                   <dl className="divide-y divide-bookea-linea">
@@ -840,35 +956,15 @@ export default function TarjetaFormulario({
                 )}
 
                 {requierePago && planACobrar && (
-                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-3">
-                    <p className="text-[12px] leading-snug text-amber-800">
-                      {planPagoElegido && esGratis ? (
-                        <strong className="font-extrabold">
-                          Elegiste el paquete {planACobrar.nombre} — antes de crear tu tarjeta
-                          se completa ese pago.
-                        </strong>
-                      ) : valor.planElegido === planACobrar.id ? (
-                        <strong className="font-extrabold">
-                          Elegiste el paquete {planACobrar.nombre} — las tarjetas de{" "}
-                          {TIPOS_TARJETA[valor.tipo].nombre.toLowerCase()} vienen con él.
-                        </strong>
-                      ) : (
-                        <strong className="font-extrabold">
-                          Las tarjetas de {TIPOS_TARJETA[valor.tipo].nombre.toLowerCase()} vienen con el paquete{" "}
-                          {planACobrar.nombre}.
-                        </strong>
-                      )}{" "}
-                      Ese camino pide un depósito y lo confirma Bookea — lo tuyo se guarda igual, no perdés nada de lo
-                      que armaste acá.
-                    </p>
+                  <div>
                     <button
                       type="button"
                       onClick={irAlPlanPago}
                       disabled={guardando}
-                      className="presionable mt-2.5 rounded-full px-4 py-2 text-[12.5px] font-extrabold disabled:opacity-60"
+                      className="presionable w-full rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40 sm:w-auto"
                       style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
                     >
-                      Pagar y continuar con {planACobrar.nombre} →
+                      ¡Pagar y activar tarjeta! →
                     </button>
                     {/* La salida de emergencia SOLO cuando el pago viene
                         del paquete elegido y no del tipo: un clic curioso
@@ -881,7 +977,7 @@ export default function TarjetaFormulario({
                         type="button"
                         onClick={() => patch({ planElegido: "prueba" })}
                         disabled={guardando}
-                        className="mt-2 block text-[11.5px] font-bold text-amber-800 underline disabled:opacity-60"
+                        className="mt-2.5 block text-[11.5px] font-bold text-bookea-gris underline disabled:opacity-60"
                       >
                         Prefiero empezar con el paquete gratis y crear mi tarjeta ya
                       </button>
@@ -895,52 +991,37 @@ export default function TarjetaFormulario({
                   </p>
                 )}
 
-                {(!esPublico || !requierePago) && (
+                <div className="flex flex-wrap items-center gap-3">
                   <button
                     type="button"
-                    onClick={onGuardar}
-                    disabled={!puedeGuardar}
-                    className="presionable w-full rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40 sm:w-auto"
-                    style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+                    onClick={irAlPasoAnterior}
+                    className="presionable rounded-xl border border-bookea-linea px-4 py-2.5 text-[13px] font-bold text-bookea-tinta"
                   >
-                    {esPublico
-                      ? guardando
-                        ? "Creando…"
-                        : "Crear mi tarjeta YA →"
-                      : guardando
-                        ? "Publicando…"
-                        : "Publicar tarjeta"}
+                    ← Atrás
                   </button>
-                )}
-              </div>
-            </Seccion>
-          )}
-
-          {esEditar && (
-            <>
-              <Seccion numero={nRegalias!} titulo="Regalías" bajada="Las recompensas que tus clientes canjean.">
-                <EditorRecompensas />
-              </Seccion>
-              <Seccion numero={nEstado!} titulo="Estado" bajada="Pausar, archivar o ver el histórico.">
-                <div className="space-y-4">
-                  <BloqueEstado />
-                  <p className="rounded-2xl border border-bookea-linea bg-white px-4 py-3.5 text-[12.5px] leading-relaxed text-bookea-gris">
-                    Archivar libera el cupo de tarjetas de tu paquete al instante. Los clientes que ya tienen esta
-                    tarjeta no pierden nada: su saldo y su historial quedan tal cual, pero deja de emitir pases
-                    nuevos.
-                  </p>
-                  {ranchoId && (
-                    <Link
-                      href={`/lealtad/panel/${ranchoId}#programas`}
-                      className="inline-block text-[12.5px] font-bold text-bookea-azul underline"
+                  {(!esPublico || !requierePago) && (
+                    <button
+                      type="button"
+                      onClick={onGuardar}
+                      disabled={!puedeGuardar}
+                      className="presionable rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40"
+                      style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
                     >
-                      ← Volver a mis tarjetas
-                    </Link>
+                      {esPublico
+                        ? guardando
+                          ? "Creando…"
+                          : "Crear mi tarjeta YA →"
+                        : guardando
+                          ? "Publicando…"
+                          : "Publicar tarjeta"}
+                    </button>
                   )}
                 </div>
-              </Seccion>
-            </>
+              </div>
+            </Seccion>
+            )
           )}
+
         </div>
 
         {/* ── Vista previa: pegada en escritorio ─────────────────── */}

@@ -15,7 +15,6 @@ import {
   TITULO_PANTALLA,
 } from "@/components/panel/sistema";
 import EditorTarjeta from "../../editor-tarjeta";
-import { ImpactoDelPrograma } from "../../impacto-comercial";
 import type { Reglas } from "../../paso-reglas";
 import type { ProgramaFila, RecompensaFila } from "../../pases-actions";
 
@@ -247,11 +246,6 @@ export default async function EditarTarjetaPage({
             />
           </ProveedorPrograma>
         </div>
-
-        {/* IMPACTO DEL PROGRAMA (0197): lo que ESTA tarjeta mueve en
-            el mostrador, en plata. Ceros honestos si todavía no hay
-            compras; aviso neutro si la migración no está pegada. */}
-        <ImpactoDelPrograma ranchoId={id} programaId={programaId} />
       </div>
     </main>
   );
