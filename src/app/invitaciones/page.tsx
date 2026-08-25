@@ -51,6 +51,33 @@ export const metadata: Metadata = {
   title: "Invitaciones digitales",
   description:
     "Un link que se abre en cualquier teléfono, tus invitados confirman con un toque y la lista se te arma sola. Diseñada a mano para tu evento.",
+  /**
+   * ⚠️ SIN ESTE BLOQUE, COMPARTIR ESTA PÁGINA MOSTRABA OTRA COSA.
+   *
+   * El `title` de arriba manda en la pestaña del navegador y en Google,
+   * pero NO en la vista previa de Facebook o WhatsApp: ahí gana el
+   * `openGraph.title` del layout raíz, que se hereda entero cuando la
+   * página no declara el suyo. Por eso pegar el link de Invitaciones en
+   * un grupo mostraba «Bookea — Reservá espacios y servicios en Costa
+   * Rica» con la foto de una barbería del catálogo.
+   *
+   * Toda página pensada para compartirse necesita su propio
+   * `openGraph`. Poner solo `title` no alcanza.
+   */
+  openGraph: {
+    title: "Invitaciones digitales que tus invitados abren de una",
+    description:
+      "Un link que se abre en cualquier teléfono. Confirman con un toque y la lista se te arma sola.",
+    locale: "es_CR",
+    siteName: "Bookea",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Invitaciones digitales que tus invitados abren de una",
+    description:
+      "Un link que se abre en cualquier teléfono. Confirman con un toque y la lista se te arma sola.",
+  },
 };
 
 const NAVY_PROFUNDO = "#0a1226";

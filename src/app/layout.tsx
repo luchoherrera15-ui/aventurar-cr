@@ -51,13 +51,44 @@ export const metadata: Metadata = {
     "hospedajes Costa Rica",
     "Bookea",
   ],
+  /**
+   * ── LO QUE SE VE AL COMPARTIR UN LINK ───────────────────────────
+   *
+   * ⚠️ ESTE `title` LE GANA AL `title` DE CADA PÁGINA. Es la trampa que
+   * hizo que compartir `/invitaciones` en Facebook mostrara «Bookea —
+   * Reservá espacios y servicios en Costa Rica»: esa página declara su
+   * `title` y su `description`, pero NO su `openGraph`, así que hereda
+   * este bloque entero y el título de acá pisa al suyo.
+   *
+   * La regla, entonces: toda página que se comparta a propósito
+   * —Invitaciones, Lealtad, un negocio— tiene que declarar su PROPIO
+   * `openGraph`. Poner solo `title` no alcanza.
+   *
+   * El eslogan lo eligió el dueño (ago 2026). Va en VOSEO —«Convertí»,
+   * no «Convierte»— porque es el trato que usa todo el sitio, y la
+   * landing de Lealtad ya abre con la misma construcción («Convertí
+   * compradores de un día en clientes de por vida»).
+   *
+   * La imagen no se declara acá: la pone `opengraph-image.tsx` de esta
+   * misma carpeta, que Next enchufa por convención de nombre.
+   */
   openGraph: {
-    title: "Bookea — Reservá espacios y servicios en Costa Rica",
+    title: "Bookea — Convertí cada interacción en una experiencia",
     description:
-      "Espacios, servicios y experiencias en un solo lugar. Compará opciones reales y reservá directo.",
+      "Citas, eventos, hospedaje y experiencias en un solo lugar. Reservá directo, sin cadenas de WhatsApp.",
     locale: "es_CR",
     siteName: "Bookea",
     url: SITIO,
+    type: "website",
+  },
+  twitter: {
+    // `summary_large_image` y no `summary`: sin esto X/Twitter pinta la
+    // imagen como una miniatura cuadrada al costado y se pierde el
+    // eslogan, que es justamente lo que se quiere mostrar.
+    card: "summary_large_image",
+    title: "Bookea — Convertí cada interacción en una experiencia",
+    description:
+      "Citas, eventos, hospedaje y experiencias en un solo lugar. Reservá directo, sin cadenas de WhatsApp.",
   },
 };
 
