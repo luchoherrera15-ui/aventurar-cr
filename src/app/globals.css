@@ -578,7 +578,37 @@
    afecta ni pinta afuera: al mover una mancha no revisa el resto de la
    página. `pointer-events: none` importa para el INP — una capa a
    pantalla completa que participe del hit-testing suma trabajo en CADA
-   evento de puntero. */
+   evento de puntero.
+
+   ═══════════════════════════════════════════════════════════════════
+    LA MÁSCARA — por qué se veía dónde terminaba el degradado
+   ═══════════════════════════════════════════════════════════════════
+   Primera versión: la caja recortaba al ras del héroe y las manchas
+   TODAVÍA TENÍAN COLOR al llegar a ese borde. Resultado: una línea
+   horizontal recta cruzando la pantalla, justo lo que un degradado
+   ambiental no puede tener. El dueño lo vio de una: «se nota dónde
+   termina el degradado».
+
+   Fresha resuelve lo mismo por el otro lado: sus manchas viven en cajas
+   ENORMES (~1960×2084) que arrancan fuera de la pantalla y van con
+   `overflow: visible` — o sea que no recortan nada y el blob se apaga
+   dentro de su propia caja gigante, lejos de cualquier borde. Copiar
+   eso acá significaría dejar la mancha derramarse sobre el catálogo que
+   viene abajo.
+
+   Así que se toma la idea y no la implementación: la caja SIGUE
+   recortando (el catálogo no se tiñe), pero la máscara la lleva a alfa
+   CERO mucho antes de su propio borde. Un recorte sobre algo que ya es
+   transparente no se ve — el borde deja de existir en vez de
+   disimularse.
+
+   Las paradas están elegidas: opaca hasta el 42 % (donde vive el
+   título), y de ahí se apaga con una curva larga hasta el 88 %. Los
+   últimos 12 % son colchón: aunque una mancha derive hacia abajo con su
+   `scale(1.12)`, ahí ya no queda nada que recortar.
+
+   `-webkit-mask-image` va primero por Safari, que todavía pide el
+   prefijo para máscaras con degradado. */
 @utility aurora-caja {
   position: absolute;
   inset: 0;
@@ -586,6 +616,22 @@
   isolation: isolate;
   contain: layout paint;
   pointer-events: none;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 42%,
+    rgba(0, 0, 0, 0.55) 66%,
+    rgba(0, 0, 0, 0.16) 80%,
+    transparent 88%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 42%,
+    rgba(0, 0, 0, 0.55) 66%,
+    rgba(0, 0, 0, 0.16) 80%,
+    transparent 88%
+  );
 }
 
 /* `inset: -22%`: la caja de cada mancha es más grande que el envoltorio,

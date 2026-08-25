@@ -4,9 +4,7 @@ import RevealOnScroll from "@/components/reveal-on-scroll";
 import AvisoSuperior from "@/components/home/aviso-superior";
 import HeaderSimple from "@/components/home/header-simple";
 import HeroBusqueda from "@/components/home/hero-busqueda";
-import ExploraBookea from "@/components/home/explora-bookea";
 import RielesCatalogo from "@/components/home/rieles-catalogo";
-import ExplorarRubros from "@/components/home/explorar-rubros";
 import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
 import { leerCatalogoPortada } from "./home-datos";
 import { urlSitio } from "@/lib/sitio";
@@ -16,43 +14,35 @@ import { urlSitio } from "@/lib/sitio";
  * LA PORTADA DE BOOKEA — `bookea.lat`
  * ============================================================
  *
- * ── TERCERA VUELTA (pedido del dueño, ago 2026) ───────────────────
+ * ── CUARTA VUELTA (pedido del dueño, ago 2026) ────────────────────
  *
- * El buscador sobre el fondo difuminado y los rieles por vertical
- * (`HeroBusqueda` + `RielesCatalogo`, de la vuelta anterior) se quedan
- * tal cual. Lo que cambió es TODO lo que iba abajo: "Todo lo que
- * Bookea te da" (`CarruselServicios`), la banda de llamada
- * (`CtaLlamada`), la vidriera de 5 negocios (`MarketplaceVidriera`) y
- * "Tu talento merece ser encontrado" (`BloqueNegocios`) quedan
- * afuera — el pedido explícito fue «los rieles es lo que tendrá esta
- * página abajo». En su lugar, justo debajo de los rieles, va
- * `ExplorarRubros` ("cards pequeños con cada categoría"): 36 rubros
- * reales agrupados por vertical, ya armado desde antes pero huérfano
- * (sin ningún consumidor) hasta ahora.
+ * La portada quedó en TRES cosas y nada más:
  *
- * Los cuatro componentes retirados NO se borraron del repo — solo
- * dejaron de importarse acá. Si hacen falta en otro lado, siguen
- * enteros en `src/components/home/`.
+ *   1. `AvisoSuperior`   — la franja de arriba de todo.
+ *   2. `HeaderSimple`    — logo, las cinco puertas en el mega menú, y
+ *                          las acciones. El buscador NO vive acá.
+ *   3. `HeroBusqueda`    — el título, el buscador grande y la aurora.
+ *   4. `RielesCatalogo`  — el marketplace: un riel por vertical, con
+ *                          los negocios que de verdad existen.
+ *   5. `SiteFooter`.
  *
- * ── EL ORDEN DE LA PÁGINA ─────────────────────────────────────────
+ * ── POR QUÉ SE FUERON LAS DOS FRANJAS DE CATEGORÍAS ───────────────
  *
- *   1. `AvisoSuperior`            — arriba del header, igual que antes.
- *   2. `HeaderSimple`             — logo, LOGIN, "¡Une tu negocio!". Sin
- *                                    buscador propio: el buscador vive
- *                                    en el héroe, no en la barra.
- *   3. `HeroBusqueda`             — título + buscador + "Otros servicios".
- *   4. `RielesCatalogo`           — el catálogo real, un riel por vertical
- *                                    (datos de `leerCatalogoPortada()`),
- *                                    con tarjetas más chicas que en el
- *                                    directorio (ver `rieles-catalogo.tsx`).
- *   5. `ExplorarRubros`           — "Explorá por rubro", 36 tiles chicos.
- *   6. `SiteFooter`.
+ * Debajo de los rieles vivían «Explorá Bookea» (cinco cards grandes) y
+ * «Explorá por rubro» (36 tiles). Las dos listaban lo MISMO que ahora
+ * está en el mega menú del header, así que la portada decía tres veces
+ * la misma cosa y empujaba los negocios reales —lo único que esta
+ * página tiene de verdad— tan abajo que había que scrollear para
+ * encontrarlos.
+ *
+ * Los componentes NO se borraron: `explora-bookea.tsx` y
+ * `explorar-rubros.tsx` siguen enteros en `src/components/home/`, solo
+ * dejaron de importarse acá. Lo mismo pasó antes con `CarruselServicios`,
+ * `CtaLlamada`, `MarketplaceVidriera` y `BloqueNegocios`.
  *
  * ── LA REGLA QUE NO SE NEGOCIA ────────────────────────────────────
  * Ni estrellas, ni cifras inventadas, ni negocios de mentira. Los
- * rieles consultan la base — ver `rieles-catalogo.tsx`. `ExplorarRubros`
- * no promete negocios, solo abre la puerta a cada rubro (ver el doc
- * comment de ese archivo).
+ * rieles consultan la base — ver `rieles-catalogo.tsx`.
  */
 
 export const metadata: Metadata = {
@@ -79,11 +69,17 @@ export default async function Home() {
 
       <main className="flex-1">
         <HeroBusqueda />
-        <div className="px-5 py-12 sm:px-8">
-          <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-14 sm:gap-16">
-            <ExploraBookea />
+        {/* Debajo del héroe queda SOLO el marketplace (pedido del dueño,
+            ago 2026). Se sacaron las cards de «Explorá Bookea» y la
+            franja de rubros del final: las cinco puertas ya viven en el
+            mega menú del header, y repetirlas dos veces más abajo
+            empujaba los negocios reales —lo único que la portada tiene
+            de verdad— tan abajo que había que scrollear para verlos.
+            Los dos componentes siguen enteros en el repo, solo dejaron
+            de importarse acá. */}
+        <div className="px-5 pb-12 pt-2 sm:px-8">
+          <div className="mx-auto w-full max-w-[1200px]">
             <RielesCatalogo {...catalogo} />
-            <ExplorarRubros />
           </div>
         </div>
       </main>

@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { IconSearch } from "@/components/icons";
 import {
-  PESTANAS,
   TEXTOS,
   urlBusqueda,
   type PestanaBuscador,
@@ -59,11 +58,64 @@ const ROTULO = "text-[11.5px] font-bold uppercase tracking-[0.08em] text-aventur
 const CONTROL =
   "w-full truncate bg-transparent text-[14.5px] font-semibold text-aventurea-ink outline-none placeholder:font-normal placeholder:text-aventurea-ink-soft";
 
+/**
+ * Las palabras que mandan a EVENTOS. Todo lo demás cae en Citas.
+ *
+ * ── POR QUÉ UNA LISTA Y NO UN SELECTOR ──────────────────────────────
+ *
+ * Antes había dos pestañas y la persona elegía la vertical a mano. El
+ * dueño las sacó: obligan a decidir algo nuestro («¿esto es Citas o
+ * Eventos?») antes de saber qué hay adentro.
+ *
+ * Sin pestañas hay que adivinar, y adivinar mal tiene un costo
+ * asimétrico: mandar «rancho» a Citas devuelve CERO resultados, mientras
+ * que mandar algo raro a Citas devuelve la lista completa de Citas —
+ * incompleta, pero no vacía. Por eso el default es Citas y esta lista
+ * solo contiene lo que es inequívocamente de un evento.
+ *
+ * ── ESTO ES LA v1 DETERMINISTA, A PROPÓSITO ─────────────────────────
+ *
+ * El día que Bookea interprete «Villa para 8 personas en Guanacaste», lo
+ * que cambia es el cuerpo de `destinoDe` —y `urlBusqueda`, que ya es el
+ * único armador de URLs del repo— sin tocar un solo componente. El
+ * repo además ya tiene un diccionario de sinónimos mucho más rico
+ * (`SENALES_TIPO` en `lib/business/adivinar-tipo.ts`, hoy usado solo
+ * para adivinar el tipo de un negocio al darlo de alta): es de ahí de
+ * donde debería salir esta decisión cuando se conecte.
+ */
+const SENAS_DE_EVENTO = [
+  "rancho", "ranchos", "salon", "salones", "quinta", "finca", "local para",
+  "boda", "bodas", "matrimonio", "quince", "xv", "cumpleanos", "graduacion",
+  "baby shower", "despedida", "evento", "eventos", "fiesta", "fiestas",
+  "catering", "banquete", "buffet", "queque", "pastel", "reposteria",
+  "dj", "djs", "sonido", "grupo musical", "mariachi", "marimba", "karaoke",
+  "decoracion", "decorador", "globos", "flores", "floristeria",
+  "fotografo", "fotografia", "video", "toldo", "toldos", "mesas", "sillas",
+  "brincolin", "inflable", "payaso", "animacion",
+];
+
+/** Sin tildes y en minúsculas, para comparar contra la lista de arriba. */
+function normalizar(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
+function destinoDe(texto: string): PestanaBuscador {
+  const t = ` ${normalizar(texto).replace(/[^a-z0-9]+/g, " ").trim()} `;
+  return SENAS_DE_EVENTO.some((s) => t.includes(` ${s} `)) ? "eventos" : "citas";
+}
+
 export default function BuscadorHero() {
   const router = useRouter();
-  const [pestana, setPestana] = useState<PestanaBuscador>("citas");
   const [texto, setTexto] = useState("");
   const [provincia, setProvincia] = useState("");
+
+  // El destino se recalcula mientras se escribe para que el ejemplo del
+  // campo acompañe: al teclear «rancho» el placeholder pasa a hablar de
+  // eventos. Es la única señal de que la búsqueda entendió algo.
+  const pestana = destinoDe(texto);
 
   function buscar(e: React.FormEvent) {
     e.preventDefault();
@@ -72,35 +124,16 @@ export default function BuscadorHero() {
 
   return (
     <div className="mx-auto mt-9 w-full max-w-[860px]">
-      {/* Las dos puertas del buscador. Un `radiogroup` de verdad y no dos
-          botones sueltos: así el lector de pantalla anuncia «1 de 2» y
-          las flechas se mueven entre ellas de fábrica. */}
-      <div
-        role="radiogroup"
-        aria-label="Qué querés buscar"
-        className="mx-auto mb-4 inline-flex items-center gap-1 rounded-full border border-aventurea-line bg-white/70 p-1"
-      >
-        {PESTANAS.map((id) => {
-          const activa = pestana === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="radio"
-              aria-checked={activa}
-              onClick={() => setPestana(id)}
-              className={`rounded-full px-4 py-1.5 text-[13px] font-bold transition-colors duration-200 ${
-                activa
-                  ? "bg-[color:var(--navy)] text-white"
-                  : "text-aventurea-ink-soft hover:text-aventurea-ink"
-              }`}
-            >
-              {TEXTOS[id].label}
-            </button>
-          );
-        })}
-      </div>
+      {/* ── ACÁ VIVÍAN LAS PESTAÑAS «Citas y servicios / Eventos» ──────
+          Se fueron (pedido del dueño, ago 2026). Obligaban a elegir una
+          VERTICAL antes de saber qué había adentro, y «vertical» es
+          vocabulario nuestro, no de quien entra a reservar. Su lugar lo
+          toma la fila de rubros con ícono de abajo del buscador
+          (`rubros-icono.tsx`), que muestra directo lo que se puede
+          pedir: Uñas, Barbería, Spa, Lugares.
 
+          El destino del buscador ahora se decide SOLO: ver
+          `destinoDe()`. */}
       <form
         onSubmit={buscar}
         className="flex flex-col items-stretch overflow-hidden rounded-3xl border border-aventurea-line bg-white shadow-[0_24px_60px_-28px_rgba(16,47,82,0.35)] transition-shadow focus-within:shadow-[0_28px_70px_-26px_rgba(16,47,82,0.45)] sm:flex-row sm:items-center sm:rounded-full"

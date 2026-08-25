@@ -1,4 +1,5 @@
 import BuscadorHero from "@/components/home/buscador-hero";
+import RubrosIcono from "@/components/home/rubros-icono";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -33,11 +34,17 @@ import BuscadorHero from "@/components/home/buscador-hero";
 export default function HeroBusqueda() {
   return (
     <section
-      className="relative isolate px-5 py-20 sm:py-28"
-      // El lavado estático. Va en `style` y no como clase porque son dos
-      // paradas exactas de un degradado puntual, no un token de marca
-      // que se reuse en otro lado.
-      style={{ background: "linear-gradient(180deg,#fff6ec 0%,#ffffff 64%)" }}
+      className="relative isolate px-5 pb-28 pt-20 sm:pb-36 sm:pt-28"
+      /* EL LAVADO ESTÁTICO, y sus paradas también están elegidas.
+         Antes llegaba a blanco puro en el 64 % y de ahí seguía blanco:
+         eso deja el último tercio de la sección plano, y contra el
+         degradado de arriba se lee como un corte. Ahora se apaga con
+         tres paradas y toca el blanco recién al final, así que el
+         empalme con el catálogo es continuo. El `pb` largo le da a la
+         máscara de la aurora dónde apagarse sin comerse el buscador. */
+      style={{
+        background: "linear-gradient(180deg,#fff4e6 0%,#fffaf3 46%,#fffdfa 76%,#ffffff 100%)",
+      }}
     >
       <div aria-hidden className="aurora-caja -z-10">
         <div className="aurora-mancha aurora-1" />
@@ -54,6 +61,7 @@ export default function HeroBusqueda() {
         </p>
 
         <BuscadorHero />
+        <RubrosIcono />
       </div>
     </section>
   );

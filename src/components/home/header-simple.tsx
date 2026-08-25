@@ -1,5 +1,6 @@
 import Link from "next/link";
 import MegaMenu from "@/components/nav/mega-menu";
+import MasServicios from "@/components/nav/mas-servicios";
 import CajonNavMovil from "@/components/nav/cajon-nav-movil";
 import { PUERTAS } from "@/components/nav/taxonomia-navegacion";
 import { leerCenso, puertasConInventario } from "@/lib/censo-rubros";
@@ -58,10 +59,18 @@ export default async function HeaderSimple() {
           </div>
         )}
 
-        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-4">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+          {/* Lealtad e Invitaciones NO van con las cinco puertas del
+              centro: esas son categorías de RESERVA y estos son
+              productos que Bookea le vende al negocio. Van apartados,
+              junto a las acciones de cuenta. */}
+          <div className="hidden md:block">
+            <MasServicios />
+          </div>
+
           <Link
             href="/cuenta"
-            className="hidden text-[13.5px] font-bold text-aventurea-ink transition-colors hover:text-[color:var(--navy)] sm:block"
+            className="hidden whitespace-nowrap px-2 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:text-[color:var(--navy)] sm:block"
           >
             Iniciar sesión
           </Link>
