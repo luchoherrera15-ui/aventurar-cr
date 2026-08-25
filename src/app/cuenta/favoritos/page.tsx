@@ -86,7 +86,7 @@ export default async function CuentaFavoritosPage() {
             <CardVacia>
               Todavía no guardaste ningún favorito. Tocá el corazón de cualquier
               negocio del{" "}
-              <Link href="/eventos" className="font-bold text-aventurea-navy hover:underline">
+              <Link href="/" className="font-bold text-aventurea-navy hover:underline">
                 directorio
               </Link>{" "}
               y acá te espera.

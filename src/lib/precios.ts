@@ -272,7 +272,7 @@ export async function guardarPreciosRancho(
 
   revalidatePath("/admin/eventos/precios");
   revalidatePath("/mi-negocio", "layout");
-  revalidatePath("/eventos");
+  revalidatePath("/");
 
   if (faltaMigracion0103) return { error: AVISO_MIGRACION_0103 };
   if (faltaMigracion) return { error: AVISO_MIGRACION_PENDIENTE };

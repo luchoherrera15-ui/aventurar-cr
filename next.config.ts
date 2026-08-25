@@ -181,9 +181,45 @@ const nextConfig: NextConfig = {
       // redirección, `bookea.lat/` no tenía contenido propio y le
       // pasaba toda su autoridad a `/eventos`: quien buscaba «Bookea»
       // no encontraba una página que dijera qué es Bookea.
+      /**
+       * ════════════════════════════════════════════════════════════
+       *  EL MARKETPLACE VIVE SOLO EN LA PORTADA (ago 2026)
+       * ════════════════════════════════════════════════════════════
+       *
+       * Pedido del dueño: «necesitamos que ahora el MARKETPLACE y la
+       * única página donde se puedan ver los negocios sea bookea.lat».
+       *
+       * Los DIRECTORIOS `/citas` y `/eventos` se borraron: la portada
+       * ya muestra los negocios y los filtra con `?rubro=` desde los
+       * íconos del héroe. Estos 301 recogen todo lo que siga
+       * apuntando ahí — links compartidos, favoritos del navegador,
+       * resultados de Google todavía indexados.
+       *
+       * ⚠️ SOLO EL ÍNDICE, NUNCA LAS FICHAS. `source: "/citas"` casa
+       * EXACTAMENTE con esa ruta y no con `/citas/:slug`: la página
+       * pública de cada negocio sigue viva y tiene que seguir viva.
+       * Ahí van los links que la app móvil comparte por WhatsApp, los
+       * que mandan los correos y los que emite el bot, y el canónico
+       * de cada negocio en el sitemap. Un `:path*` acá los mataría
+       * todos de una.
+       */
+      {
+        source: "/citas",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/eventos",
+        destination: "/",
+        permanent: true,
+      },
+      // `/ranchos-eventos` era el nombre viejo del directorio de
+      // Eventos. Ese directorio ya no existe, así que ahora cae en la
+      // portada — antes apuntaba a `/eventos`, que habría sido un
+      // 301 hacia otro 301.
       {
         source: "/ranchos-eventos",
-        destination: "/eventos",
+        destination: "/",
         permanent: true,
       },
       {

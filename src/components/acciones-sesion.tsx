@@ -9,7 +9,7 @@ async function cerrarSesionPublica() {
   "use server";
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/eventos");
+  redirect("/");
 }
 
 export default async function AccionesSesion({

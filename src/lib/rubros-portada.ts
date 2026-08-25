@@ -1,51 +1,66 @@
 /**
  * ════════════════════════════════════════════════════════════════════
- *  LOS RUBROS DE LA PORTADA — una sola lista, dos lectores
+ *  EL FILTRO DE LA PORTADA — `bookea.lat/?rubro=`
  * ════════════════════════════════════════════════════════════════════
  *
- * Pedido del dueño (ago 2026): «si presiono algún ícono de acá esto me
- * lleva a otra página, quiero que esto YA DEJE DE SER ASÍ — la idea es
- * que TODO se encuentre acá mismo, en la misma página de bookea.lat».
+ * Pedido del dueño (ago 2026): «el MARKETPLACE y la única página donde
+ * se puedan ver los negocios es bookea.lat».
  *
- * Antes cada ícono del héroe era un link a `/citas?categoria=unas` o
- * `/eventos?categoria=lugares`: nueve puertas que sacaban al visitante
- * de la portada. Ahora los nueve filtran EN LA MISMA PÁGINA con
- * `?rubro=`, y el catálogo de abajo se recorta sin recargar de cero.
+ * Los directorios `/citas` y `/eventos` se borraron. Todo lo que antes
+ * mandaba ahí —los nueve íconos del héroe, el mega menú, el cajón del
+ * teléfono— ahora escribe `?rubro=` sobre la propia portada, y el
+ * catálogo de abajo se recorta sin cambiar de página.
  *
- * ── POR QUÉ ESTA LISTA VIVE ACÁ Y NO EN EL COMPONENTE ───────────────
+ * ── LA CLAVE LLEVA LA VERTICAL, Y NO ES OPCIONAL ────────────────────
  *
- * Porque ahora la leen DOS lados que tienen que coincidir o el filtro
- * miente: `rubros-icono.tsx` (que arma los links) y `rieles-catalogo.tsx`
- * (que recorta el catálogo). Con la lista adentro del componente, el día
- * que se agregue un rubro habría que acordarse de tocar el otro lado —
- * y no hay nada que avise cuando no se hace.
+ * `?rubro=citas-belleza`, no `?rubro=belleza`. Parece redundante hasta
+ * que se mira la taxonomía completa: **«otros» existe en las DOS
+ * verticales** (`otros` de Eventos y `otros` de Citas). Con la
+ * categoría sola, `/?rubro=otros` tendría que adivinar cuál de las dos,
+ * y elegiría siempre la misma — mostrando el catálogo equivocado sin
+ * que nada avise.
  *
- * ── LA CATEGORÍA ALCANZA COMO CLAVE, Y ESTÁ COMPROBADO ──────────────
+ * ── PERO LAS NUEVE VIEJAS SE SIGUEN ACEPTANDO ───────────────────────
  *
- * El parámetro es `?rubro=unas`, no `?rubro=citas-unas`: las nueve
- * categorías son distintas entre sí aunque vengan de dos verticales
- * (unas, belleza, barberia, spa, consultorio | lugares, alimentacion,
- * animacion, decoracion). `rubros-portada.test.ts` lo verifica — si
- * algún día entra una categoría repetida en otra vertical, ese test se
- * pone rojo antes de que el filtro empiece a mezclar negocios.
+ * La primera versión de esto usó la categoría sola (`?rubro=unas`) y
+ * estuvo en producción. Esas nueve son únicas entre sí, así que se
+ * resuelven sin ambigüedad y se siguen entendiendo: un link compartido
+ * o un favorito guardado en esa media hora no puede quedar roto.
  *
- * ── LOS NOMBRES NO SE INVENTAN ──────────────────────────────────────
+ * ── NO SE VALIDA CONTRA UNA LISTA DE CATEGORÍAS ─────────────────────
  *
- * `vertical` y `categoria` son los valores REALES de la base (los mismos
- * que usa `categoriaIcono` y el resto del directorio). CLAUDE.md
- * prohíbe inventar categorías, y una lista escrita a mano acá sería
- * exactamente eso.
+ * A propósito. Enumerarlas acá sería una tercera taxonomía que se
+ * despega de `CATEGORIAS`/`CATEGORIAS_CITAS` a la primera categoría
+ * nueva. Si llega una que no existe, el filtro no devuelve negocios y
+ * la portada dice «todavía no hay» — que es más honesto que ignorar el
+ * filtro y mostrar el catálogo entero como si nada hubiera pasado.
  */
 
 export type RubroPortada = {
   /** La vertical en la base: "citas" o "eventos". */
   vertical: string;
-  /** La categoría en la base. Es también la clave de `?rubro=`. */
+  /** La categoría en la base. */
   categoria: string;
-  /** Cómo se lee en pantalla. */
-  label: string;
+  /** La subcategoría, si el destino la traía. Solo Eventos las lee. */
+  subcategoria?: string;
+  /** Cómo se lee en pantalla. Solo lo traen los nueve del héroe; para
+   *  cualquier otra categoría lo resuelve quien lo necesite con
+   *  `etiquetaDeCategoria` (carriles-home.ts).
+   *
+   *  ⚠️ NO se resuelve acá a propósito: `carriles-home` importa ESTE
+   *  módulo para armar sus URLs, así que importarlo de vuelta cerraría
+   *  un ciclo entre los dos. */
+  label?: string;
 };
 
+/** Las verticales cuyo catálogo vive en la portada. */
+const VERTICALES = ["citas", "eventos"] as const;
+
+/**
+ * Los nueve rubros con ícono en el héroe. Es una lista de PRESENTACIÓN
+ * —qué se ofrece de un vistazo—, no la de categorías válidas: el filtro
+ * acepta cualquiera (ver arriba).
+ */
 export const RUBROS_PORTADA: readonly RubroPortada[] = [
   { vertical: "citas", categoria: "unas", label: "Uñas" },
   { vertical: "citas", categoria: "belleza", label: "Belleza" },
@@ -58,30 +73,62 @@ export const RUBROS_PORTADA: readonly RubroPortada[] = [
   { vertical: "eventos", categoria: "decoracion", label: "Decoración" },
 ] as const;
 
+/** Un solo valor de texto, o null si vino repetido, vacío o ausente. */
+function unico(valor: string | string[] | undefined): string | null {
+  // Un `string[]` (`?rubro=a&rubro=b`) se rechaza entero en vez de
+  // agarrar el primero: pedir dos rubros a la vez no es una intención
+  // que la portada sepa cumplir, y adivinar sería peor que no filtrar.
+  if (typeof valor !== "string") return null;
+  const limpio = valor.trim().toLowerCase();
+  return limpio.length > 0 ? limpio : null;
+}
+
 /**
- * El rubro que pide la URL, o null.
+ * El rubro que pide la URL, o null si no hay filtro.
  *
- * Devuelve el objeto entero y no un booleano porque quien filtra
- * necesita la VERTICAL además de la categoría: hay categorías que
- * podrían repetirse el día de mañana en otra vertical, y filtrar solo
- * por categoría mezclaría negocios de dos catálogos distintos.
- *
- * Tolera `undefined` y `string[]` porque eso es exactamente lo que
- * entrega `searchParams` de Next cuando el parámetro falta o viene
- * repetido (`?rubro=a&rubro=b`). Un `string[]` se rechaza entero en vez
- * de agarrar el primero: pedir dos rubros a la vez no es una intención
- * que la portada sepa cumplir, y adivinar cuál vale sería peor que no
- * filtrar.
+ * `sub` llega aparte (`?sub=`) porque una subcategoría no es parte del
+ * nombre del rubro: es un recorte DENTRO de él, y meterla en la misma
+ * clave obligaría a partir el texto por guiones sabiendo que tanto la
+ * vertical como la categoría pueden traer los suyos.
  */
 export function rubroDeParametro(
   valor: string | string[] | undefined,
+  sub?: string | string[] | undefined,
 ): RubroPortada | null {
-  if (typeof valor !== "string") return null;
-  const limpio = valor.trim().toLowerCase();
-  return RUBROS_PORTADA.find((r) => r.categoria === limpio) ?? null;
+  const crudo = unico(valor);
+  if (!crudo) return null;
+
+  const subcategoria = unico(sub) ?? undefined;
+
+  // Forma nueva: «vertical-categoria».
+  for (const vertical of VERTICALES) {
+    const prefijo = `${vertical}-`;
+    if (crudo.startsWith(prefijo)) {
+      const categoria = crudo.slice(prefijo.length);
+      if (!categoria) return null;
+      return { vertical, categoria, subcategoria };
+    }
+  }
+
+  // Forma vieja: la categoría sola. Solo las nueve del héroe, que son
+  // únicas entre sí — ver la cabecera.
+  const conocido = RUBROS_PORTADA.find((r) => r.categoria === crudo);
+  return conocido ? { ...conocido, subcategoria } : null;
 }
 
-/** El link del ícono: la misma portada, filtrada, y bajando al catálogo. */
-export function urlDeRubro(categoria: string): string {
-  return `/?rubro=${encodeURIComponent(categoria)}#catalogo`;
+/**
+ * El link de un rubro: la misma portada, filtrada, y bajando al
+ * catálogo. Sin el ancla, filtrar dejaría a la persona mirando el mismo
+ * héroe, convencida de que el clic no hizo nada.
+ */
+export function urlDeRubro(
+  vertical: string,
+  categoria: string,
+  subcategoria?: string | null,
+): string {
+  const base = `/?rubro=${encodeURIComponent(`${vertical}-${categoria}`)}`;
+  const conSub = subcategoria
+    ? `${base}&sub=${encodeURIComponent(subcategoria)}`
+    : base;
+  return `${conSub}#catalogo`;
 }

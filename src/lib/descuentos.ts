@@ -24,7 +24,7 @@ export type PromocionInput = {
 function revalidarTodo() {
   revalidatePath("/admin/eventos/precios");
   revalidatePath("/mi-negocio", "layout");
-  revalidatePath("/eventos");
+  revalidatePath("/");
 }
 
 /** Reemplaza los códigos de descuento de UN rancho (nunca de todos). */

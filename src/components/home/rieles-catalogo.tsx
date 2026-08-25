@@ -5,6 +5,7 @@ import type { RubroPortada } from "@/lib/rubros-portada";
 import {
   TOPE_CARRIL,
   agruparPorVertical,
+  etiquetaDeCategoria,
   filtrarPorRubro,
   hayFondoParaRecienPublicados,
 } from "@/lib/carriles-home";
@@ -122,7 +123,14 @@ export default function RielesCatalogo({
     return (
       <div className="rounded-3xl border border-aventurea-line bg-aventurea-cream-2 px-6 py-12 text-center">
         <p className="text-[15px] font-bold text-aventurea-ink">
-          Todavía no hay negocios de {rubro.label.toLowerCase()} publicados.
+          {/* El nombre sale del catálogo real (`etiquetaDeCategoria`) y
+              no de la URL: `?rubro=citas-belleza` diría «belleza», pero
+              la fila se llama «Salones de belleza». Los nueve del héroe
+              traen su propia etiqueta corta, que es la que se ve en el
+              ícono — para el resto manda el nombre de la fila. */}
+          Todavía no hay negocios de{" "}
+          {(rubro.label ?? etiquetaDeCategoria(rubro.vertical, rubro.categoria)).toLowerCase()}{" "}
+          publicados.
         </p>
         <p className="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
           Estamos sumando negocios cada semana. Mientras tanto podés ver todo lo

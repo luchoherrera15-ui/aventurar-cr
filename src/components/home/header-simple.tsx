@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AccionesPortada from "@/components/home/acciones-portada";
 import CajonNavMovil from "@/components/nav/cajon-nav-movil";
 import { PUERTAS } from "@/components/nav/taxonomia-navegacion";
 
@@ -37,7 +38,7 @@ import { PUERTAS } from "@/components/nav/taxonomia-navegacion";
  * Lo que quedó es que el header lleve el mismo color con el que abre el
  * degradado. Ver el comentario del `style`, abajo.
  */
-export default function HeaderSimple() {
+export default async function HeaderSimple() {
   return (
     /* ⚠️ EL FONDO NO ES `transparent`, Y ESA ES LA CORRECCIÓN.
        Transparente dejaba ver el blanco de la página entre la banda
@@ -65,20 +66,13 @@ export default function HeaderSimple() {
               (`rubros-icono.tsx`), a la derecha de una línea divisoria
               que los separa de los rubros que un visitante reserva. Se
               ven de entrada en vez de esperar un clic. */}
-          <Link
-            href="/cuenta"
-            className="hidden whitespace-nowrap px-2 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:text-[color:var(--navy)] sm:block"
-          >
-            Iniciar sesión
-          </Link>
-          <Link
-            href="/publicar"
-            className="presionable hidden items-center gap-1.5 rounded-full px-5 py-2.5 text-[13.5px] font-extrabold text-white transition-colors sm:inline-flex"
-            style={{ background: "var(--orange)" }}
-          >
-            Publicá tu negocio
-            <span aria-hidden>→</span>
-          </Link>
+          {/* ── CON SESIÓN, EL HEADER LO DICE ────────────────────────
+              Antes acá había un «Iniciar sesión» fijo que decía lo
+              mismo con sesión y sin ella: quien ya había entrado veía
+              una invitación a entrar otra vez, y no tenía por dónde
+              salir. `AccionesPortada` resuelve la sesión en el servidor
+              y pinta el nombre con su menú, o el par de siempre. */}
+          <AccionesPortada />
 
           {/* El cajón lleva la taxonomía COMPLETA, sin podar por censo:
               en el teléfono es la única puerta a explorar rubros, y

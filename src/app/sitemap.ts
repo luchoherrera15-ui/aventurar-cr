@@ -50,12 +50,21 @@ const MAX_FICHAS = 5000;
  */
 const SECCIONES: { ruta: string; prioridad: number; frecuencia: "daily" | "weekly" | "monthly" }[] =
   [
-    // La raíz es la PORTADA del marketplace (ya no el directorio de
-    // Eventos: eso se separó, y por eso `/eventos` está acá abajo con
-    // dirección propia). Prioridad 1 sin discusión.
+    /**
+     * La raíz es EL marketplace. Desde ago 2026 no comparte ese papel
+     * con nadie: `/citas` y `/eventos` se borraron y ahora hacen 301
+     * hacia acá (ver `redirects()` en next.config.ts).
+     *
+     * ⚠️ NO LOS VUELVAS A AGREGAR ACÁ. Una URL que responde 301 no se
+     * lista en un sitemap: le pide a Google que rastree una dirección
+     * que ya le dijimos que no es la buena, y diluye justo la señal
+     * que el redirect viene a concentrar.
+     *
+     * Las FICHAS de negocio sí siguen listadas, cada una con su
+     * `/citas/<slug>` — eso lo arma `rutaDeFicha`, más abajo, y no se
+     * toca: esas páginas están vivas.
+     */
     { ruta: "/", prioridad: 1, frecuencia: "daily" },
-    { ruta: "/eventos", prioridad: 0.9, frecuencia: "daily" },
-    { ruta: "/citas", prioridad: 0.9, frecuencia: "daily" },
     { ruta: "/hospedajes", prioridad: 0.8, frecuencia: "weekly" },
     { ruta: "/restaurantes", prioridad: 0.8, frecuencia: "weekly" },
     // FOOD.BOOKEA es un producto aparte (no vive en `ranchos`, no

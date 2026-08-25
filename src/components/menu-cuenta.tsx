@@ -115,8 +115,8 @@ export default function MenuCuenta({
                 <Link href="/cuenta" className={itemCls} onClick={() => setAbierto(false)}>
                   Mi cuenta
                 </Link>
-                <Link href="/eventos" className={itemCls} onClick={() => setAbierto(false)}>
-                  Ver el directorio
+                <Link href="/" className={itemCls} onClick={() => setAbierto(false)}>
+                  Ver el marketplace
                 </Link>
                 <Link
                   href={yaPublica ? "/mi-negocio" : "/publicar"}

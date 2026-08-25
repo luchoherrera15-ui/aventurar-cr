@@ -91,7 +91,7 @@ export default async function RubrosIcono({
 
   const conOrden = RUBROS_PORTADA.map((r) => ({
     ...r,
-    href: urlDeRubro(r.categoria),
+    href: urlDeRubro(r.vertical, r.categoria),
     // La clave del censo es `vertical|categoria|subcategoria`, con los
     // huecos vacíos. Es la misma que arma `claveDeDestino` para el menú.
     cuantos: censo.porClave[`${r.vertical}|${r.categoria}|`] ?? 0,
@@ -109,7 +109,7 @@ export default async function RubrosIcono({
       style={{ scrollbarWidth: "none" }}
     >
       {conOrden.map((r) => {
-        const esActivo = r.categoria === activo;
+        const esActivo = `${r.vertical}-${r.categoria}` === activo;
         return (
           <Link
             key={`${r.vertical}-${r.categoria}`}

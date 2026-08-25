@@ -8,6 +8,7 @@ import { CATEGORIA_CITA_LABEL } from "@/app/citas/tipos";
 import { CATEGORIA_HOSPEDAJE_LABEL } from "@/app/booking/tipos";
 import { DIRECTORIO } from "@/lib/carriles-home";
 import { urlDirectorio } from "@/lib/url-directorio";
+import { urlDeRubro } from "@/lib/rubros-portada";
 import type { VerticalNegocio } from "@/lib/categorias-vertical";
 
 /**
@@ -206,12 +207,33 @@ const LEE_SUBCATEGORIA: Record<VerticalNegocio, boolean> = {
  */
 export function hrefDeDestino(destino: Destino): string | null {
   if (destino.respaldo !== "real") return null;
-  const ruta = DIRECTORIO[destino.vertical];
-  if (!ruta) return null;
   // Red de seguridad sobre el contrato de arriba: si alguien agrega una
   // subcategoría a una vertical que no la lee, el enlace no se emite en
   // vez de emitirse mintiendo.
   if (destino.subcategoria && !LEE_SUBCATEGORIA[destino.vertical]) return null;
+
+  /**
+   * ⚠️ CITAS Y EVENTOS YA NO TIENEN DIRECTORIO PROPIO (ago 2026).
+   *
+   * Sus páginas se borraron: «el marketplace y la única página donde se
+   * pueden ver los negocios es bookea.lat». Así que sus destinos —los
+   * del mega menú y los del cajón del teléfono— apuntan a la PORTADA
+   * filtrada con `?rubro=`, que es donde vive ahora ese catálogo.
+   *
+   * Sin esto, `DIRECTORIO[vertical]` devolvía `undefined` y el menú se
+   * quedaba MUDO: cada renglón de Citas y Eventos sin enlace, sin error
+   * y sin nada que avisara. Lo agarró `taxonomia-navegacion.test.ts`.
+   *
+   * `categoria` puede faltar (una puerta entera, sin recorte): ahí el
+   * destino es la portada sin filtro.
+   */
+  if (destino.vertical === "citas" || destino.vertical === "eventos") {
+    if (!destino.categoria) return "/";
+    return urlDeRubro(destino.vertical, destino.categoria, destino.subcategoria);
+  }
+
+  const ruta = DIRECTORIO[destino.vertical];
+  if (!ruta) return null;
   return urlDirectorio(ruta, {
     categoria: destino.categoria,
     subcategoria: destino.subcategoria,

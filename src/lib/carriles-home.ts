@@ -13,6 +13,7 @@ import {
   normalizarCategoriaCita,
 } from "@/app/citas/tipos";
 import { categoriaOptions } from "@/lib/categorias-vertical";
+import { urlDeRubro } from "@/lib/rubros-portada";
 
 /**
  * ============================================================
@@ -117,10 +118,24 @@ export type PanelCarriles = {
   sueltos: Rancho[];
 };
 
-/** El directorio de cada vertical. */
+/**
+ * El directorio de cada vertical — LAS QUE TODAVÍA TIENEN UNO.
+ *
+ * ⚠️ `citas` y `eventos` YA NO ESTÁN, y la ausencia es la información.
+ * Sus directorios se borraron en ago 2026 («el marketplace y la única
+ * página donde se pueden ver los negocios es bookea.lat»): la portada
+ * los muestra y los filtra con `?rubro=`.
+ *
+ * Que falten hace que `DIRECTORIO[vertical]` devuelva `undefined` para
+ * esas dos, y eso es a propósito: quien arma un riel de Citas en la
+ * portada NO debe pintar un «Ver todos», porque llevaría a la página en
+ * la que ya está parado. Un botón que no va a ningún lado es peor que
+ * ningún botón.
+ *
+ * `restaurantes` y `hospedajes` sí conservan el suyo: son directorios
+ * de verdad, con su propia página.
+ */
 export const DIRECTORIO: Record<string, string> = {
-  eventos: "/eventos",
-  citas: "/citas",
   restaurantes: "/restaurantes",
   hospedajes: "/hospedajes",
 };
@@ -174,6 +189,18 @@ function normalizarDe(vertical: string, categoria: string): string {
   if (vertical === "citas") return normalizarCategoriaCita(categoria);
   if (vertical === "eventos") return normalizarCategoria(categoria);
   return categoria;
+}
+
+/**
+ * El nombre público de una categoría, para quien no está armando un
+ * carril: lo usa la portada para decir «Todavía no hay negocios de
+ * barbería» cuando un filtro no devuelve nada.
+ *
+ * Es un envoltorio de `tituloDeCategoria` y no una copia: dos mapas de
+ * etiquetas son dos verdades el día que alguien renombre una fila.
+ */
+export function etiquetaDeCategoria(vertical: string, categoria: string): string {
+  return tituloDeCategoria(vertical, categoria);
 }
 
 /** El encabezado de la fila de una categoría. */
@@ -243,7 +270,21 @@ export function agruparEnCarriles(
   const propios = todos.filter((r) => verticalDe(r) === vertical && !fuera.has(r.id));
   if (propios.length === 0) return { nivel: "C", carriles: [], sueltos: [] };
 
-  const directorio = DIRECTORIO[vertical] ?? "/eventos";
+  /**
+   * De dónde sale el «Ver todo» de cada fila.
+   *
+   * ⚠️ Citas y Eventos YA NO tienen directorio: su catálogo es la
+   * portada. Sin esta bifurcación las filas emitían `/?categoria=…`,
+   * que la portada NO lee —lee `?rubro=`— y el enlace habría mostrado
+   * el catálogo entero sin filtrar: exactamente el enlace que promete
+   * una lista y entrega otra.
+   */
+  const enLaPortada = vertical === "citas" || vertical === "eventos";
+  const verTodoDe = (cat: string) =>
+    enLaPortada
+      ? urlDeRubro(vertical, cat)
+      : `${DIRECTORIO[vertical] ?? "/"}?categoria=${encodeURIComponent(cat)}`;
+  const directorio = DIRECTORIO[vertical] ?? "/";
 
   // ── Se agrupa por categoría normalizada ──────────────────────────
   const porCategoria = new Map<string, Rancho[]>();
@@ -292,7 +333,7 @@ export function agruparEnCarriles(
         eje: "subcategoria",
         titulo: SUBCATEGORIA_LABEL[sub.id],
         items: ordenar(items, supers).slice(0, TOPE_CARRIL),
-        verTodoHref: `${directorio}?categoria=${encodeURIComponent(padre)}`,
+        verTodoHref: verTodoDe(padre),
       });
     }
 
@@ -306,7 +347,7 @@ export function agruparEnCarriles(
       eje: "categoria",
       titulo: tituloDeCategoria(vertical, categoria),
       items: ordenar(resto, supers).slice(0, TOPE_CARRIL),
-      verTodoHref: `${directorio}?categoria=${encodeURIComponent(categoria)}`,
+      verTodoHref: verTodoDe(categoria),
     });
   }
 
@@ -334,7 +375,7 @@ export function agruparEnCarriles(
         eje: "resto",
         titulo: `Más en ${NOMBRE_VERTICAL[vertical] ?? "Bookea"}`,
         items: ordenar(sobrantes, supers).slice(0, TOPE_CARRIL),
-        verTodoHref: directorio,
+        verTodoHref: enLaPortada ? "/" : directorio,
       },
     ];
   }
@@ -416,7 +457,10 @@ export type RielVertical = {
   /** Las tarjetas que se pintan, ya ordenadas y recortadas. */
   items: Rancho[];
   /** El directorio de la vertical. */
-  verTodoHref: string;
+  /** El directorio de la vertical, si todavía tiene uno propio.
+   *  `undefined` en Citas y Eventos: su catálogo ES la portada, así que
+   *  no hay «Ver todos» que llevar a ningún lado. */
+  verTodoHref?: string;
 };
 
 /**
@@ -453,13 +497,22 @@ export type RielVertical = {
  */
 export function filtrarPorRubro(
   todos: Rancho[],
-  rubro: { vertical: string; categoria: string },
+  rubro: { vertical: string; categoria: string; subcategoria?: string },
 ): Rancho[] {
   const buscada = normalizarDe(rubro.vertical, rubro.categoria);
   return todos.filter((r) => {
     if (verticalDe(r) !== rubro.vertical) return false;
     const cruda = (r as { categoria?: string | null }).categoria ?? "";
-    return normalizarDe(rubro.vertical, cruda) === buscada;
+    if (normalizarDe(rubro.vertical, cruda) !== buscada) return false;
+    /* La subcategoría solo la traen los destinos de Eventos (ver
+       `LEE_SUBCATEGORIA` en taxonomia-navegacion.ts). Cuando viene, el
+       recorte es DENTRO de la categoría ya filtrada: sin este segundo
+       paso, entrar por «Ranchos para fiestas» en el mega menú devolvía
+       todos los Lugares, que es justo el enlace que promete una lista y
+       entrega otra. */
+    if (!rubro.subcategoria) return true;
+    const sub = (r as { subcategoria?: string | null }).subcategoria ?? "";
+    return sub === rubro.subcategoria;
   });
 }
 
@@ -512,7 +565,8 @@ export function agruparPorVertical(
       titulo: NOMBRE_VERTICAL[vertical] ?? vertical,
       total: propios.length,
       items: ordenar(propios, supers).slice(0, TOPE_CARRIL),
-      verTodoHref: DIRECTORIO[vertical] ?? "/eventos",
+      // Sin directorio propio no hay «Ver todos»: ver DIRECTORIO.
+      verTodoHref: DIRECTORIO[vertical],
     });
   }
 

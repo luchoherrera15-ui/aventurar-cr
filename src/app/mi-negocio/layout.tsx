@@ -143,7 +143,7 @@ export default async function MiRanchoLayout({
             publicaciones, la agenda de citas) no hay rail: ahí el logo
             simplemente queda arriba a la izquierda, que es donde iba. */}
         <div className="flex h-16 w-full items-center gap-4 px-4 sm:px-6 lg:pl-4 lg:pr-0">
-          <Link href="/eventos" className="flex min-w-0 items-center gap-2">
+          <Link href="/" className="flex min-w-0 items-center gap-2">
             {/* eslint-disable-next-line @next/next/no-img-element -- el
                 logo oficial es un PNG estático: next/image no aporta
                 nada acá. */}
@@ -155,7 +155,7 @@ export default async function MiRanchoLayout({
           </Link>
           <div className="ml-auto flex shrink-0 items-center gap-3 lg:pr-8 2xl:pr-10">
             <Link
-              href="/eventos"
+              href="/"
               className="whitespace-nowrap text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange"
             >
               ← <span className="hidden sm:inline">Volver al inicio</span>

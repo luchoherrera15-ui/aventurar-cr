@@ -88,7 +88,7 @@ export default function ListaConversaciones({ filas }: { filas: FilaConversacion
           proveedor aparece acá.
         </p>
         <Link
-          href="/eventos"
+          href="/"
           className="mt-5 inline-flex rounded-xl bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-navy-2"
         >
           Ver el directorio

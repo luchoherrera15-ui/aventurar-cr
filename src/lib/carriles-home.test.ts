@@ -120,7 +120,9 @@ describe("la escalera de estados", () => {
       "citas",
     );
     expect(panel.carriles.map((c) => c.titulo)).toEqual(["Salones de belleza", "Uñas"]);
-    expect(panel.carriles[0].verTodoHref).toBe("/citas?categoria=belleza");
+    // El «Ver todo» ya no manda al directorio de Citas: ese se borró.
+    // Ahora es la portada filtrada — ver DIRECTORIO en carriles-home.ts.
+    expect(panel.carriles[0].verTodoHref).toBe("/?rubro=citas-belleza#catalogo");
   });
 });
 
@@ -142,7 +144,7 @@ describe("la regla de dos niveles: la subcategoría abre carril sola", () => {
     expect(rancheado.eje).toBe("subcategoria");
     // El directorio no filtra por subcategoría: el «Ver todo» manda a
     // la categoría padre, que sí existe como filtro.
-    expect(rancheado.verTodoHref).toBe("/eventos?categoria=lugares");
+    expect(rancheado.verTodoHref).toBe("/?rubro=eventos-lugares#catalogo");
   });
 
   it("DOS de la misma subcategoría NO abren carril: se quedan con su categoría padre", () => {
@@ -214,7 +216,9 @@ describe("ningún negocio publicado queda invisible", () => {
     const cierre = panel.carriles[2];
     expect(cierre.eje).toBe("resto");
     expect(cierre.items).toHaveLength(2);
-    expect(cierre.verTodoHref).toBe("/eventos");
+    // El carril de cierre de una vertical sin directorio propio manda a
+    // la portada entera, sin filtro.
+    expect(cierre.verTodoHref).toBe("/");
   });
 
   it("el carril de cierre CUENTA para el tope: nunca salen más de TOPE_CARRILES filas", () => {
@@ -438,7 +442,9 @@ describe("el reparto por vertical", () => {
       negocio({ categoria: "barberia", vertical: "citas" }),
     ]);
     expect(rieles[0].titulo).toBe("Salud y belleza");
-    expect(rieles[0].verTodoHref).toBe("/citas");
+    // Sin directorio propio no hay «Ver todos»: llevaría a la misma
+    // portada donde ya está el riel. Ver DIRECTORIO en carriles-home.ts.
+    expect(rieles[0].verTodoHref).toBeUndefined();
   });
 
   it("el orden de las filas es fijo, no «por cantidad»", () => {

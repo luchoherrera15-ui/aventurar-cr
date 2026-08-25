@@ -336,7 +336,7 @@ export default function TableroModos({
               </p>
             </div>
             {!modoNegocio && (
-              <Link href="/eventos" className={BOTON_PANEL_PRIMARIO}>
+              <Link href="/" className={BOTON_PANEL_PRIMARIO}>
                 <span aria-hidden="true">
                   <IconCompass className="h-[14px] w-[14px]" />
                 </span>
@@ -630,7 +630,7 @@ function ProximaExperienciaCard({ proxima }: { proxima: ProximaExperiencia }) {
             memorable.
           </p>
           <Link
-            href="/eventos"
+            href="/"
             className="mt-5 inline-flex h-10 w-fit items-center gap-1.5 rounded-xl bg-white px-4 text-[13px] font-extrabold text-aventurea-navy transition-colors hover:bg-white/90"
           >
             Explorar Bookea

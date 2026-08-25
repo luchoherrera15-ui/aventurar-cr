@@ -41,6 +41,6 @@ export async function guardarDepositoCitas(
   }
 
   revalidatePath(`/mi-negocio/${ranchoId}/citas`);
-  revalidatePath("/citas", "layout");
+  revalidatePath("/");
   return {};
 }

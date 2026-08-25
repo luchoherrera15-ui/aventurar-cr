@@ -84,7 +84,7 @@ export default async function Home({
     leerCatalogoPortada(),
     searchParams,
   ]);
-  const rubro = rubroDeParametro(params.rubro);
+  const rubro = rubroDeParametro(params.rubro, params.sub);
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-white">
@@ -97,7 +97,7 @@ export default async function Home({
       <HeaderSimple />
 
       <main className="flex-1">
-        <HeroBusqueda rubroActivo={rubro?.categoria ?? null} />
+        <HeroBusqueda rubroActivo={rubro ? `${rubro.vertical}-${rubro.categoria}` : null} />
         {/* Debajo del héroe queda SOLO el marketplace (pedido del dueño,
             ago 2026). Se sacaron las cards de «Explorá Bookea» y la
             franja de rubros del final: las cinco puertas ya viven en el

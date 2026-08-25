@@ -63,7 +63,7 @@ export async function setEstadoRancho(id: string, estado: EstadoRancho) {
   }
 
   revalidatePath("/admin/ranchos");
-  revalidatePath("/eventos");
+  revalidatePath("/");
   revalidatePath("/");
   return { error: null };
 }
@@ -103,7 +103,7 @@ export async function setDestacado(id: string, destacar: boolean) {
   }
 
   revalidatePath("/admin/ranchos");
-  revalidatePath("/eventos");
+  revalidatePath("/");
   return { error: null, cambios: [{ id, destacado_orden: nuevoOrden }] };
 }
 
@@ -136,7 +136,7 @@ export async function moverDestacado(id: string, direccion: -1 | 1) {
   }
 
   revalidatePath("/admin/ranchos");
-  revalidatePath("/eventos");
+  revalidatePath("/");
   return { error: null, cambios };
 }
 
@@ -194,7 +194,7 @@ export async function setSuperDestacado(id: string, valor: boolean) {
   // direcciones: `/` (src/app/page.tsx monta el mismo componente) y
   // `/eventos`. Revalidar solo `/eventos` dejaba a `/` —justo la que
   // ve la gente— sirviendo la lista vieja.
-  revalidatePath("/eventos");
+  revalidatePath("/");
   revalidatePath("/");
   return { error: null };
 }
@@ -207,6 +207,6 @@ export async function borrarRancho(id: string) {
   if (error) return { error: error.message };
 
   revalidatePath("/admin/ranchos");
-  revalidatePath("/eventos");
+  revalidatePath("/");
   return { error: null };
 }

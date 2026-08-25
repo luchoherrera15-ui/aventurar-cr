@@ -113,7 +113,7 @@ function aFila(datos: MiembroInput) {
 function refrescar(ranchoId: string) {
   revalidatePath(`/mi-negocio/${ranchoId}/citas`);
   revalidatePath(`/mi-negocio/${ranchoId}`);
-  revalidatePath("/citas", "layout");
+  revalidatePath("/");
 }
 
 export async function crearMiembroEquipo(

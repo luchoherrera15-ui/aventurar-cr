@@ -23,7 +23,6 @@ import FlujoAutomatizaciones from "./flujo-automatizaciones";
 import SeccionWallets from "./seccion-wallets";
 import SeccionConfianza from "./seccion-confianza";
 import SeccionBeneficios from "./seccion-beneficios";
-import PilaresInteractivos from "./pilares-interactivos";
 import PreciosLanding from "./precios-landing";
 import FaqAcordeon from "./faq-acordeon";
 
@@ -328,30 +327,6 @@ export default async function LealtadPage() {
           </div>
 
           <MockupHeroPase />
-        </div>
-      </section>
-
-      {/* ============================================================
-          3 · EL PROBLEMA — contra qué compite Bookea Lealtad. No es
-          "qué es" (eso ya lo hizo el hero): es "por qué importa".
-          ============================================================ */}
-      <section className="px-5 py-16 sm:px-8">
-        <div className="mx-auto w-full max-w-[1120px]">
-          <div data-reveal className="mx-auto max-w-[56ch] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              El problema del cartón
-            </p>
-            <h2 className="titulo mx-auto mt-4 max-w-[24ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
-              Cuatro cosas que una tarjeta de cartón{" "}
-              <TextoDegradado>nunca va a hacer.</TextoDegradado>
-            </h2>
-            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              No es la misma tarjeta de siempre en versión digital. Es lo que se
-              vuelve posible cuando el sello deja de vivir en un papel.
-            </p>
-          </div>
-
-          <PilaresInteractivos />
         </div>
       </section>
 

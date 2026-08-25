@@ -15,8 +15,7 @@
  */
 
 const VERTICALES: { href: string; label: string }[] = [
-  { href: "/eventos", label: "Eventos" },
-  { href: "/citas", label: "Citas" },
+  { href: "/", label: "Marketplace" },
   { href: "/restaurantes", label: "Restaurantes" },
   { href: "/hospedajes", label: "Hospedajes" },
   { href: "/invitaciones", label: "Invitaciones digitales" },
