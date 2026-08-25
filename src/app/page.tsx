@@ -9,6 +9,7 @@ import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
 import { leerCatalogoPortada } from "./home-datos";
 import { urlSitio } from "@/lib/sitio";
 import { rubroDeParametro } from "@/lib/rubros-portada";
+import { leerCenso } from "@/lib/censo-rubros";
 
 /**
  * ============================================================
@@ -80,9 +81,26 @@ export default async function Home({
 }: {
   searchParams: Promise<{ [clave: string]: string | string[] | undefined }>;
 }) {
+  /**
+   * ⚠️ `leerCenso()` VA ACÁ AUNQUE NO SE USE EN ESTE ARCHIVO.
+   *
+   * Lo consume `RubrosIcono`, allá abajo dentro de `HeroBusqueda`. Pero
+   * un componente de servidor que hace `await` recién sale a la red
+   * cuando le toca RENDERIZARSE — o sea, después de que esta función ya
+   * esperó el catálogo. Eran dos viajes a Supabase EN FILA, uno detrás
+   * del otro, en la URL más visitada del sitio.
+   *
+   * Arrancarlo acá los pone en paralelo. `leerCenso` está envuelto en el
+   * `cache()` de React, así que la llamada de `RubrosIcono` no repite la
+   * consulta: encuentra la promesa ya resuelta y sigue de largo.
+   *
+   * Medido: el servidor de `/` tardaba 480 ms contra los 136 ms de un
+   * archivo estático del CDN. Una de esas idas era esta.
+   */
   const [catalogo, params] = await Promise.all([
     leerCatalogoPortada(),
     searchParams,
+    leerCenso(),
   ]);
   const rubro = rubroDeParametro(params.rubro, params.sub);
 

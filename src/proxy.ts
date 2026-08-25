@@ -60,6 +60,58 @@ export default async function proxy(request: NextRequest) {
     }
   }
 
+  const path = request.nextUrl.pathname;
+  const isAdminRoute = path.startsWith("/admin") && path !== "/admin/login";
+  const isMiRanchoRoute =
+    path.startsWith("/mi-negocio") &&
+    path !== "/mi-negocio/login" &&
+    path !== "/mi-negocio/registro";
+
+  /**
+   * ════════════════════════════════════════════════════════════════
+   *  SIN COOKIE DE SESIÓN NO SE LLAMA A SUPABASE. NUNCA.
+   * ════════════════════════════════════════════════════════════════
+   *
+   * ⚠️ ESTE ATAJO ES EL ARREGLO DE RENDIMIENTO MÁS GRANDE DEL SITIO.
+   *
+   * Abajo se llama a `supabase.auth.getUser()`. Ese método NO lee la
+   * cookie: manda el token al servidor de auth de Supabase para que lo
+   * valide, y espera la respuesta. Es un viaje de ida y vuelta por red
+   * ANTES de que empiece a generarse una sola línea de HTML.
+   *
+   * Y este proxy corre en TODAS las rutas (ver el `matcher` del final).
+   * O sea que hasta un visitante anónimo que abre la portada pagaba ese
+   * viaje. Medido en producción: TTFB de 430-620 ms en todas las
+   * páginas, incluidas las que no tienen nada que ver con la sesión
+   * (/lealtad, /invitaciones, /publicar…).
+   *
+   * Un visitante sin sesión NO TIENE la cookie `sb-…-auth-token`. Sin
+   * ella no hay token que renovar ni usuario que dejar pasar, así que la
+   * llamada solo puede devolver `null` — pero tarda igual.
+   *
+   * ── POR QUÉ ESTO NO ABRE UN AGUJERO ─────────────────────────────
+   * No se está confiando en la cookie ni leyendo nada de adentro: solo
+   * se pregunta si EXISTE. Alguien puede fabricar una cookie con ese
+   * nombre y lo único que consigue es que su petición siga el camino
+   * largo — el de siempre, con la validación real contra Supabase.
+   * Sin cookie, el resultado es EXACTAMENTE el mismo que daba
+   * `getUser()`: no hay usuario, y las rutas protegidas mandan al login.
+   */
+  const hayCookieDeSesion = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("auth-token"));
+
+  if (!hayCookieDeSesion) {
+    if (isAdminRoute) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+    if (isMiRanchoRoute) {
+      return NextResponse.redirect(new URL("/mi-negocio/login", request.url));
+    }
+    // El camino del 95 % del tráfico: sale sin tocar la red.
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -110,12 +162,9 @@ export default async function proxy(request: NextRequest) {
     return response;
   }
 
-  const path = request.nextUrl.pathname;
-  const isAdminRoute = path.startsWith("/admin") && path !== "/admin/login";
-  const isMiRanchoRoute =
-    path.startsWith("/mi-negocio") &&
-    path !== "/mi-negocio/login" &&
-    path !== "/mi-negocio/registro";
+  // `path`, `isAdminRoute` y `isMiRanchoRoute` se calculan arriba, antes
+  // del atajo sin cookie — los necesita para saber a dónde mandar a
+  // quien entra sin sesión a una ruta protegida.
 
   if (isAdminRoute) {
     if (!user) return redirigir("/admin/login");
