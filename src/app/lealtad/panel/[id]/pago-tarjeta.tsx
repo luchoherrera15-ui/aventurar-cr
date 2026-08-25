@@ -105,6 +105,70 @@ export function BotonPortalDeFacturacion({ ranchoId }: { ranchoId: string }) {
         Cambiar la tarjeta, ver las facturas, cambiar de paquete o cancelar.
       </p>
       {error && <p className="mt-1.5 text-[11.5px] font-bold text-red-600">{error}</p>}
+
+      {/* Cancelar es lo que más se busca y estaba escondido en la lista
+          de arriba, en cuarto lugar. Va con su propio botón: quien viene
+          a dar de baja no debería tener que deducir que «Administrar»
+          también sirve para eso. Los dos abren el MISMO portal. */}
+      <BotonCancelarSuscripcion ranchoId={ranchoId} className="mt-3" />
+    </div>
+  );
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  CANCELAR LA SUSCRIPCIÓN
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * ── NO CANCELA ACÁ, Y ESO ES EL DISEÑO ──────────────────────────────
+ *
+ * Abre el Customer Portal de Stripe, que es donde la cancelación ya
+ * vive. No se construye una pantalla propia por lo mismo que explica
+ * `abrirPortalDeFacturacion`: la de Stripe es gratis, está mejor
+ * mantenida que cualquier cosa que escribamos, y cada pantalla nuestra
+ * que toque plata es un lugar más donde un error cuesta dinero de
+ * verdad.
+ *
+ * Ahí además la baja queda con `cancel_at_period_end`: el negocio SIGUE
+ * OPERANDO hasta que termina el mes que ya pagó, y recién entonces el
+ * webhook lo corta (ver `src/lib/pagos/corte.ts`). Cancelar no le apaga
+ * el programa en el acto a nadie, que es lo que un botón nuestro mal
+ * hecho sí podría hacer.
+ *
+ * ── EL COLOR NO ES ROJO ─────────────────────────────────────────────
+ *
+ * Cancelar no es destructivo en el acto —no borra nada, y el programa
+ * sigue hasta fin de período—, así que un botón rojo asustaría más de
+ * lo que informa. Va como acción secundaria: legible, sin gritar.
+ */
+export function BotonCancelarSuscripcion({
+  ranchoId,
+  className = "",
+}: {
+  ranchoId: string;
+  className?: string;
+}) {
+  const [pendiente, arrancar] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className={className}>
+      <button
+        type="button"
+        disabled={pendiente}
+        onClick={() => {
+          setError(null);
+          arrancar(async () => {
+            const r = await abrirPortalDeFacturacion(ranchoId);
+            if (r.ok) window.location.assign(r.url);
+            else setError(r.motivo);
+          });
+        }}
+        className="text-[12.5px] font-bold text-aventurea-ink-soft underline underline-offset-2 transition-colors hover:text-aventurea-ink disabled:opacity-60"
+      >
+        {pendiente ? "Abriendo…" : "Cancelar suscripción"}
+      </button>
+      {error && <p className="mt-1.5 text-[11.5px] font-bold text-red-600">{error}</p>}
     </div>
   );
 }

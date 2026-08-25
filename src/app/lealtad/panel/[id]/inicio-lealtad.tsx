@@ -32,7 +32,14 @@ import { CONSEJO_TARJETA, momentoDeInicio } from "@/lib/lealtad/inicio";
 import { TIPOS_TARJETA, UNIDAD_SALDO, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { ETIQUETA_ESTADO, TONO_ESTADO, type EstadoVisible } from "@/lib/lealtad/programas";
 import type { ResumenLealtad } from "@/lib/lealtad/tablero";
-import { definicionDe, precioDe, PLANES_OFRECIDOS, type EstadoLimite } from "@/lib/lealtad/planes";
+import {
+  definicionDe,
+  esPlanSinCosto,
+  precioDe,
+  PLANES_OFRECIDOS,
+  type EstadoLimite,
+} from "@/lib/lealtad/planes";
+import { BotonCancelarSuscripcion } from "./pago-tarjeta";
 import { textoRestante, type EstadoPrueba } from "@/lib/lealtad/prueba";
 
 /**
@@ -330,7 +337,7 @@ export default function InicioLealtad({
           vivía a media altura, empujado a la columna angosta de
           `GrillaTablero`, y compitiendo con el status de la tarjeta.
           Acá arriba nadie se lo pierde. */}
-      <PlanHero paquete={paquete} />
+      <PlanHero paquete={paquete} ranchoId={negocioId} />
 
       {/* ── Lo que hay que hacer AHORA, con su X ────────────────── */}
       <AvisosCerrables
@@ -783,7 +790,13 @@ function PanelAccion({
  * grilla se sacó a propósito de la sección Plan para no mantener el
  * mismo catálogo en dos lugares (ver seccion-plan.tsx).
  */
-function PlanHero({ paquete }: { paquete: EstadoPaquete }) {
+function PlanHero({
+  paquete,
+  ranchoId,
+}: {
+  paquete: EstadoPaquete;
+  ranchoId: string;
+}) {
   const definicion = definicionDe(paquete.plan);
   const precio = definicion ? precioDe(definicion) : null;
   const clientes = paquete.clientes;
@@ -894,14 +907,37 @@ function PlanHero({ paquete }: { paquete: EstadoPaquete }) {
       </div>
 
       {paquete.planes ? (
-        <Link
-          href={paquete.planes}
-          className={`${BOTON_ACCION} presionable mt-5 px-6 text-[13.5px]`}
-          style={{ background: ACCION, color: ACCION_TINTA }}
-        >
-          {esElMasAlto ? "Ver los paquetes" : "¡Mejorar plan!"}
-          <span aria-hidden>→</span>
-        </Link>
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Link
+            href={paquete.planes}
+            className={`${BOTON_ACCION} presionable px-6 text-[13.5px]`}
+            style={{ background: ACCION, color: ACCION_TINTA }}
+          >
+            {esElMasAlto ? "Ver los paquetes" : "¡Mejorar plan!"}
+            <span aria-hidden>→</span>
+          </Link>
+
+          {/* ── CANCELAR, SOLO EN PAQUETES PAGOS ────────────────────
+              `esPlanSinCosto` y no `precio === "$0"`: el texto del
+              precio es para mostrar, y comparar contra una cadena
+              formateada se rompe el día que cambie el formato. Esa
+              función además pregunta primero si el paquete SE OFRECE,
+              que es la comprobación que este repo ya documenta como
+              necesaria.
+
+              En la Prueba el botón no aparece, y no por prolijidad: no
+              hay nada que cancelar —no hay cobro— y ofrecerlo sugeriría
+              que sí lo hay. Lo que se ofrece ahí es mejorar.
+
+              No cancela desde acá: lleva al Customer Portal de Stripe,
+              que es donde ya vive esa operación. Escribir nuestra propia
+              pantalla de cancelación sería un lugar más donde un error
+              toca plata de verdad — el mismo criterio que ya explica
+              `abrirPortalDeFacturacion`. */}
+          {!esPlanSinCosto(paquete.plan) && (
+            <BotonCancelarSuscripcion ranchoId={ranchoId} />
+          )}
+        </div>
       ) : (
         /* Sin permiso no se ofrece el botón: comprar un paquete es del
            dueño, y mandar al mostrador a una pantalla de pago sería
