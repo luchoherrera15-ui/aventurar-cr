@@ -8,16 +8,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarCambioDePase } from "@/lib/wallet/servicio";
 import { llaveDeCanje } from "@/lib/lealtad/canje";
 import { traducirErrorDeBase, traducirMotivo } from "@/lib/lealtad/mostrador";
-// Los nueve imports que faltan acá —la regla de sellos, el registro
-// comercial, el catálogo de productos, los tipos de tarjeta— se fueron
-// con `acreditarOperacion` a `@/lib/lealtad/operar-core`. Que este
-// archivo ya no los necesite es la señal de que la extracción quedó
-// completa: si vuelven, alguien está recalculando sellos acá.
-import { acreditarPorMiembroCore } from "@/lib/lealtad/operar-core";
+// Los imports que faltan acá —la regla de sellos, el registro comercial,
+// el catálogo de productos, los tipos de tarjeta, el conteo del cupo, la
+// definición del paquete, la resolución de identidad— se fueron con los
+// cuatro núcleos a `@/lib/lealtad/operar-core`. Que este archivo ya no
+// los necesite es la señal de que la extracción quedó completa: si
+// vuelven, alguien está recalculando sellos (o saltándose el cupo) acá.
+import {
+  acreditarPorMiembroCore,
+  afiliarCore,
+  buscarClientesCore,
+  canjearCore,
+  type MiembroAtendible,
+} from "@/lib/lealtad/operar-core";
 import { minutoISOCR } from "@/lib/fechas";
 import type { PermisoLealtad } from "@/lib/lealtad/permisos";
-import { identidadesDeMiembros, miembrosConIdentidad } from "@/lib/lealtad/identidades-db";
-import { fichaVisible, SIN_DATOS } from "@/lib/lealtad/identidad-miembro";
 import {
   CANALES_CONSENTIMIENTO,
   duenosDelContacto,
@@ -25,9 +30,6 @@ import {
   textoConsentimientoMostrador,
   VERSION_CONSENTIMIENTO_MOSTRADOR,
 } from "@/lib/lealtad/personas";
-import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
-import { personasActivasDe } from "@/lib/lealtad/cupo";
-import { definicionDe } from "@/lib/lealtad/planes";
 
 /**
  * Las operaciones del día a día del programa de lealtad: acreditar,
@@ -43,7 +45,25 @@ import { definicionDe } from "@/lib/lealtad/planes";
  * fuera — y solo entonces el RPC con la llave de servicio. Los RPC no
  * aceptan llamadas de `authenticated` (0125): sin este camino no hay
  * forma de moverle el saldo a nadie.
+ *
+ * ── CUATRO DE ESTAS ACCIONES SON ENVOLTORIOS ────────────────────────
+ *
+ * `acreditarOperacion`, `canjearRecompensa`, `buscarClientesDelPrograma`
+ * y `afiliarClienteAMano` ya no deciden nada: resuelven la identidad por
+ * COOKIE, llaman al núcleo compartido y revalidan la página. Lo que
+ * queda acá es exactamente lo que NO sirve en un teléfono — el redirect
+ * al login y `revalidatePath` — y por eso su firma pública no cambió:
+ * `atencion-manual.tsx` y `modo-mostrador.tsx` no se enteraron.
  */
+
+/**
+ * La forma de una fila del buscador de clientes. Vive en el núcleo
+ * —`atencion-manual.tsx` la importa DESDE ACÁ desde antes de que el
+ * núcleo existiera— y se reexporta para no tocar el componente. Es un
+ * tipo: se borra al compilar y no rompe la regla de `"use server"` de
+ * que todo lo exportado sea una función async.
+ */
+export type { MiembroAtendible };
 
 type Resultado<T = object> = ({ ok: true } & T) | { ok: false; motivo: string };
 
@@ -196,159 +216,56 @@ export async function canjearRecompensa(
 ): Promise<
   Resultado<{ saldo: number; recompensa: string; sku: string | null; instrucciones: string | null }>
 > {
-  const g = await guardYMiembro(ranchoId, miembroId, "canjear");
-  if (!g.ok) return g;
+  // ── LA LÓGICA SE MUDÓ A `@/lib/lealtad/operar-core` ────────────────
+  // Todo lo que decide si el premio sale —la tenencia del miembro y de
+  // la recompensa, las reglas de la 0136, la constancia del intento, el
+  // RPC, el evento para el POS y el aviso al Wallet— vive allá, porque
+  // el teléfono necesita EXACTAMENTE eso y un server action no se puede
+  // llamar desde React Native. Acá queda lo del navegador: la identidad
+  // por cookie, el redirect al login y la revalidación.
+  const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
+  if (!user) redirect("/lealtad/login");
+  if (!ok) return { ok: false, motivo: "No tenés acceso a este negocio." };
 
-  // ── LA RECOMPENSA TAMBIÉN TIENE QUE SER DE ESTA TARJETA ─────────
-  // `recompensaId` llega del navegador, o sea de fuera, y de acá para
-  // abajo todo corre con la LLAVE DE SERVICIO: sin este filtro se
-  // leían y se anotaban filas de la recompensa de otro negocio.
-  //
-  // El débito real ya lo frenaba la base —el RPC compara
-  // `v_rec.programa_id <> v_miembro.programa_id` (0125:461)— así que
-  // esto no era plata que se fuera. Lo que faltaba era la capa de
-  // afuera: `revisarReglas` leía el costo de una recompensa ajena y
-  // `anotarIntento` escribía su id en la auditoría de este negocio.
-  //
-  // MISMO MENSAJE para «no existe» y «es de otro negocio», igual que el
-  // RPC: no se delata qué recompensas existen fuera de acá.
-  const { data: duena } = await g.db
-    .from("recompensas")
-    .select("programa_id")
-    .eq("id", recompensaId)
-    .maybeSingle();
-  if (!duena || duena.programa_id !== g.programaId) {
-    return { ok: false, motivo: "Ese premio no es de esta tarjeta." };
-  }
+  const db = createAdminClient();
+  if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
 
-  // ── Las reglas de la tarjeta (0136), ANTES del RPC ──────────────
-  // El RPC de la 0125 revalida saldo, stock y límites bajo lock, pero
-  // no sabe nada de vigencia, días ni horarios: son de la 0136 y son
-  // posteriores. Se comprueban acá, con el estado real de la base — no
-  // mirando el pase, que es un dibujo del que se puede sacar captura.
+  // LA REFERENCIA LA ARMA ESTE CAMINO, y se preserva tal cual estaba.
   //
-  // Un rechazo queda registrado con su motivo: el canje que NO procede
-  // es justo el que hay que poder explicar después.
-  const veredicto = await revisarReglas(g.db, {
+  // `llaveDeCanje` existía desde la 0137 con sus 23 pruebas y CERO
+  // llamadores. Dos toques del mismo botón dentro del mismo minuto
+  // producen la MISMA referencia, y el segundo choca contra
+  // `canjes_referencia_unica` (0125:207) y no escribe.
+  //
+  // El `referencia` que llega de afuera sigue ganando: es el número de
+  // factura del POS, que identifica el intento mejor que nosotros.
+  //
+  // El endpoint del app NO usa esta forma: allá el `intentoId` es
+  // obligatorio y la llave es `canje:<miembro>:<recompensa>:<intento>`,
+  // que no tiene el problema del minuto de calendario.
+  const referenciaFinal =
+    referencia?.trim() ||
+    `canje:${llaveDeCanje({ miembroId, recompensaId, ahoraCR: minutoISOCR() })}`;
+
+  const r = await canjearCore({
+    db,
+    ranchoId,
+    quien: { usuarioId: user.id, permisos },
     miembroId,
     recompensaId,
-    usuarioId: g.usuarioId,
-  });
-  if (!veredicto.ok) {
-    anotarIntento(g.db, {
-      programaId: veredicto.programaId,
-      miembroId,
-      recompensaId,
-      usuarioId: g.usuarioId,
-      aprobado: false,
-      motivo: veredicto.codigo ?? "reglas",
-    });
-    return { ok: false, motivo: veredicto.motivo };
-  }
-
-  const { data, error } = await g.db.rpc("canjear_recompensa", {
-    p_miembro_id: miembroId,
-    p_recompensa_id: recompensaId,
-    p_usuario_id: g.usuarioId,
-    // ── LA LLAVE DE IDEMPOTENCIA, POR FIN CONECTADA ──────────────
-    // Acá decía `canje:${randomUUID()}`. Como el azar es distinto en
-    // cada request, el índice único `canjes_referencia_unica` (0125:207)
-    // —que SÍ está pegado en producción— nunca rebotaba nada, y el
-    // `exception when unique_violation` del RPC (0125:517) era código
-    // muerto. Dos toques del botón: dos débitos del ledger, dos filas
-    // en `canjes`, UN premio entregado.
-    //
-    // `llaveDeCanje` existía desde la 0137 con sus 23 pruebas y CERO
-    // llamadores. Ahora dos toques del mismo botón dentro del mismo
-    // minuto producen la MISMA referencia, y el segundo choca contra el
-    // índice y no escribe. Sin migración: la protección ya estaba
-    // pagada, solo no se estaba usando.
-    //
-    // El `referencia` que llega de afuera sigue ganando: es el número
-    // de factura del POS, que identifica el intento mejor que nosotros.
-    p_referencia:
-      referencia?.trim() ||
-      `canje:${llaveDeCanje({ miembroId, recompensaId, ahoraCR: minutoISOCR() })}`,
+    referencia: referenciaFinal,
   });
 
-  if (error) {
-    anotarIntento(g.db, {
-      programaId: veredicto.programaId,
-      miembroId,
-      recompensaId,
-      usuarioId: g.usuarioId,
-      aprobado: false,
-      motivo: "error_rpc",
-    });
-    return { ok: false, motivo: traducirErrorDeBase(error, "entregar el premio") };
-  }
+  if (!r.ok) return { ok: false, motivo: r.motivo };
 
-  const r = data as {
-    ok: boolean;
-    motivo?: string;
-    canje_id?: string;
-    saldo?: number;
-    recompensa?: string;
-    sku?: string | null;
-    instrucciones?: string | null;
-  };
-
-  // ── ACÁ SE ANOTA LO QUE DE VERDAD PASÓ ──────────────────────────
-  // El RPC revalida bajo lock saldo, stock, límite por cliente y estado
-  // de la membresía. Todos esos rechazos quedaban antes anotados como
-  // «aprobado», porque la constancia se escribía antes de llegar hasta
-  // acá. Ahora el veredicto que se guarda es el final.
-  anotarIntento(g.db, {
-    programaId: veredicto.programaId,
-    miembroId,
-    recompensaId,
-    usuarioId: g.usuarioId,
-    aprobado: r.ok,
-    motivo: r.ok ? null : (r.motivo ?? "rechazado"),
-  });
-
-  // ── «ya-canjeado» NO SE LEE EN VOZ ALTA ─────────────────────────
-  // Acá salía `r.motivo` tal cual, y el segundo toque del botón hacía
-  // que el empleado leyera «ya-canjeado» delante del cliente. El RPC
-  // devuelve frases en español para casi todo, pero ese motivo (y
-  // `ya-otorgado` del otro RPC) son códigos de máquina.
-  if (!r.ok) return { ok: false, motivo: traducirMotivo(r.motivo, "No se pudo entregar el premio.") };
-
-  // Tras el canje sale el evento para el POS. En modo manual queda
-  // 'pendiente' hasta que el personal lo marque; si algún día hay un
-  // proveedor con API, el worker lo levanta de acá. Un fallo escribiendo
-  // el evento NO tumba el canje: el débito ya está en el ledger.
-  //
-  // La idempotencia es el id del canje: un reintento de red del mismo
-  // canje no duplica el evento (el unique de la tabla lo rebota).
-  if (r.canje_id) {
-    try {
-      await g.db.from("eventos_integracion").insert({
-        rancho_id: ranchoId,
-        tipo: "canje",
-        payload: {
-          canje_id: r.canje_id,
-          miembro_id: miembroId,
-          recompensa: r.recompensa,
-          sku: r.sku,
-          saldo_resultante: r.saldo,
-        },
-        idempotencia: `canje:${r.canje_id}`,
-      });
-    } catch {
-      // Ver arriba: el canje vale igual.
-    }
-  }
-
-  after(() => avisarCambioDePase(miembroId));
   revalidatePath(`/lealtad/panel/${ranchoId}`);
 
   return {
     ok: true,
-    saldo: r.saldo ?? 0,
-    recompensa: r.recompensa ?? "",
-    sku: r.sku ?? null,
-    instrucciones: r.instrucciones ?? null,
+    saldo: r.saldo,
+    recompensa: r.recompensa,
+    sku: r.sku,
+    instrucciones: r.instrucciones,
   };
 }
 
@@ -458,154 +375,37 @@ export async function marcarCanjeEnPos(
 
 // ── ATENDER A MANO: el cliente sin teléfono ───────────────────────
 
-export type MiembroAtendible = {
-  miembroId: string;
-  nombre: string;
-  sinNombre: boolean;
-  contacto: string[];
-  saldo: number;
-  estado: string;
-  conPase: boolean;
-};
-
 /**
  * Buscar a un cliente por nombre para atenderlo SIN escanear.
  *
- * ------------------------------------------------------------------
- * POR QUÉ EXISTE
- * ------------------------------------------------------------------
- * El modo mostrador era el escáner y nada más, y la lista de Clientes
- * era de solo lectura. O sea: el cliente que llega sin smartphone, o
- * con el teléfono descargado, o con la tarjeta todavía sin agregar al
- * Wallet, hoy NO SE PODÍA ATENDER — se le decía «volvé con la tarjeta».
- *
- * `acreditarOperacion` ya estaba escrita, con su llave de idempotencia
- * y sus permisos, y no la llamaba nadie. Esto es su puerta.
- *
- * ------------------------------------------------------------------
- * ESTE BUSCADOR NO ENCONTRABA A NADIE DEL PÓSTER
- * ------------------------------------------------------------------
- * Bug real, y del mismo origen que el «Cliente» de la lista: buscaba
- * los nombres en `perfiles` por `miembros.cliente_id` y, si no había ni
- * un `cliente_id`, cortaba con `return { clientes: [] }`. Desde la 0138
- * quien se afilia escaneando el póster NO tiene cuenta —`cliente_id` en
- * null— así que la pantalla que existe para atender «al cliente sin la
- * tarjeta a mano» le contestaba «nadie con ese nombre está afiliado
- * todavía» a los clientes que sí lo estaban. Justo la gente que este
- * buscador vino a rescatar.
- *
- * Ahora la identidad sale de `personas` (con la ficha del negocio y
- * `perfiles` de respaldo), igual que el resto del panel.
- *
- * ------------------------------------------------------------------
- * QUÉ SE DEVUELVE Y QUÉ NO
- * ------------------------------------------------------------------
- * El nombre, el contacto y el saldo, y solo de ESTE negocio. `cliente_id`
- * no: para dar un sello no hace falta, y lo que no se manda al navegador
- * no se puede filtrar. El correo y el teléfono SÍ van —el dueño los pidió
- * para reconocer a quién está atendiendo— y son suyos: se los dio su
- * propio cliente al afiliarse.
- *
- * Exige el permiso `acreditar`: quien no puede dar sellos tampoco
- * necesita la lista de clientes del negocio en su teléfono.
+ * La búsqueda entera —el filtro por tenencia, la resolución de
+ * identidad, la comparación sin tildes y el tope de resultados— vive en
+ * `buscarClientesCore`. El teléfono usa el MISMO buscador: dos copias
+ * habrían sido dos criterios distintos de «a quién encuentra la caja»,
+ * y el bug que este buscador vino a arreglar (los afiliados por póster
+ * que no aparecían) ya demostró lo que cuesta arreglar una sola.
  */
 export async function buscarClientesDelPrograma(
   ranchoId: string,
   texto: string,
 ): Promise<Resultado<{ clientes: MiembroAtendible[] }>> {
-  const busqueda = texto.trim();
-  if (busqueda.length < 2) {
-    return { ok: false, motivo: "Escribí al menos dos letras del nombre." };
-  }
-
   const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
   if (!user) redirect("/lealtad/login");
   if (!ok) return { ok: false, motivo: "No tenés acceso a este negocio." };
-  if (!permisos.acreditar) return { ok: false, motivo: SIN_PERMISO.acreditar };
 
   const db = createAdminClient();
   if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
 
-  // Los programas del negocio primero: el filtro por tenencia va en la
-  // consulta, no después. Así ningún nombre de otro negocio llega a
-  // materializarse en memoria.
-  const { data: programas } = await db
-    .from("programa_lealtad")
-    .select("id")
-    .eq("rancho_id", ranchoId);
-  const idsProgramas = ((programas ?? []) as { id: string }[]).map((p) => p.id);
-  if (!idsProgramas.length) return { ok: true, clientes: [] };
+  const r = await buscarClientesCore({
+    db,
+    ranchoId,
+    quien: { usuarioId: user.id, permisos },
+    texto,
+  });
 
-  const filas = await miembrosConIdentidad(db, { programaIds: idsProgramas });
-  if (!filas.length) return { ok: true, clientes: [] };
-
-  const identidades = await identidadesDeMiembros(db, filas, ranchoId);
-
-  // El filtro por texto se hace ACÁ y no con `ilike` en la consulta por
-  // dos razones: `ilike` metería los `%` y `_` que el empleado teclee
-  // dentro del patrón, y sobre todo `ilike` NO ignora las tildes — en un
-  // mostrador nadie escribe «Hernández» con tilde, y «hernandez` no
-  // encontraría a nadie. Es la misma cantidad de filas que ya trae el
-  // tablero del panel (datos-lealtad.ts) para el mismo negocio.
-  //
-  // Y se busca por nombre, correo Y teléfono: en la caja lo que el
-  // cliente dice es «soy Melissa» o «mi número es el 7011…», y las dos
-  // cosas tienen que servir.
-  const aguja = normalizar(busqueda);
-  const vistas = new Map(
-    filas.map((m) => [
-      m.id,
-      fichaVisible(identidades.get(m.id) ?? { nombre: null, correo: null, telefono: null }, {
-        alta: m.created_at,
-        miembroId: m.id,
-      }),
-    ]),
-  );
-
-  const candidatos = filas
-    .filter((m) => {
-      const v = vistas.get(m.id);
-      if (!v) return false;
-      // La ficha vacía NO entra por su texto: buscar «cliente» no puede
-      // devolver a todos los anónimos del negocio.
-      const buscables = v.titulo === SIN_DATOS ? v.contacto : [v.titulo, ...v.contacto];
-      return buscables.some((t) => normalizar(t).includes(aguja));
-    })
-    .slice(0, 20);
-  if (!candidatos.length) return { ok: true, clientes: [] };
-
-  const idsMiembros = candidatos.map((m) => m.id);
-
-  const [{ data: tx }, { data: pases }] = await Promise.all([
-    db.from("transacciones_puntos").select("miembro_id, puntos").in("miembro_id", idsMiembros),
-    db.from("pases_wallet").select("miembro_id").in("miembro_id", idsMiembros),
-  ]);
-
-  // El saldo SIEMPRE se suma del ledger, nunca se lee de un contador:
-  // es el mismo criterio que el resto del módulo (tablero.ts, motor.ts).
-  const saldos = new Map<string, number>();
-  for (const t of (tx ?? []) as { miembro_id: string; puntos: number }[]) {
-    saldos.set(t.miembro_id, (saldos.get(t.miembro_id) ?? 0) + t.puntos);
-  }
-  const conPase = new Set(((pases ?? []) as { miembro_id: string }[]).map((p) => p.miembro_id));
-
-  return {
-    ok: true,
-    clientes: candidatos
-      .map((m) => {
-        const v = vistas.get(m.id);
-        return {
-          miembroId: m.id,
-          nombre: v?.titulo ?? SIN_DATOS,
-          sinNombre: v?.sinNombre ?? true,
-          contacto: v?.contacto ?? [],
-          saldo: saldos.get(m.id) ?? 0,
-          estado: m.estado,
-          conPase: conPase.has(m.id),
-        };
-      })
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es")),
-  };
+  // Sin `revalidatePath`: esto no escribe nada.
+  if (!r.ok) return { ok: false, motivo: r.motivo };
+  return { ok: true, clientes: r.clientes };
 }
 
 // ── COMPLETAR LA FICHA A MANO ──────────────────────────────────────
@@ -807,313 +607,42 @@ export async function completarDatosDelCliente(
 // ── AGREGAR CLIENTE NUEVO, DESDE CERO ─────────────────────────────
 
 /**
- * ═══════════════════════════════════════════════════════════════════
- *  ALTA A MANO: LA PUERTA QUE NO ES UN QR
- * ═══════════════════════════════════════════════════════════════════
+ * Afiliar a mano, desde la caja, a alguien NUEVO en Bookea entero.
  *
- * ── PARA QUIÉN ES, Y PARA QUIÉN NO ──────────────────────────────────
- * Hasta hoy la ÚNICA puerta de alta a un programa era que el cliente
- * escaneara el póster y llenara su propio formulario. El dueño pidió
- * poder afiliar a mano, desde la caja, a gente real que va a quedar
- * funcionando PARA SIEMPRE — no un script de una vez.
- *
- * Esta función es para GENTE NUEVA EN BOOKEA ENTERAMENTE. Si el
- * correo o el WhatsApp que se teclea ya es de alguien —de este negocio
- * o de cualquier otro— no se crea una fila nueva: se avisa, y a esa
- * persona se la busca por nombre con `buscarClientesDelPrograma`, que
- * es la puerta correcta para quien ya tiene ficha. Confundir las dos
- * dejaría que un cajero apurado le cuelgue un consentimiento y una
- * membresía de este negocio a la identidad de un tercero que nunca
- * puso un pie acá, solo porque compartió el mismo dato con otra
- * persona en otro lado.
- *
- * ── POR QUÉ NO ES `completarDatosDelCliente` CON OTRO NOMBRE ────────
- * `completarDatosDelCliente` regulariza una ficha que YA EXISTE
- * (exige `persona_id`, corta si es null). Acá no hay membresía previa
- * de la cual partir: se crea la persona, el vínculo, el consentimiento
- * y la membresía LOS CUATRO, en una sola transacción, adentro del RPC
- * `alta_persona_por_mostrador` (0184) — hermana de `alta_persona_por_qr`
- * con el mismo orden interno que exige el trigger `miembros_zexigir_
- * respaldo` (0181): vínculo y consentimiento tienen que existir ANTES
- * del insert en `miembros`, o la base rechaza la transacción entera.
- *
- * ── EL TOPE DEL PAQUETE, ANTES DEL RPC ───────────────────────────────
- * `cupo.ts:45-56` dejó la advertencia textual: el día que se conecte
- * el alta sin escanear, ese llamador tiene que pasar por
- * `personasActivasDe()` ANTES de llamar al RPC, o el tope del paquete
- * se salta entero por la puerta del mostrador. Mismo criterio que
- * `altaPorQr` (personas.ts:863-880): se frena la afiliación NUEVA
- * cuando el paquete ya está lleno.
- *
- * ── EXIGE `acreditar` Y NO UN PERMISO NUEVO ─────────────────────────
- * Es el permiso de quien atiende la caja, que es quien tiene a la
- * persona enfrente para preguntarle — mismo criterio que
- * `completarDatosDelCliente`.
+ * Todo lo que decide si el alta procede —la validación de los datos, la
+ * tenencia del programa, el contacto que ya es de otra persona, EL TOPE
+ * DEL PAQUETE y el RPC `alta_persona_por_mostrador` (0184)— vive en
+ * `afiliarCore`. El cupo en particular NO podía quedarse acá: el
+ * endpoint del teléfono habría sido la puerta de atrás del cobro que
+ * esta pantalla sí respeta. Ver la cabecera de `operar-core.ts`.
  */
 export async function afiliarClienteAMano(
   ranchoId: string,
   programaId: string,
   datos: { nombre: string; whatsapp: string; correo: string; aceptaPromos: boolean },
 ): Promise<Resultado<{ miembroId: string; nombre: string; contacto: string[] }>> {
-  const revision = revisarAlta({
-    nombre: datos.nombre,
-    correo: datos.correo,
-    telefono: datos.whatsapp,
-  });
-  if (!revision.ok) return { ok: false, motivo: revision.error };
-
   const { user, ok, permisos } = await verificarAccesoLealtad(ranchoId);
   if (!user) redirect("/lealtad/login");
   if (!ok) return { ok: false, motivo: "No tenés acceso a este negocio." };
-  // Mismo permiso que completarDatosDelCliente: es quien atiende la
-  // caja, que es quien tiene a la persona enfrente para preguntarle.
-  if (!permisos.acreditar) return { ok: false, motivo: SIN_PERMISO.acreditar };
 
   const db = createAdminClient();
   if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
 
-  // El programa tiene que ser DE ESTE negocio: llega del navegador, y
-  // sin este chequeo cualquiera podría afiliar gente al programa de
-  // otro rancho con sus propios permisos de mostrador.
-  const { data: programa } = await db
-    .from("programa_lealtad")
-    .select("*")
-    .eq("id", programaId)
-    .maybeSingle();
-  if (!programa || (programa as { rancho_id?: string | null }).rancho_id !== ranchoId) {
-    return { ok: false, motivo: "Ese programa no es de este negocio." };
-  }
-
-  const { correo, telefono } = revision.contacto;
-
-  // Mismo chequeo que completarDatosDelCliente (677-686). Acá no hay
-  // persona_id propio: CUALQUIER persona existente con ese contacto
-  // cuenta como ajena — este formulario es solo para gente nueva.
-  const duenos = await duenosDelContacto(db, { correo, telefono });
-  if (!duenos.confiable) {
-    return { ok: false, motivo: "No pudimos comprobar esos datos ahora mismo. Probá de nuevo." };
-  }
-  if (duenos.porCorreo !== null) {
-    return { ok: false, motivo: "Ese correo ya es de otro cliente. Buscalo arriba con el nombre." };
-  }
-  if (duenos.porTelefono !== null) {
-    return { ok: false, motivo: "Ese WhatsApp ya es de otro cliente. Buscalo arriba con el nombre." };
-  }
-
-  const { data: negocio } = await db
-    .from("ranchos")
-    .select("nombre, plan_lealtad")
-    .eq("id", ranchoId)
-    .maybeSingle();
-  const nombreNegocio = ((negocio as { nombre?: string | null } | null)?.nombre ?? "").trim();
-
-  // ── EL TOPE DEL PAQUETE, ANTES DEL RPC ──────────────────────────
-  // Mismo criterio que altaPorQr (personas.ts:863-880): el mostrador
-  // no puede ser la puerta por la que un paquete de $12 afilia sin
-  // techo (advertencia textual de cupo.ts:45-56).
-  const { plan, cuentaId } = await contextoDeCuenta(db, programa as Record<string, unknown>, {
-    planRancho: (negocio as { plan_lealtad?: string | null } | null)?.plan_lealtad ?? null,
+  const r = await afiliarCore({
+    db,
+    ranchoId,
+    quien: { usuarioId: user.id, permisos },
+    programaId,
+    datos,
   });
-  const limite = definicionDe(plan)?.limites.clientesActivos;
-  if (limite !== null && limite !== undefined) {
-    const usadas = await personasActivasDe(db, { cuentaId, ranchoId });
-    if (usadas >= limite) {
-      return {
-        ok: false,
-        motivo: "Tu paquete ya usó todo su cupo de clientes. Escribile a Bookea para subir de plan.",
-      };
-    }
-  }
 
-  const { data, error } = await db.rpc("alta_persona_por_mostrador", {
-    p_programa: programaId,
-    p_correo: correo,
-    p_telefono: telefono,
-    p_nombre: revision.nombre,
-    p_acepta: datos.aceptaPromos,
-    p_texto_consentimiento: textoConsentimientoMostrador(nombreNegocio),
-  });
-  if (error) return { ok: false, motivo: traducirErrorDeBase(error, "afiliar al cliente") };
-
-  const r = data as {
-    estado?: string;
-    campo?: "correo" | "whatsapp";
-    miembro_id?: string;
-  };
-
-  if (r.estado === "duplicado") {
-    return {
-      ok: false,
-      motivo:
-        r.campo === "correo"
-          ? "Ese correo ya es de otro cliente. Buscalo arriba con el nombre."
-          : "Ese WhatsApp ya es de otro cliente. Buscalo arriba con el nombre.",
-    };
-  }
-  if (r.estado !== "listo" || typeof r.miembro_id !== "string") {
-    return { ok: false, motivo: "No se pudo afiliar. Probá de nuevo." };
-  }
+  // El motivo de cupo lleno se devuelve TAL CUAL acá, con su mención al
+  // plan: esto es la web, donde decirle al dueño que se quedó sin cupo
+  // y cómo ampliarlo es exactamente lo que hay que hacer. Quien lo
+  // reescribe es la puerta del app (`motivoParaMovil`), y solo ahí.
+  if (!r.ok) return { ok: false, motivo: r.motivo };
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
 
-  return {
-    ok: true,
-    miembroId: r.miembro_id,
-    nombre: revision.nombre,
-    contacto: [correo, telefono].filter((v): v is string => v !== null),
-  };
-}
-
-/** Sin tildes y en minúscula: en un mostrador nadie escribe «Hernández». */
-function normalizar(texto: string): string {
-  return texto
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-/**
- * Comprueba las reglas de la tarjeta (0136) y DEJA CONSTANCIA.
- *
- * Se llama antes del RPC de canje. El RPC resuelve la carrera por el
- * saldo bajo lock; esto resuelve si la tarjeta puede canjearse hoy, a
- * esta hora, y si a este cliente le queda alguno.
- *
- * Tolerante a la base sin migrar: si `programa_lealtad` todavía no
- * tiene las columnas de reglas, no hay reglas que romper y el canje
- * sigue su curso como antes de la 0136.
- */
-async function revisarReglas(
-  db: NonNullable<ReturnType<typeof createAdminClient>>,
-  datos: { miembroId: string; recompensaId: string; usuarioId: string | null },
-): Promise<
-  | { ok: true; programaId: string | null }
-  | { ok: false; motivo: string; codigo?: string; programaId: string | null }
-> {
-  const { autorizarCanje } = await import("@/lib/lealtad/canje");
-  const { hoyISOCR } = await import("@/lib/fechas");
-
-  // El miembro, su programa y el costo de lo que quiere canjear.
-  const { data: miembro } = await db
-    .from("miembros")
-    .select("programa_id")
-    .eq("id", datos.miembroId)
-    .maybeSingle();
-  // El RPC lo rebota con su propio motivo; acá no hay programa que mirar.
-  if (!miembro) return { ok: true, programaId: null };
-
-  const programaId = miembro.programa_id as string;
-
-  // `select *`: las columnas de la 0136 pueden no existir todavía, y
-  // una lista explícita fallaría entera.
-  const [{ data: programa }, { data: recompensa }] = await Promise.all([
-    db.from("programa_lealtad").select("*").eq("id", programaId).maybeSingle(),
-    db.from("recompensas").select("costo_puntos").eq("id", datos.recompensaId).maybeSingle(),
-  ]);
-  if (!programa) return { ok: true, programaId };
-
-  // Cuántos canjes lleva este cliente, y cuántos el programa entero.
-  const { data: miembrosDelPrograma } = await db
-    .from("miembros")
-    .select("id")
-    .eq("programa_id", programaId);
-  const idsMiembros = ((miembrosDelPrograma ?? []) as { id: string }[]).map((m) => m.id);
-
-  const [{ count: delCliente }, { count: totales }] = await Promise.all([
-    db
-      .from("canjes")
-      .select("*", { count: "exact", head: true })
-      .eq("miembro_id", datos.miembroId)
-      .neq("estado", "anulado"),
-    idsMiembros.length
-      ? db
-          .from("canjes")
-          .select("*", { count: "exact", head: true })
-          .in("miembro_id", idsMiembros)
-          .neq("estado", "anulado")
-      : Promise.resolve({ count: 0 }),
-  ]);
-
-  const ahoraCR = `${hoyISOCR()}T${new Intl.DateTimeFormat("en-GB", {
-    timeZone: "America/Costa_Rica",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date())}`;
-
-  const fila = programa as Record<string, unknown>;
-  const veredicto = autorizarCanje({
-    programa: {
-      estado: (fila.estado as string | null) ?? null,
-      activo: !!fila.activo,
-      vigente_desde: (fila.vigente_desde as string | null) ?? null,
-      vigente_hasta: (fila.vigente_hasta as string | null) ?? null,
-      uso_unico: !!fila.uso_unico,
-      max_por_cliente: (fila.max_por_cliente as number | null) ?? null,
-      max_global: (fila.max_global as number | null) ?? null,
-      dias_permitidos: (fila.dias_permitidos as number[] | null) ?? null,
-      hora_desde: (fila.hora_desde as string | null) ?? null,
-      hora_hasta: (fila.hora_hasta as string | null) ?? null,
-    },
-    // El saldo lo revalida el RPC bajo lock: acá se le pasa el costo
-    // como saldo para que ESA comprobación no rechace nada de más. La
-    // autoridad sobre el saldo es una sola, y es el RPC.
-    saldo: (recompensa?.costo_puntos as number) ?? 0,
-    costo: (recompensa?.costo_puntos as number) ?? 0,
-    canjesDelCliente: delCliente ?? 0,
-    canjesTotales: totales ?? 0,
-    ahoraCR,
-  });
-
-  // ── LA CONSTANCIA YA NO SE ESCRIBE ACÁ ──────────────────────────
-  // Antes se anotaba en este punto con `aprobado: veredicto.ok`, o sea
-  // con el resultado de las reglas de la 0136 y NADA MÁS. El problema:
-  // después de esto todavía corre el RPC, que revalida bajo lock el
-  // saldo, el stock, el límite por cliente y el estado de la membresía
-  // (0125:446-501). Un canje rechazado ahí quedaba anotado como
-  // `aprobado: true`.
-  //
-  // O sea: la tabla que existe justamente para poder explicarle al
-  // cliente «no me lo aceptaron» estaba mintiendo, y en la dirección
-  // más cara — decía que sí cuando fue que no.
-  //
-  // Ahora se devuelve el veredicto y lo anota `canjearRecompensa`
-  // DESPUÉS del RPC, con lo que de verdad pasó.
-  return veredicto.ok
-    ? { ok: true, programaId }
-    : { ok: false, motivo: veredicto.motivo, codigo: veredicto.codigo, programaId };
-}
-
-/**
- * Deja la constancia del intento — el que entró y el que no.
- *
- * Nunca tumba el canje: si la 0137 no está pegada la tabla no existe y
- * esto falla en silencio. Perder el canje por no poder anotarlo sería
- * peor que perder la anotación.
- */
-function anotarIntento(
-  db: NonNullable<ReturnType<typeof createAdminClient>>,
-  datos: {
-    programaId: string | null;
-    miembroId: string;
-    recompensaId: string;
-    usuarioId: string | null;
-    aprobado: boolean;
-    motivo: string | null;
-  },
-) {
-  after(async () => {
-    try {
-      await db.from("intentos_canje").insert({
-        programa_id: datos.programaId,
-        miembro_id: datos.miembroId,
-        recompensa_id: datos.recompensaId,
-        usuario_id: datos.usuarioId,
-        aprobado: datos.aprobado,
-        motivo: datos.motivo,
-      });
-    } catch {
-      // Sin la 0137 no hay dónde anotar. El canje ya se decidió.
-    }
-  });
+  return { ok: true, miembroId: r.miembroId, nombre: r.nombre, contacto: r.contacto };
 }

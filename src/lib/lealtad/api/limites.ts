@@ -30,7 +30,14 @@ export type AmbitoLimite =
   | "llaveh"
   | "rancho"
   | "saldo"
-  | "authfail";
+  | "authfail"
+  // ── Los de la app móvil (ver `app-movil/puerta.ts`) ──────────────
+  // Van con ámbito propio y no reusan los de la llave de integrador:
+  // ahí la clave es la llave de API y acá es la persona que atiende,
+  // así que compartir ámbito haría que el POS de un negocio le comiera
+  // el presupuesto al empleado que está en la caja con el teléfono.
+  | "appop"
+  | "applec";
 
 export type ReglaLimite = {
   ambito: AmbitoLimite;
@@ -64,6 +71,24 @@ export const LIMITES: Record<AmbitoLimite, ReglaLimite> = {
     ventanaSegundos: 600,
     descripcion: "20 fallos en 10 minutos",
   },
+  /**
+   * LA APP, ESCRIBIENDO: acreditar, canjear, afiliar. La clave es
+   * `usuarioId:ranchoId`.
+   *
+   * 30 por minuto es holgado para una caja —un sello cada dos segundos,
+   * sostenido— y ajustado para un bucle. El número importa porque el QR
+   * del pase es un uuid en texto plano, fotografiable desde la fila.
+   */
+  appop: { ambito: "appop", limite: 30, ventanaSegundos: 60, descripcion: "30 por minuto" },
+  /**
+   * LA APP, LEYENDO: el tablero y la búsqueda de clientes. Más alto
+   * porque la pantalla se refresca sola y buscar por nombre dispara una
+   * lectura por tecleo (con rebote, pero igual).
+   *
+   * Es el mismo motivo que tiene `saldo` su propio techo: la búsqueda
+   * devuelve NOMBRES de clientes, así que no puede consultarse en tandas.
+   */
+  applec: { ambito: "applec", limite: 60, ventanaSegundos: 60, descripcion: "60 por minuto" },
 };
 
 /**
