@@ -72,11 +72,17 @@ export default async function IngresarLealtadPage() {
        el suyo. Es exactamente lo que ya advierte globals.css — «el
        recorte vive en su propia caja, NUNCA en la sección». */
     <main className="relative min-h-svh bg-[#fbfcff]">
-      {/* La aurora, detrás de todo. `-z-10` la manda debajo del nav y del
-          formulario sin sacarla del flujo — es un fondo, no una capa
-          flotante que tape los clics (además `aurora-lienzo` ya declara
-          `pointer-events: none`). */}
-      <div aria-hidden className="aurora-lienzo -z-10">
+      {/* ⚠️ NADA DE `-z-10` ACÁ. Lo tenía y la aurora NO SE VEÍA.
+          Un z-index NEGATIVO en un hijo lo manda detrás del FONDO DE SU
+          PROPIO PADRE — y este `<main>` tiene `bg-[#fbfcff]` sólido, así
+          que la aurora quedaba pintada debajo de esa capa opaca: invisible.
+
+          Sin z-index, el orden lo decide el DOM: la aurora va primera y
+          se pinta abajo, el nav y el formulario van después y se pintan
+          encima. Que es exactamente lo que hace falta. Los clics ya
+          están cubiertos por el `pointer-events: none` de
+          `aurora-lienzo`. */}
+      <div aria-hidden className="aurora-lienzo">
         <div className="aurora-mancha-lenta aurora-lenta-1" />
         <div className="aurora-mancha-lenta aurora-lenta-2" />
         <div className="aurora-mancha-lenta aurora-lenta-3" />

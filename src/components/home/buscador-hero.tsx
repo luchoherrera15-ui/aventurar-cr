@@ -186,7 +186,7 @@ export default function BuscadorHero() {
   }
 
   return (
-    <div className="mx-auto mt-9 w-full max-w-[860px]">
+    <div className="mx-auto mt-7 w-full max-w-[860px]">
       {/* ── ACÁ VIVÍAN LAS PESTAÑAS «Citas y servicios / Eventos» ──────
           Se fueron (pedido del dueño, ago 2026). Obligaban a elegir una
           VERTICAL antes de saber qué había adentro, y «vertical» es
@@ -324,7 +324,7 @@ function InsigniasTiendas() {
     "flex items-center gap-2.5 rounded-xl border border-aventurea-line bg-white/80 px-4 py-2.5 text-left";
 
   return (
-    <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+    <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
       <span className={marco}>
         <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6 shrink-0 fill-current text-[color:var(--navy)]">
           <path d="M16.5 12.6c0-2 1.6-3 1.7-3.1-.9-1.4-2.4-1.5-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7-1.3 0-2.6.8-3.3 2C4.9 12.4 6 16 7.4 18c.7 1 1.5 2 2.5 2 1 0 1.4-.6 2.6-.6s1.5.6 2.6.6 1.7-.9 2.4-1.9c.7-1.1 1-2.1 1-2.2 0 0-1.9-.7-2-2.9zM14.6 6.3c.5-.7.9-1.6.8-2.5-.8 0-1.8.5-2.4 1.2-.5.6-1 1.6-.8 2.5.9.1 1.8-.4 2.4-1.2z" />

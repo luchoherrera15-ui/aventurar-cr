@@ -39,7 +39,13 @@ export default function HeroBusqueda({
 }) {
   return (
     <section
-      className="relative isolate px-5 pb-28 pt-20 sm:pb-36 sm:pt-28"
+      /* ⚠️ ESTE `pb` ES EL QUE DECIDE SI SE VE EL CATÁLOGO.
+         Era `pb-28 sm:pb-36` y dejaba media pantalla de aire naranja
+         entre los íconos y los negocios: había que scrollear para
+         encontrar lo único que la portada tiene de verdad. El `pt`
+         también bajó — el titular no necesita tanto respiro arriba
+         cuando ya viene precedido por la franja navy y el header. */
+      className="relative isolate px-5 pb-12 pt-12 sm:pb-16 sm:pt-16"
       /* EL LAVADO ESTÁTICO, y sus paradas también están elegidas.
          Antes llegaba a blanco puro en el 64 % y de ahí seguía blanco:
          eso deja el último tercio de la sección plano, y contra el

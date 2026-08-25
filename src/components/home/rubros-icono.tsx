@@ -89,13 +89,34 @@ export default async function RubrosIcono({
 }) {
   const censo = await leerCenso();
 
-  const conOrden = RUBROS_PORTADA.map((r) => ({
+  const conDatos = RUBROS_PORTADA.map((r) => ({
     ...r,
     href: urlDeRubro(r.vertical, r.categoria),
     // La clave del censo es `vertical|categoria|subcategoria`, con los
     // huecos vacíos. Es la misma que arma `claveDeDestino` para el menú.
     cuantos: censo.porClave[`${r.vertical}|${r.categoria}|`] ?? 0,
-  })).sort((a, b) => (b.cuantos > 0 ? 1 : 0) - (a.cuantos > 0 ? 1 : 0));
+  }));
+
+  /**
+   * ── DOS GRUPOS, SEPARADOS POR LA LÍNEA (pedido del dueño, ago 2026)
+   *
+   * A la izquierda todo lo de citas —barbería, uñas, belleza, spa,
+   * salud—; a la derecha lo de eventos —lugares, catering, música,
+   * decoración—. Antes iban los nueve revueltos y ordenados solo por
+   * inventario, así que «Lugares» (un salón de fiestas) caía entre
+   * «Barbería» y «Uñas»: la fila no dejaba leer que son dos catálogos
+   * distintos.
+   *
+   * ⚠️ EL ORDEN POR INVENTARIO NO SE PERDIÓ, SE METIÓ ADENTRO. Dentro
+   * de cada grupo siguen adelante los rubros que TIENEN negocios, para
+   * que el primer clic caiga en una lista con contenido. Ordenar el
+   * arreglo entero como antes habría deshecho la separación.
+   */
+  const porInventario = <T extends { cuantos: number }>(lista: T[]) =>
+    [...lista].sort((a, b) => (b.cuantos > 0 ? 1 : 0) - (a.cuantos > 0 ? 1 : 0));
+
+  const deCitas = porInventario(conDatos.filter((r) => r.vertical === "citas"));
+  const deEventos = porInventario(conDatos.filter((r) => r.vertical === "eventos"));
 
   return (
     <nav
@@ -105,51 +126,31 @@ export default async function RubrosIcono({
          esto es una barra de atajos. `scrollbar-width: none` esconde el
          control feo sin quitar el gesto ni el teclado — mismo patrón que
          ya usa el riel de proveedores. */
-      className="mt-8 flex justify-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center"
+      className="mt-6 flex justify-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center"
       style={{ scrollbarWidth: "none" }}
     >
-      {conOrden.map((r) => {
-        const esActivo = `${r.vertical}-${r.categoria}` === activo;
-        return (
-          <Link
-            key={`${r.vertical}-${r.categoria}`}
-            /* El rubro activo se apaga al volver a tocarlo: sin esto, el
-               único modo de quitar el filtro sería encontrar el botón de
-               «quitar» que vive abajo, en el catálogo, fuera de la
-               vista. Un filtro que se pone con un clic tiene que sacarse
-               con el mismo clic. */
-            href={esActivo ? "/" : r.href}
-            aria-current={esActivo ? "true" : undefined}
-            className={`${DISCO_ENVOLTORIO} ${esActivo ? "bg-white/80" : ""}`}
-          >
-            <span
-              aria-hidden
-              className={`${DISCO} ${
-                esActivo ? "ring-2 ring-[color:var(--navy)] ring-offset-2 ring-offset-transparent" : ""
-              }`}
-            >
-              {categoriaIcono(r.vertical, r.categoria)}
-            </span>
-            <span className={`${ROTULO} ${esActivo ? "text-[color:var(--navy)]" : ""}`}>
-              {r.label}
-            </span>
-          </Link>
-        );
-      })}
+      {/* IZQUIERDA · lo que se reserva por hora: barbería, uñas, spa… */}
+      {deCitas.map((r) => (
+        <DiscoRubro key={`${r.vertical}-${r.categoria}`} rubro={r} activo={activo} />
+      ))}
 
-      {/* ── LA LÍNEA QUE SEPARA DOS COSAS DISTINTAS ──────────────────
-          A la izquierda, rubros que un visitante RESERVA. A la derecha,
-          productos que Bookea le vende AL NEGOCIO. Sin la línea, quien
-          busca dónde cortarse el pelo se encontraría «Planes de
-          lealtad» en la misma fila y con el mismo peso.
+      <Separador />
 
-          Acá vivían en un menú «Más servicios» arriba a la derecha. El
-          dueño los bajó a la fila (ago 2026): en el menú casi nadie los
-          abría, y son dos de los productos que más le importan. */}
-      <span
-        aria-hidden
-        className="mx-1 hidden h-12 w-px shrink-0 self-center bg-aventurea-line sm:block"
-      />
+      {/* DERECHA · lo que se reserva por fecha: lugares, catering, música… */}
+      {deEventos.map((r) => (
+        <DiscoRubro key={`${r.vertical}-${r.categoria}`} rubro={r} activo={activo} />
+      ))}
+
+      {/* ── LA TERCERA LÍNEA: LO QUE BOOKEA LE VENDE AL NEGOCIO ──────
+          Invitaciones y Lealtad no son rubros que alguien reserve: son
+          productos. Sin una línea propia, quien busca dónde cortarse el
+          pelo se encontraría «Planes de lealtad» en la misma fila y con
+          el mismo peso.
+
+          Vivían en un menú «Más servicios» arriba a la derecha. El dueño
+          los bajó a la fila (ago 2026): en el menú casi nadie los abría,
+          y son dos de los productos que más le importan. */}
+      <Separador />
 
       {NEGOCIO.map((n) => (
         <Link key={n.href} href={n.href} className={DISCO_ENVOLTORIO}>
@@ -166,5 +167,55 @@ export default async function RubrosIcono({
         </Link>
       ))}
     </nav>
+  );
+}
+
+/**
+ * La línea vertical que separa dos grupos de la fila.
+ *
+ * `hidden sm:block`: en el teléfono la fila SCROLLEA en horizontal, así
+ * que un separador vertical no separa nada — se lo lleva el mismo
+ * gesto que a los íconos y solo roba ancho a la barra de atajos.
+ */
+function Separador() {
+  return (
+    <span
+      aria-hidden
+      className="mx-1 hidden h-12 w-px shrink-0 self-center bg-aventurea-line sm:block"
+    />
+  );
+}
+
+/** Un disco de rubro, con su estado de filtro activo. */
+function DiscoRubro({
+  rubro,
+  activo,
+}: {
+  rubro: { vertical: string; categoria: string; label?: string; href: string };
+  activo: string | null;
+}) {
+  const esActivo = `${rubro.vertical}-${rubro.categoria}` === activo;
+  return (
+    <Link
+      /* El rubro activo se apaga al volver a tocarlo: sin esto, el único
+         modo de quitar el filtro sería encontrar el botón de «quitar»
+         que vive abajo, en el catálogo, fuera de la vista. Un filtro que
+         se pone con un clic tiene que sacarse con el mismo clic. */
+      href={esActivo ? "/" : rubro.href}
+      aria-current={esActivo ? "true" : undefined}
+      className={`${DISCO_ENVOLTORIO} ${esActivo ? "bg-white/80" : ""}`}
+    >
+      <span
+        aria-hidden
+        className={`${DISCO} ${
+          esActivo ? "ring-2 ring-[color:var(--navy)] ring-offset-2 ring-offset-transparent" : ""
+        }`}
+      >
+        {categoriaIcono(rubro.vertical, rubro.categoria)}
+      </span>
+      <span className={`${ROTULO} ${esActivo ? "text-[color:var(--navy)]" : ""}`}>
+        {rubro.label}
+      </span>
+    </Link>
   );
 }
