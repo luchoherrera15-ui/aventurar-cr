@@ -409,7 +409,9 @@ export const PUERTAS: Puerta[] = [
   {
     id: "citas",
     label: "Citas",
-    ruta: "/citas",
+    // Su directorio se borró: la puerta lleva a la portada, que es donde
+    // vive ahora este catálogo. Ver `hrefDeDestino`.
+    ruta: "/",
     ctaOferta: CTA_PUBLICAR,
     columnas: [
       {
@@ -519,7 +521,8 @@ export const PUERTAS: Puerta[] = [
   {
     id: "eventos",
     label: "Eventos",
-    ruta: "/eventos",
+    // Ídem Citas: el directorio de Eventos ya no existe.
+    ruta: "/",
     ctaOferta: CTA_PUBLICAR,
     columnas: [
       ...CATEGORIAS.filter((c) => c !== CATEGORIA_FERRETERIA_EVENTO).map(columnaDeEventos),
