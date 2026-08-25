@@ -17,13 +17,17 @@
  */
 
 /**
- * El número con código de país y SIN signos: "50688887777".
+ * El número con código de país y SIN signos ni espacios: el `506` de
+ * Costa Rica va pegado adelante porque `wa.me` no acepta un número
+ * local — sin el código de país el enlace abre un chat con nadie.
  *
- * PENDIENTE (dueño, ago 2026): falta el número real. Apenas se
- * complete acá, el botón de WhatsApp aparece solo en el cuadro de
- * ayuda de /lealtad/crear — no hay que tocar nada más.
+ * TEMPORAL (dueño, 25 ago 2026): +506 8710 3739 es un número de paso
+ * mientras se define el definitivo de atención. Cambiarlo ACÁ lo
+ * cambia en todas las pantallas que ofrezcan el canal — hoy solo el
+ * cuadro de ayuda de /lealtad/crear, y ese es justo el punto de que
+ * viva en un archivo y no escrito a mano en cada botón.
  */
-export const WHATSAPP_BOOKEA = "";
+export const WHATSAPP_BOOKEA = "50687103739";
 
 /**
  * El enlace de WhatsApp con un mensaje ya escrito, o `null` si
