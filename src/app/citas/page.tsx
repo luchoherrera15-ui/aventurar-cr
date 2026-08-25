@@ -16,6 +16,7 @@ import {
   normalizarCategoriaCita,
   type CategoriaCita,
 } from "./tipos";
+import { esSubcategoriaCita } from "./subcategorias";
 import type { Rancho } from "../mi-negocio/types";
 import { TITULO_FILA } from "@/lib/carriles-home";
 import { codigoPaisDe, esRegionDe, paisDe, type CodigoPais } from "@/lib/paises";
@@ -68,6 +69,11 @@ type Fila = Pick<
   | "canton"
   | "foto_url"
   | "precio_desde"
+  // El segundo nivel (0188). `COLUMNAS_CARD` ya lo traía en la
+  // consulta desde antes; lo que faltaba era declararlo acá para poder
+  // filtrar por él. Puede venir null: la mayoría de los negocios de
+  // Citas todavía no lo tienen puesto.
+  | "subcategoria"
 > & { categoria: string };
 
 /** Una fila ya normalizada: la categoría es una de las oficiales. */
@@ -99,6 +105,7 @@ export default async function CitasPage({
 }: {
   searchParams: Promise<{
     categoria?: string | string[];
+    subcategoria?: string | string[];
     q?: string | string[];
     pais?: string | string[];
     provincia?: string | string[];
@@ -110,6 +117,21 @@ export default async function CitasPage({
     categoriaParam ?? "",
   )
     ? (categoriaParam as CategoriaCita)
+    : undefined;
+  /**
+   * EL SEGUNDO NIVEL (0188). Hasta ago 2026 esta página ni lo declaraba:
+   * la base aceptaba «manicure» desde la 0188 pero el directorio no
+   * tenía forma de filtrarlo, así que un enlace a un rubro fino
+   * mostraba la categoría entera.
+   *
+   * Se valida contra `SUBCATEGORIAS_CITAS`, que es la copia atada al
+   * CHECK del .sql por una prueba. Un valor inventado se IGNORA en vez
+   * de vaciar la pantalla — el mismo criterio que ya aplica esta página
+   * con `?provincia=Miami`.
+   */
+  const subcategoriaParam = unSolo(params.subcategoria);
+  const subcategoria = esSubcategoriaCita(subcategoriaParam)
+    ? subcategoriaParam
     : undefined;
   const busqueda = (unSolo(params.q) ?? "").trim();
   /**
@@ -145,11 +167,12 @@ export default async function CitasPage({
         </div>
 
         <Suspense
-          key={`${categoria ?? ""}|${busqueda}|${pais}|${provincia ?? ""}`}
+          key={`${categoria ?? ""}|${subcategoria ?? ""}|${busqueda}|${pais}|${provincia ?? ""}`}
           fallback={<EsqueletoCitas />}
         >
           <ContenidoCitas
             categoria={categoria}
+            subcategoria={subcategoria}
             busqueda={busqueda}
             pais={pais}
             provincia={provincia}
@@ -189,11 +212,13 @@ const COLUMNAS_CITAS_DIRECTORIO =
 
 async function ContenidoCitas({
   categoria,
+  subcategoria,
   busqueda,
   pais,
   provincia,
 }: {
   categoria: CategoriaCita | undefined;
+  subcategoria: string | undefined;
   busqueda: string;
   pais: CodigoPais;
   provincia: string | undefined;
@@ -263,9 +288,15 @@ async function ContenidoCitas({
       )
     : enZona;
 
-  const filtrados = categoria
+  // La subcategoría manda sobre la categoría cuando llega: es el filtro
+  // más fino, y un enlace del menú trae las dos justamente para que la
+  // pestaña de arriba también quede marcada.
+  const porCategoria = categoria
     ? baseBusqueda.filter((n) => n.categoria === categoria)
     : baseBusqueda;
+  const filtrados = subcategoria
+    ? porCategoria.filter((n) => n.subcategoria === subcategoria)
+    : porCategoria;
 
   const conteo: Record<string, number> = {};
   baseBusqueda.forEach((n) => {
@@ -280,7 +311,10 @@ async function ContenidoCitas({
     items: enZona.filter((n) => n.categoria === c),
   })).filter((f) => f.items.length > 0);
 
-  const vistaFilas = !categoria && !aguja;
+  // Con una subcategoría elegida NO se arman filas por categoría: la
+  // persona pidió un rubro fino y agruparlo otra vez por su padre le
+  // devolvería la vista de la que venía.
+  const vistaFilas = !categoria && !subcategoria && !aguja;
 
   return (
     <>
