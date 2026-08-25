@@ -107,15 +107,78 @@ function destinoDe(texto: string): PestanaBuscador {
   return SENAS_DE_EVENTO.some((s) => t.includes(` ${s} `)) ? "eventos" : "citas";
 }
 
+/** El valor centinela del `<option>` que pide la ubicación. */
+const MI_UBICACION = "__mi_ubicacion__";
+
 export default function BuscadorHero() {
   const router = useRouter();
   const [texto, setTexto] = useState("");
   const [provincia, setProvincia] = useState("");
+  const [ubicando, setUbicando] = useState(false);
+  const [avisoUbicacion, setAvisoUbicacion] = useState<string | null>(null);
 
   // El destino se recalcula mientras se escribe para que el ejemplo del
   // campo acompañe: al teclear «rancho» el placeholder pasa a hablar de
   // eventos. Es la única señal de que la búsqueda entendió algo.
   const pestana = destinoDe(texto);
+
+  /**
+   * «MI UBICACIÓN» — de las coordenadas del navegador a una provincia.
+   *
+   * El permiso se pide SOLO cuando la persona elige esa opción, nunca al
+   * cargar la página: un cartel del sistema pidiendo la ubicación antes
+   * de que nadie sepa qué es este sitio se rechaza casi siempre, y
+   * además quema el permiso para más adelante.
+   *
+   * La resolución la hace el servidor (`/api/ubicacion/cerca`) contra
+   * las coordenadas de los negocios REALES, no contra una tabla de
+   * centroides inventada. Ver ese archivo.
+   *
+   * Los tres finales posibles son honestos: se resuelve y se selecciona
+   * la provincia; no hay negocios ubicados todavía y se dice; o el
+   * permiso se negó y se dice que se puede elegir a mano. En ninguno se
+   * inventa una región.
+   */
+  function pedirUbicacion() {
+    if (!("geolocation" in navigator)) {
+      setAvisoUbicacion("Tu navegador no comparte la ubicación. Elegí la provincia a mano.");
+      return;
+    }
+    setUbicando(true);
+    setAvisoUbicacion(null);
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const r = await fetch(
+            `/api/ubicacion/cerca?lat=${coords.latitude}&lng=${coords.longitude}`,
+          );
+          const datos = (await r.json()) as {
+            ok?: boolean;
+            cerca?: { provincia: string } | null;
+          };
+          if (datos.ok && datos.cerca?.provincia) {
+            setProvincia(datos.cerca.provincia);
+          } else {
+            setAvisoUbicacion("Todavía no hay negocios ubicados cerca tuyo.");
+          }
+        } catch {
+          setAvisoUbicacion("No se pudo resolver tu ubicación. Elegí la provincia a mano.");
+        } finally {
+          setUbicando(false);
+        }
+      },
+      () => {
+        setUbicando(false);
+        setAvisoUbicacion("No nos diste permiso. Podés elegir la provincia a mano.");
+      },
+      // 8s de tope: un GPS que no engancha adentro de un local no puede
+      // dejar el buscador colgado. `maximumAge` acepta una lectura de
+      // hasta 5 min, que para elegir una provincia sobra y evita
+      // encender el GPS de nuevo.
+      { timeout: 8000, maximumAge: 300_000 },
+    );
+  }
 
   function buscar(e: React.FormEvent) {
     e.preventDefault();
@@ -163,10 +226,22 @@ export default function BuscadorHero() {
               panel más que cerrar y que le pelee el foco al mega menú. */}
           <select
             value={provincia}
-            onChange={(e) => setProvincia(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value === MI_UBICACION) {
+                pedirUbicacion();
+                return;
+              }
+              setAvisoUbicacion(null);
+              setProvincia(e.target.value);
+            }}
             className={`${CONTROL} cursor-pointer`}
           >
             <option value="">Todo el país</option>
+            {/* Primero, porque es el atajo: quien entra desde el
+                teléfono no quiere buscar su provincia en una lista. */}
+            <option value={MI_UBICACION}>
+              {ubicando ? "Buscando tu ubicación…" : "📍 Mi ubicación"}
+            </option>
             {PROVINCIAS.map((p) => (
               <option key={p} value={p}>
                 {p}
@@ -212,6 +287,71 @@ export default function BuscadorHero() {
           </button>
         </div>
       </form>
+
+      {/* El desenlace de «Mi ubicación», cuando no salió. `role="status"`
+          para que un lector de pantalla lo anuncie sin robar el foco:
+          quien pidió la ubicación está esperando una respuesta. */}
+      {avisoUbicacion && (
+        <p role="status" className="mt-3 text-[13px] font-semibold text-aventurea-ink-soft">
+          {avisoUbicacion}
+        </p>
+      )}
+
+      <InsigniasTiendas />
+    </div>
+  );
+}
+
+/**
+ * ── «PRONTO EN LAS TIENDAS» ─────────────────────────────────────────
+ *
+ * Dos insignias que anuncian la app, sin enlace: todavía no hay ficha a
+ * la que mandar. Son `<span>` y no `<a href="#">` a propósito — un
+ * enlace que no lleva a ningún lado es peor que un aviso quieto, porque
+ * el cursor promete un destino y el teclado lo enfoca para nada.
+ *
+ * Los logos se dibujan a mano en SVG. No se usan los oficiales de Apple
+ * y Google: los dos tienen guías de marca que exigen tamaños, márgenes y
+ * el texto exacto («Download on the App Store»), y usarlos recortados o
+ * traducidos es justamente lo que esas guías prohíben. Una silueta
+ * propia dice lo mismo sin apropiarse de una marca ajena.
+ *
+ * El día que la app salga, esto pasa a ser dos `<a>` con las URLs
+ * reales — y ahí sí corresponde usar las insignias oficiales.
+ */
+function InsigniasTiendas() {
+  const marco =
+    "flex items-center gap-2.5 rounded-xl border border-aventurea-line bg-white/80 px-4 py-2.5 text-left";
+
+  return (
+    <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+      <span className={marco}>
+        <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6 shrink-0 fill-current text-[color:var(--navy)]">
+          <path d="M16.5 12.6c0-2 1.6-3 1.7-3.1-.9-1.4-2.4-1.5-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7-1.3 0-2.6.8-3.3 2C4.9 12.4 6 16 7.4 18c.7 1 1.5 2 2.5 2 1 0 1.4-.6 2.6-.6s1.5.6 2.6.6 1.7-.9 2.4-1.9c.7-1.1 1-2.1 1-2.2 0 0-1.9-.7-2-2.9zM14.6 6.3c.5-.7.9-1.6.8-2.5-.8 0-1.8.5-2.4 1.2-.5.6-1 1.6-.8 2.5.9.1 1.8-.4 2.4-1.2z" />
+        </svg>
+        <span className="min-w-0">
+          <span className="block text-[10.5px] font-bold uppercase tracking-[0.08em] text-aventurea-ink-soft">
+            Pronto en
+          </span>
+          <span className="block text-[13.5px] font-extrabold text-aventurea-ink">
+            App Store
+          </span>
+        </span>
+      </span>
+
+      <span className={marco}>
+        <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6 shrink-0 fill-current text-[color:var(--navy)]">
+          <path d="M3.6 2.3c-.2.3-.3.6-.3 1v17.4c0 .4.1.8.3 1l9.2-9.7L3.6 2.3zm10.4 8.3 2.7-2.9-9.9-5.6c-.3-.2-.6-.2-.9-.2l8.1 8.7zm0 2.8-8.1 8.6c.3 0 .6 0 .9-.2l9.9-5.6-2.7-2.8zm5.9-2.1-2.3-1.3-3 3.2 3 3.1 2.3-1.3c.7-.4 1-1 1-1.9 0-.8-.3-1.4-1-1.8z" />
+        </svg>
+        <span className="min-w-0">
+          <span className="block text-[10.5px] font-bold uppercase tracking-[0.08em] text-aventurea-ink-soft">
+            Pronto en
+          </span>
+          <span className="block text-[13.5px] font-extrabold text-aventurea-ink">
+            Google Play
+          </span>
+        </span>
+      </span>
     </div>
   );
 }

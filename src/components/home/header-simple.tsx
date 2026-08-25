@@ -1,69 +1,51 @@
 import Link from "next/link";
-import MegaMenu from "@/components/nav/mega-menu";
 import MasServicios from "@/components/nav/mas-servicios";
 import CajonNavMovil from "@/components/nav/cajon-nav-movil";
 import { PUERTAS } from "@/components/nav/taxonomia-navegacion";
-import { leerCenso, puertasConInventario } from "@/lib/censo-rubros";
 
 /**
- * EL HEADER DE LA PORTADA — logo, las cinco puertas, y las acciones.
+ * EL HEADER DE LA PORTADA — logo, acciones, y nada más.
  *
  * `SiteHeader` (el de siempre, montado en 33 pantallas) no se toca: este
- * es un componente aparte y solo lo usa la portada. Un rediseño del
- * header compartido habría tocado el directorio, los paneles de
- * proveedor, /cuenta y los legales de una sola vez.
+ * es un componente aparte y solo lo usa la portada.
  *
- * ── LAS CINCO PUERTAS, Y POR QUÉ NO SIEMPRE SON CINCO ───────────────
+ * ── SE FUERON LAS PUERTAS DEL CENTRO ────────────────────────────────
  *
- * La taxonomía tiene las cinco enteras con sus ~148 rubros
- * (`taxonomia-navegacion.ts`), pero lo que se PINTA lo decide el censo:
- * una puerta sin un solo negocio no se dibuja, y dentro de una puerta
- * que sí se dibuja, los rubros vacíos no se listan.
+ * Acá vivían «Citas» y «Eventos» con su mega menú. Los sacó el dueño
+ * (ago 2026) por dos razones que se suman:
  *
- * Es la decisión del dueño y es la correcta para un directorio que
- * arranca: un mega menú enorme donde casi todo lleva a una lista vacía
- * se lee peor que uno chico donde todo lleva a algo. Y crece solo — el
- * día que entre la primera villa, Hospedaje aparece sin tocar código.
+ *   1. «Citas» y «Eventos» son NUESTRA arquitectura, no la de quien
+ *      entra a reservar. Nadie piensa «necesito un servicio de la
+ *      vertical Citas»: piensa «necesito que me hagan las uñas». La
+ *      navegación por rubro vive ahora en la fila de íconos del héroe
+ *      (`rubros-icono.tsx`), que es lo que se mira primero.
+ *   2. Partir la portada en dos verticales dejaba a la vista una
+ *      división que el resto del producto ya no hace.
  *
- * ── SERVIDOR, NO CLIENTE ────────────────────────────────────────────
+ * El cajón de categorías del teléfono SÍ se queda: ahí no hay lugar para
+ * una fila de íconos con paneles, y sigue siendo la única forma de
+ * recorrer la taxonomía completa con el pulgar.
  *
- * El censo se resuelve acá, en el servidor, y viaja ya filtrado. El
- * navegador nunca consulta `ranchos` para saber qué dibujar: recibe la
- * lista lista. Eso además evita el parpadeo de un menú que primero
- * muestra cinco puertas y después borra tres.
+ * ── Y SE FUE LA BARRA BLANCA ────────────────────────────────────────
+ *
+ * El header era una franja blanca con borde inferior, y contra la aurora
+ * del héroe se leía como una tapa pegada encima. Ahora es TRANSPARENTE y
+ * se apoya sobre el mismo degradado: la página arranca en el color, no
+ * en una barra. Por eso el héroe lleva su padding superior — el header
+ * flota sobre él en vez de empujarlo.
  */
-export default async function HeaderSimple() {
-  const censo = await leerCenso();
-  const puertas = puertasConInventario(PUERTAS, censo);
-
+export default function HeaderSimple() {
   return (
-    // `relative` y SIN overflow: el panel del mega menú es hermano de la
-    // fila de botones y cuelga de este contenedor. Un `overflow-hidden`
-    // acá lo cortaría en seco — ya pasó dos veces en este repo.
-    <header className="relative z-40 border-b border-aventurea-line bg-white">
+    <header className="relative z-40">
       <div className="mx-auto flex h-[72px] w-full max-w-[1280px] items-center gap-6 px-4 lg:px-6">
-        <Link
-          href="/"
-          className="titulo shrink-0 text-[22px] text-[color:var(--navy)]"
-        >
+        <Link href="/" className="titulo shrink-0 text-[22px] text-[color:var(--navy)]">
           Bookea
         </Link>
 
-        {/* Las puertas, al medio. Se esconden bajo `lg` y su lugar lo
-            toma el cajón: a ese ancho cinco botones más el logo y las
-            acciones no entran sin apretujarse, y un header apretado es
-            lo primero que delata una plantilla. */}
-        {puertas.length > 0 && (
-          <div className="hidden min-w-0 flex-1 justify-center lg:flex">
-            <MegaMenu puertas={puertas} />
-          </div>
-        )}
-
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
-          {/* Lealtad e Invitaciones NO van con las cinco puertas del
-              centro: esas son categorías de RESERVA y estos son
-              productos que Bookea le vende al negocio. Van apartados,
-              junto a las acciones de cuenta. */}
+          {/* Lealtad e Invitaciones son productos que Bookea le vende AL
+              NEGOCIO, no cosas que un visitante reserva. Por eso viven
+              acá, junto a las acciones de cuenta, y no con los rubros. */}
           <div className="hidden md:block">
             <MasServicios />
           </div>
@@ -83,7 +65,11 @@ export default async function HeaderSimple() {
             <span aria-hidden>→</span>
           </Link>
 
-          {puertas.length > 0 && <CajonNavMovil puertas={puertas} />}
+          {/* El cajón lleva la taxonomía COMPLETA, sin podar por censo:
+              en el teléfono es la única puerta a explorar rubros, y
+              esconder los que todavía no tienen negocios dejaría a la
+              persona sin saber que Bookea los cubre. */}
+          <CajonNavMovil puertas={PUERTAS} />
         </div>
       </div>
     </header>

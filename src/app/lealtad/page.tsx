@@ -3,7 +3,6 @@ import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
 import { PLANES_VIGENTES } from "@/lib/lealtad/planes";
-import { TIPOS_TARJETA_ID } from "@/lib/lealtad/tipos-tarjeta";
 import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 import NavLealtad from "./nav-lealtad";
 import BurbujaContacto from "./burbuja-contacto";
@@ -237,33 +236,19 @@ export default async function LealtadPage() {
               </p>
             </div>
 
-            {/* Tres hechos reales, no cifras inventadas — el mismo
-                lenguaje de "número prominente + etiqueta" del resto del
-                rediseño, en vez del checklist con palomitas. */}
-            <div className="mt-7 grid grid-cols-3 gap-2">
-              {[
-                { valor: "Gratis", etiqueta: "primera tarjeta" },
-                {
-                  valor: String(TIPOS_TARJETA_ID.length),
-                  etiqueta: "tipos de tarjeta",
-                },
-                { valor: "0", etiqueta: "apps que instalar" },
-              ].map((s) => (
-                <div
-                  key={s.etiqueta}
-                  className="rounded-xl border border-aventurea-line bg-white/80 px-3 py-2.5 text-center lg:text-left"
-                >
-                  <p className="text-[17px] font-extrabold leading-none text-aventurea-navy">
-                    {s.valor}
-                  </p>
-                  <p className="mt-1 text-[10px] font-bold uppercase leading-tight tracking-wide text-aventurea-ink-soft">
-                    {s.etiqueta}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {/* ── ACÁ VIVÍAN TRES CARDS DE CIFRAS ────────────────────
+                «Gratis / primera tarjeta», «8 / tipos de tarjeta» y
+                «0 / apps que instalar». Se fueron (pedido del dueño,
+                ago 2026): el héroe ya tiene título, bajada, dos botones
+                y el teléfono con la tarjeta, y tres recuadros más
+                cargaban la primera pantalla sin agregar un dato que no
+                estuviera dicho.
 
-            <p className="mt-6 text-[13px] text-aventurea-ink-soft/80">
+                Los tres hechos no se perdieron: «sin apps que instalar»
+                está en la bajada y en las preguntas frecuentes, y los
+                tipos de tarjeta tienen su propia sección con el
+                selector. */}
+            <p className="mt-7 text-[13px] text-aventurea-ink-soft/80">
               ¿Ya tenés el programa?{" "}
               <Link
                 href="/cuenta?volver=lealtad"
