@@ -8,6 +8,7 @@ import RielesCatalogo from "@/components/home/rieles-catalogo";
 import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
 import { leerCatalogoPortada } from "./home-datos";
 import { urlSitio } from "@/lib/sitio";
+import { rubroDeParametro } from "@/lib/rubros-portada";
 
 /**
  * ============================================================
@@ -54,8 +55,36 @@ export const metadata: Metadata = {
   alternates: { canonical: urlSitio("/") },
 };
 
-export default async function Home() {
-  const catalogo = await leerCatalogoPortada();
+/**
+ * ── EL FILTRO EN LA MISMA PÁGINA (`?rubro=`) ────────────────────────
+ *
+ * Pedido del dueño (ago 2026): los nueve íconos del héroe dejaron de
+ * mandar a `/citas` y `/eventos` — «la idea es que TODO se encuentre
+ * acá mismo». Ahora escriben `?rubro=` y el catálogo de abajo se
+ * recorta sin salir de la portada.
+ *
+ * ⚠️ ESTA PÁGINA PASA A SER DINÁMICA. Leer `searchParams` se lo dice a
+ * Next solo: ya no se puede prerenderizar una única versión estática
+ * porque hay diez (sin filtro + nueve rubros). No es un descuido; es el
+ * precio de que el filtro viva en la URL — y vivir en la URL es lo que
+ * hace que el filtro se pueda compartir, marcar y volver atrás con el
+ * botón del navegador, que es lo que un visitante espera.
+ *
+ * El canónico NO lleva el parámetro y eso es a propósito: las diez
+ * versiones muestran el mismo catálogo recortado de distinta forma, no
+ * diez páginas distintas. Sin eso, Google indexaría nueve duplicados de
+ * la portada compitiendo entre sí.
+ */
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ [clave: string]: string | string[] | undefined }>;
+}) {
+  const [catalogo, params] = await Promise.all([
+    leerCatalogoPortada(),
+    searchParams,
+  ]);
+  const rubro = rubroDeParametro(params.rubro);
 
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-white">
@@ -68,7 +97,7 @@ export default async function Home() {
       <HeaderSimple />
 
       <main className="flex-1">
-        <HeroBusqueda />
+        <HeroBusqueda rubroActivo={rubro?.categoria ?? null} />
         {/* Debajo del héroe queda SOLO el marketplace (pedido del dueño,
             ago 2026). Se sacaron las cards de «Explorá Bookea» y la
             franja de rubros del final: las cinco puertas ya viven en el
@@ -77,9 +106,13 @@ export default async function Home() {
             de verdad— tan abajo que había que scrollear para verlos.
             Los dos componentes siguen enteros en el repo, solo dejaron
             de importarse acá. */}
-        <div className="px-5 pb-12 pt-2 sm:px-8">
+        {/* El `id` es el destino del `#catalogo` que llevan los íconos
+            del héroe: filtrar sin bajar hasta el resultado dejaría al
+            visitante mirando el mismo héroe, convencido de que el clic
+            no hizo nada. El `scroll-mt` despeja el header flotante. */}
+        <div id="catalogo" className="scroll-mt-24 px-5 pb-12 pt-2 sm:px-8">
           <div className="mx-auto w-full max-w-[1200px]">
-            <RielesCatalogo {...catalogo} />
+            <RielesCatalogo {...catalogo} rubro={rubro} />
           </div>
         </div>
       </main>

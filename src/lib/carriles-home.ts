@@ -429,6 +429,40 @@ export type RielVertical = {
  * @param todos    Los aprobados y pintables de TODAS las verticales.
  * @param superIds Los súper destacados (0169): van primeros en su fila.
  */
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  EL FILTRO DE LOS ÍCONOS DE LA PORTADA (`/?rubro=`)
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Vive ACÁ y no en la portada por una razón concreta: `normalizarDe` es
+ * privada de este archivo, y es la que hace que la categoría cruda de la
+ * base caiga en el mismo cajón en el que la pone cada directorio.
+ *
+ * ⚠️ SIN ESA NORMALIZACIÓN EL FILTRO MIENTE. Un negocio guardado con una
+ * categoría vieja o con un alias que `normalizarCategoria` reescribe
+ * aparece en el riel de «Lugares» pero NO habría aparecido al filtrar
+ * por «lugares» — el visitante ve el negocio en la portada, toca el
+ * ícono de su rubro, y el negocio desaparece. Es exactamente el mismo
+ * desajuste que el comentario de `normalizarDe` advierte para el «Ver
+ * todo» de cada fila.
+ *
+ * Se compara además la vertical, no solo la categoría: la clave de la
+ * URL es la categoría porque hoy las nueve son distintas entre sí, pero
+ * el filtro real usa las dos para seguir siendo correcto el día que se
+ * repita una en otra vertical.
+ */
+export function filtrarPorRubro(
+  todos: Rancho[],
+  rubro: { vertical: string; categoria: string },
+): Rancho[] {
+  const buscada = normalizarDe(rubro.vertical, rubro.categoria);
+  return todos.filter((r) => {
+    if (verticalDe(r) !== rubro.vertical) return false;
+    const cruda = (r as { categoria?: string | null }).categoria ?? "";
+    return normalizarDe(rubro.vertical, cruda) === buscada;
+  });
+}
+
 export function agruparPorVertical(
   todos: Rancho[],
   superIds: string[] = [],

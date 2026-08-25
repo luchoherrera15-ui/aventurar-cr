@@ -1,8 +1,11 @@
+import Link from "next/link";
 import RielProveedores from "@/components/riel-proveedores";
 import type { Calificacion } from "@/components/rancho-card";
+import type { RubroPortada } from "@/lib/rubros-portada";
 import {
   TOPE_CARRIL,
   agruparPorVertical,
+  filtrarPorRubro,
   hayFondoParaRecienPublicados,
 } from "@/lib/carriles-home";
 import type { CatalogoPortada } from "@/app/home-datos";
@@ -81,8 +84,61 @@ export default function RielesCatalogo({
   totalPorVertical,
   favoritosIds,
   sesionActiva,
-}: CatalogoPortada) {
-  const rieles = agruparPorVertical(pintables);
+  rubro = null,
+}: CatalogoPortada & {
+  /** El rubro que pidió la URL (`?rubro=`), o null si no hay filtro. */
+  rubro?: RubroPortada | null;
+}) {
+  /**
+   * ── EL FILTRO DE LOS ÍCONOS DEL HÉROE ─────────────────────────────
+   *
+   * Se recorta ANTES de agrupar, no después, y la diferencia se ve: si
+   * se filtrara cada riel ya armado, quedarían filas vacías dibujadas
+   * con su título y su conteo. Filtrando antes, `agruparPorVertical` ni
+   * siquiera devuelve las verticales que no tienen nada —que es la
+   * regla de oro nº 1 de este archivo— y la portada muestra solo la
+   * fila del rubro pedido.
+   *
+   * El filtro en sí lo hace `filtrarPorRubro` (carriles-home.ts) y no
+   * un `.filter()` escrito acá: la categoría cruda de la base tiene que
+   * pasar por la MISMA normalización que aplica cada riel, o un negocio
+   * guardado con un alias aparecería en la fila de «Lugares» y
+   * desaparecería al tocar el ícono de Lugares.
+   */
+  const enFoco = rubro ? filtrarPorRubro(pintables, rubro) : pintables;
+
+  const rieles = agruparPorVertical(enFoco);
+
+  /**
+   * FILTRO PUESTO Y CERO RESULTADOS: hay que decirlo, no desaparecer.
+   *
+   * Sin este caso, tocar «Uñas» sin ninguna uñería publicada dejaba la
+   * portada sin catálogo y sin explicación — el visitante ve el ícono
+   * marcado, el resto en blanco, y no tiene forma de saber si filtró
+   * bien, si algo falló, o si el sitio está vacío. Con dos negocios en
+   * todo el marketplace, este es el camino MÁS probable, no el borde.
+   */
+  if (rubro && rieles.length === 0) {
+    return (
+      <div className="rounded-3xl border border-aventurea-line bg-aventurea-cream-2 px-6 py-12 text-center">
+        <p className="text-[15px] font-bold text-aventurea-ink">
+          Todavía no hay negocios de {rubro.label.toLowerCase()} publicados.
+        </p>
+        <p className="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
+          Estamos sumando negocios cada semana. Mientras tanto podés ver todo lo
+          que sí hay publicado.
+        </p>
+        <Link
+          href="/#catalogo"
+          className="presionable mt-6 inline-flex items-center gap-1.5 rounded-full px-5 py-2.5 text-[13.5px] font-extrabold text-white transition-colors"
+          style={{ background: "var(--navy)" }}
+        >
+          Ver todo el catálogo
+          <span aria-hidden>→</span>
+        </Link>
+      </div>
+    );
+  }
 
   // Sin un solo negocio publicado no hay catálogo que mostrar. La
   // portada sigue de pie: arriba queda el buscador con sus rubros, y

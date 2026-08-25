@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { categoriaIcono } from "@/lib/categorias-vertical";
 import { IconMail, IconSparkles } from "@/components/icons";
-import { urlDirectorio } from "@/lib/url-directorio";
 import { leerCenso } from "@/lib/censo-rubros";
+import { RUBROS_PORTADA, urlDeRubro } from "@/lib/rubros-portada";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -37,23 +37,21 @@ import { leerCenso } from "@/lib/censo-rubros";
  * Componente de SERVIDOR: el censo se resuelve acá y viaja ya ordenado.
  */
 
-/** Qué rubros se ofrecen, y de qué vertical es cada uno. */
-const RUBROS: { vertical: string; categoria: string; label: string }[] = [
-  { vertical: "citas", categoria: "unas", label: "Uñas" },
-  { vertical: "citas", categoria: "belleza", label: "Belleza" },
-  { vertical: "citas", categoria: "barberia", label: "Barbería" },
-  { vertical: "citas", categoria: "spa", label: "Spa" },
-  { vertical: "citas", categoria: "consultorio", label: "Salud" },
-  { vertical: "eventos", categoria: "lugares", label: "Lugares" },
-  { vertical: "eventos", categoria: "alimentacion", label: "Catering" },
-  { vertical: "eventos", categoria: "animacion", label: "Música" },
-  { vertical: "eventos", categoria: "decoracion", label: "Decoración" },
-];
-
-const DIRECTORIO: Record<string, string> = {
-  citas: "/citas",
-  eventos: "/eventos",
-};
+/**
+ * ── LOS NUEVE ÍCONOS YA NO SACAN A NADIE DE LA PORTADA ──────────────
+ *
+ * Antes cada uno era un link a `/citas?categoria=unas` o
+ * `/eventos?categoria=lugares`. Pedido del dueño (ago 2026): «quiero
+ * que esto YA DEJE DE SER ASÍ, la idea es que TODO se encuentre acá
+ * mismo». Ahora apuntan a `/?rubro=…`, que filtra el catálogo de abajo
+ * sin cambiar de página.
+ *
+ * La lista se fue a `@/lib/rubros-portada` porque ahora la leen dos
+ * lados que TIENEN que coincidir: acá, para armar los links, y
+ * `rieles-catalogo.tsx`, para recortar el catálogo. Con la lista adentro
+ * de este archivo, agregar un rubro obligaba a acordarse del otro lado y
+ * nada avisaba cuando no se hacía.
+ */
 
 /**
  * Lo que Bookea le vende AL NEGOCIO, a la derecha de la línea.
@@ -83,12 +81,17 @@ const DISCO = `${DISCO_BASE} bg-white text-[color:var(--navy)]`;
 
 const ROTULO = "whitespace-nowrap text-[12.5px] font-bold text-aventurea-ink";
 
-export default async function RubrosIcono() {
+export default async function RubrosIcono({
+  /** El rubro que la URL está filtrando ahora, si hay alguno. */
+  activo = null,
+}: {
+  activo?: string | null;
+}) {
   const censo = await leerCenso();
 
-  const conOrden = RUBROS.map((r) => ({
+  const conOrden = RUBROS_PORTADA.map((r) => ({
     ...r,
-    href: urlDirectorio(DIRECTORIO[r.vertical] ?? "/eventos", { categoria: r.categoria }),
+    href: urlDeRubro(r.categoria),
     // La clave del censo es `vertical|categoria|subcategoria`, con los
     // huecos vacíos. Es la misma que arma `claveDeDestino` para el menú.
     cuantos: censo.porClave[`${r.vertical}|${r.categoria}|`] ?? 0,
@@ -105,18 +108,34 @@ export default async function RubrosIcono() {
       className="mt-8 flex justify-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center"
       style={{ scrollbarWidth: "none" }}
     >
-      {conOrden.map((r) => (
-        <Link
-          key={`${r.vertical}-${r.categoria}`}
-          href={r.href}
-          className={DISCO_ENVOLTORIO}
-        >
-          <span aria-hidden className={DISCO}>
-            {categoriaIcono(r.vertical, r.categoria)}
-          </span>
-          <span className={ROTULO}>{r.label}</span>
-        </Link>
-      ))}
+      {conOrden.map((r) => {
+        const esActivo = r.categoria === activo;
+        return (
+          <Link
+            key={`${r.vertical}-${r.categoria}`}
+            /* El rubro activo se apaga al volver a tocarlo: sin esto, el
+               único modo de quitar el filtro sería encontrar el botón de
+               «quitar» que vive abajo, en el catálogo, fuera de la
+               vista. Un filtro que se pone con un clic tiene que sacarse
+               con el mismo clic. */
+            href={esActivo ? "/" : r.href}
+            aria-current={esActivo ? "true" : undefined}
+            className={`${DISCO_ENVOLTORIO} ${esActivo ? "bg-white/80" : ""}`}
+          >
+            <span
+              aria-hidden
+              className={`${DISCO} ${
+                esActivo ? "ring-2 ring-[color:var(--navy)] ring-offset-2 ring-offset-transparent" : ""
+              }`}
+            >
+              {categoriaIcono(r.vertical, r.categoria)}
+            </span>
+            <span className={`${ROTULO} ${esActivo ? "text-[color:var(--navy)]" : ""}`}>
+              {r.label}
+            </span>
+          </Link>
+        );
+      })}
 
       {/* ── LA LÍNEA QUE SEPARA DOS COSAS DISTINTAS ──────────────────
           A la izquierda, rubros que un visitante RESERVA. A la derecha,

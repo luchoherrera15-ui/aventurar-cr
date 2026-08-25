@@ -31,7 +31,12 @@ import RubrosIcono from "@/components/home/rubros-icono";
  * Este archivo es de SERVIDOR y no lleva estado: el buscador, que sí lo
  * necesita, vive aparte en `buscador-hero.tsx`.
  */
-export default function HeroBusqueda() {
+export default function HeroBusqueda({
+  /** El rubro que la URL está filtrando, para marcar su ícono. */
+  rubroActivo = null,
+}: {
+  rubroActivo?: string | null;
+}) {
   return (
     <section
       className="relative isolate px-5 pb-28 pt-20 sm:pb-36 sm:pt-28"
@@ -61,7 +66,7 @@ export default function HeroBusqueda() {
         </p>
 
         <BuscadorHero />
-        <RubrosIcono />
+        <RubrosIcono activo={rubroActivo} />
       </div>
     </section>
   );
