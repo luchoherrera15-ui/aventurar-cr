@@ -138,8 +138,25 @@ const FAQ: { pregunta: string; respuesta: string }[] = [
   },
   {
     pregunta: "¿Cómo se paga?",
+    /**
+     * Los tres métodos de tarjeta NO son un deseo: son lo que el
+     * producto ya cobra. `abrirCheckoutDeSuscripcion` (checkout.ts) es
+     * la que abre el pago de los paquetes, y ahí NO se declara
+     * `payment_method_types` — eso es deliberado y está comentado en el
+     * archivo: en el momento en que esa lista se escribe a mano
+     * (`["card"]`), Stripe deja de resolver los métodos solo y las
+     * billeteras DESAPARECEN. Sin la lista, Checkout muestra tarjeta +
+     * Apple Pay + Google Pay según el dispositivo.
+     *
+     * O sea que quien pague desde un iPhone ve Apple Pay y quien pague
+     * desde Android ve Google Pay, sin una línea de código de nuestro
+     * lado. Por eso se puede prometer acá.
+     *
+     * SINPE se queda primero y no por costumbre: es el que más se usa
+     * en Costa Rica, y es el único camino para quien no tiene tarjeta.
+     */
     respuesta:
-      "Por SINPE Móvil o transferencia: adjuntás el comprobante con tu solicitud y Bookea activa el programa.",
+      "Con tarjeta de crédito o débito, Apple Pay o Google Pay — el cobro se hace al instante y el programa queda activo. También por SINPE Móvil o transferencia: adjuntás el comprobante con tu solicitud y Bookea lo activa.",
   },
 ];
 

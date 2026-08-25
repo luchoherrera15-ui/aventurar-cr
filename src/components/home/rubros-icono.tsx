@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { categoriaIcono } from "@/lib/categorias-vertical";
+import { IconMail, IconSparkles } from "@/components/icons";
 import { urlDirectorio } from "@/lib/url-directorio";
 import { leerCenso } from "@/lib/censo-rubros";
 
@@ -54,6 +55,34 @@ const DIRECTORIO: Record<string, string> = {
   eventos: "/eventos",
 };
 
+/**
+ * Lo que Bookea le vende AL NEGOCIO, a la derecha de la línea.
+ *
+ * No son rubros que alguien reserve: son productos. Por eso van
+ * separados y con otro color de disco — mezclarlos con «Uñas» y
+ * «Barbería» haría que quien busca dónde cortarse el pelo se tropiece
+ * con un producto de software.
+ */
+const NEGOCIO = [
+  { href: "/invitaciones", label: "Invitaciones", Icono: IconMail },
+  { href: "/lealtad", label: "Lealtad", Icono: IconSparkles },
+];
+
+/* Las clases se declaran una vez: los once discos son el mismo objeto y
+   repetir la cadena en dos `map` es cómo se despegan. */
+const DISCO_ENVOLTORIO =
+  "group flex shrink-0 flex-col items-center gap-2 rounded-2xl px-3 py-2 transition-colors hover:bg-white/70";
+
+const DISCO_BASE =
+  "flex h-14 w-14 items-center justify-center rounded-full shadow-[0_6px_18px_-8px_rgba(16,47,82,0.35)] transition-transform duration-200 group-hover:-translate-y-0.5 [&_svg]:h-6 [&_svg]:w-6";
+
+/* El disco es blanco SÓLIDO y no un tinte translúcido: abajo está la
+   aurora, que se mueve, y un fondo translúcido haría que el ícono
+   cambiara de contraste solo. */
+const DISCO = `${DISCO_BASE} bg-white text-[color:var(--navy)]`;
+
+const ROTULO = "whitespace-nowrap text-[12.5px] font-bold text-aventurea-ink";
+
 export default async function RubrosIcono() {
   const censo = await leerCenso();
 
@@ -80,20 +109,41 @@ export default async function RubrosIcono() {
         <Link
           key={`${r.vertical}-${r.categoria}`}
           href={r.href}
-          className="group flex shrink-0 flex-col items-center gap-2 rounded-2xl px-3 py-2 transition-colors hover:bg-white/70"
+          className={DISCO_ENVOLTORIO}
         >
-          <span
-            aria-hidden
-            /* El disco es blanco sólido y no un tinte translúcido: abajo
-               está la aurora, que se mueve, y un fondo translúcido haría
-               que el ícono cambiara de contraste solo. */
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-[color:var(--navy)] shadow-[0_6px_18px_-8px_rgba(16,47,82,0.35)] transition-transform duration-200 group-hover:-translate-y-0.5 [&_svg]:h-6 [&_svg]:w-6"
-          >
+          <span aria-hidden className={DISCO}>
             {categoriaIcono(r.vertical, r.categoria)}
           </span>
-          <span className="whitespace-nowrap text-[12.5px] font-bold text-aventurea-ink">
-            {r.label}
+          <span className={ROTULO}>{r.label}</span>
+        </Link>
+      ))}
+
+      {/* ── LA LÍNEA QUE SEPARA DOS COSAS DISTINTAS ──────────────────
+          A la izquierda, rubros que un visitante RESERVA. A la derecha,
+          productos que Bookea le vende AL NEGOCIO. Sin la línea, quien
+          busca dónde cortarse el pelo se encontraría «Planes de
+          lealtad» en la misma fila y con el mismo peso.
+
+          Acá vivían en un menú «Más servicios» arriba a la derecha. El
+          dueño los bajó a la fila (ago 2026): en el menú casi nadie los
+          abría, y son dos de los productos que más le importan. */}
+      <span
+        aria-hidden
+        className="mx-1 hidden h-12 w-px shrink-0 self-center bg-aventurea-line sm:block"
+      />
+
+      {NEGOCIO.map((n) => (
+        <Link key={n.href} href={n.href} className={DISCO_ENVOLTORIO}>
+          <span
+            aria-hidden
+            /* Estos dos van en tinte naranja y no en blanco: es la
+               misma señal que el resto del sitio usa para lo que es de
+               Bookea y no del catálogo. */
+            className={`${DISCO_BASE} bg-aventurea-orange-light text-bookea-naranja-fuerte`}
+          >
+            <n.Icono />
           </span>
+          <span className={ROTULO}>{n.label}</span>
         </Link>
       ))}
     </nav>

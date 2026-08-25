@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icono, type NombreIcono } from "./panel/[id]/iconos";
+import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
 
 /**
  * EL MOCKUP DEL PANEL DEL NEGOCIO — segunda pasada (pedido del dueño):
@@ -16,11 +17,24 @@ import { Icono, type NombreIcono } from "./panel/[id]/iconos";
  * de un negocio real.
  */
 
-/** true = el visitante pidió menos movimiento; los contadores y el
- *  gráfico saltan directo a su valor final en vez de animar. */
-function movimientoReducido(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
+/**
+ * ⚠️ ACÁ HABÍA UNA COPIA LOCAL de `movimientoReducido()` que leía
+ * `window.matchMedia` DURANTE EL RENDER.
+ *
+ * Dos problemas, y el segundo es el caro:
+ *
+ *   1. El servidor no tiene `window`, así que siempre devolvía false y
+ *      el cliente podía devolver true: eso es un desajuste de
+ *      hidratación, que en React 19 rompe el árbol en vez de corregirlo
+ *      en silencio como antes.
+ *   2. Al quedar capturado en un `useState`, nunca se enteraba si la
+ *      persona cambiaba la preferencia con la página abierta.
+ *
+ * El repo ya tiene la versión correcta —`useMovimientoReducido()`, con
+ * `useSyncExternalStore`, que le da a React la fuente de verdad y deja
+ * que el servidor use el valor por defecto sin fingir que sabe. Es la
+ * que se usa ahora.
+ */
 
 type Pestana = "inicio" | "clientes" | "metricas" | "paquete";
 
@@ -56,16 +70,36 @@ const CLIENTES_EJEMPLO = [
   { nombre: "Camila Ureña", ultimoSello: "Hace 1 semana", sellos: "4/6", gastado: 31_200 },
 ];
 
-const VENTAS_SEMANA = [
-  { dia: "Lun", miles: 18 },
-  { dia: "Mar", miles: 24 },
-  { dia: "Mié", miles: 15 },
-  { dia: "Jue", miles: 32 },
-  { dia: "Vie", miles: 41 },
-  { dia: "Sáb", miles: 52 },
-  { dia: "Dom", miles: 28 },
+/**
+ * ⚠️ ACÁ HABÍA UNA PANTALLA QUE EL PRODUCTO NO TIENE.
+ *
+ * Este mockup mostraba «Ventas de la semana» con siete barras en
+ * colones, más «Mejor día» y «Promedio diario». Ninguna de las tres
+ * existe: `grep` sobre todo `src/` encontraba esos tres rótulos SOLO
+ * en este archivo. O sea que la landing le enseñaba a quien está por
+ * pagar una pantalla que no va a encontrar al entrar.
+ *
+ * La gráfica REAL del panel es otra y está en `metricas.tsx:216-238`:
+ * «Crecimiento / Clientes nuevos por semana», ocho semanas, con el
+ * total a la derecha del encabezado y la semana en cero dibujada al
+ * 28 % de opacidad en vez de borrada —«un mes con tres semanas en cero
+ * es un dato»—. Eso es lo que se muestra ahora.
+ *
+ * Los números son de ejemplo (el negocio es ficticio, y el pie lo
+ * dice), pero la PANTALLA es la que existe.
+ */
+const SEMANAS_NUEVOS = [
+  { etiqueta: "S1", nuevos: 3 },
+  { etiqueta: "S2", nuevos: 5 },
+  { etiqueta: "S3", nuevos: 0 },
+  { etiqueta: "S4", nuevos: 7 },
+  { etiqueta: "S5", nuevos: 6 },
+  { etiqueta: "S6", nuevos: 11 },
+  { etiqueta: "S7", nuevos: 9 },
+  { etiqueta: "S8", nuevos: 14 },
 ];
-const MAX_SEMANA = Math.max(...VENTAS_SEMANA.map((d) => d.miles));
+const MAX_SEMANA = Math.max(...SEMANAS_NUEVOS.map((d) => d.nuevos));
+const TOTAL_NUEVOS = SEMANAS_NUEVOS.reduce((s, d) => s + d.nuevos, 0);
 
 const PAQUETE_EJEMPLO = {
   nombre: "Impulso",
@@ -153,7 +187,7 @@ export default function MockupPanelNegocio() {
 
 function VistaInicio() {
   const [animar, setAnimar] = useState(false);
-  const [reducido] = useState(movimientoReducido);
+  const reducido = useMovimientoReducido();
   useEffect(() => {
     const t = setTimeout(() => setAnimar(true), 30);
     return () => clearTimeout(t);
@@ -271,7 +305,7 @@ function VistaClientes() {
 
 function VistaMetricas() {
   const [animar, setAnimar] = useState(false);
-  const [reducido] = useState(movimientoReducido);
+  const reducido = useMovimientoReducido();
   useEffect(() => {
     const t = setTimeout(() => setAnimar(true), 30);
     return () => clearTimeout(t);
@@ -279,39 +313,58 @@ function VistaMetricas() {
 
   return (
     <>
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#8a91a4]">
-        Ventas de la semana
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-[#8a91a4]">
+          Crecimiento
+        </p>
+        {/* El total a la derecha del encabezado, como en la pantalla
+            real: el dato que resume la gráfica no debería obligar a
+            sumar ocho barras con la vista. */}
+        <p className="text-[11px] font-bold text-[#8a91a4]">{TOTAL_NUEVOS} en 8 semanas</p>
+      </div>
+      <p className="mt-0.5 text-[15px] font-extrabold text-[#0d1733]">
+        Clientes nuevos por semana
       </p>
 
       <div className="mt-4 flex items-end justify-between gap-2 rounded-2xl border border-[#e9ecf3] bg-[#f9fafc] px-4 pb-3 pt-5 sm:px-5">
-        {VENTAS_SEMANA.map((d, i) => (
-          <div key={d.dia} className="flex flex-1 flex-col items-center gap-1.5">
-            <p className="text-[9.5px] font-extrabold tabular-nums text-[#0d1733]">₡{d.miles}k</p>
+        {SEMANAS_NUEVOS.map((d, i) => (
+          <div key={d.etiqueta} className="flex flex-1 flex-col items-center gap-1.5">
+            <p className="text-[9.5px] font-extrabold tabular-nums text-[#0d1733]">
+              {d.nuevos || ""}
+            </p>
+            {/* ── LA BARRA CRECE CON `scaleY`, NO CON `height` ────────
+                Animar `height` obliga al navegador a rehacer el layout
+                en CADA fotograma, y ese es el mismo hilo que atiende
+                los clics: ocho barras animando alto a la vez es
+                exactamente lo que hunde el INP. `transform` corre en el
+                compositor y no toca layout.
+
+                `transformOrigin: bottom` es lo que hace que crezca
+                desde abajo en vez de desde el centro.
+
+                Y el `scale` acá es seguro —a diferencia del que
+                desenfocaba texto— porque la barra es un rectángulo de
+                color plano, sin una letra adentro que resamplear. */}
             <div className="flex h-24 w-full items-end overflow-hidden rounded-md bg-[#e9ecf3]">
               <div
-                className="w-full rounded-md ease-out"
+                className="w-full origin-bottom rounded-md ease-out"
                 style={{
-                  height: animar ? `${(d.miles / MAX_SEMANA) * 100}%` : "0%",
-                  transition: reducido ? "none" : "height 700ms",
+                  height: `${Math.max(6, (d.nuevos / MAX_SEMANA) * 100)}%`,
+                  transform: animar ? "scaleY(1)" : "scaleY(0)",
+                  transition: reducido ? "none" : "transform 700ms",
                   transitionDelay: reducido ? "0ms" : `${i * 70}ms`,
-                  background: d.miles === MAX_SEMANA ? "var(--orange)" : "var(--accion)",
+                  background: d.nuevos === MAX_SEMANA ? "var(--orange)" : "var(--accion)",
+                  // La semana sin afiliados NO se borra: se deja su
+                  // hueco, atenuada. Es el mismo criterio que la
+                  // pantalla real — un mes con semanas en cero es un
+                  // dato, no un vacío que haya que esconder.
+                  opacity: d.nuevos ? 1 : 0.28,
                 }}
               />
             </div>
-            <p className="text-[10px] font-bold text-[#8a91a4]">{d.dia}</p>
+            <p className="text-[10px] font-bold text-[#8a91a4]">{d.etiqueta}</p>
           </div>
         ))}
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2.5">
-        <div className="rounded-2xl border border-[#edf0f5] bg-[#f9fafc] p-3.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-[#8a91a4]">Mejor día</p>
-          <p className="mt-0.5 text-[15px] font-extrabold text-[#0d1733]">Sábado · ₡52.000</p>
-        </div>
-        <div className="rounded-2xl border border-[#edf0f5] bg-[#f9fafc] p-3.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-[#8a91a4]">Promedio diario</p>
-          <p className="mt-0.5 text-[15px] font-extrabold text-[#0d1733]">₡30.000</p>
-        </div>
       </div>
     </>
   );
@@ -357,10 +410,11 @@ function Cifra({ kpi, animar }: { kpi: Kpi; animar: boolean }) {
   // Inicializador perezoso: con movimiento reducido el valor final ya
   // nace puesto, así que el efecto de abajo no necesita un setState
   // síncrono para "saltar" — solo se queda quieto.
-  const [valor, setValor] = useState(() => (movimientoReducido() ? kpi.valor : 0));
+  const reducido = useMovimientoReducido();
+  const [valor, setValor] = useState(() => (reducido ? kpi.valor : 0));
 
   useEffect(() => {
-    if (!animar || movimientoReducido()) return;
+    if (!animar || reducido) return;
     const inicio = performance.now();
     const DURACION_MS = 900;
     let cuadro: number;
@@ -372,7 +426,12 @@ function Cifra({ kpi, animar }: { kpi: Kpi; animar: boolean }) {
     };
     cuadro = requestAnimationFrame(paso);
     return () => cancelAnimationFrame(cuadro);
-  }, [animar, kpi.valor]);
+    // `reducido` entra en la lista: ahora es estado de verdad (viene de
+    // `useSyncExternalStore`), así que si alguien enciende «menos
+    // movimiento» con la página abierta, el contador tiene que dejar de
+    // correr. Con la copia local capturada en un `useState` eso no
+    // pasaba nunca.
+  }, [animar, kpi.valor, reducido]);
 
   return (
     <>

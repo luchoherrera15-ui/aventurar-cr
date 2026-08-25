@@ -18,7 +18,6 @@ import {
   IconUsers,
 } from "@/components/icons";
 import PreciosCatalogo from "./precios-catalogo";
-import Reel from "./reel";
 import RielEjemplos from "./riel-ejemplos";
 
 /**
@@ -166,8 +165,19 @@ export default function InvitacionesLanding() {
         </div>
       </section>
 
-      {/* ================= LA SECUENCIA ================= */}
-      <Reel claseSerif={cormorant.className} />
+      {/* ⚠️ ACÁ IBA `<Reel>` — «Del link de tu invitado a tu lista de
+          confirmados», el teléfono con la invitación y el panel en vivo
+          debajo. Lo sacó el dueño (ago 2026).
+
+          El componente NO se borró: `reel.tsx` y `reel.css` siguen
+          enteros, solo dejaron de montarse acá — el mismo criterio que
+          se usó en la portada con «Explorá Bookea» y la franja de
+          rubros. Volver a ponerlo es descomentar una línea.
+
+          Ojo si se retira definitivamente: `page.tsx` importa
+          `./reel.css` por separado (línea 7) y carga la fuente
+          `cormorant` que este componente usaba. Las dos se quedan
+          porque el riel de ejemplos de más abajo también las usa. */}
 
       {/* ================= EJEMPLOS REALES ================= */}
       <section id="ejemplos" className="scroll-mt-8 px-5 py-24 sm:px-8">

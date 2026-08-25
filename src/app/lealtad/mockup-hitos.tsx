@@ -127,7 +127,7 @@ export default function MockupHitos() {
           {/* La notificación del hito: mismo marco que mockup-anuncios,
               con el ícono e ícono del hito que corresponde. */}
           <div
-            className={`mx-3 mt-7 rounded-[18px] bg-white/95 p-3.5 backdrop-blur-xl transition-all duration-500 ${
+            className={`mx-3 mt-7 rounded-[18px] bg-white/95 p-3.5 transition-[transform,opacity] duration-500 ${
               notificacionVisible ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0"
             }`}
             style={{ boxShadow: "0 14px 34px rgba(10,18,38,.25)" }}

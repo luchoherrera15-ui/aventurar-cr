@@ -62,7 +62,19 @@ export default function PreciosCatalogo({
 }: {
   colonesPorUSD: number;
 }) {
-  const [verPacks, setVerPacks] = useState(false);
+  /**
+   * ABIERTO DE ENTRADA (pedido del dueño, ago 2026).
+   *
+   * Arrancaba cerrado, y eso escondía justo lo que más conviene mostrar:
+   * los packs son las combinaciones con descuento —invitación + álbum
+   * por menos que por separado—, o sea la oferta que hace que alguien
+   * compare y compre. Detrás de un botón, quien llega a #paquetes veía
+   * solo los productos sueltos y se iba sin enterarse de que existían.
+   *
+   * El botón se queda: sirve para PLEGARLOS cuando estorban. Lo que
+   * cambió es de qué lado empieza.
+   */
+  const [verPacks, setVerPacks] = useState(true);
 
   const enColones = (usd: number) =>
     "₡" + (Math.round((usd * colonesPorUSD) / 100) * 100).toLocaleString("es-CR");

@@ -109,10 +109,21 @@ export default function MockupAnuncios() {
 
           <div className="mt-4 flex items-center justify-between gap-3">
             <p className="text-[11px] font-bold leading-snug text-[#8a91a4]">
+              {/* ⚠️ ACÁ DECÍA «✓ Enviado — ya está en sus teléfonos».
+                  Eso afirma la ENTREGA, y la entrega no se puede
+                  prometer: el aviso viaja por el servicio de Wallet de
+                  Apple y de Google, que lo pueden demorar o descartar
+                  —el teléfono apagado, sin datos, o el sistema
+                  decidiendo que ya hubo demasiados—. El producto se
+                  prohibió esa afirmación en su propio flujo justamente
+                  por eso, y la landing la seguía haciendo.
+
+                  Lo que SÍ es cierto es que el anuncio salió. La
+                  diferencia entre «se envió» y «está en sus teléfonos»
+                  es la que separa una promesa que se cumple de una que
+                  depende de terceros. */}
               {enviado ? (
-                <span style={{ color: "var(--accion)" }}>
-                  ✓ Enviado — ya está en sus teléfonos
-                </span>
+                <span style={{ color: "var(--accion)" }}>✓ Anuncio enviado</span>
               ) : (
                 "Va a los clientes con tu tarjeta"
               )}
@@ -158,7 +169,7 @@ export default function MockupAnuncios() {
             {/* La notificación: llega deslizándose cuando el panel la
                 envía, y se retira cuando el loop reinicia. */}
             <div
-              className={`mx-3 mt-9 rounded-[18px] bg-white/95 p-3.5 backdrop-blur-xl transition-all duration-500 ${
+              className={`mx-3 mt-9 rounded-[18px] bg-white/95 p-3.5 transition-[transform,opacity] duration-500 ${
                 notificacionVisible ? "translate-y-0 opacity-100" : "-translate-y-10 opacity-0"
               }`}
               style={{ boxShadow: "0 14px 34px rgba(10,18,38,.25)" }}
