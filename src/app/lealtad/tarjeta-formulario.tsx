@@ -548,11 +548,26 @@ export default function TarjetaFormulario({
   // verdad — una sección visible a la vez, con "Siguiente"/"Atrás" — y
   // la lista de pasos varía por `modo` exactamente con el mismo criterio
   // que antes decidía qué sección existía.
+  /**
+   * ⚠️ LA CUENTA VA PRIMERO (pedido del dueño, ago 2026).
+   *
+   * Estaba en cuarto lugar: se armaba la tarjeta entera —negocio,
+   * programa, colores, logo— y recién al final aparecía «creá tu
+   * cuenta». Quien no quería crear una descubría el peaje después de
+   * haber hecho todo el trabajo, que es el peor momento posible para
+   * enterarse.
+   *
+   * Ahora se pide de entrada y se explica qué cuesta: un correo, el
+   * nombre y un teléfono. Y a partir de ahí el flujo sigue igual que
+   * siempre.
+   *
+   * El paso solo existe si no hay sesión: quien ya entró no ve nada.
+   */
   const pasos = [
+    ...(esPublico && !haySesion ? ["cuenta"] : []),
     "negocio",
     "programa",
     "apariencia",
-    ...(esPublico && !haySesion ? ["cuenta"] : []),
     ...(!esEditar ? ["revisar"] : []),
   ] as const;
   const [paso, setPaso] = useState(0);
@@ -1024,12 +1039,48 @@ export default function TarjetaFormulario({
           )}
 
           {esPasoCuenta && (
-            <Seccion numero={paso + 1} titulo="Tu cuenta" bajada="Un correo y un código — sin contraseñas." primera>
+            <Seccion
+              numero={paso + 1}
+              titulo="Tu cuenta"
+              bajada="Empezá por acá: es lo único que hace falta antes de armar la tarjeta."
+              primera
+            >
+              {/* La explicación va ANTES del formulario y no adentro:
+                  ahora este es el PRIMER paso, y quien recién llega
+                  necesita saber qué le van a pedir antes de decidir si
+                  sigue. Enterarse a mitad de camino es lo que hacía que
+                  este paso se sintiera un peaje. */}
+              <ul className="mb-5 space-y-2">
+                {[
+                  "Tu correo — te llega un código, no hay contraseñas que recordar.",
+                  "Tu nombre, para que la tarjeta quede a tu nombre.",
+                  "Un teléfono, para poder avisarte si algo pasa con tu programa.",
+                ].map((linea) => (
+                  <li
+                    key={linea}
+                    className="flex items-start gap-2.5 text-[13px] leading-relaxed text-bookea-tinta"
+                  >
+                    <span
+                      aria-hidden
+                      className="mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
+                      style={{ background: "var(--accion)" }}
+                    >
+                      ✓
+                    </span>
+                    {linea}
+                  </li>
+                ))}
+              </ul>
+              <p className="mb-5 text-[12.5px] leading-relaxed text-bookea-gris">
+                Si ya tenés cuenta en Bookea, con el correo entrás directo — no
+                se te pide nada más.
+              </p>
+
               <div className="-mx-1">
                 <FormularioAuth
                   destino={ANCLA}
-                  titulo="Ya casi — creá tu cuenta"
-                  intro="Con eso queda a tu nombre. Escribí tu correo: si ya tenés cuenta entrás directo, y si es tu primera vez, con tu nombre alcanza. Tu tarjeta queda tal como la armaste."
+                  titulo="Creá tu cuenta"
+                  intro="Escribí tu correo. Si es tu primera vez te pedimos el nombre y un teléfono; si ya tenés cuenta, entrás directo."
                 />
               </div>
             </Seccion>
