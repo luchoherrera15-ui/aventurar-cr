@@ -90,15 +90,24 @@ export default function RanchoDetalleScreen() {
         .select("rancho_id, promedio, total")
         .eq("rancho_id", fila.id)
         .maybeSingle(),
-      supabase
-        .from("resenas")
-        .select("id, rancho_id, cliente_id, reserva_id, calificacion, comentario, created_at")
-        .eq("rancho_id", fila.id)
-        .order("created_at", { ascending: false })
-        .limit(6),
+      /* LAS RESEÑAS VAN POR EL SERVIDOR Y NO POR SUPABASE.
+         La tabla `resenas` sí se lee con la anon key, pero `perfiles`
+         NO —«permission denied»— así que por acá el nombre de quien
+         escribió es inalcanzable y las reseñas salían firmadas «Cliente
+         verificado» a secas. `/api/resenas` hace los dos pasos con la
+         llave de servicio y devuelve solo lo que se pinta: estrellas,
+         comentario, fecha y nombre. Ni el `cliente_id` viaja.
+
+         Si el endpoint falla, se queda sin reseñas en vez de tumbar la
+         ficha entera: el negocio importa más que su sección de
+         opiniones. */
+      fetch(`${SITIO_URL}/api/resenas?ranchoId=${fila.id}`)
+        .then((r) => r.json())
+        .catch(() => ({ ok: false })),
     ]);
     setCalificacion((califData as CalificacionRancho | null) ?? null);
-    setResenas((resenasData ?? []) as Resena[]);
+    const respuesta = resenasData as { ok?: boolean; resenas?: Resena[] };
+    setResenas(respuesta?.ok ? (respuesta.resenas ?? []) : []);
 
     if (fila.categoria !== "lugares") return;
 
@@ -551,8 +560,20 @@ export default function RanchoDetalleScreen() {
                   {r.comentario ? (
                     <Text style={styles.resenaComentario}>{r.comentario}</Text>
                   ) : null}
+                  {/* EL NOMBRE DE QUIEN LA ESCRIBIÓ. Acá decía «Cliente
+                      verificado» a secas, y no por elección: el teléfono
+                      lee con la anon key, y `perfiles` le responde
+                      «permission denied» — tenía el `cliente_id` y
+                      ninguna forma de convertirlo en un nombre. Ahora lo
+                      resuelve el servidor (`/api/resenas`), que es el
+                      único que puede.
+
+                      «verificado» se queda pegado al nombre y no es
+                      decoración: `resenas.reserva_id` es NOT NULL y
+                      único, o sea que no existe una reseña que no
+                      cuelgue de una reserva real. */}
                   <Text style={styles.resenaMeta}>
-                    Cliente verificado ·{" "}
+                    {r.autor} · Reserva verificada ·{" "}
                     {new Date(r.created_at).toLocaleDateString("es-CR", {
                       timeZone: "America/Costa_Rica",
                       month: "long",

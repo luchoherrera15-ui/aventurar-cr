@@ -65,7 +65,14 @@ type Miembro = {
   bio: string | null;
   titulos: string | null;
 };
-type Resena = { calificacion: number; comentario: string | null; created_at: string | null };
+/** Lo que devuelve `/api/resenas` — no la fila de la tabla. Ver el
+ *  comentario de la consulta y el tipo `Resena` de `@/lib/types`. */
+type Resena = {
+  calificacion: number;
+  comentario: string | null;
+  created_at: string;
+  autor: string;
+};
 
 /** Fila de la vista `estadisticas_miembro_citas` (0192): cuántas
  * citas atendió cada persona y cuántos clientes distintos, en
@@ -160,12 +167,19 @@ export default function NegocioCitasScreen() {
         .select("promedio, total")
         .eq("rancho_id", id)
         .maybeSingle(),
-      supabase
-        .from("resenas")
-        .select("calificacion, comentario, created_at")
-        .eq("rancho_id", id)
-        .order("created_at", { ascending: false })
-        .limit(6),
+      /* LAS RESEÑAS VAN POR EL SERVIDOR. `resenas` sí se lee con la
+         anon key, pero `perfiles` NO —«permission denied»— así que por
+         Supabase directo el nombre de quien escribió es inalcanzable.
+         Acá ni siquiera se mostraba fecha: solo estrellas y comentario,
+         sin decir quién ni cuándo. `/api/resenas` hace los dos pasos
+         con la llave de servicio. Ver `rancho/[id].tsx`, que tiene el
+         mismo arreglo.
+
+         Si falla, la ficha se queda sin reseñas en vez de caerse: el
+         negocio importa más que su sección de opiniones. */
+      fetch(`${SITIO_URL}/api/resenas?ranchoId=${id}`)
+        .then((res) => res.json())
+        .catch(() => ({ ok: false })),
       // El orden de las secciones (0119). El teléfono puede estar contra
       // una base sin la migración: ahí esto viene con error y las
       // secciones salen como vengan los servicios, igual que antes.
@@ -191,7 +205,8 @@ export default function NegocioCitasScreen() {
     setItems((i.data ?? []) as Servicio[]);
     setEquipo((e.data ?? []) as Miembro[]);
     setCalif((c.data ?? null) as { promedio: number; total: number } | null);
-    setResenas((r.data ?? []) as Resena[]);
+    const resp = r as { ok?: boolean; resenas?: Resena[] };
+    setResenas(resp?.ok ? (resp.resenas ?? []) : []);
     setOrdenSecciones(((sec.data ?? []) as { nombre: string }[]).map((s) => s.nombre));
     setHorario(horarioDeDetalles(n.data?.detalles));
     // La 0192 puede no estar corrida todavía en alguna base contra la
@@ -575,6 +590,20 @@ export default function NegocioCitasScreen() {
                     ))}
                   </View>
                   {!!r.comentario && <Text style={styles.resenaTexto}>{r.comentario}</Text>}
+                  {/* QUIÉN Y CUÁNDO. Antes no salía ninguno de los dos:
+                      una reseña sin firma ni fecha se lee como texto de
+                      relleno, no como la opinión de una persona que
+                      estuvo ahí. «Reserva verificada» no es adorno:
+                      `resenas.reserva_id` es NOT NULL y único, así que
+                      no existe reseña sin una reserva real detrás. */}
+                  <Text style={styles.resenaMeta}>
+                    {r.autor} · Reserva verificada ·{" "}
+                    {new Date(r.created_at).toLocaleDateString("es-CR", {
+                      timeZone: "America/Costa_Rica",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -995,6 +1024,7 @@ const styles = StyleSheet.create({
   notaGrandeTotal: { color: Colors.accent, fontFamily: Fonts.bold },
   resena: { gap: 6 },
   resenaTexto: { color: Colors.ink, fontFamily: Fonts.medium, fontSize: 14.5, lineHeight: 21 },
+  resenaMeta: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12 },
   plegable: {
     alignItems: "center",
     flexDirection: "row",

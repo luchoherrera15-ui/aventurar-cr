@@ -222,11 +222,19 @@ export default function ReservasScreen({ activa = true }: { activa?: boolean }) 
                     ? () => setResenaAbierta(r)
                     : undefined
                 }
-                onCancelar={
-                  r.estado === "pendiente" || r.estado === "confirmada"
-                    ? () => setCancelarAbierta(r)
-                    : undefined
-                }
+                /* ── SIN «Cancelar reserva» EN EL HISTORIAL ──────────
+                   Acá había el mismo `onCancelar` que la lista de «En
+                   curso», y eso dejaba cancelar algo que YA PASÓ: una
+                   reserva `confirmada` con fecha de ayer cae en este
+                   historial (ver el filtro de arriba: entra por estado
+                   final O por fecha vencida) y seguía mostrando el
+                   botón en rojo.
+
+                   No lleva condición porque no hace falta: TODO lo que
+                   está en esta lista o terminó en un estado final o ya
+                   pasó de fecha, y ninguno de los dos se cancela. Lo
+                   que sí queda es «Dejá tu reseña», que es lo que de
+                   verdad se hace con una reserva cumplida. */
               />
             ))}
           </Seccion>

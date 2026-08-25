@@ -392,14 +392,23 @@ export type Favorito = {
   created_at: string;
 };
 
+/**
+ * Una reseña, tal como la devuelve `/api/resenas`.
+ *
+ * ⚠️ NO es la fila de la tabla. El endpoint recorta a propósito: no
+ * viajan `cliente_id`, `reserva_id` ni el correo — solo lo que se
+ * pinta. Lo que no viaja no se puede filtrar desde el teléfono.
+ *
+ * `autor` es el nombre de quien la escribió, resuelto en el servidor:
+ * `perfiles` no se puede leer con la anon key, así que por Supabase
+ * directo este campo era inalcanzable y las reseñas salían sin firma.
+ */
 export type Resena = {
   id: string;
-  rancho_id: string;
-  cliente_id: string;
-  reserva_id: string;
   calificacion: number;
   comentario: string | null;
   created_at: string;
+  autor: string;
 };
 
 /** Vista `calificaciones_rancho`: promedio + cantidad, una fila por rancho. */
