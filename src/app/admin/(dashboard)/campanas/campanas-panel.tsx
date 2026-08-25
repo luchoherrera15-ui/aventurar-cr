@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { enviarCampana, type ResultadoCampana } from "./actions";
+import CompositorPlantilla from "./compositor-plantilla";
 
 export type PerfilCampana = {
   id: string;
@@ -37,6 +38,8 @@ export default function CampanasPanel({
   const [busqueda, setBusqueda] = useState("");
   const [rolFiltro, setRolFiltro] = useState<RolFiltro>("todos");
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
+  /** Qué compositor se está usando. Arranca en el nuevo. */
+  const [modo, setModo] = useState<"plantilla" | "libre">("plantilla");
 
   const [asunto, setAsunto] = useState("");
   const [titulo, setTitulo] = useState("");
@@ -247,7 +250,52 @@ export default function CampanasPanel({
         <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-navy before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-navy">
           Compositor
         </p>
-        <h3 className="mt-1 text-[15.5px] font-bold text-aventurea-ink">
+
+        {/* ── DOS MODOS, Y LOS DOS SIRVEN ────────────────────────────
+            «Plantilla» es el camino nuevo (ago 2026): un mensaje ya
+            redactado, con el mockup del pase y vista previa antes de
+            mandar. «Libre» es el compositor de siempre — para un aviso
+            puntual, escribir tres campos es más rápido que editar una
+            plantilla, así que no se borró. */}
+        <div
+          role="group"
+          aria-label="Modo del compositor"
+          className="mt-3 inline-flex rounded-xl border border-aventurea-line bg-aventurea-cream-2 p-1"
+        >
+          {(
+            [
+              { key: "plantilla", label: "Plantilla" },
+              { key: "libre", label: "Libre" },
+            ] as const
+          ).map((m) => (
+            <button
+              key={m.key}
+              type="button"
+              onClick={() => setModo(m.key)}
+              aria-pressed={modo === m.key}
+              className={`rounded-lg px-4 py-1.5 text-[12.5px] font-bold transition-colors ${
+                modo === m.key
+                  ? "bg-aventurea-surface text-aventurea-ink shadow-sm"
+                  : "text-aventurea-ink-soft hover:text-aventurea-ink"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
+        {modo === "plantilla" ? (
+          <div className="mt-4">
+            <CompositorPlantilla
+              correosSeleccionados={perfiles
+                .filter((p) => seleccionados.has(p.id))
+                .map((p) => p.email)}
+              onEnviado={setResultado}
+            />
+          </div>
+        ) : (
+        <>
+        <h3 className="mt-4 text-[15.5px] font-bold text-aventurea-ink">
           Armar el correo
         </h3>
         <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
@@ -321,18 +369,6 @@ export default function CampanasPanel({
             </p>
           )}
 
-          {resultado && (
-            <p className="rounded-[10px] bg-aventurea-navy p-3.5 text-[13px] font-bold text-white">
-              Campaña enviada: {resultado.enviados} enviado
-              {resultado.enviados === 1 ? "" : "s"} · {resultado.fallidos}{" "}
-              fallido{resultado.fallidos === 1 ? "" : "s"}
-              {(resultado.excluidos ?? 0) > 0
-                ? ` · ${resultado.excluidos} fuera por baja o rebote`
-                : ""}
-              .
-            </p>
-          )}
-
           <button
             type="button"
             disabled={enviando}
@@ -350,6 +386,22 @@ export default function CampanasPanel({
             </p>
           )}
         </div>
+        </>
+        )}
+
+        {/* El resultado vive FUERA de los dos modos: lo que se acaba de
+            mandar hay que verlo aunque el compositor cambie de pestaña. */}
+        {resultado && (
+          <p className="mt-4 rounded-[10px] bg-aventurea-navy p-3.5 text-[13px] font-bold text-white">
+            Campaña enviada: {resultado.enviados} enviado
+            {resultado.enviados === 1 ? "" : "s"} · {resultado.fallidos}{" "}
+            fallido{resultado.fallidos === 1 ? "" : "s"}
+            {(resultado.excluidos ?? 0) > 0
+              ? ` · ${resultado.excluidos} fuera por baja o rebote`
+              : ""}
+            .
+          </p>
+        )}
       </section>
     </div>
   );
