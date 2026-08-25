@@ -13,7 +13,7 @@ import {
   LISTA_MODELOS,
   MODELOS,
   preciosVigentes,
-  type AgenteIA,
+  type AgenteConfigurable,
   type ModeloIA,
 } from "@/lib/ia/modelos";
 
@@ -42,7 +42,7 @@ export type ConsumoAgente = {
 
 export type ConfigIaPanel = {
   activa: boolean;
-  modelos: Record<AgenteIA, ModeloIA>;
+  modelos: Record<AgenteConfigurable, ModeloIA>;
   topeMensualUSD: number;
   tipoCambio: number;
 };
@@ -52,7 +52,7 @@ export type ConfigIaPanel = {
  * invitación entera y el lector de agenda interpreta un texto o una
  * foto. Con un modelo que no razona la calidad se nota enseguida.
  */
-const AGENTES_QUE_NECESITAN_RAZONAR: AgenteIA[] = ["invitacion_generar", "agenda_leer"];
+const AGENTES_QUE_NECESITAN_RAZONAR: AgenteConfigurable[] = ["invitacion_generar", "agenda_leer"];
 
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
@@ -92,7 +92,7 @@ export default function ModelosPanel({
   fechaISO,
 }: {
   config: ConfigIaPanel;
-  consumo: Record<AgenteIA, ConsumoAgente>;
+  consumo: Record<AgenteConfigurable, ConsumoAgente>;
   diasConsumo: number;
   /** true si el consumo salió de filas acotadas y no de la agregación. */
   consumoAproximado: boolean;
@@ -107,7 +107,7 @@ export default function ModelosPanel({
    */
   fechaISO: string;
 }) {
-  const [modelos, setModelos] = useState<Record<AgenteIA, ModeloIA>>(config.modelos);
+  const [modelos, setModelos] = useState<Record<AgenteConfigurable, ModeloIA>>(config.modelos);
   const [activa, setActiva] = useState(config.activa);
   const [tope, setTope] = useState(String(config.topeMensualUSD));
   const [tipoCambio, setTipoCambio] = useState(String(config.tipoCambio));

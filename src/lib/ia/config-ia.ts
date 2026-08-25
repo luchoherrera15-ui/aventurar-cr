@@ -4,7 +4,7 @@ import {
   normalizarModelo,
   TIPO_CAMBIO_POR_DEFECTO,
   tipoCambioDeEntorno,
-  type AgenteIA,
+  type AgenteConfigurable,
   type ModeloIA,
 } from "./modelos";
 
@@ -20,7 +20,7 @@ import {
 
 export interface ConfigIA {
   activa: boolean;
-  modelos: Record<AgenteIA, ModeloIA>;
+  modelos: Record<AgenteConfigurable, ModeloIA>;
   topeMensualUSD: number;
   tipoCambio: number;
 }
@@ -130,7 +130,7 @@ export async function leerConfigIA(): Promise<ConfigIA> {
 }
 
 /** El modelo configurado para un agente, sin tener que leer todo. */
-export async function modeloDe(agente: AgenteIA): Promise<ModeloIA> {
+export async function modeloDe(agente: AgenteConfigurable): Promise<ModeloIA> {
   const config = await leerConfigIA();
   return config.modelos[agente];
 }

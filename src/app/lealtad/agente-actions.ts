@@ -1,7 +1,8 @@
 "use server";
 
 import { GeminiProvider } from "@/lib/ia/gemini-provider";
-import type { TurnoIA } from "@/lib/ia/ai-provider";
+import type { TurnoIA, UsoIAProveedor } from "@/lib/ia/ai-provider";
+import { registrarUsoIA } from "@/lib/ia/registrar-uso";
 import { avisarAAdministradores, correosDeAdministradores } from "@/lib/correo/administradores";
 import { escaparHtml } from "@/lib/email";
 
@@ -22,13 +23,23 @@ import { escaparHtml } from "@/lib/email";
  * no el lugar para un modelo caro.
  *
  * ------------------------------------------------------------------
- * SIN TABLA, SIN COSTEO — a propósito, mismo criterio que `contacto-actions.ts`
+ * EL GASTO SÍ SE AUDITA (ago 2026) — pedido del dueño
  * ------------------------------------------------------------------
- * Nadie audita el gasto de este chat en el panel de IA (`uso_ia`,
- * `modelos.ts`/`AGENTES`): meterlo ahí exige un `AgenteIA` nuevo y una
- * migración que amplíe el CHECK de la columna `agente`, para un chat
- * capado a 10 mensajes por visitante anónimo. Si el volumen lo
- * justifica más adelante, se agrega — no antes.
+ * Cada llamada escribe su fila en `uso_ia` con el agente
+ * `lealtad_chat`, así que el gasto de este chat aparece en /admin/ia
+ * junto al del resto de la plataforma.
+ *
+ * El comentario que estaba acá antes decía que meterlo al panel exigía
+ * "una migración que amplíe el CHECK de la columna `agente`". ESO ERA
+ * FALSO: `uso_ia.agente` es `text not null` SIN check constraint, y la
+ * 0078 explica por qué a propósito (un agente mal escrito tiene que
+ * entrar igual y verse raro en el panel; con check, el insert fallaría
+ * y el gasto quedaría INVISIBLE, justo lo que la tabla viene a
+ * arreglar). No hizo falta ninguna migración.
+ *
+ * Lo que sí hizo falta fue separar `AgenteConfigurable` de `AgenteIA`
+ * en modelos.ts: este agente gasta y se muestra, pero su modelo NO se
+ * elige desde el panel — ver el comentario de esos tipos.
  *
  * ------------------------------------------------------------------
  * EL TOPE ES DE VERDAD ACÁ, NO SOLO EN EL CLIENTE
@@ -87,6 +98,7 @@ export async function responderAgenteLealtad(historial: MensajeChat[]): Promise<
   }));
 
   const provider = new GeminiProvider(apiKey);
+  const arranque = Date.now();
   let resultado;
   try {
     resultado = await provider.generar({
@@ -94,10 +106,34 @@ export async function responderAgenteLealtad(historial: MensajeChat[]): Promise<
       maxTokens: MAX_TOKENS_RESPUESTA,
       system: SYSTEM_PROMPT,
       turnos,
+      // Ver el comentario de MODELO: sin esto son ~172 segundos de espera.
+      sinRazonamiento: true,
     });
   } catch (e) {
     console.error("[agente-actions] falló la llamada a Gemini:", e);
+    // Una excepción acá es red caída o DNS: la API nunca contestó, así
+    // que no hay tokens que cobrar y no se registra nada.
     return { ok: false, motivo: "No pude conectarme ahora. Probá de nuevo o escribinos por correo." };
+  }
+
+  /**
+   * SE REGISTRA ANTES DE CONTESTAR, Y EN TODOS LOS CAMINOS MENOS UNO.
+   *
+   * Los tokens ya se gastaron y Google ya los va a cobrar, así que una
+   * respuesta rechazada o cortada cuesta lo mismo que una buena. Si
+   * solo se registrara el `success`, el panel mostraría de menos
+   * justamente cuando algo anda mal — que es cuando más importa mirarlo.
+   *
+   * El único que no registra es `provider_error`, y no por criterio
+   * sino porque `ResultadoIA` no trae `usage` en ese caso (ver
+   * ai-provider.ts): no hay número que anotar.
+   *
+   * `void` a propósito: el visitante no espera a que se escriba la
+   * fila. `registrarUsoIA` ya se traga sus propios errores y nunca
+   * lanza, así que esto no puede tumbar una respuesta que ya está lista.
+   */
+  if (resultado.outcome !== "provider_error") {
+    void registrarDelChat(resultado.usage, resultado.outcome, Date.now() - arranque);
   }
 
   switch (resultado.outcome) {
@@ -113,6 +149,30 @@ export async function responderAgenteLealtad(historial: MensajeChat[]): Promise<
       console.error("[agente-actions] provider_error:", resultado.mensaje);
       return { ok: false, motivo: "No pude conectarme ahora. Probá de nuevo o escribinos por correo." };
   }
+}
+
+/**
+ * La fila de `uso_ia` de una llamada de este chat.
+ *
+ * Sin `usuarioId` ni `ranchoId` a propósito: quien usa este chat es una
+ * visita anónima de la landing, sin cuenta y sin negocio. Poner
+ * cualquier cosa ahí sería inventar una atribución.
+ */
+async function registrarDelChat(
+  usage: UsoIAProveedor | null,
+  outcome: string,
+  tiempoMs: number,
+): Promise<void> {
+  await registrarUsoIA({
+    agente: "lealtad_chat",
+    modelo: MODELO,
+    tokensInput: usage?.tokensEntrada ?? 0,
+    tokensOutput: usage?.tokensSalida ?? 0,
+    tokensCacheRead: usage?.tokensCacheLectura ?? 0,
+    tiempoMs,
+    exito: outcome === "success",
+    error: outcome === "success" ? null : outcome,
+  });
 }
 
 /**

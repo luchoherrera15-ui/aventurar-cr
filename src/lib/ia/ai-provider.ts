@@ -23,6 +23,22 @@ export type SolicitudIA = {
   maxTokens: number;
   system: string;
   turnos: TurnoIA[];
+  /**
+   * «No pienses, contestá» — para respuestas cortas donde razonar es
+   * puro costo y pura espera.
+   *
+   * NO ES UNA MICRO-OPTIMIZACIÓN. Los Gemini 3.x razonan por defecto, y
+   * ese razonamiento se cobra COMO SALIDA (la parte cara: $2,50 el
+   * millón contra $0,30 de entrada). Medido contra la API con el chat
+   * de la landing de Lealtad: **172 segundos** para una pregunta de una
+   * línea cuya respuesta son tres oraciones. El visitante daba el chat
+   * por muerto y se iba.
+   *
+   * Solo lo respeta `GeminiProvider` (`thinkingBudget: 0`).
+   * `ClaudeProvider` lo ignora: los modelos de Anthropic no razonan
+   * salvo que se les pida, así que acá no habría nada que apagar.
+   */
+  sinRazonamiento?: boolean;
 };
 
 /**

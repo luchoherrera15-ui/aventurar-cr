@@ -1,6 +1,6 @@
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { gastoDelMesUSD, leerConfigIA } from "@/lib/ia/config-ia";
-import { AGENTES, type AgenteIA } from "@/lib/ia/modelos";
+import { AGENTES, type AgenteConfigurable } from "@/lib/ia/modelos";
 import ConocimientoPanel, {
   type FilaConocimiento,
   type NegocioIA,
@@ -441,9 +441,9 @@ export default async function AdminIaPage({
         modelos: [] as { modelo: string; llamadas: number }[],
       },
     ]),
-  ) as Record<AgenteIA, ConsumoAgente>;
+  ) as Record<AgenteConfigurable, ConsumoAgente>;
   for (const r of filasConsumo) {
-    const acumulado = consumo[r.agente as AgenteIA];
+    const acumulado = consumo[r.agente as AgenteConfigurable];
     if (!acumulado) continue;
     acumulado.llamadas = r.llamadas;
     acumulado.tokensInput = r.tokensInput;

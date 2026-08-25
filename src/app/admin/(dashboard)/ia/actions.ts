@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { olvidarConfigIA } from "@/lib/ia/config-ia";
-import { AGENTES, esModeloValido, type AgenteIA, type ModeloIA } from "@/lib/ia/modelos";
+import { AGENTES, esModeloSeleccionable, type AgenteConfigurable, type ModeloIA } from "@/lib/ia/modelos";
 
 /**
  * Todo lo que se guarda desde /admin/ia. Ninguna acción lanza: siempre
@@ -16,7 +16,7 @@ const SIN_PERMISO = "No tenés permiso para esto.";
 
 export type DatosConfigIA = {
   activa: boolean;
-  modelos: Record<AgenteIA, ModeloIA>;
+  modelos: Record<AgenteConfigurable, ModeloIA>;
   topeMensualUSD: number;
   tipoCambio: number;
 };
@@ -40,11 +40,21 @@ export async function guardarConfigIA(datos: DatosConfigIA) {
     ia_tipo_cambio: tipoCambio,
   };
 
-  // Un modelo que no esté en el catálogo rompería cada llamada a la
-  // API: se rechaza acá y no llega nunca a la base.
+  /**
+   * Un modelo que no esté en el catálogo rompería cada llamada a la
+   * API: se rechaza acá y no llega nunca a la base.
+   *
+   * `esModeloSeleccionable` y NO `esModeloValido`: desde que el
+   * catálogo tiene un modelo de Gemini (para poder costear el chat de
+   * Lealtad), "válido" ya no significa "elegible". Estos agentes hablan
+   * con el SDK de Anthropic; aceptarles un id de Gemini —que
+   * `esModeloValido` daría por bueno, porque está en `MODELOS`— dejaría
+   * la configuración guardada y rompería esa llamada en la primera
+   * visita, sin que nada avise. Ver el comentario de `LISTA_MODELOS`.
+   */
   for (const agente of AGENTES) {
     const elegido = datos.modelos?.[agente.id];
-    if (!esModeloValido(elegido)) {
+    if (!esModeloSeleccionable(elegido)) {
       return { error: `El modelo elegido para "${agente.nombre}" no está en el catálogo.` };
     }
     payload[agente.columna] = elegido;

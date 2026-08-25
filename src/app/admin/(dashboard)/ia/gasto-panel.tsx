@@ -3,7 +3,6 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  AGENTES,
   esModeloValido,
   formatearAmbas,
   formatearCRC,
@@ -199,10 +198,20 @@ export default function GastoPanel({
   const cercaDelTope = topeMensualUSD > 0 && pctTope >= 80;
   const pasoElTope = topeMensualUSD > 0 && pctTope >= 100;
 
-  // Los agentes del catálogo, más los que aparezcan en los datos y ya
-  // no existan en el código (un nombre viejo, o uno mal escrito).
+  /**
+   * Los agentes del catálogo, más los que aparezcan en los datos y ya
+   * no existan en el código (un nombre viejo, o uno mal escrito).
+   *
+   * Sale de `NOMBRE_AGENTE` y NO de `AGENTES`, y la diferencia se ve:
+   * `AGENTES` es solo la lista de los CONFIGURABLES (los que tienen
+   * selector de modelo), así que un agente que gasta pero no se
+   * configura —hoy el chat de la landing de Lealtad— no habría
+   * aparecido en este filtro hasta tener su primera fila de gasto. Con
+   * `NOMBRE_AGENTE`, que cubre a todos por tipo, se puede filtrar por
+   * él desde el día uno y ver que va en cero.
+   */
   const agentesDelFiltro = useMemo(() => {
-    const conocidos = AGENTES.map((a) => a.id as string);
+    const conocidos = Object.keys(NOMBRE_AGENTE);
     const extras = [...new Set(resumenAgentes.map((a) => a.agente))].filter(
       (id) => !conocidos.includes(id),
     );

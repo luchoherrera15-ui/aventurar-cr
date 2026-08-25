@@ -72,14 +72,29 @@ const RAZONES_DE_RECHAZO = new Set<FinishReason>([
  *
  * `tokensCacheLectura` SÍ tiene equivalente real: `cachedContentTokenCount`
  * son los tokens del prompt que vinieron de una caché ya creada.
+ *
+ * ⚠️ `thoughtsTokenCount` SE SUMA A LA SALIDA, y no es un detalle
+ * contable: Gemini lo reporta APARTE y NO viene incluido en
+ * `candidatesTokenCount`, pero Google lo factura al precio de salida —
+ * el caro. Contando solo `candidatesTokenCount`, el panel de /admin
+ * mostraría un gasto MENOR AL REAL cada vez que el modelo razone, que
+ * en los Gemini 3.x es por defecto. Un panel de costos que subestima es
+ * peor que no tenerlo.
  */
 function usoGenerico(
-  usage: { promptTokenCount?: number; candidatesTokenCount?: number; cachedContentTokenCount?: number } | undefined,
+  usage:
+    | {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        cachedContentTokenCount?: number;
+        thoughtsTokenCount?: number;
+      }
+    | undefined,
 ): UsoIAProveedor | null {
   if (!usage) return null;
   return {
     tokensEntrada: usage.promptTokenCount ?? 0,
-    tokensSalida: usage.candidatesTokenCount ?? 0,
+    tokensSalida: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
     tokensCacheEscritura: null,
     tokensCacheLectura: usage.cachedContentTokenCount ?? null,
   };
@@ -103,7 +118,7 @@ export class GeminiProvider implements AIProvider {
     this.client = new GoogleGenAI({ apiKey });
   }
 
-  async generar({ modelo, maxTokens, system, turnos }: SolicitudIA): Promise<ResultadoIA> {
+  async generar({ modelo, maxTokens, system, turnos, sinRazonamiento }: SolicitudIA): Promise<ResultadoIA> {
     let respuesta;
     try {
       respuesta = await this.client.models.generateContent({
@@ -112,6 +127,17 @@ export class GeminiProvider implements AIProvider {
         config: {
           systemInstruction: system,
           maxOutputTokens: maxTokens,
+          /**
+           * `thinkingBudget: 0` es DISABLED en el SDK — el único valor
+           * que apaga el razonamiento (el `-1` es "automático", que es
+           * justamente lo que queremos evitar).
+           *
+           * Va condicional y no siempre: hay usos donde razonar vale la
+           * pena. Pero cuando el llamador pide `sinRazonamiento`, esto
+           * es lo que convierte 172 segundos en una respuesta normal —
+           * ver el comentario de `sinRazonamiento` en ai-provider.ts.
+           */
+          ...(sinRazonamiento ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
         },
       });
     } catch (e) {
