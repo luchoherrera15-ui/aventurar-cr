@@ -4,6 +4,7 @@ import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
 import { PLANES_VIGENTES } from "@/lib/lealtad/planes";
 import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
+import { IMAGEN_OG } from "@/lib/sitio";
 import NavLealtad from "./nav-lealtad";
 import BurbujaContacto from "./burbuja-contacto";
 import ConfiguradorLealtad from "./configurador-lealtad";
@@ -107,6 +108,16 @@ export const metadata: Metadata = {
       "Tarjetas de sellos, puntos, cupones y membresías en Apple Wallet y Google Wallet. Sin apps, sin contratos, sin tarjeta de crédito.",
     url: "/lealtad",
     type: "website",
+    // Sin esto la vista previa se quedaba SIN imagen: declarar un
+    // `openGraph` propio reemplaza el del layout raíz entero, y con él
+    // se va la que enchufa `opengraph-image.tsx`. Ver `IMAGEN_OG`.
+    images: [IMAGEN_OG],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Bookea Lealtad — Convertí compradores de un día en clientes de por vida",
+    description:
+      "Tarjetas de sellos, puntos, cupones y membresías en Apple Wallet y Google Wallet. Sin apps, sin contratos.",
   },
 };
 

@@ -7,6 +7,7 @@ import { Cormorant_Garamond } from "next/font/google";
 import "./reel.css";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
+import { IMAGEN_OG } from "@/lib/sitio";
 import {
   PRODUCTOS_INDIVIDUALES,
   tipoCambioUSD,
@@ -71,6 +72,7 @@ export const metadata: Metadata = {
     locale: "es_CR",
     siteName: "Bookea",
     type: "website",
+    images: [IMAGEN_OG],
   },
   twitter: {
     card: "summary_large_image",

@@ -28,3 +28,35 @@ export const SITIO = "https://www.bookea.lat";
 export function urlSitio(ruta: string): string {
   return ruta === "/" ? `${SITIO}/` : `${SITIO}${ruta.startsWith("/") ? ruta : `/${ruta}`}`;
 }
+
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  LA IMAGEN QUE SE VE AL COMPARTIR — hay que pedirla a mano
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * `src/app/opengraph-image.tsx` la dibuja, y Next la enchufa sola en
+ * las rutas que NO declaran su propio `openGraph`.
+ *
+ * ⚠️ EL PROBLEMA ES JUSTO ESE «NO». Una página que declara su bloque
+ * `openGraph` —para tener su propio título al compartirse— REEMPLAZA el
+ * del padre ENTERO, y con él se va la imagen. Verificado en producción:
+ * la portada emitía `og:image` y `/invitaciones`, que sí declaraba su
+ * bloque, no emitía ninguna. Facebook entonces vuelve a agarrar la
+ * primera foto que encuentre en la página — que es el problema que la
+ * imagen venía a resolver.
+ *
+ * Así que toda página con `openGraph` propio tiene que pasar
+ * `images: [IMAGEN_OG]`. Se declara acá y no se escribe a mano en cada
+ * una para que el día que cambie la ruta no haya que buscarlas.
+ *
+ * URL ABSOLUTA: los scrapers de Facebook y WhatsApp no resuelven rutas
+ * relativas. `metadataBase` del layout las arregla para las rutas
+ * relativas que Next genera, pero acá se manda completa y no depende de
+ * eso.
+ */
+export const IMAGEN_OG = {
+  url: urlSitio("/opengraph-image"),
+  width: 1200,
+  height: 630,
+  alt: "Bookea — Convertí cada interacción en una experiencia",
+} as const;
