@@ -335,7 +335,26 @@ export default function TableroModos({
                   : "Reservas, invitaciones y beneficios reunidos en tu cuenta Bookea."}
               </p>
             </div>
-            {!modoNegocio && (
+            {modoNegocio ? (
+              /* ── EN QUÉ MODO ESTÁS, DICHO ARRIBA A LA DERECHA ──────
+                 El único cartel que decía el modo era «Entrás como
+                 proveedor», al pie del menú lateral y en letra chica —
+                 fuera del campo de visión de quien mira el contenido. Y
+                 con el menú colapsado en el teléfono, directamente no se
+                 veía. Este va en el hueco que dejaba «Explorar», que en
+                 modo Negocio estaba vacío.
+
+                 No es un botón: es un ESTADO. Por eso no se puede
+                 clickear — para salir del modo está «Volver a mi perfil»
+                 en el menú, que es una acción de verdad. Un cartel de
+                 estado con pinta de botón manda a la gente a tocarlo. */
+              <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-aventurea-line bg-aventurea-surface px-3.5 py-2 text-[12.5px] font-bold text-aventurea-navy shadow-sm">
+                <span aria-hidden="true" className="text-aventurea-navy/70">
+                  <IconStore className="h-[15px] w-[15px]" />
+                </span>
+                Estás en modo Negocio
+              </span>
+            ) : (
               <Link href="/" className={BOTON_PANEL_PRIMARIO}>
                 <span aria-hidden="true">
                   <IconCompass className="h-[14px] w-[14px]" />

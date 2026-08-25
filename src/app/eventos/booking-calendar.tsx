@@ -799,7 +799,11 @@ export default function BookingCalendar({
   // mayúsculas): quien reserva no siempre es hábil con la tecnología.
   const inputCls =
     "w-full rounded-xl border border-aventurea-line bg-white px-3.5 py-2.5 text-[14px] text-aventurea-ink placeholder:text-zinc-400 focus:border-aventurea-navy focus:outline-none";
-  const labelCls = "mb-1.5 block text-[12.5px] font-bold text-aventurea-ink";
+  /* 14,5px y no 12,5: son las preguntas del formulario de reserva
+     —«Número de invitados», «Horario», «Tipo de evento»— y estaban más
+     chicas que el texto que las contesta. Una etiqueta que se lee menos
+     que su propio campo obliga a adivinar qué se está llenando. */
+  const labelCls = "mb-1.5 block text-[14.5px] font-bold text-aventurea-ink";
 
   // Dentro del modal de vidrio (compacto), elegir una fecha SWAPEA la
   // vista: el calendario se esconde y el formulario toma su lugar —

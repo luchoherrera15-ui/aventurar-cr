@@ -690,6 +690,138 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   LA AURORA LENTA — para pantallas que se MIRAN, no que se recorren
+   ═══════════════════════════════════════════════════════════════════
+
+   Pedido del dueño (ago 2026) para el login de Lealtad: «el mismo
+   sistema de blur que usamos en bookea.lat, pero que se mueva por la
+   pantalla lentamente».
+
+   Es la misma técnica de arriba —el desenfoque ES el radial-gradient, y
+   se anima ÚNICAMENTE `transform`— con dos diferencias deliberadas:
+
+   1. RECORRE MÁS Y TARDA MÁS. La del héroe deriva un 6-9 % en 23-31 s:
+      ahí el visitante pasa unos segundos y sigue scrolleando, así que
+      alcanza con que respire. En una pantalla de login la persona se
+      queda quieta esperando un código, y ese mismo movimiento corto se
+      vuelve un tic repetitivo. Acá el viaje es del 18-26 % en 48-67 s.
+
+   2. NO LLEVA MÁSCARA. `aurora-caja` se apaga hacia abajo porque en la
+      portada tiene que fundirse con el catálogo; acá la aurora ES el
+      fondo de la pantalla entera y cortarla dejaría una banda muerta.
+      Por eso `aurora-lienzo` en vez de `aurora-caja`.
+
+   Las duraciones siguen siendo primas entre sí (48/59/67) por el mismo
+   motivo que las de arriba: las fases no vuelven a coincidir en horas y
+   el ojo nunca encuentra el bucle. */
+
+@keyframes aurora-lenta-1 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(22%, 16%, 0) scale(1.18);
+  }
+}
+
+@keyframes aurora-lenta-2 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1.06);
+  }
+  50% {
+    transform: translate3d(-24%, 12%, 0) scale(0.9);
+  }
+}
+
+@keyframes aurora-lenta-3 {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(0.96);
+  }
+  33% {
+    transform: translate3d(18%, -20%, 0) scale(1.15);
+  }
+  66% {
+    transform: translate3d(-20%, -8%, 0) scale(0.98);
+  }
+}
+
+/* El lienzo: cubre a su contenedor entero, sin máscara. Mismas promesas
+   de rendimiento que `aurora-caja` (`contain`, `pointer-events:none`). */
+@utility aurora-lienzo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  contain: layout paint;
+  pointer-events: none;
+}
+
+/* `inset: -40%` y no `-22%`: estas manchas viajan el doble, así que
+   necesitan el doble de margen para que su centro nunca se acerque al
+   borde recortado — que es donde se vería el canto. */
+@utility aurora-mancha-lenta {
+  position: absolute;
+  inset: -40%;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.aurora-lenta-1 {
+  background: radial-gradient(
+    circle 820px at 22% 18%,
+    rgba(238, 116, 32, 0.22) 0%,
+    rgba(238, 116, 32, 0.1) 34%,
+    transparent 52%
+  );
+  animation: aurora-lenta-1 48s ease-in-out infinite;
+}
+
+.aurora-lenta-2 {
+  background: radial-gradient(
+    circle 760px at 78% 30%,
+    rgba(255, 150, 80, 0.2) 0%,
+    rgba(255, 150, 80, 0.08) 36%,
+    transparent 50%
+  );
+  animation: aurora-lenta-2 59s ease-in-out infinite;
+  animation-delay: -14s;
+}
+
+.aurora-lenta-3 {
+  background: radial-gradient(
+    circle 700px at 46% 86%,
+    rgba(157, 180, 255, 0.22) 0%,
+    rgba(157, 180, 255, 0.09) 38%,
+    transparent 50%
+  );
+  animation: aurora-lenta-3 67s ease-in-out infinite;
+  animation-delay: -25s;
+}
+
+@media (max-width: 639px) {
+  .aurora-lenta-3 {
+    display: none;
+  }
+}
+
+/* ⚠️ QUIETA, NO AUSENTE. Con `prefers-reduced-motion` la aurora se
+   queda PINTADA donde la deja su transform base — es la atmósfera de la
+   pantalla, no un adorno. Misma política que `.aurora-1/2/3`, y por eso
+   las tres keyframes arrancan y terminan en un transform que se ve bien
+   por sí solo. */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-lenta-1,
+  .aurora-lenta-2,
+  .aurora-lenta-3 {
+    animation: none;
+  }
+}
+
 /* ── LA ENTRADA DEL PANEL DEL MEGA MENÚ ────────────────────────────
    180ms y nada más: es un menú de navegación, no una escena. Más lento
    se siente pesado cuando alguien recorre las cinco puertas seguidas.
