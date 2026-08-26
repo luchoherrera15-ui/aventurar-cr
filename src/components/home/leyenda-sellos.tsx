@@ -57,7 +57,7 @@ export default function LeyendaSellos({
           <li className="flex items-center gap-2">
             <InsigniaVerificado estado="verificado" />
             <span className="text-[12.5px] text-aventurea-ink-soft">
-              Su dueño lo administra en Bookea.
+              Negocio real, confirmado por Bookea.
             </span>
           </li>
         )}
@@ -69,7 +69,7 @@ export default function LeyendaSellos({
                   el negocio todavía no está adentro. Un eufemismo acá
                   («aún no activo») dejaría a la persona igual de a
                   ciegas que sin leyenda. */}
-              Datos reales tomados de fuentes públicas. El negocio todavía no lo reclamó.
+              Ficha armada con datos de fuentes públicas. Nadie del negocio la confirmó.
             </span>
           </li>
         )}

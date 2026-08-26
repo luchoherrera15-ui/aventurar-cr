@@ -190,8 +190,8 @@ export default function RielesCatalogo({
   // sello que nadie va a ver: eso le enseña a la persona a buscar algo
   // que no existe. Se mira `pintables`, que es lo que se dibuja, y no
   // el catálogo entero.
-  const hayVerificados = pintables.some((n) => n.verificado && n.reclamado !== false);
-  const hayInfoPublica = pintables.some((n) => n.verificado && n.reclamado === false);
+  const hayVerificados = pintables.some((n) => n.verificado && !n.info_publica);
+  const hayInfoPublica = pintables.some((n) => n.verificado && n.info_publica);
 
   return (
     <div className="flex flex-col gap-5 sm:gap-7">

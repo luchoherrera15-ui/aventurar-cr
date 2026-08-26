@@ -29,8 +29,8 @@ export type NegocioDestacado = {
   detalles?: Record<string, unknown> | null;
   /** Bookea comprobó que el negocio existe. Ver la migración 0214. */
   verificado?: boolean | null;
-  /** Su dueño lo administra. false = «Info pública». Ver la 0216. */
-  reclamado?: boolean | null;
+  /** true = ficha armada de fuentes públicas. Ver la 0217. */
+  info_publica?: boolean | null;
 };
 
 /** Cuánto se queda quieta cada tarjeta antes de empezar a cambiar. */

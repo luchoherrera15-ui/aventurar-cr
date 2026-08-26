@@ -236,21 +236,6 @@ async function sembrar() {
   const fila = {
     owner_id: ownerId,
     vertical: "citas",
-    // ⚠️ NACE SIN RECLAMAR, Y ESO ES LO QUE LA TARJETA DICE.
-    //
-    // Lo sembramos nosotros con información pública real: los datos son
-    // ciertos, pero adentro no hay nadie de este negocio mirando las
-    // reservas. La tarjeta muestra «Info pública» en vez de
-    // «Verificado» (migración 0216).
-    //
-    // Se escribe ACÁ y no se deja al default: el default de la columna
-    // es `true` porque el camino normal es un dueño publicando lo suyo.
-    // Un seed es la excepción y tiene que decirlo, o al re-correrlo el
-    // negocio volvería a nacer como «Verificado» — prometiendo algo que
-    // nadie comprobó.
-    //
-    // Cuando el dueño real lo reclame, un admin lo pasa a `true`.
-    reclamado: false,
     estado: "aprobado",
     slug: SLUG,
     nombre: "Glow Nails Studio",

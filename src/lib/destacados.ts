@@ -47,7 +47,7 @@ const MAXIMO = 10;
  * del héroe de la portada muestra "Desde ₡X".
  */
 const COLUMNAS_DESTACADO =
-  "id, slug, nombre, foto_url, provincia, canton, categoria, vertical, detalles, verificado, reclamado";
+  "id, slug, nombre, foto_url, provincia, canton, categoria, vertical, detalles, verificado, info_publica";
 
 /** La fila cruda, tal como la devuelve PostgREST. */
 type FilaDestacado = {
@@ -61,7 +61,7 @@ type FilaDestacado = {
   vertical?: string | null;
   detalles?: Record<string, unknown> | null;
   verificado?: boolean | null;
-  reclamado?: boolean | null;
+  info_publica?: boolean | null;
 };
 
 /**
@@ -105,6 +105,6 @@ export async function leerSuperDestacados(
       // portada sin decir que son de muestra.
       detalles: n.detalles ?? null,
       verificado: n.verificado ?? false,
-      reclamado: n.reclamado ?? true,
+      info_publica: n.info_publica ?? false,
     }));
 }

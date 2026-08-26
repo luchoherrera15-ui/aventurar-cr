@@ -664,19 +664,23 @@ export type Rancho = {
    */
   verificado?: boolean | null;
   /**
-   * Su dueño real lo administra.
+   * La ficha se armó con datos de fuentes públicas y NADIE de ese
+   * negocio participó.
    *
-   * `false` = lo sembramos nosotros con su información pública y
-   * todavía nadie de ese negocio lo reclamó — la tarjeta dice «Info
-   * pública» en vez de «Verificado». Ver la migración 0216: son dos
-   * preguntas distintas (¿los datos son ciertos? / ¿hay alguien de
-   * adentro?), no dos escalones de la misma.
+   * `false` (lo normal) = hay una persona real detrás: el dueño lo
+   * publicó, o nos pasó sus fotos y precios y lo cargamos por él. La
+   * tarjeta dice «Verificado».
    *
-   * Default `true` en la base: el camino normal de alta es alguien
-   * publicando SU negocio. Un `undefined` acá se trata como reclamado
-   * por el mismo motivo.
+   * `true` = lo armamos nosotros desde un directorio público, sin que
+   * nadie de ahí lo supiera. La tarjeta dice «Info pública».
+   *
+   * ⚠️ NO PREGUNTA DE QUIÉN ES LA CUENTA. La versión anterior de este
+   * campo se llamaba `reclamado` y preguntaba eso, y dejaba en «Info
+   * pública» a negocios reales que solo tenían el traspaso de cuenta
+   * pendiente. El sello habla de si el negocio EXISTE y alguien
+   * responde por él, no de un trámite. Ver la migración 0217.
    */
-  reclamado?: boolean | null;
+  info_publica?: boolean | null;
   destacado_orden?: number | null;
   /** Hasta 10 negocios rotan en el carrusel de la portada (0169) —
    *  aparte de `destacado_orden`, que reordena la grilla normal. */

@@ -6,21 +6,34 @@ import { IconCheck, IconGlobe } from "@/components/icons";
  * ════════════════════════════════════════════════════════════════════
  *
  * Pedido del dueño (26 ago 2026): la insignia verde de verificado, y
- * además una para «los negocios que ingresamos en el seed, reales, pero
- * que aún su dueño no los reclama».
+ * además una para las fichas que armamos nosotros sin que el negocio
+ * participe.
  *
  * ── SON DOS AFIRMACIONES DISTINTAS, NO DOS NIVELES ──────────────────
  *
- *   Verificado    → los datos son ciertos Y su dueño lo administra.
- *   Info pública  → los datos son ciertos, pero adentro no hay nadie
- *                   de ese negocio: lo publicamos nosotros con su
- *                   información pública.
+ *   Verificado    → hay una persona real detrás de esta ficha: el
+ *                   dueño la publicó, o nos pasó sus fotos y precios y
+ *                   la cargamos por él.
+ *   Info pública  → la armamos desde un directorio público y NADIE de
+ *                   ese negocio participó. Los datos pueden ser
+ *                   ciertos; lo que no hay es alguien que responda.
  *
- * La distinción es de HONESTIDAD y no de jerarquía. Cuando sembramos un
- * negocio con datos públicos, lo que podemos afirmar es que los datos
- * son reales — no que estén atendiendo por acá ni que alguien de
- * adentro esté mirando las reservas. Decirle «Verificado» a eso promete
- * algo que no podemos sostener, y quien lo lea va a reservar creyéndolo.
+ * ⚠️ NO PREGUNTA DE QUIÉN ES LA CUENTA, Y ESE FUE MI ERROR.
+ *
+ * La primera versión ató el sello a si el dueño ya administraba el
+ * negocio en Bookea. Con eso, los tres negocios publicados —los tres
+ * reales, con gente real atrás— cayeron en «Info pública», solo porque
+ * el traspaso de cuenta sigue pendiente. El dueño lo corrigió: «todos
+ * los que los cree una persona y no sean sembrados por vos son
+ * VERIFICADOS».
+ *
+ * Tenía razón: el sello habla de si el negocio EXISTE y alguien
+ * responde por él, no de un trámite nuestro. Ver la migración 0217.
+ *
+ * La distinción sigue siendo de HONESTIDAD y no de jerarquía: sobre una
+ * ficha sacada de un directorio no podemos afirmar que alguien esté
+ * mirando las reservas, y quien lea «Verificado» ahí va a reservar
+ * creyéndolo.
  *
  * ── POR QUÉ VIVE ACÁ Y NO EN CADA TARJETA ───────────────────────────
  *
@@ -58,19 +71,21 @@ export type EstadoSello = "verificado" | "info-publica";
  * Qué sello le toca a un negocio, en un solo lugar.
  *
  * Vive acá y no repartido por las tarjetas porque la regla tiene una
- * trampa: `reclamado` por sí solo NO da un sello. Un negocio sin
- * verificar no muestra nada, esté reclamado o no — si no comprobamos
- * los datos, no tenemos nada que afirmar sobre ellos.
+ * trampa: `info_publica` por sí sola NO da un sello. Un negocio sin
+ * verificar no muestra NADA, venga su ficha de donde venga — si nadie
+ * comprobó los datos, no hay nada que afirmar sobre ellos, y de dónde
+ * salieron es una respuesta a una pregunta que nadie hizo.
  */
 export function selloDe(negocio: {
   verificado?: boolean | null;
-  reclamado?: boolean | null;
+  info_publica?: boolean | null;
 }): EstadoSello | null {
   if (!negocio.verificado) return null;
-  // `reclamado` viene con default `true` en la base, así que un
-  // `undefined` (una consulta que no pidió la columna) se trata como
-  // reclamado: es el estado normal, no la excepción.
-  return negocio.reclamado === false ? "info-publica" : "verificado";
+  // `info_publica` tiene default `false` en la base, así que un
+  // `undefined` —una consulta que no pidió la columna— cae en
+  // «Verificado». Es el estado normal; la excepción es la que se
+  // declara.
+  return negocio.info_publica ? "info-publica" : "verificado";
 }
 
 const TEXTO: Record<EstadoSello, string> = {
