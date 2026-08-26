@@ -621,12 +621,20 @@ export default async function PanelNegocioLealtad({
     {
       titulo: "Principal",
       items: [
-        { id: "inicio", etiqueta: "Inicio", icono: "inicio" as const },
-        // Mismo candado que el botón de Inicio y que el prop `mostrador`:
-        // sin tarjeta principal o sin permiso de acreditar, no hay nada
-        // que escanear todavía.
+        // Inicio ES el mostrador para quien puede acreditar (ver el
+        // comentario grande de `mostradorEsElInicio`), y por eso lleva el
+        // ícono del escáner: el ítem tiene que decir a qué pantalla
+        // lleva, no repetir la palabra «inicio».
+        {
+          id: "inicio",
+          etiqueta: "Inicio",
+          icono: p && permisos.acreditar ? ("escanear" as const) : ("inicio" as const),
+        },
+        // El tablero, debajo. Solo cuando Inicio se lo llevó el
+        // mostrador: si no, Inicio ya ES el tablero y esto sería el
+        // mismo contenido dos veces en el mismo menú.
         ...(p && permisos.acreditar
-          ? [{ id: "escanear", etiqueta: "Escanear", icono: "escanear" as const }]
+          ? [{ id: "dashboard", etiqueta: "Dashboard", icono: "inicio" as const }]
           : []),
         { id: "programas", etiqueta: "Tarjetas", icono: "tarjeta" as const },
         { id: "clientes", etiqueta: "Clientes", icono: "clientes" as const },
@@ -697,8 +705,33 @@ export default async function PanelNegocioLealtad({
     planes: puedeDisenar ? `/lealtad/planes?negocio=${id}` : null,
   };
 
-  const contenidos: Record<string, React.ReactNode> = {
-    inicio: (
+  /**
+   * ⚠️ «INICIO» YA NO ES EL TABLERO — es el MOSTRADOR.
+   *
+   * Pedido del dueño (26 ago 2026): «en el inicio tendremos activo el
+   * modo mostrador, las mismas funciones ahí», y el tablero se muda a
+   * una ventana nueva abajo que dice «Dashboard».
+   *
+   * El motivo es de uso, no de gusto: la pantalla que un negocio abre
+   * cien veces por día es la de atender a alguien en la caja, no la de
+   * mirar métricas. Tenerla a un clic de distancia era un clic por
+   * cada cliente.
+   *
+   * ── QUIÉN NO PUEDE ACREDITAR VE EL TABLERO ──────────────────────
+   * La sección «Escanear» siempre estuvo detrás de
+   * `permisos.acreditar`. Si Inicio
+   * fuera el mostrador para todos, un colaborador sin ese permiso
+   * abriría el panel en una pantalla vacía. Para ellos Inicio SIGUE
+   * siendo el tablero, y entonces no se dibuja «Dashboard» aparte —
+   * sería el mismo contenido dos veces en el mismo menú.
+   *
+   * Y se cae el ítem «Escanear»: era exactamente este componente. Con
+   * Inicio siendo el mostrador, dejarlo habría puesto la misma pantalla
+   * dos veces, una debajo de la otra.
+   */
+  const mostradorEsElInicio = !!p && permisos.acreditar;
+
+  const tablero = (
       <InicioLealtad
         negocioId={id}
         nombre={rancho.nombre}
@@ -735,7 +768,36 @@ export default async function PanelNegocioLealtad({
           ) : null
         }
       />
+  );
+
+  const contenidos: Record<string, React.ReactNode> = {
+    // Inicio: el mostrador para quien puede acreditar; el tablero para
+    // quien no. Ver el comentario de `mostradorEsElInicio`.
+    inicio: mostradorEsElInicio ? (
+      <Seccion
+        eyebrow="En el mostrador"
+        titulo="Atender a un cliente"
+        bajada="Activá la cámara o buscá al cliente por nombre, correo o teléfono. Si ya completó su tarjeta, acá mismo le entregás el premio y la tarjeta arranca de cero."
+      >
+        <ModoMostrador
+          ranchoId={id}
+          programaId={p!.id}
+          pideMonto={registraCompraElTipo(tipoPrincipal)}
+          tipo={p!.modo ?? null}
+          permisos={permisos}
+          productos={productosDeVenta}
+          recompensa={
+            meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
+          }
+        />
+      </Seccion>
+    ) : (
+      tablero
     ),
+
+    // El tablero, en su ventana propia. Solo existe cuando Inicio se lo
+    // llevó el mostrador: si no, sería el mismo contenido dos veces.
+    ...(mostradorEsElInicio ? { dashboard: tablero } : {}),
 
     programas: (
       <Seccion
@@ -853,37 +915,17 @@ export default async function PanelNegocioLealtad({
     // calculado acá se le pasan a ShellLealtad como prop, ver el
     // render más abajo.
 
-    // Escanear (0163): la MISMA experiencia de `ModoMostrador` que ya se
-    // usa como toma-completa-de-pantalla (prop `mostrador`, abajo), acá
-    // alcanzable como una pestaña normal del rail — sin esconder el
-    // menú. Las dos puertas conviven a propósito: esta es para el
-    // dueño/admin que quiere escanear sin perder de vista el resto del
-    // panel; el toggle de arriba sigue siendo el modo caja, que SÍ
-    // esconde el rail (0137/0148 — no un candado, pero sí evita el
-    // resbalón de un empleado tocando configuración sin querer).
-    ...(p && permisos.acreditar
-      ? {
-          escanear: (
-            <Seccion
-              eyebrow="En el mostrador"
-              titulo="Escanear"
-              bajada="Activá la cámara o buscá al cliente por nombre, correo o teléfono para darle sus puntos."
-            >
-              <ModoMostrador
-                ranchoId={id}
-                programaId={p.id}
-                pideMonto={registraCompraElTipo(tipoPrincipal)}
-                tipo={p.modo ?? null}
-                permisos={permisos}
-                productos={productosDeVenta}
-                recompensa={
-                  meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
-                }
-              />
-            </Seccion>
-          ),
-        }
-      : {}),
+    // ⚠️ ACÁ VIVÍA LA SECCIÓN «ESCANEAR», Y SE FUE A «INICIO».
+    //
+    // Era el MISMO `ModoMostrador` que ahora abre el panel. Dejarla
+    // habría puesto la misma pantalla dos veces, una debajo de la otra
+    // en el mismo menú.
+    //
+    // El toggle de «Modo mostrador» de la barra superior NO se toca y
+    // sigue siendo otra cosa: esconde el rail entero (0137/0148) para
+    // que un empleado en la caja no toque configuración sin querer.
+    // Inicio es la misma herramienta CON el menú a la vista, para el
+    // dueño que atiende y además administra.
 
     // Métricas (0163): Ventas se fundió acá adentro, como pestaña propia
     // — no al final de la lista. La 0197 había aprendido esa lección al
