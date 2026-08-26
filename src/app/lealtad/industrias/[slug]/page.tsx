@@ -5,7 +5,6 @@ import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
 import VistaPase, { type DatosVista } from "@/components/lealtad/vista-pase";
 import { configPorDefecto, type ConfigBeneficio } from "@/lib/lealtad/tipos-tarjeta";
-import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 import NavLealtad from "../../nav-lealtad";
 import BurbujaContacto from "../../burbuja-contacto";
 import { INDUSTRIAS, industriaPorSlug } from "../datos";
@@ -48,9 +47,18 @@ export default async function IndustriaPage({
   const ind = industriaPorSlug(slug);
   if (!ind) notFound();
 
-  // Sesión + nombre en una sola lectura: el nav muestra de quién es la
-  // cuenta (ver src/lib/lealtad/sesion-nav.ts).
-  const sesion = await sesionDelNavLealtad();
+  // ⚠️ ACÁ SE LEÍA LA SESIÓN EN EL SERVIDOR, Y ERA LO ÚNICO QUE
+  // VOLVÍA DINÁMICA A ESTA PÁGINA.
+  //
+  // Es una landing de marketing: el mismo HTML para todo el mundo. El
+  // único await era `sesionDelNavLealtad()` —leer una cookie para saber
+  // qué decir en la esquina del nav—, y Next no puede prerenderizar una
+  // página que lee cookies. Resultado: la landing entera se armaba de
+  // nuevo, con su CPU, en cada visita (x-vercel-cache: MISS siempre).
+  //
+  // Ahora  resuelve la sesión solo, en el navegador, con el
+  // cliente de Supabase del navegador. Esta página se prerenderiza y
+  // sale del CDN. Ver el comentario de .
 
   // El beneficio del pase demo: sellos con la meta y la regalía del
   // rubro. Se narra el tipo para poder pisar los campos sin `any`.
@@ -75,7 +83,7 @@ export default async function IndustriaPage({
   return (
     <main className="min-h-svh bg-white">
       <RevealOnScroll />
-      <NavLealtad logueado={sesion.logueado} nombre={sesion.nombre} />
+      <NavLealtad />
       <BurbujaContacto />
 
       {/* ── Hero ─────────────────────────────────────────────────── */}

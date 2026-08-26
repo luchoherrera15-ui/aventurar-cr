@@ -88,18 +88,50 @@ export async function GET(req: Request) {
     ((perfiles ?? []) as { id: string; nombre: string | null }[]).map((p) => [p.id, p.nombre]),
   );
 
-  return Response.json({
-    ok: true,
-    resenas: filas.map((r) => ({
-      id: r.id,
-      calificacion: r.calificacion,
-      comentario: r.comentario,
-      fecha: r.created_at,
-      // «Cliente» y no el correo ni un id cuando el perfil no tiene
-      // nombre: quien se afilió por el QR sin cuenta (0138) no tiene
-      // fila en `perfiles`, y mostrar un uuid delante de una reseña de
-      // cinco estrellas se lee como un error del sistema.
-      autor: (nombrePor.get(r.cliente_id ?? "") ?? "").trim() || "Cliente",
-    })),
-  });
+  return Response.json(
+    {
+      ok: true,
+      resenas: filas.map((r) => ({
+        id: r.id,
+        calificacion: r.calificacion,
+        comentario: r.comentario,
+        fecha: r.created_at,
+        // «Cliente» y no el correo ni un id cuando el perfil no tiene
+        // nombre: quien se afilió por el QR sin cuenta (0138) no tiene
+        // fila en `perfiles`, y mostrar un uuid delante de una reseña de
+        // cinco estrellas se lee como un error del sistema.
+        autor: (nombrePor.get(r.cliente_id ?? "") ?? "").trim() || "Cliente",
+      })),
+    },
+    {
+      headers: {
+        /**
+         * ════════════════════════════════════════════════════════════
+         *  ESTA RESPUESTA ES IGUAL PARA TODO EL MUNDO
+         * ════════════════════════════════════════════════════════════
+         *
+         * Las reseñas de un negocio no dependen de quién pregunta: se
+         * leen con la llave de servicio, sin cookies y sin sesión (ver
+         * el comentario de arriba: no se puede preguntar por una
+         * persona). Y la app las pide en CADA ficha que alguien abre.
+         *
+         * Sin este encabezado, cada una de esas aperturas era una
+         * invocación de función completa contra la base.
+         *
+         * ── `s-maxage` ES EL QUE IMPORTA ────────────────────────────
+         * `max-age` a secas solo le habla al navegador. Lo que hace que
+         * el CDN de Vercel guarde la respuesta —y por lo tanto lo que
+         * mata la invocación— es `s-maxage`. Es el mismo criterio ya
+         * escrito y razonado en `api/lealtad/planes/route.ts`.
+         *
+         * ── EL PRECIO, DICHO CLARO ──────────────────────────────────
+         * Una reseña nueva tarda hasta 10 minutos en aparecer en la
+         * ficha. Es aceptable para una reseña —nadie la publica y se
+         * queda mirando si salió— y `stale-while-revalidate` hace que
+         * mientras tanto siempre haya algo que mostrar.
+         */
+        "cache-control": "public, max-age=60, s-maxage=600, stale-while-revalidate=86400",
+      },
+    },
+  );
 }

@@ -3,7 +3,6 @@ import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
 import { PLANES_VIGENTES } from "@/lib/lealtad/planes";
-import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 import { IMAGEN_OG } from "@/lib/sitio";
 import NavLealtad from "./nav-lealtad";
 import BurbujaContacto from "./burbuja-contacto";
@@ -144,11 +143,19 @@ function TextoDegradado({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Se cae la ISR de 6 horas que tenía esta página (`revalidate = 21600`):
-// el configurador ahora crea la cuenta y el negocio en /lealtad/crear, y
-// para decidir si le muestra a la visita el paso «Tu cuenta» necesita
-// saber si ya hay sesión — eso exige leer la cookie en cada pedido, que
-// es justo lo que una página estática no puede hacer.
+// ── ESTA PÁGINA VUELVE A SER ESTÁTICA (ago 2026) ────────────────────
+//
+// Acá decía que la ISR se había caído «porque el configurador necesita
+// saber si hay sesión, y eso exige leer la cookie en cada pedido». Eso
+// dejó de ser cierto: el configurador se mudó a /lealtad/crear, y lo
+// único que seguía leyendo la cookie era el nombre de la esquina del
+// nav — que ahora `NavLealtad` resuelve solo, en el navegador.
+//
+// Sin cookies de por medio, Next la prerenderiza sola. No se declara
+// `force-static` a propósito: con `dynamic = "auto"`, el día que
+// alguien vuelva a meter un `cookies()` acá la página simplemente
+// vuelve a ser dinámica. Con `force-static`, ese `cookies()` devolvería
+// vacío EN SILENCIO y nadie se enteraría hasta verlo en producción.
 
 export const metadata: Metadata = {
   title: "Lealtad",
@@ -226,15 +233,23 @@ const FAQ: { pregunta: string; respuesta: string }[] = [
 ];
 
 export default async function LealtadPage() {
-  // Del lado del SERVIDOR, con la cookie de sesión: el nav de arriba
-  // muestra de QUIÉN es la sesión (nombre de la cuenta) y no solo si
-  // hay una — ver src/lib/lealtad/sesion-nav.ts.
-  const sesion = await sesionDelNavLealtad();
+  // ⚠️ ACÁ SE LEÍA LA SESIÓN EN EL SERVIDOR, Y ERA LO ÚNICO QUE
+  // VOLVÍA DINÁMICA A ESTA PÁGINA.
+  //
+  // Es una landing de marketing: el mismo HTML para todo el mundo. El
+  // único await era `sesionDelNavLealtad()` —leer una cookie para saber
+  // qué decir en la esquina del nav—, y Next no puede prerenderizar una
+  // página que lee cookies. Resultado: la landing entera se armaba de
+  // nuevo, con su CPU, en cada visita (x-vercel-cache: MISS siempre).
+  //
+  // Ahora  resuelve la sesión solo, en el navegador, con el
+  // cliente de Supabase del navegador. Esta página se prerenderiza y
+  // sale del CDN. Ver el comentario de .
 
   return (
     <main className="min-h-svh bg-white">
       <RevealOnScroll />
-      <NavLealtad logueado={sesion.logueado} nombre={sesion.nombre} />
+      <NavLealtad />
       <BurbujaContacto />
 
       {/* ============================================================

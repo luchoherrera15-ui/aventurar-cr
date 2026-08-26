@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import forge from "node-forge";
 
 /**
@@ -62,9 +63,28 @@ export function credencialesDelEntorno(): CredencialesPase | null {
 export function construirManifest(archivos: Record<string, Buffer>): string {
   const manifest: Record<string, string> = {};
   for (const [nombre, contenido] of Object.entries(archivos)) {
-    const md = forge.md.sha1.create();
-    md.update(contenido.toString("binary"));
-    manifest[nombre] = md.digest().toHex();
+    // ⚠️ EL SHA-1 VA POR `node:crypto`, NO POR node-forge.
+    //
+    // Esto era `forge.md.sha1.create()` alimentado con
+    // `contenido.toString("binary")`, y costaba dos veces:
+    //
+    //   · node-forge implementa SHA-1 en JavaScript puro. `node:crypto`
+    //     usa la implementación nativa de OpenSSL — el mismo algoritmo,
+    //     en C.
+    //   · `toString("binary")` convertía CADA archivo del pase a string
+    //     antes de hashearlo. Con la banda y las tres escalas de cada
+    //     imagen, son ~2 MB de PNG convertidos a texto en cada pase,
+    //     para tirarlos enseguida.
+    //
+    // La salida es IDÉNTICA: mismo algoritmo, misma entrada, mismo hex.
+    // El manifest sale byte por byte igual y la firma sigue validando —
+    // `firma.test.ts` compara contra digests conocidos, así que si esos
+    // tests pasan, está probado y no es cuestión de opinión.
+    //
+    // node-forge SIGUE haciendo falta para `firmarManifest` (PKCS#7
+    // detached, que `node:crypto` no expone). Lo único que se le quitó
+    // es el hashing.
+    manifest[nombre] = createHash("sha1").update(contenido).digest("hex");
   }
   // Con sangría para que sea legible al depurar un pase que no abre.
   return JSON.stringify(manifest, null, 2);

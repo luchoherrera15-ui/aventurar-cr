@@ -112,8 +112,10 @@ async function selloRedondo({
   const capas: OverlayOptions[] = [];
 
   if (imagen) {
-    // `trim` quita el margen vacío: los logos suelen venir en lienzos
-    // muy grandes con la marca chiquita en el centro.
+    // El margen vacío ya se lo quitó `recortarBordes` allá arriba en
+    // `generar.ts` — los logos suelen venir en lienzos muy grandes con
+    // la marca chiquita en el centro, y ese recorte sigue pasando, una
+    // sola vez por pase en vez de seis.
     //
     // El encaje sube a 0.90 (antes 0.62): el pedido es que el sello SEA
     // el dibujo, no un ícono chico flotando en el círculo. La caja de
@@ -124,7 +126,6 @@ async function selloRedondo({
     // hoja, un animal) casi nunca llena así su bounding box. Se prefiere
     // ese riesgo bajo a la certeza de un ícono que se sigue viendo chico.
     const contenido = await sharp(imagen)
-      .trim()
       .resize(Math.round(diametro * 0.9), Math.round(diametro * 0.9), {
         fit: "inside",
         background: { r: 0, g: 0, b: 0, alpha: 0 },
@@ -392,6 +393,58 @@ export async function dibujarTiraDeSellos({
 }
 
 /**
+ * ════════════════════════════════════════════════════════════════════
+ *  EL RECORTE, UNA SOLA VEZ POR PASE
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * `sharp().trim()` recorta el borde uniforme de una imagen: es lo que
+ * hace que un logo con 200 px de PNG transparente alrededor se vea del
+ * tamaño que corresponde y no diminuto en el centro.
+ *
+ * El problema era CUÁNTAS veces se hacía. El mismo logo se recortaba
+ * en `dibujarIcono` (×3 escalas), en `dibujarLogo` (×3) y en el sello
+ * de cada círculo (×2 estados × 3 escalas): DOCE recortes idénticos
+ * del mismo archivo, en el mismo pase.
+ *
+ * Y `trim()` es de lo más caro que hace sharp — tiene que leer la
+ * imagen entera para encontrar dónde termina el borde. Medido: ~107 ms
+ * contra ~8,6 ms sin él, sobre un pase que cuesta ~1.727 ms de CPU. O
+ * sea que once recortes de más eran más de la mitad del costo de
+ * generar la tarjeta.
+ *
+ * Ahora se recorta UNA vez, arriba en `generar.ts`, y el buffer ya
+ * recortado baja a las tres funciones. El resultado es idéntico al
+ * píxel: recortar y después redimensionar da lo mismo que recortar,
+ * guardar un PNG (que es sin pérdida) y redimensionar eso.
+ *
+ * ── DEVUELVE null EN VEZ DE LANZAR, Y ESO ES LA MITAD DEL DISEÑO ────
+ *
+ * `trim()` LANZA con «Image is entirely blank» cuando la imagen no
+ * tiene qué recortar — el caso real es una marca blanca sobre fondo
+ * transparente aplastada contra blanco. Hoy esa excepción es la que
+ * dispara la escalera de degradación de la tira y el respaldo del
+ * logo, y eso NO puede cambiar: un logo malo no puede dejar sin
+ * tarjeta a un cliente que está en la caja.
+ *
+ * Devolviendo `null`, cada uno de los tres caminos recibe «no hay
+ * imagen» y se cae al mismo respaldo de siempre —el nombre en
+ * Montserrat, las iniciales, los círculos lisos— sin excepción de por
+ * medio. De yapa la escalera se entera ANTES y deja de intentar pasos
+ * que ya se sabe que van a fallar.
+ */
+export async function recortarBordes(imagen: Buffer | null): Promise<Buffer | null> {
+  if (!imagen) return null;
+  try {
+    return await sharp(imagen).trim().png().toBuffer();
+  } catch {
+    // «Image is entirely blank», un archivo que no es una imagen, un
+    // formato que sharp no conoce. Los tres significan lo mismo para
+    // quien llama: seguí sin la imagen.
+    return null;
+  }
+}
+
+/**
  * El logo de arriba a la izquierda: el nombre del negocio en
  * Montserrat Light, blanco. Si el negocio subió su logo se usa ese.
  */
@@ -407,8 +460,9 @@ export async function dibujarLogo({
   alto: number;
 }): Promise<Buffer> {
   if (imagen) {
+    // Sin `.trim()`: la imagen ya llega recortada por `recortarBordes`,
+    // una sola vez por pase. Ver el comentario grande de esa función.
     return sharp(imagen)
-      .trim()
       .resize(ancho, alto, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toBuffer();
@@ -551,8 +605,9 @@ export async function dibujarIcono(
       // `contain` y no `cover`: un logo recortado deja de ser el logo.
       // El fondo va blanco porque el ícono se ve sobre la superficie
       // del sistema, que en modo claro también es blanca.
+      // Sin `.trim()`: el logo ya llega recortado por `recortarBordes`,
+      // una sola vez por pase. Ver el comentario grande de esa función.
       return await sharp(negocio.logo)
-        .trim()
         .resize(lado, lado, {
           fit: "contain",
           background: { r: 255, g: 255, b: 255, alpha: 1 },

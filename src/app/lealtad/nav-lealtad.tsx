@@ -6,6 +6,7 @@ import { Icono } from "./panel/[id]/iconos";
 import { INDUSTRIAS } from "./industrias/datos";
 import { iniciales } from "@/lib/iniciales";
 import { cerrarSesionLealtad } from "./sesion-actions";
+import { createClient } from "@/lib/supabase/client";
 
 /**
  * EL NAV COMPACTO DE /lealtad.
@@ -34,16 +35,99 @@ const ITEMS_CUENTA: { href: string; label: string }[] = [
   { href: "/cuenta", label: "Configuración de perfil" },
 ];
 
-export default function NavLealtad({
-  logueado = false,
-  nombre = null,
-}: {
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  LA SESIÓN SE RESUELVE EN EL NAVEGADOR CUANDO NADIE LA PASA
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Las tres landings —/lealtad, /lealtad/industrias y la ficha de cada
+ * industria— son páginas de marketing: el mismo HTML para todo el
+ * mundo, sin un solo dato por visitante. Y aun así se renderizaban
+ * ENTERAS en el servidor en cada visita, porque llamaban a
+ * `sesionDelNavLealtad()` para saber qué decir en esta esquina.
+ *
+ * Ese único `await` —leer una cookie— era lo que las volvía dinámicas.
+ * Next no puede prerenderizar una página que lee cookies, así que la
+ * landing completa se armaba de nuevo por visitante, con su CPU.
+ *
+ * Sacándolo, las tres se prerenderizan y salen del CDN: cero
+ * invocaciones. La sesión la resuelve este componente, que YA corre en
+ * el navegador, con el cliente de Supabase del navegador — que lee el
+ * token de su propio almacenamiento, SIN pedirle nada al servidor.
+ *
+ * ── EL PRECIO, QUE ES REAL PERO CHICO ───────────────────────────────
+ * Hay un instante en que la esquina dice «Ingresar» antes de decir el
+ * nombre. Es cosmético y solo lo ve quien tiene sesión. A cambio, la
+ * página aparece de una en vez de esperar al servidor.
+ *
+ * ── LAS PÁGINAS CON SESIÓN DE VERDAD SIGUEN PASANDO LAS PROPS ───────
+ * `/lealtad/crear` y `/lealtad/ingresar` son puertas de sesión: tienen
+ * que decidir en el servidor a dónde mandar a quien llega. Esas dos
+ * siguen llamando a `sesionDelNavLealtad()` y pasando `logueado`/
+ * `nombre`, y por eso las props siguen existiendo. Cuando llegan, el
+ * componente NO consulta nada.
+ */
+function useSesionDelNav(props: { logueado?: boolean; nombre?: string | null }) {
+  // `undefined` (nadie pasó la prop) es distinto de `false` (el
+  // servidor miró y no hay sesión). Solo el primero dispara la lectura.
+  const loResuelveElServidor = props.logueado !== undefined;
+  const [sesion, setSesion] = useState<{ logueado: boolean; nombre: string | null }>({
+    logueado: props.logueado ?? false,
+    nombre: props.nombre ?? null,
+  });
+
+  useEffect(() => {
+    if (loResuelveElServidor) return;
+    let vivo = true;
+    void (async () => {
+      try {
+        const supabase = createClient();
+        // `getUser()` en el navegador resuelve contra el token que ya
+        // está guardado; no es un viaje a nuestro servidor.
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!vivo || !user) return;
+
+        // El MISMO criterio que `sesionDelNavLealtad()` en el servidor:
+        // primero `perfiles`, y si ahí no hay, la metadata del proveedor
+        // de login. Dos lecturas distintas del mismo dato darían dos
+        // nombres distintos para la misma persona según por dónde entró.
+        const { data: perfil } = await supabase
+          .from("perfiles")
+          .select("nombre")
+          .eq("id", user.id)
+          .maybeSingle();
+        const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+        const nombre =
+          [perfil?.nombre, meta.nombre, meta.full_name, meta.name].find(
+            (v): v is string => typeof v === "string" && v.trim().length > 0,
+          ) ?? null;
+        if (vivo) setSesion({ logueado: true, nombre: nombre?.trim() ?? null });
+      } catch {
+        // Sin sesión legible se queda como está: «Ingresar». Es una
+        // etiqueta de un nav, no vale tirar la página por ella.
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [loResuelveElServidor]);
+
+  return sesion;
+}
+
+export default function NavLealtad(props: {
+  /**
+   * Si el servidor YA resolvió la sesión, la pasa acá. Sin esta prop el
+   * componente la resuelve solo, en el navegador — ver `useSesionDelNav`.
+   */
   logueado?: boolean;
-  /** El nombre de la cuenta con sesión — lo resuelve
-   *  `sesionDelNavLealtad()` (src/lib/lealtad/sesion-nav.ts). null con
-   *  sesión pero sin nombre cargado: entonces se cae a «Mi cuenta». */
+  /** El nombre de la cuenta con sesión. null con sesión pero sin nombre
+   *  cargado: entonces se cae a «Mi cuenta». */
   nombre?: string | null;
 }) {
+  const { logueado, nombre } = useSesionDelNav(props);
   const [abierto, setAbierto] = useState(false);
   const [abiertoCuenta, setAbiertoCuenta] = useState(false);
 

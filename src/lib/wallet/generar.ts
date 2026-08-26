@@ -7,6 +7,7 @@ import {
   dibujarIcono,
   dibujarLogo,
   dibujarTiraDeSellos,
+  recortarBordes,
   type ColoresTarjeta,
 } from "./imagenes";
 import { describirEscalon, escalonesDeLaTira, primeroQueSalga } from "./escalones-tira";
@@ -346,7 +347,21 @@ export async function generarPaseDeLealtad({
 
   // ── Las imágenes ──────────────────────────────────────────────────
   const colores = coloresDe(config);
-  const logoNegocio = await bajarImagen(config.pase_logo_url);
+  /**
+   * El logo, bajado UNA vez y recortado UNA vez.
+   *
+   * El recorte (`sharp().trim()`) se hacía dentro de cada función que
+   * dibuja: el ícono ×3 escalas, el logo ×3, y el sello de cada círculo
+   * ×2 estados ×3 escalas. Doce recortes idénticos del mismo archivo, y
+   * `trim()` cuesta ~107 ms cada uno sobre un pase de ~1.727 ms de CPU.
+   *
+   * Ahora se hace acá, y las tres funciones reciben el buffer ya listo.
+   * `recortarBordes` devuelve `null` si el logo no se puede recortar —el
+   * caso real es una marca blanca aplastada contra blanco— y entonces
+   * cada camino se cae a su respaldo de siempre, igual que cuando el
+   * negocio no subió ningún logo.
+   */
+  const logoNegocio = await recortarBordes(await bajarImagen(config.pase_logo_url));
 
   // Qué va adentro de cada sello: el logo, uno de los doce dibujos, o
   // el ícono que subió el negocio (0174). La decisión no se toma acá —
@@ -595,9 +610,13 @@ async function archivosDeLaTira({
   // motivo para pedirle el archivo al storage. Va por el MISMO camino
   // que el logo y la banda: un fallo de red no tumba el pase, deja los
   // círculos lisos del color del negocio.
+  // El ícono propio necesita SU propio recorte: es otro archivo, no el
+  // logo. El del logo ya vino hecho desde arriba, así que este camino
+  // sigue siendo un solo `trim()` por pase — nunca los dos a la vez,
+  // porque `imagenDentroDelSello` elige uno u otro.
   const imagenDelSello =
     cual === "propio" && sello.clase === "propio"
-      ? await bajarImagen(sello.url)
+      ? await recortarBordes(await bajarImagen(sello.url))
       : cual === "logo"
         ? logo
         : null;

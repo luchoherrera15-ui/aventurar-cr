@@ -112,7 +112,25 @@ const nextConfig: NextConfig = {
           // limpie el navegador.
           // El isotipo (`icono-bookea-v2`) sigue en v2: solo cambió el
           // logotipo, así que no hay motivo para invalidar su caché.
-          "/:archivo(logo-bookea-nav-v3\\.png|logo-bookea-v3\\.png|logo-bookea-blanco-v3\\.png|icono-bookea-v2\\.png|portada-bookea\\.jpg)",
+          // ⚠️ ESTA REGLA APUNTABA A `-v3` Y LOS LOGOS SON `-v4`.
+          //
+          // O sea que durante todo ese tiempo NO CASÓ CON NADA: los tres
+          // logos volvieron a servirse con `max-age=0, must-revalidate`,
+          // que es justo lo que este bloque existe para evitar. El logo
+          // va en TODAS las páginas, dos veces, así que era una consulta
+          // al servidor por carga, para un archivo que cambia una vez al
+          // año.
+          //
+          // Y el fallo es mudo por definición: una regla de reescritura
+          // que no casa no falla, simplemente no hace nada. No lo atrapa
+          // el build ni ninguna prueba.
+          //
+          // Por eso ahora el patrón NO nombra la versión: `logo-bookea-`
+          // seguido de lo que sea. El próximo renombre —que es la forma
+          // correcta de cambiar un logo, ver el aviso de arriba— queda
+          // cubierto solo, sin que nadie tenga que acordarse de venir a
+          // tocar esta línea.
+          "/:archivo(logo-bookea-[a-z0-9-]+\\.png|icono-bookea-[a-z0-9-]+\\.png|portada-bookea\\.jpg)",
         headers: [
           { key: "cache-control", value: "public, max-age=604800, stale-while-revalidate=2592000" },
         ],

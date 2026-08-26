@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
-import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 import NavLealtad from "../nav-lealtad";
 import BurbujaContacto from "../burbuja-contacto";
 import { INDUSTRIAS } from "./datos";
@@ -16,14 +15,23 @@ export const metadata: Metadata = {
 
 /** El índice de rubros — cada card lleva a la página de su industria. */
 export default async function IndustriasPage() {
-  // Sesión + nombre en una sola lectura: el nav muestra de quién es la
-  // cuenta (ver src/lib/lealtad/sesion-nav.ts).
-  const sesion = await sesionDelNavLealtad();
+  // ⚠️ ACÁ SE LEÍA LA SESIÓN EN EL SERVIDOR, Y ERA LO ÚNICO QUE
+  // VOLVÍA DINÁMICA A ESTA PÁGINA.
+  //
+  // Es una landing de marketing: el mismo HTML para todo el mundo. El
+  // único await era `sesionDelNavLealtad()` —leer una cookie para saber
+  // qué decir en la esquina del nav—, y Next no puede prerenderizar una
+  // página que lee cookies. Resultado: la landing entera se armaba de
+  // nuevo, con su CPU, en cada visita (x-vercel-cache: MISS siempre).
+  //
+  // Ahora  resuelve la sesión solo, en el navegador, con el
+  // cliente de Supabase del navegador. Esta página se prerenderiza y
+  // sale del CDN. Ver el comentario de .
 
   return (
     <main className="min-h-svh bg-white">
       <RevealOnScroll />
-      <NavLealtad logueado={sesion.logueado} nombre={sesion.nombre} />
+      <NavLealtad />
       <BurbujaContacto />
 
       <section className="px-5 py-16 sm:px-8">

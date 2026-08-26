@@ -78,7 +78,15 @@ export async function GET(peticion: Request) {
         // Un año de caché: el resultado depende solo de los dos
         // parámetros de la URL. `immutable` evita que Google vuelva a
         // pedirla en cada refresco de saldo.
-        "cache-control": "public, max-age=31536000, immutable",
+        //
+        // ⚠️ `s-maxage` NO ES REDUNDANTE CON `max-age`. Faltaba, y esa
+        // ausencia costaba caro: `max-age` es una directiva para el
+        // NAVEGADOR, y el CDN de Vercel no cachea la respuesta de una
+        // función sin `s-maxage`. O sea que cada vez que Google pedía
+        // este logo se volvía a correr Satori + resvg para dibujar un
+        // círculo con una letra — trabajo de CPU de verdad, para un
+        // resultado que ya se había dibujado idéntico.
+        "cache-control": "public, max-age=31536000, s-maxage=31536000, immutable",
       },
     },
   );
