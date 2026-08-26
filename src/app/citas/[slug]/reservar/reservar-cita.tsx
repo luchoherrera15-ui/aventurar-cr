@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { fmtColones } from "@/lib/finanzas";
 import { IconCalendarLine, IconClock, IconPin, IconStar } from "@/components/icons";
 import BotonConsultar from "@/components/boton-consultar";
+import { bloquearScroll } from "@/lib/bloqueo-scroll";
 import { crearCita, type SinpeDelNegocio } from "../../actions";
 import { apuntarseListaEspera } from "../../lista-espera-actions";
 import { etiquetaMinutos, horaBonita, type HorarioSemana } from "../../tipos";
@@ -941,16 +942,23 @@ export function ReservarCitaModal({
   onCerrar: () => void;
 } & Omit<Parameters<typeof ReservarCita>[0], "onVolverServicios">) {
   // Con el modal abierto la página de atrás no scrollea.
+  //
+  // ⚠️ Va por el candado CONTADO de `bloqueo-scroll.ts`, no guardando
+  // el overflow acá. Este modal puede abrirse ESTANDO ABIERTA la hoja
+  // inferior — pasa cuando alguien toca "Ver disponibilidad" dentro de
+  // la ficha de un profesional, en móvil. Con dos guardar/restaurar
+  // independientes, el segundo en cerrar restauraba el "hidden" que le
+  // había robado al primero y la página quedaba SIN SCROLL PARA
+  // SIEMPRE: nada abierto, ningún error, ninguna pista.
   useEffect(() => {
     if (!abierta) return;
-    const anterior = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const soltar = bloquearScroll();
     const alTeclear = (e: KeyboardEvent) => {
       if (e.key === "Escape") onCerrar();
     };
     window.addEventListener("keydown", alTeclear);
     return () => {
-      document.body.style.overflow = anterior;
+      soltar();
       window.removeEventListener("keydown", alTeclear);
     };
   }, [abierta, onCerrar]);

@@ -248,7 +248,27 @@ async function sembrar() {
     descripcion_larga:
       "En Glow Nails Studio cuidamos cada detalle: instrumental esterilizado por clienta, esmaltado semipermanente de larga duración y extensiones en Gel X moldeadas a la medida. Hacemos manicura y pedicura clásica o semipermanente, base rubber para dar estructura a la uña natural, y retiro seguro de resina o Gel X. Trabajamos con cita previa. Aceptamos efectivo, transferencia bancaria y SINPE Móvil.",
     contacto_whatsapp: "+506 7049-7598",
-    amenidades: ["wifi_clientes", "aire_acondicionado", "pago_tarjeta"],
+    // ⚠️ ACÁ NO SE INVENTA NADA, Y ESTO ES LA CORRECCIÓN DE HABERLO HECHO.
+    //
+    // Había puesto wifi, aire acondicionado y pago con tarjeta. Las tres
+    // las puse yo porque «suenan» a salón de belleza — ninguna venía en
+    // el material que mandó el negocio.
+    //
+    // Y «pago con tarjeta» era directamente FALSA: la lista de precios
+    // dice EFECTIVO, TRANSFERENCIA y SINPE MÓVIL. No tarjeta.
+    //
+    // Eso es lo que hace grave inventar una amenidad: no es un adorno de
+    // más, es una promesa que el negocio nunca hizo y que se la van a
+    // reclamar EN EL MOSTRADOR, con la clienta ya sentada y el trabajo
+    // hecho. El costo del invento lo paga alguien que no lo cometió.
+    //
+    // Se sacaron las dos que pidió el dueño el 26 ago 2026.
+    //
+    // ⚠️ `wifi_clientes` SIGUE ACÁ Y TAMPOCO ESTÁ VERIFICADA — es del
+    // mismo invento, solo que no la nombró. Se deja porque pidió dos y
+    // no tres, y borrarle una tercera sin avisar es decidir por él.
+    // Queda escrito para que se confirme o se caiga.
+    amenidades: ["wifi_clientes"],
     // La que el dueño marcó como PRIMERA: es la que se ve en el
     // directorio y encabeza la ficha.
     foto_url: portada,

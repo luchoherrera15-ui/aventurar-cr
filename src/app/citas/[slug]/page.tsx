@@ -47,6 +47,7 @@ import {
   estadoAperturaDe,
 } from "./perfil-datos";
 import type { ProfesionalPerfil, ResenaPerfil, ResumenResenas, SeccionPerfil } from "./perfil-tipos";
+import { serviciosPorMiembro } from "@/lib/agenda/servicios-por-miembro";
 
 type Miembro = {
   id: string;
@@ -368,6 +369,9 @@ export default async function NegocioCitasPage({
       clienteNombre: nombrePerfil.get(r.cliente_id) ?? "Cliente de Bookea",
       servicioNombre: r.reservas?.reserva_items?.[0]?.nombre ?? null,
       profesionalNombre: miembroId ? (nombreMiembro.get(miembroId) ?? null) : null,
+      // Se conserva el id, no solo el nombre: la ficha del profesional
+      // filtra por acá. Ver el comentario en `perfil-tipos.ts`.
+      profesionalId: miembroId,
       reservaVerificada: true,
     };
   });
@@ -379,15 +383,20 @@ export default async function NegocioCitasPage({
 
   // El equipo, con su propia nota (de sus reseñas atribuidas) y sus
   // servicios principales (de qué le asignó el dueño en servicios↔recurso).
-  const nombreServicio = new Map(items.map((i) => [i.id, i.nombre]));
-  const serviciosPorMiembro = new Map<string, string[]>();
-  for (const sr of agendaPro.serviciosRecurso ?? []) {
-    const nombre = nombreServicio.get(sr.item_id);
-    if (!nombre) continue;
-    const lista = serviciosPorMiembro.get(sr.miembro_id) ?? [];
-    if (!lista.includes(nombre)) lista.push(nombre);
-    serviciosPorMiembro.set(sr.miembro_id, lista);
-  }
+  /**
+   * Qué hace cada persona del equipo.
+   *
+   * La regla y su trampa viven en `serviciosPorMiembro`, con pruebas
+   * al lado: `servicios_recurso` es una lista de RESTRICCIONES, no de
+   * capacidades — sin filas, todo el equipo hace todo. Acá se leía al
+   * revés y la ficha mostraba equipos enteros sin un solo servicio.
+   */
+  const porMiembro = serviciosPorMiembro(
+    items.map((i) => ({ id: i.id, nombre: i.nombre })),
+    equipo.map((m) => m.id),
+    agendaPro.serviciosRecurso ?? [],
+  );
+
   const calificacionesPorMiembro = new Map<string, number[]>();
   for (const r of resenasCrudasTipadas) {
     const miembroId = r.reservas?.miembro_id;
@@ -408,7 +417,7 @@ export default async function NegocioCitasPage({
           ? calificaciones.reduce((a, b) => a + b, 0) / calificaciones.length
           : null,
       totalResenas: calificaciones.length,
-      serviciosPrincipales: (serviciosPorMiembro.get(m.id) ?? []).slice(0, 4),
+      serviciosPrincipales: (porMiembro.get(m.id) ?? []).slice(0, 4),
       citasAtendidas: citasPorMiembro[m.id] ?? 0,
     };
   });

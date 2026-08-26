@@ -51,6 +51,21 @@ export type ResenaPerfil = {
   servicioNombre: string | null;
   profesionalNombre: string | null;
   /**
+   * El id del miembro que atendió, o null si la reseña no cuelga de
+   * ninguno.
+   *
+   * ⚠️ EXISTE PORQUE EL NOMBRE NO ALCANZA PARA FILTRAR. La ficha de un
+   * profesional en móvil muestra SUS reseñas, y cruzarlas por
+   * `profesionalNombre` funciona hasta el día que el negocio tenga dos
+   * Marianas: ahí cada una vería las reseñas de la otra, con nota
+   * incluida, y nadie lo notaría hasta que alguien se queje.
+   *
+   * El id ya se calculaba en page.tsx para todo lo demás — se estaba
+   * descartando justo antes de devolverlo. El nombre se queda porque
+   * la lista general lo MUESTRA; el id es para comparar.
+   */
+  profesionalId: string | null;
+  /**
    * SIEMPRE true en este esquema: `resenas.reserva_id` es NOT NULL y
    * único — no existe una reseña que no cuelgue de una reserva
    * confirmada. No es un campo cosmético, es un hecho de la base.

@@ -90,7 +90,16 @@ export default function PerfilInteractivo({
 
       {profesionales.length > 0 && (
         <div id="equipo" className="scroll-mt-24">
-          <TeamSection equipo={profesionales} onReservar={onReservar} />
+          {/* Las reseñas COMPLETAS bajan acá: la ficha de cada
+              profesional en móvil filtra las suyas por id. No se
+              filtran antes porque la sección ya recibe al equipo entero
+              y hacerlo una vez por persona en el servidor sería el
+              mismo recorrido, repetido. */}
+          <TeamSection
+            equipo={profesionales}
+            resenas={resenas}
+            onReservar={onReservar}
+          />
         </div>
       )}
 
