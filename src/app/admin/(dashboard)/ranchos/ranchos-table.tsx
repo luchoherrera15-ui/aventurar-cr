@@ -9,6 +9,7 @@ import {
   setDestacado,
   setEstadoRancho,
   setSuperDestacado,
+  setVerificado,
 } from "./actions";
 import type { EstadoRancho, Rancho } from "@/app/mi-negocio/types";
 import { categoriaLabel } from "@/lib/categorias-vertical";
@@ -166,6 +167,28 @@ export default function RanchosTable({
     });
   }
 
+  /**
+   * La insignia verde de la tarjeta publica (migracion 0214).
+   *
+   * El estado local se actualiza SOLO si el servidor dijo que si. Es el
+   * mismo criterio que `alternarSuperDestacado` aca arriba, y aca pesa
+   * mas: la base tiene un trigger que rechaza el cambio a quien no sea
+   * admin, asi que este es un boton que de verdad puede fallar. Pintarlo
+   * optimista dejaria la casilla marcada sobre un negocio que no quedo
+   * verificado.
+   */
+  function alternarVerificado(id: string, valor: boolean) {
+    setError(null);
+    startTransition(async () => {
+      const res = await setVerificado(id, valor);
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      setRanchos((prev) => prev.map((r) => (r.id === id ? { ...r, verificado: valor } : r)));
+    });
+  }
+
   function mover(id: string, direccion: -1 | 1) {
     setError(null);
     startTransition(async () => {
@@ -254,6 +277,7 @@ export default function RanchosTable({
               {[
                 "Destacado",
                 `Súper destacado (${totalSuperDestacados}/${LIMITE_SUPER_DESTACADOS})`,
+                "Verificado",
                 "Nombre",
                 ...(mostrarSeccion ? ["Sección"] : []),
                 "Categoría",
@@ -373,6 +397,46 @@ export default function RanchosTable({
                     />
                     <span className="text-[11.5px] font-bold text-aventurea-ink-soft">
                       {r.super_destacado ? "En el carrusel" : "Agregar"}
+                    </span>
+                  </label>
+                </td>
+
+                {/* ⚠️ VERIFICADO NO SE PIDE APROBADO, Y ES A PROPÓSITO.
+                    Súper destacado sí lo exige, porque un negocio
+                    despublicado no puede rotar en un carrusel donde no
+                    aparece. Verificar es otra cosa: es constatar que el
+                    negocio existe, y eso se hace ANTES de publicarlo —
+                    de hecho es lo que uno querría comprobar para
+                    decidir si publicarlo. Bloquearlo hasta que esté
+                    aprobado invertiría el orden del trabajo.
+
+                    Que un negocio no publicado quede verificado no
+                    muestra nada de más: sin tarjeta no hay dónde pintar
+                    la insignia. */}
+                <td className="whitespace-nowrap px-4 py-3.5">
+                  <label
+                    title={
+                      r.verificado
+                        ? "Quitarle la insignia de verificado"
+                        : "Marcarlo como verificado: Bookea comprobó que existe"
+                    }
+                    className={`inline-flex items-center gap-2 ${
+                      pending ? "cursor-not-allowed opacity-40" : "cursor-pointer"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!r.verificado}
+                      disabled={pending}
+                      onChange={(e) => alternarVerificado(r.id, e.target.checked)}
+                      className="h-4 w-4 rounded border-aventurea-line accent-emerald-600"
+                    />
+                    <span
+                      className={`text-[11.5px] font-bold ${
+                        r.verificado ? "text-emerald-700" : "text-aventurea-ink-soft"
+                      }`}
+                    >
+                      {r.verificado ? "Verificado" : "Sin verificar"}
                     </span>
                   </label>
                 </td>

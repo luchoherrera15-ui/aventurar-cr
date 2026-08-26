@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import CarruselSuperDestacados from "@/components/carrusel-super-destacados";
 import RielProveedores from "@/components/riel-proveedores";
+import InsigniaVerificado from "@/components/insignia-verificado";
 import type { Calificacion } from "@/components/rancho-card";
 import { IconPin } from "@/components/icons";
 import { categoriaGradiente, categoriaIcono, categoriaLabel } from "@/lib/categorias-vertical";
@@ -190,10 +191,18 @@ function VitrinaRespaldo({ negocio }: { negocio: Rancho }) {
                 recién llegado. El umbral es el MISMO que ya usa
                 RanchoCard (30 días): dos definiciones de «nuevo» en la
                 misma pantalla se contradicen el día que alguien toca una. */}
-            {esNuevo && (
-              <span className="rounded-lg bg-aventurea-orange px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
-                Recién publicado
-              </span>
+            {/* ⚠️ La insignia le gana el puesto a «Recién publicado»,
+                que es el «Nuevo» de esta pantalla con otro nombre. Ver
+                `rancho-card.tsx`: las dos etiquetas dicen cosas
+                opuestas y en una sola tarjeta gana la que da confianza. */}
+            {negocio.verificado ? (
+              <InsigniaVerificado sobreFoto />
+            ) : (
+              esNuevo && (
+                <span className="rounded-lg bg-aventurea-orange px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                  Recién publicado
+                </span>
+              )
             )}
             {demo && (
               <span className="rounded-lg bg-amber-400 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-zinc-900">

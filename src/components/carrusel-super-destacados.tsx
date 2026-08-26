@@ -14,6 +14,7 @@ import {
 } from "./icons";
 import { categoriaGradiente, categoriaIcono, categoriaLabel } from "@/lib/categorias-vertical";
 import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
+import InsigniaVerificado from "@/components/insignia-verificado";
 
 export type NegocioDestacado = {
   id: string;
@@ -26,16 +27,8 @@ export type NegocioDestacado = {
   vertical: string;
   /** Para el aviso «Demo»: la marca autoritativa vive acá adentro. */
   detalles?: Record<string, unknown> | null;
-  /**
-   * El piso de precio, para el "Desde ₡X" de la tarjeta.
-   *
-   * Va SIN la unidad («por evento», «por persona») a propósito: los
-   * negocios publicados arrastran el `unidad_precio='evento'` que dejó
-   * por defecto la 0033 y que nadie tocó, así que "desde ₡1 500 por
-   * evento" en una cafetería sería falso. El monto sí es cierto; la
-   * unidad se queda en la ficha, donde el dueño la puede corregir.
-   */
-  precioDesde?: number | null;
+  /** Bookea comprobó que el negocio existe. Ver la migración 0214. */
+  verificado?: boolean | null;
 };
 
 /** Cuánto se queda quieta cada tarjeta antes de empezar a cambiar. */
@@ -262,6 +255,11 @@ export default function CarruselSuperDestacados({
                   Demo
                 </span>
               )}
+              {/* Acá no hay «Nuevo» al que reemplazar —el carrusel es de
+                  súper destacados—, así que la insignia se suma. Sobre la
+                  foto va con fondo propio: el degradado de abajo es azul
+                  oscuro y el verde solo no se despegaría. */}
+              {n.verificado && <InsigniaVerificado sobreFoto />}
             </span>
             <p className="max-w-[80%] text-2xl font-extrabold leading-tight text-white drop-shadow-[0_2px_12px_rgba(6,38,83,0.6)] sm:text-3xl lg:text-4xl">
               {n.nombre}

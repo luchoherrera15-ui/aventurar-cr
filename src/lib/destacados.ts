@@ -47,7 +47,7 @@ const MAXIMO = 10;
  * del héroe de la portada muestra "Desde ₡X".
  */
 const COLUMNAS_DESTACADO =
-  "id, slug, nombre, foto_url, provincia, canton, categoria, vertical, detalles, precio_desde";
+  "id, slug, nombre, foto_url, provincia, canton, categoria, vertical, detalles, verificado";
 
 /** La fila cruda, tal como la devuelve PostgREST. */
 type FilaDestacado = {
@@ -60,7 +60,7 @@ type FilaDestacado = {
   categoria: string;
   vertical?: string | null;
   detalles?: Record<string, unknown> | null;
-  precio_desde?: number | null;
+  verificado?: boolean | null;
 };
 
 /**
@@ -103,6 +103,6 @@ export async function leerSuperDestacados(
       // (Café Oscuro, SILENCE BARBER SHOP) salían de héroes de la
       // portada sin decir que son de muestra.
       detalles: n.detalles ?? null,
-      precioDesde: n.precio_desde ?? null,
+      verificado: n.verificado ?? false,
     }));
 }

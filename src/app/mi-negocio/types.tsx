@@ -649,6 +649,20 @@ export type Rancho = {
   /** Cuál de sus fotos va grande en la sección de presentación. */
   foto_presentacion: string | null;
   /** Posición entre los destacados de la portada (null = no destacado). */
+  /**
+   * Bookea comprobó que el negocio existe y es quien dice ser.
+   *
+   * Lo escribe SOLO un admin: hay un trigger en la base que rechaza el
+   * cambio si quien actualiza no lo es (migración 0214). Hizo falta
+   * porque las políticas de `ranchos` dejan al dueño editar su propia
+   * fila, y una insignia que cada quien se pone solo no verifica nada.
+   *
+   * Opcional en el tipo porque no toda consulta la trae. `undefined` y
+   * `false` se pintan igual —sin insignia—, que es el lado seguro: si
+   * una consulta se olvida de pedirla, el negocio se ve sin sello, no
+   * con uno que nadie le dio.
+   */
+  verificado?: boolean | null;
   destacado_orden?: number | null;
   /** Hasta 10 negocios rotan en el carrusel de la portada (0169) —
    *  aparte de `destacado_orden`, que reordena la grilla normal. */

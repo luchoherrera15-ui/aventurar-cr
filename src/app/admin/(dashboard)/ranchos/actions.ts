@@ -64,7 +64,10 @@ export async function setEstadoRancho(id: string, estado: EstadoRancho) {
 
   revalidatePath("/admin/ranchos");
   revalidatePath("/");
-  revalidatePath("/");
+  // ⚠️ Acá decía `revalidatePath("/")` DOS VECES, y el comentario de
+  // arriba dice que las direcciones son dos: `/` y `/eventos`. La
+  // segunda nunca se revalidaba — seguía sirviendo la lista vieja.
+  revalidatePath("/eventos");
   return { error: null };
 }
 
@@ -196,6 +199,46 @@ export async function setSuperDestacado(id: string, valor: boolean) {
   // ve la gente— sirviendo la lista vieja.
   revalidatePath("/");
   revalidatePath("/");
+  return { error: null };
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  VERIFICAR O DESVERIFICAR UN NEGOCIO
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * La insignia verde de la tarjeta (migración 0214). Significa que
+ * alguien de Bookea comprobó que el negocio existe y es quien dice ser
+ * — el expediente con la cédula y las redes vive en
+ * `verificacion_proveedores` y se abre con `obtenerVerificacion()`, acá
+ * arriba en este mismo archivo.
+ *
+ * ⚠️ EL PERMISO SE COMPRUEBA DOS VECES, Y NO SOBRA.
+ *
+ * Acá con `requireAdmin()`, y otra vez en la base con un trigger. Este
+ * chequeo protege de un descuido nuestro; el de la base protege del
+ * camino que NO pasa por acá: las políticas de `ranchos` dejan que un
+ * dueño edite su propia fila, así que con la anon key y un cliente
+ * armado a mano podría marcarse verificado él mismo. Una insignia que
+ * cada quien se pone solo no verifica nada.
+ */
+export async function setVerificado(id: string, valor: boolean) {
+  const { supabase, ok } = await requireAdmin();
+  if (!ok) return { error: "No tenés permiso para esto." };
+
+  const { error } = await supabase.from("ranchos").update({ verificado: valor }).eq("id", id);
+  if (error) {
+    return {
+      error: /verificado/.test(error.message)
+        ? "Falta correr la migración en Supabase (0214_negocios_verificados.sql)."
+        : error.message,
+    };
+  }
+
+  revalidatePath("/admin/ranchos");
+  // La insignia sale en las tarjetas de la portada Y del directorio.
+  revalidatePath("/");
+  revalidatePath("/eventos");
   return { error: null };
 }
 

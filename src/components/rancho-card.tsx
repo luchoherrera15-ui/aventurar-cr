@@ -12,6 +12,7 @@ import {
   enConfiguracion,
   type Rancho,
 } from "@/app/mi-negocio/types";
+import InsigniaVerificado from "@/components/insignia-verificado";
 import {
   categoriaGradiente,
   categoriaIcono,
@@ -187,7 +188,16 @@ export default function RanchoCard({
             </span>
           )}
 
-          <span className="absolute left-3 top-3 rounded-lg bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
+          {/* ⚠️ `max-w` + `truncate`: este chip y las insignias de la
+              derecha son los DOS absolutos, así que no se empujan — se
+              tapan. Con «Ranchos para fiestas» y la insignia de
+              verificado se pisaban 30 px, medidos, y el rubro quedaba
+              cortado a media palabra debajo del verde.
+
+              El tope va en % y no en px porque esta tarjeta se usa a
+              anchos distintos (riel, grilla, favoritos): en px, el que
+              funciona en la grilla aprieta de más en el riel. */}
+          <span className="absolute left-3 top-3 max-w-[45%] truncate rounded-lg bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-navy backdrop-blur">
             {rubro}
           </span>
 
@@ -197,11 +207,24 @@ export default function RanchoCard({
                 Demo
               </span>
             )}
-            {/* Destacado le gana el puesto a "Nuevo". */}
-            {rancho.destacado_orden != null ? (
+            {rancho.destacado_orden != null && (
               <span className="rounded-lg bg-aventurea-sky px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm">
                 ★ Destacado
               </span>
+            )}
+            {/* ⚠️ VERIFICADO REEMPLAZA A «NUEVO», NO SE SUMA.
+
+                Pedido del dueño (26 ago 2026). Y aunque no lo hubiera
+                pedido así, juntarlas se contradice: «Nuevo» dice
+                «todavía no sabemos nada de esto» y «Verificado» dice
+                «lo comprobamos». Un negocio puede ser las dos cosas en
+                la base; en la tarjeta gana el que aporta confianza.
+
+                Destacado SÍ convive con la insignia: no habla de
+                confianza sino de posición pagada, y son dos preguntas
+                distintas que el visitante se hace. */}
+            {rancho.verificado ? (
+              <InsigniaVerificado sobreFoto />
             ) : (
               esNuevo && (
                 <span className="rounded-lg bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-ink backdrop-blur">

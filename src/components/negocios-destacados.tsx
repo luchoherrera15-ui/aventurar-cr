@@ -6,6 +6,7 @@ import { categoriaGradiente, categoriaIcono, categoriaLabel, esCategoriaValida }
 import { esDemo } from "@/lib/demo";
 import { rutaDeNegocio } from "@/lib/ruta-negocio";
 import { SUBCATEGORIA_LABEL, type Rancho } from "@/app/mi-negocio/types";
+import InsigniaVerificado from "@/components/insignia-verificado";
 
 /**
  * ============================================================
@@ -282,10 +283,14 @@ function TarjetaDestacada({
               Demo
             </span>
           )}
-          {destacado ? (
+          {destacado && (
             <span className="rounded-lg bg-aventurea-sky px-2 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-white shadow-sm lg:px-2.5">
               ★ Destacado
             </span>
+          )}
+          {/* Ver `rancho-card.tsx` para por qué reemplaza a «Nuevo» en vez de sumarse. */}
+          {negocio.verificado ? (
+            <InsigniaVerificado sobreFoto />
           ) : esNuevo ? (
             <span className="insignia-nueva rounded-lg bg-white/90 px-2 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-ink shadow-sm backdrop-blur lg:px-2.5">
               Nuevo
