@@ -51,6 +51,63 @@ import type { ModoPrograma } from "@/lib/wallet/tarjeta";
  * Google). `avisarCambioDeDiseno` hace el trabajo pesado por tandas
  * (aviso-de-diseno.ts) y nunca lanza.
  */
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  ¿CAMBIÓ ALGO DE LO QUE SE DIBUJA?
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Avisar cuesta caro y hay que hacerlo solo cuando sirve.
+ *
+ * Un aviso es UNA LLAMADA DE RED POR PASE INSTALADO (a Apple o a
+ * Google), y cada teléfono que la recibe vuelve a pedir su pase —lo que
+ * REGENERA el `.pkpass` entero: las tres escalas de cada imagen, las
+ * descargas del logo y la banda, la firma. No hay caché de nada de eso
+ * (ver `generarPaseDeLealtad`).
+ *
+ * O sea: un negocio con 500 clientes que guarde diez veces mientras
+ * acomoda su tarjeta provocaba 5.000 regeneraciones completas. Hasta
+ * ahora el editor guardaba por bloques y el dueño tocaba dos colores;
+ * con un panel de diseño de verdad ese patrón cambia por completo.
+ *
+ * ── LA LISTA SALE DE LO QUE EL GENERADOR LEE, NO DE LO QUE PARECE ──
+ * Se verificó campo por campo contra `tarjeta.ts`, `generar.ts` y
+ * `google.ts`: son exactamente los que esos tres archivos consultan
+ * para dibujar.
+ *
+ * ⚠️ SI SE AGREGA UN CAMPO DE DISEÑO, VA ACÁ TAMBIÉN. Olvidarlo no
+ * rompe nada visible en el panel —el dato se guarda igual— pero el
+ * cambio NO LLEGA a los teléfonos que ya tienen el pase, y el dueño ve
+ * su tarjeta nueva en la vista previa y la vieja en su iPhone. Es el
+ * mismo bug que la 0150 vino a arreglar.
+ *
+ * `beneficio` va en la lista porque de ahí sale la META, y la meta
+ * decide CUÁNTOS sellos se dibujan.
+ */
+const CAMPOS_QUE_SE_DIBUJAN = [
+  "nombre",
+  "modo",
+  "beneficio",
+  "pase_color_fondo",
+  "pase_color_sello",
+  "pase_logo_url",
+  "pase_banner_url",
+  "pase_sello_icono",
+  "pase_sello_icono_url",
+] as const;
+
+function cambioElDiseno(previo: ProgramaFila, nuevo: ProgramaFila): boolean {
+  return CAMPOS_QUE_SE_DIBUJAN.some((campo) => {
+    const a = (previo as Record<string, unknown>)[campo];
+    const b = (nuevo as Record<string, unknown>)[campo];
+    // `beneficio` es jsonb: llega como objeto y comparar por referencia
+    // daría SIEMPRE distinto. Se comparan serializados.
+    if (typeof a === "object" || typeof b === "object") {
+      return JSON.stringify(a ?? null) !== JSON.stringify(b ?? null);
+    }
+    return a !== b;
+  });
+}
+
 function avisarEdicionDeTarjeta(programaId: string, ranchoId: string): void {
   after(() => avisarCambioDeDiseno(programaId));
   // ── ANDROID NECESITA LA OTRA MITAD ───────────────────────────────
@@ -506,7 +563,12 @@ export async function guardarPrograma(
   // `avisarEdicionDeTarjeta` no hace nada si `previo` es null (una
   // tarjeta recién creada no tiene pases todavía que avisar).
   const programaGuardado = data as ProgramaFila;
-  if (previo) avisarEdicionDeTarjeta(programaGuardado.id, ranchoId);
+  // `avisarEdicionDeTarjeta` no hace nada si `previo` es null (una
+  // tarjeta recién creada no tiene pases todavía que avisar), y ahora
+  // tampoco si el guardado no tocó nada de lo que se DIBUJA.
+  if (previo && cambioElDiseno(previo, programaGuardado)) {
+    avisarEdicionDeTarjeta(programaGuardado.id, ranchoId);
+  }
 
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/admin/lealtad/${ranchoId}`);

@@ -347,16 +347,39 @@ export async function dibujarTiraDeSellos({
       }
     : null;
 
+  /**
+   * ⚠️ LO MISMO PARA EL CAMINO DEL LOGO, QUE SE HABÍA QUEDADO AFUERA.
+   *
+   * `selloRedondo` estaba DENTRO del bucle, una llamada por sello. Pero
+   * su resultado depende de `{diametro, encendido, imagen, colores}` y
+   * los cuatro son constantes acá — salvo `encendido`. O sea que había
+   * exactamente DOS imágenes distintas y se rasterizaban `total` veces.
+   *
+   * Y es el camino MÁS caro de los dos: con logo, `selloRedondo` hace
+   * `trim() + resize() + modulate() + composite() + png()` por llamada,
+   * mientras que el de ícono parte de un SVG.
+   *
+   * Una tarjeta de 10 sellos con logo, por las tres escalas que pide
+   * Apple, eran 30 pasadas de sharp para producir dos imágenes. Ahora
+   * son 2 por escala, 6 en total.
+   *
+   * El razonamiento es el mismo que el bloque de arriba, escrito para
+   * los íconos y que nunca se copió acá.
+   */
+  const conLogo = !conIcono
+    ? {
+        lleno: await selloRedondo({ diametro, encendido: true, imagen, colores }),
+        vacio: await selloRedondo({ diametro, encendido: false, imagen, colores }),
+      }
+    : null;
+
   for (let i = 0; i < total; i++) {
     const fila = Math.floor(i / porFila);
     const col = i % porFila;
     const encendido = i < logrados;
+    const par = conIcono ?? conLogo!;
     piezas.push({
-      input: conIcono
-        ? encendido
-          ? conIcono.lleno
-          : conIcono.vacio
-        : await selloRedondo({ diametro, encendido, imagen, colores }),
+      input: encendido ? par.lleno : par.vacio,
       left: Math.round(margenX + pasoX * col + (pasoX - diametro) / 2),
       top: Math.round(margenY + pasoY * fila + (pasoY - diametro) / 2),
     });
