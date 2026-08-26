@@ -73,9 +73,21 @@ export const metadata: Metadata = {
    * misma carpeta, que Next enchufa por convención de nombre.
    */
   openGraph: {
-    title: "Bookea — Convertí cada interacción en una experiencia",
+    // ⚠️ ESTE ES EL TEXTO QUE SE VE EN WHATSAPP, y por eso NO es el
+    // eslogan de la marca.
+    //
+    // Decía «Convertí cada interacción en una experiencia». En la
+    // portada funciona: quien lo lee ya está adentro y puede bajar a
+    // mirar. Pegado a un link que alguien te acaba de mandar, no dice
+    // QUÉ HAY del otro lado.
+    //
+    // Pedido del dueño (26 ago 2026): que la vista previa invite a ver
+    // los locales, «tipo el marketplace». Va en la misma línea que el
+    // texto de `opengraph-image.tsx` — los dos se leen JUNTOS en la
+    // tarjeta del link, y si dijeran cosas distintas se leería raro.
+    title: "¿Necesitás un servicio? Mirá todos los locales en Bookea",
     description:
-      "Citas, eventos, hospedaje y experiencias en un solo lugar. Reservá directo, sin cadenas de WhatsApp.",
+      "Barberías, uñas, spa, salud, ranchos para eventos, catering y decoración. La lista completa de negocios en Costa Rica, con precios a la vista y reserva directa.",
     locale: "es_CR",
     siteName: "Bookea",
     url: SITIO,
@@ -86,9 +98,12 @@ export const metadata: Metadata = {
     // imagen como una miniatura cuadrada al costado y se pierde el
     // eslogan, que es justamente lo que se quiere mostrar.
     card: "summary_large_image",
-    title: "Bookea — Convertí cada interacción en una experiencia",
+    // El mismo texto que el bloque de arriba: son la misma tarjeta en
+    // dos redes distintas, y mantenerlos separados es cómo terminan
+    // diciendo cosas distintas.
+    title: "¿Necesitás un servicio? Mirá todos los locales en Bookea",
     description:
-      "Citas, eventos, hospedaje y experiencias en un solo lugar. Reservá directo, sin cadenas de WhatsApp.",
+      "Barberías, uñas, spa, salud, ranchos para eventos, catering y decoración. La lista completa de negocios en Costa Rica, con precios a la vista y reserva directa.",
   },
 };
 

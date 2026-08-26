@@ -50,7 +50,11 @@ import { ImageResponse } from "next/og";
  */
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "Bookea — Convertí cada interacción en una experiencia";
+// El `alt` describe lo que se DIBUJA, así que sigue al texto de la
+// imagen. Es lo que lee un lector de pantalla cuando alguien comparte
+// el link en una red que lo respeta.
+export const alt =
+  "Bookea — ¿Necesitás un servicio? Mirá la lista completa de locales en Costa Rica";
 
 const NAVY = "#16295e";
 const NAVY_PROFUNDO = "#0a1226";
@@ -121,7 +125,22 @@ export default function ImagenOg() {
             maxWidth: 900,
           }}
         >
-          Convertí cada interacción en una experiencia
+          {/* ⚠️ ESTO ES LO QUE VE ALGUIEN A QUIEN LE PASAN EL LINK POR
+              WHATSAPP, Y ESE ES TODO EL CRITERIO.
+
+              Antes decía «Convertí cada interacción en una experiencia»
+              — el eslogan de la marca. Suena bien en la portada, donde
+              ya estás adentro y podés bajar a mirar. Pero en una
+              conversación de WhatsApp, junto a un link que alguien te
+              acaba de pasar, no dice QUÉ HAY del otro lado.
+
+              Pedido del dueño (26 ago 2026): «que muestre "necesitás
+              algún servicio, revisá toda la lista de los locales que
+              tenemos", tipo el marketplace».
+
+              Una pregunta directa hace el trabajo que un eslogan no
+              puede: le dice al que recibe el link para qué le sirve. */}
+          ¿Necesitás un servicio?
         </div>
 
         <div
@@ -134,8 +153,8 @@ export default function ImagenOg() {
             maxWidth: 820,
           }}
         >
-          Citas, eventos, hospedaje y experiencias — reservá directo, sin cadenas de
-          WhatsApp.
+          Mirá la lista completa de locales en Costa Rica — barberías, uñas, spa,
+          ranchos para eventos y más.
         </div>
 
         <div
