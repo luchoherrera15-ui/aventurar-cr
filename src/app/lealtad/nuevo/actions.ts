@@ -416,6 +416,8 @@ async function crearGratisAlInstante(d: {
     // null cuando es la de siempre, así que esta columna solo se escribe
     // si la persona de verdad movió los sellos.
     if (t.diseno) cambios.pase_diseno = t.diseno;
+    // El logo del AVISO (0208), si lo subió durante el alta.
+    if (t.notificacionLogoUrl) cambios.pase_notificacion_logo_url = t.notificacionLogoUrl;
 
     const { error: eTarjeta } = await admin
       .from("programa_lealtad")

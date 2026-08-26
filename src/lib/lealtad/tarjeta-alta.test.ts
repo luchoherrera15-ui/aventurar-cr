@@ -151,6 +151,7 @@ describe("validarTarjetaDeAlta — colores, icono e imágenes", () => {
         iconoUrl: null,
         logoUrl: LOGO_OK,
         bannerUrl: BANNER_OK,
+        notificacionLogoUrl: null,
         // Nadie movió los sellos: la columna se deja como está en vez de
         // congelar los valores de hoy en la fila (ver `diseno` en
         // `TarjetaAltaValidada`).
@@ -206,6 +207,27 @@ describe("validarTarjetaDeAlta — colores, icono e imágenes", () => {
     expect(banda).toEqual({ ok: false, motivo: "La banda no se subió bien — probá de nuevo." });
   });
 
+  it("el logo del AVISO viaja con el alta, y con el mismo candado de origen", () => {
+    // Se ofrece en el alta pública desde ago 2026, en cuanto hay sesión.
+    // Sin esto el dueño lo subía y se perdía en silencio al guardar.
+    const ok = validarTarjetaDeAlta(completa({ notificacionLogoUrl: LOGO_OK }), "prueba");
+    expect(ok.ok).toBe(true);
+    if (ok.ok) expect(ok.tarjeta?.notificacionLogoUrl).toBe(LOGO_OK);
+
+    const ajena = "https://malicioso.example.com/storage/v1/object/public/comprobantes/x.png";
+    const mala = validarTarjetaDeAlta(completa({ notificacionLogoUrl: ajena }), "prueba");
+    expect(mala).toEqual({
+      ok: false,
+      motivo: "El logo del aviso no se subió bien — probá de nuevo.",
+    });
+  });
+
+  it("una tarjeta que SOLO trae el logo del aviso no se descarta por vacía", () => {
+    const r = validarTarjetaDeAlta({ notificacionLogoUrl: LOGO_OK }, "prueba");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.tarjeta?.notificacionLogoUrl).toBe(LOGO_OK);
+  });
+
   it("solo apariencia, sin tipo: pasa y deja el resto en null", () => {
     const r = validarTarjetaDeAlta({ colorFondo: "#112233" }, "prueba");
     expect(r).toEqual({
@@ -219,6 +241,7 @@ describe("validarTarjetaDeAlta — colores, icono e imágenes", () => {
         iconoUrl: null,
         logoUrl: null,
         bannerUrl: null,
+        notificacionLogoUrl: null,
         diseno: null,
       },
     });

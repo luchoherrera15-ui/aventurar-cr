@@ -58,6 +58,8 @@ export type TarjetaDeAlta = {
   iconoUrl?: string | null;
   logoUrl?: string | null;
   bannerUrl?: string | null;
+  /** El logo del AVISO de Wallet (0208) — no el de la tarjeta. */
+  notificacionLogoUrl?: string | null;
   /** Dónde van los sellos en la tira (0212). Crudo: lo sanea el servidor. */
   diseno?: unknown;
 };
@@ -78,6 +80,8 @@ export type TarjetaAltaValidada = {
   iconoUrl: string | null;
   logoUrl: string | null;
   bannerUrl: string | null;
+  /** El logo del AVISO de Wallet (0208). Mismo origen exigido que el logo. */
+  notificacionLogoUrl: string | null;
   /**
    * La geometría de la tira (0212), o null si es la de siempre.
    *
@@ -191,6 +195,14 @@ export function validarTarjetaDeAlta(
   if (bannerUrl !== null && !esUrlDeNuestroStorage(bannerUrl, BUCKET_DEL_ALTA)) {
     return { ok: false, motivo: "La banda no se subió bien — probá de nuevo." };
   }
+  // El logo del aviso (0208) viaja desde el alta pública desde ago 2026:
+  // se sube en cuanto hay sesión, igual que el logo y la banda, y por eso
+  // se le exige el MISMO origen. Una URL ajena acá deja a un tercero
+  // decidiendo qué imagen ve el cliente al lado de cada notificación.
+  const notificacionLogoUrl = limpiar(cruda.notificacionLogoUrl);
+  if (notificacionLogoUrl !== null && !esUrlDeNuestroStorage(notificacionLogoUrl, BUCKET_DEL_ALTA)) {
+    return { ok: false, motivo: "El logo del aviso no se subió bien — probá de nuevo." };
+  }
 
   // ── La geometría de la tira (0212) ──────────────────────────────
   // NO se rechaza nunca: `configDesdeJson` sanea campo por campo y cae
@@ -215,6 +227,7 @@ export function validarTarjetaDeAlta(
     sello.url === null &&
     logoUrl === null &&
     bannerUrl === null &&
+    notificacionLogoUrl === null &&
     diseno === null
   ) {
     return { ok: true, tarjeta: null };
@@ -231,6 +244,7 @@ export function validarTarjetaDeAlta(
       iconoUrl: sello.url,
       logoUrl,
       bannerUrl,
+      notificacionLogoUrl,
       diseno,
     },
   };

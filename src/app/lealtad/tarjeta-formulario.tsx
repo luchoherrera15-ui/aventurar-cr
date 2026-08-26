@@ -10,9 +10,8 @@ import SelectorFranja from "@/components/lealtad/selector-franja";
 import SelectorImagenNegocio from "@/components/lealtad/selector-imagen-negocio";
 import PasoBeneficio from "@/components/lealtad/paso-beneficio";
 import ControlesTira from "@/components/lealtad/controles-tira";
-import PaletasPase from "@/components/lealtad/paletas-pase";
 import { Apartado, PlacaPase, Portada } from "@/components/lealtad/ficha";
-import { NOTA, ROTULO } from "@/components/lealtad/ficha-tokens";
+import { ROTULO } from "@/components/lealtad/ficha-tokens";
 import CampoColor from "@/components/campo-color";
 import SubirImagen from "@/components/subir-imagen";
 import { PAISES, COSTA_RICA } from "@/lib/paises";
@@ -33,6 +32,7 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
+import { FONDO_CLASICO } from "@/lib/wallet/fondo-tira";
 import type { ConfigTira } from "@/lib/wallet/layout-tira";
 import { Icono, type NombreIcono } from "@/app/lealtad/panel/[id]/iconos";
 import PasoReglas, { resumenDeReglas, type Reglas } from "@/app/lealtad/panel/[id]/paso-reglas";
@@ -434,6 +434,10 @@ export default function TarjetaFormulario({
   const [previewLocalFranja, setPreviewLocalFranja] = useState<string | null>(null);
   const [subiendoFranja, setSubiendoFranja] = useState(false);
   const [errorFranja, setErrorFranja] = useState<string | null>(null);
+  // El logo del aviso (0208) no tiene vista previa local: no se dibuja
+  // en la tarjeta, así que no habría nada que previsualizar. Solo sube.
+  const [subiendoAviso, setSubiendoAviso] = useState(false);
+  const [errorAviso, setErrorAviso] = useState<string | null>(null);
 
   const nombre = valor.nombre.trim();
   const motivoBeneficio = validarBeneficio(valor.beneficio);
@@ -508,11 +512,27 @@ export default function TarjetaFormulario({
     setErrorFranja(null);
     patch({ franjaModo: "ninguna", franjaBancoId: null, bannerUrl: "" });
   }
-  async function elegirArchivoPropio(archivo: File | undefined, slot: "logo" | "franja") {
+  /**
+   * `slot` es "logo" (la imagen del negocio), "franja" (la banda de
+   * arriba) o "aviso" (el logo de las notificaciones, 0208).
+   *
+   * ⚠️ "aviso" EXIGE SESIÓN, y es el único de los tres. Los otros dos
+   * tienen un camino sin sesión —se leen como data URI y se muestran
+   * como vista previa hasta que la persona cree su cuenta— porque son
+   * lo que hace que la tarjeta se vea suya mientras la está armando.
+   * El del aviso no se ve en la tarjeta, así que una vista previa local
+   * no mostraría nada: sin sesión no se ofrece y punto.
+   */
+  async function elegirArchivoPropio(
+    archivo: File | undefined,
+    slot: "logo" | "franja" | "aviso",
+  ) {
     if (!archivo) return;
-    const avisarError = slot === "logo" ? setErrorLogo : setErrorFranja;
+    const avisarError =
+      slot === "logo" ? setErrorLogo : slot === "franja" ? setErrorFranja : setErrorAviso;
     const ponerPreview = slot === "logo" ? setPreviewLocalLogo : setPreviewLocalFranja;
-    const ponerSubiendo = slot === "logo" ? setSubiendoLogo : setSubiendoFranja;
+    const ponerSubiendo =
+      slot === "logo" ? setSubiendoLogo : slot === "franja" ? setSubiendoFranja : setSubiendoAviso;
 
     avisarError(null);
     if (!archivo.type.startsWith("image/")) {
@@ -521,6 +541,9 @@ export default function TarjetaFormulario({
     }
 
     if (!haySesion) {
+      // El del aviso no se ofrece sin sesión (ver arriba); si llegara
+      // igual, no se hace nada en vez de fingir una vista previa.
+      if (slot === "aviso") return;
       if (archivo.size > 5 * 1024 * 1024) {
         avisarError("Muy pesada — probá con una de menos de 5 MB.");
         return;
@@ -541,15 +564,21 @@ export default function TarjetaFormulario({
       return;
     }
     ponerSubiendo(true);
-    const url = await subirImagenAlAlta(archivo, slot === "logo" ? "logo" : "banda");
+    // El del aviso sube por el mismo camino que el logo: es una imagen
+    // cuadrada de marca y va al mismo bucket del alta.
+    const url = await subirImagenAlAlta(archivo, slot === "franja" ? "banda" : "logo");
     ponerSubiendo(false);
-    if (url) {
-      ponerPreview(null);
-      if (slot === "logo") patch({ imagenModo: "propia", imagenStockId: null, logoUrl: url });
-      else patch({ franjaModo: "propia", franjaBancoId: null, bannerUrl: url });
-    } else {
+    if (!url) {
       avisarError("No pudimos subir la imagen. Intentá de nuevo.");
+      return;
     }
+    if (slot === "aviso") {
+      patch({ notificacionLogoUrl: url });
+      return;
+    }
+    ponerPreview(null);
+    if (slot === "logo") patch({ imagenModo: "propia", imagenStockId: null, logoUrl: url });
+    else patch({ franjaModo: "propia", franjaBancoId: null, bannerUrl: url });
   }
 
   function irAlPlanPago() {
@@ -908,48 +937,52 @@ export default function TarjetaFormulario({
                 nota="El color es lo que se ve primero. Elegí un estilo terminado y después afiná lo que quieras."
               >
               <div className="space-y-6">
-                {/* ── EL ESTILO VA PRIMERO, Y ESO ES EL ARREGLO ────────
-                    El dueño dijo que mover los sellos «es inservible», y
-                    tenía razón por un motivo concreto: dentro de una
-                    franja de un solo color, correr los círculos unos
-                    píxeles no cambia nada que se note. EL COLOR ES LO QUE
-                    SE VE.
+                {/* ════════════════════════════════════════════════════
+                    ACÁ VIVÍA LA GALERÍA DE ESTILOS CON DEGRADADO, Y SE
+                    FUE — con un bug adentro que la hundía.
+                    ════════════════════════════════════════════════════
 
-                    Por eso las ocho tarjetas terminadas abren el
-                    capítulo: un toque repinta el pase entero —tarjeta,
-                    sellos y degradado de la franja— y se ve al instante
-                    en la vista previa de al lado. La geometría queda
-                    después, como ajuste fino, que es su lugar real. */}
+                    Ocho tarjetas terminadas que repintaban el pase de un
+                    toque. La idea era buena y el motor funciona: los
+                    degradados se renderizaron, se miraron y no tenían
+                    costura contra el color plano de abajo.
+
+                    Lo que estaba roto era el CRUCE con los colores a
+                    mano. Elegir un estilo guardaba sus acentos en
+                    `diseno.fondo`; elegir después un color de esta lista
+                    de acá abajo cambiaba `colorFondo` y `colorSello` y
+                    NO tocaba esos acentos. Resultado real, que el dueño
+                    vio en producción: una tarjeta verde con una franja
+                    negra que no combinaba con nada, porque el degradado
+                    seguía yendo hacia el acento del estilo anterior.
+
+                    ⚠️ POR ESO `alElegir` DE ABAJO AHORA RESETEA EL
+                    FONDO. No alcanza con sacar la galería: un negocio
+                    que alcanzó a guardar un estilo durante la prueba
+                    tiene el degradado viejo en la base, y sin este
+                    reseteo se quedaría atrapado con él para siempre —
+                    sin ninguna pantalla desde donde sacárselo.
+
+                    El motor (`fondo-tira.ts`) se queda: está probado,
+                    no cuesta CPU y `{forma:"plano"}` es inerte. Volver a
+                    ofrecer degradados es cambiar este bloque, no
+                    reescribir nada. Lo que falta antes de eso es
+                    resolver de verdad cómo conviven un estilo terminado
+                    y los colores sueltos — y esa es una decisión de
+                    producto, no un arreglo. */}
                 <div>
-                  <span className={etiqueta}>Estilo de la tarjeta</span>
-                  <p className={`mb-3 ${NOTA}`}>
-                    Elegí uno y se aplica al toque. Después podés cambiarle los colores a mano.
-                  </p>
-                  <PaletasPase
-                    colorFondo={valor.colorFondo}
-                    colorSello={valor.colorSello}
-                    diseno={valor.diseno}
-                    meta={metaSellos || 10}
-                    alElegir={(p) =>
-                      patch({
-                        colorFondo: p.fondo,
-                        colorSello: p.sello,
-                        // El degradado viaja DENTRO de `diseno`, que es
-                        // un `ConfigTira` completo: mandarlo suelto lo
-                        // haría desaparecer en el próximo guardado. Ver
-                        // el aviso del campo `fondo` en `layout-tira.ts`.
-                        diseno: { ...valor.diseno, fondo: p.degradado },
-                      })
-                    }
-                  />
-                </div>
-
-                <div className="border-t border-bookea-linea pt-6">
-                  <span className={etiqueta}>O elegí los colores a mano</span>
+                  <span className={etiqueta}>Color de la tarjeta</span>
                   <PlantillasColor
                     colorFondo={valor.colorFondo}
                     colorSello={valor.colorSello}
-                    alElegir={(c) => patch({ colorFondo: c.fondo, colorSello: c.sello })}
+                    alElegir={(c) =>
+                      patch({
+                        colorFondo: c.fondo,
+                        colorSello: c.sello,
+                        // El fondo vuelve a plano SIEMPRE. Ver arriba.
+                        diseno: { ...valor.diseno, fondo: FONDO_CLASICO },
+                      })
+                    }
                   />
                   {esPublico ? (
                     <>
@@ -967,13 +1000,13 @@ export default function TarjetaFormulario({
                             id="tf-fondo"
                             etiqueta="Color de fondo"
                             valor={valor.colorFondo}
-                            alCambiar={(v) => patch({ colorFondo: v })}
+                            alCambiar={(v) => patch({ colorFondo: v, diseno: { ...valor.diseno, fondo: FONDO_CLASICO } })}
                           />
                           <CampoColor
                             id="tf-sello"
                             etiqueta="Color del acento"
                             valor={valor.colorSello}
-                            alCambiar={(v) => patch({ colorSello: v })}
+                            alCambiar={(v) => patch({ colorSello: v, diseno: { ...valor.diseno, fondo: FONDO_CLASICO } })}
                           />
                         </div>
                       )}
@@ -984,13 +1017,13 @@ export default function TarjetaFormulario({
                         id="tf-fondo"
                         etiqueta="Color de fondo"
                         valor={valor.colorFondo}
-                        alCambiar={(v) => patch({ colorFondo: v })}
+                        alCambiar={(v) => patch({ colorFondo: v, diseno: { ...valor.diseno, fondo: FONDO_CLASICO } })}
                       />
                       <CampoColor
                         id="tf-sello"
                         etiqueta={valor.tipo === "sellos" ? "Color del sello" : "Color del acento"}
                         valor={valor.colorSello}
-                        alCambiar={(v) => patch({ colorSello: v })}
+                        alCambiar={(v) => patch({ colorSello: v, diseno: { ...valor.diseno, fondo: FONDO_CLASICO } })}
                       />
                     </div>
                   )}
@@ -1141,18 +1174,49 @@ export default function TarjetaFormulario({
                   </div>
                 )}
 
-                {!esPublico && (
-                  <div className="border-t border-bookea-linea pt-4">
-                    <SubirImagen
-                      etiqueta="Logo para notificaciones"
-                      valor={valor.notificacionLogoUrl}
-                      alCambiar={(url) => patch({ notificacionLogoUrl: url })}
-                      destino="logo"
-                      carpeta="lealtad/notificaciones"
-                    />
+                {/* ── EL LOGO DEL AVISO (0208) ────────────────────────
+                    Es el cuadradito que el teléfono pone al lado de CADA
+                    notificación del pase: cuando le acreditan un sello,
+                    cuando el negocio manda un anuncio.
+
+                    Se ofrecía SOLO en el panel autenticado, con el
+                    motivo escrito de que «sin rancho no hay dónde
+                    subirlo». Eso es cierto sin sesión y deja de serlo en
+                    cuanto hay una: es exactamente el mismo caso que el
+                    ícono propio, que ya se habilita así. Y el alta
+                    pública es justo donde el negocio está armando su
+                    marca, o sea el mejor momento para pedirlo.
+
+                    Pedido del dueño (26 ago 2026): «agregar opción para
+                    que suban el logo que se mostrará en el anuncio, por
+                    si no se muestra el logo en la tarjeta». */}
+                {(!esPublico || haySesion) && (
+                  <div className="border-t border-bookea-linea pt-6">
+                    <span className={etiqueta}>Logo que se muestra en el anuncio</span>
+                    {esPublico ? (
+                      <SubidaPropia
+                        etiqueta="Tu logo para avisos"
+                        subiendo={subiendoAviso}
+                        error={errorAviso}
+                        activa={!!valor.notificacionLogoUrl}
+                        vista={valor.notificacionLogoUrl || null}
+                        subida={!!valor.notificacionLogoUrl}
+                        onArchivo={(a) => void elegirArchivoPropio(a, "aviso")}
+                        onQuitar={() => patch({ notificacionLogoUrl: "" })}
+                      />
+                    ) : (
+                      <SubirImagen
+                        etiqueta=""
+                        valor={valor.notificacionLogoUrl}
+                        alCambiar={(url) => patch({ notificacionLogoUrl: url })}
+                        destino="logo"
+                        carpeta="lealtad/notificaciones"
+                      />
+                    )}
                     <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
-                      No va en la tarjeta — es la imagen que muestra el aviso del teléfono cuando
-                      el pase se actualiza.
+                      No va dentro de la tarjeta: es la imagen que el teléfono muestra al lado del
+                      aviso cuando le acreditás un sello o le mandás un anuncio. Sin esta, va el
+                      logo de tu tarjeta.
                     </p>
                   </div>
                 )}

@@ -116,6 +116,8 @@ export type EstadoLealtad = {
   franjaBancoId: string | null;
   /** SOLO una subida real (requiere sesión). */
   bannerUrl: string | null;
+  /** El logo del AVISO de Wallet (0208). SOLO una subida real. */
+  notificacionLogoUrl: string | null;
 
   /**
    * Dónde y de qué tamaño van los sellos en la tira (0212).
@@ -164,6 +166,7 @@ function estadoInicial(planInicial?: PlanId | null): EstadoLealtad {
     franjaModo: "ninguna",
     franjaBancoId: null,
     bannerUrl: null,
+    notificacionLogoUrl: null,
     diseno: CONFIG_CLASICA,
     telefono: "",
   };
@@ -223,6 +226,9 @@ function sanearGuardado(crudo: unknown): EstadoLealtad {
   // La geometría de la tira (0212). `configDesdeJson` sanea campo por
   // campo, así que un borrador viejo —que ni tenía el campo— cae al
   // layout clásico sin ningún chequeo extra acá.
+  if (typeof c.notificacionLogoUrl === "string" && c.notificacionLogoUrl) {
+    limpio.notificacionLogoUrl = c.notificacionLogoUrl;
+  }
   limpio.diseno = configDesdeJson(c.diseno);
 
   return limpio;
@@ -315,10 +321,9 @@ export default function ConfiguradorLealtad({
     iconoUrl: estado.iconoUrl ?? "",
     logoUrl: estado.logoUrl ?? "",
     bannerUrl: estado.bannerUrl ?? "",
-    // El logo de notificaciones (0208) no se ofrece en el alta pública:
-    // sin rancho todavía no hay dónde subirlo. Se completa recién en el
-    // panel autenticado (crear/editar).
-    notificacionLogoUrl: "",
+    // El logo del AVISO (0208) SÍ se ofrece en el alta pública desde
+    // ago 2026, en cuanto hay sesión — igual que el ícono propio.
+    notificacionLogoUrl: estado.notificacionLogoUrl ?? "",
     reglas: REGLAS_VACIAS,
     vencenMeses: null,
     telefono: estado.telefono,
@@ -350,6 +355,9 @@ export default function ConfiguradorLealtad({
     if (p.franjaModo !== undefined) cambios.franjaModo = p.franjaModo;
     if (p.franjaBancoId !== undefined) cambios.franjaBancoId = p.franjaBancoId;
     if (p.diseno !== undefined) cambios.diseno = p.diseno;
+    if (p.notificacionLogoUrl !== undefined) {
+      cambios.notificacionLogoUrl = p.notificacionLogoUrl || null;
+    }
     if (p.planElegido !== undefined) cambios.planElegido = p.planElegido;
     patch(cambios);
   }
@@ -400,6 +408,7 @@ export default function ConfiguradorLealtad({
         // La geometría de la tira (0212). El servidor la sanea y solo
         // escribe la columna si difiere del layout de siempre.
         diseno: estado.diseno,
+        notificacionLogoUrl: estado.notificacionLogoUrl,
       },
     };
     iniciarGuardado(async () => {
