@@ -14,7 +14,7 @@ import {
 } from "./icons";
 import { categoriaGradiente, categoriaIcono, categoriaLabel } from "@/lib/categorias-vertical";
 import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
-import InsigniaVerificado from "@/components/insignia-verificado";
+import InsigniaVerificado, { selloDe } from "@/components/insignia-verificado";
 
 export type NegocioDestacado = {
   id: string;
@@ -29,6 +29,8 @@ export type NegocioDestacado = {
   detalles?: Record<string, unknown> | null;
   /** Bookea comprobó que el negocio existe. Ver la migración 0214. */
   verificado?: boolean | null;
+  /** Su dueño lo administra. false = «Info pública». Ver la 0216. */
+  reclamado?: boolean | null;
 };
 
 /** Cuánto se queda quieta cada tarjeta antes de empezar a cambiar. */
@@ -259,7 +261,7 @@ export default function CarruselSuperDestacados({
                   súper destacados—, así que la insignia se suma. Sobre la
                   foto va con fondo propio: el degradado de abajo es azul
                   oscuro y el verde solo no se despegaría. */}
-              {n.verificado && <InsigniaVerificado sobreFoto />}
+              {selloDe(n) && <InsigniaVerificado estado={selloDe(n)!} sobreFoto />}
             </span>
             <p className="max-w-[80%] text-2xl font-extrabold leading-tight text-white drop-shadow-[0_2px_12px_rgba(6,38,83,0.6)] sm:text-3xl lg:text-4xl">
               {n.nombre}

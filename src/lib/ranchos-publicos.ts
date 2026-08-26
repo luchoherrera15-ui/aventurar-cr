@@ -77,7 +77,7 @@ export const COLUMNAS_COBRO =
 export const COLUMNAS_CARD =
   "id, slug, nombre, descripcion, categoria, subcategoria, provincia, canton, " +
   "capacidad_min, capacidad_max, precio_desde, unidad_precio, foto_url, fotos, " +
-  "detalles, destacado_orden, created_at, vertical, verificado";
+  "detalles, destacado_orden, created_at, vertical, verificado, reclamado";
 
 /**
  * Lo que pinta la ficha de un negocio de Eventos (rancho-portal.tsx),

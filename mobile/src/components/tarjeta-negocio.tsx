@@ -239,8 +239,12 @@ const styles = StyleSheet.create({
   // 16/10 = 1.6, el mismo número que la web. Va literal y no como
   // `16/10` porque en React Native `aspectRatio` es un número, no una
   // razón CSS.
-  fotoRiel: { aspectRatio: 1.6 },
-  fotoCompleta: { aspectRatio: 1.6 },
+  // 16/9 = 1.7778, el mismo número que la web (`rancho-card.tsx`).
+  // Bajó de 1.6 el 26 ago 2026, junto con la web: el dueño pidió las
+  // tarjetas «un poquito menos altas». Va literal y no como `16/9`
+  // porque en React Native `aspectRatio` es un número, no una razón.
+  fotoRiel: { aspectRatio: 1.7778 },
+  fotoCompleta: { aspectRatio: 1.7778 },
   foto: { height: "100%", width: "100%" },
   fotoVacia: { alignItems: "center", flex: 1, justifyContent: "center" },
   tagsFoto: {

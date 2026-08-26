@@ -663,6 +663,20 @@ export type Rancho = {
    * con uno que nadie le dio.
    */
   verificado?: boolean | null;
+  /**
+   * Su dueño real lo administra.
+   *
+   * `false` = lo sembramos nosotros con su información pública y
+   * todavía nadie de ese negocio lo reclamó — la tarjeta dice «Info
+   * pública» en vez de «Verificado». Ver la migración 0216: son dos
+   * preguntas distintas (¿los datos son ciertos? / ¿hay alguien de
+   * adentro?), no dos escalones de la misma.
+   *
+   * Default `true` en la base: el camino normal de alta es alguien
+   * publicando SU negocio. Un `undefined` acá se trata como reclamado
+   * por el mismo motivo.
+   */
+  reclamado?: boolean | null;
   destacado_orden?: number | null;
   /** Hasta 10 negocios rotan en el carrusel de la portada (0169) —
    *  aparte de `destacado_orden`, que reordena la grilla normal. */

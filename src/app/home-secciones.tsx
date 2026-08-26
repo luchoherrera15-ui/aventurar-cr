@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import CarruselSuperDestacados from "@/components/carrusel-super-destacados";
 import RielProveedores from "@/components/riel-proveedores";
-import InsigniaVerificado from "@/components/insignia-verificado";
+import InsigniaVerificado, { selloDe } from "@/components/insignia-verificado";
 import type { Calificacion } from "@/components/rancho-card";
 import { IconPin } from "@/components/icons";
 import { categoriaGradiente, categoriaIcono, categoriaLabel } from "@/lib/categorias-vertical";
@@ -195,8 +195,8 @@ function VitrinaRespaldo({ negocio }: { negocio: Rancho }) {
                 que es el «Nuevo» de esta pantalla con otro nombre. Ver
                 `rancho-card.tsx`: las dos etiquetas dicen cosas
                 opuestas y en una sola tarjeta gana la que da confianza. */}
-            {negocio.verificado ? (
-              <InsigniaVerificado sobreFoto />
+            {selloDe(negocio) ? (
+              <InsigniaVerificado estado={selloDe(negocio)!} sobreFoto />
             ) : (
               esNuevo && (
                 <span className="rounded-lg bg-aventurea-orange px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">

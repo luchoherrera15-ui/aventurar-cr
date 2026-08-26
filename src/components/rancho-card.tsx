@@ -12,7 +12,7 @@ import {
   enConfiguracion,
   type Rancho,
 } from "@/app/mi-negocio/types";
-import InsigniaVerificado from "@/components/insignia-verificado";
+import InsigniaVerificado, { selloDe } from "@/components/insignia-verificado";
 import {
   categoriaGradiente,
   categoriaIcono,
@@ -145,7 +145,7 @@ export default function RanchoCard({
         {/* 4:3 en vez de 16:10 — la foto es la protagonista y el
             bloque blanco de abajo queda lo más chico posible. */}
         <div
-          className="relative aspect-[16/10] overflow-hidden bg-aventurea-blue-light"
+          className="relative aspect-[16/9] overflow-hidden bg-aventurea-blue-light"
           style={
             !rancho.foto_url
               ? { backgroundImage: categoriaGradiente(rancho.vertical ?? "eventos", rancho.categoria) }
@@ -223,8 +223,8 @@ export default function RanchoCard({
                 Destacado SÍ convive con la insignia: no habla de
                 confianza sino de posición pagada, y son dos preguntas
                 distintas que el visitante se hace. */}
-            {rancho.verificado ? (
-              <InsigniaVerificado sobreFoto />
+            {selloDe(rancho) ? (
+              <InsigniaVerificado estado={selloDe(rancho)!} sobreFoto />
             ) : (
               esNuevo && (
                 <span className="rounded-lg bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-ink backdrop-blur">

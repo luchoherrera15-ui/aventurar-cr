@@ -10,7 +10,7 @@ import {
   enConfiguracion,
   type Rancho,
 } from "@/app/mi-negocio/types";
-import InsigniaVerificado from "@/components/insignia-verificado";
+import InsigniaVerificado, { selloDe } from "@/components/insignia-verificado";
 import {
   categoriaGradiente,
   categoriaIcono,
@@ -96,7 +96,7 @@ export default function RanchoCardGrande({
       >
         {/* ---------- El collage con sus insignias ---------- */}
         <div
-          className="relative aspect-[16/10] overflow-hidden"
+          className="relative aspect-[16/9] overflow-hidden"
           style={
             !portada
               ? { backgroundImage: categoriaGradiente(rancho.vertical ?? "eventos", rancho.categoria) }
@@ -202,8 +202,8 @@ export default function RanchoCardGrande({
               </span>
             )}
             {/* Ver `rancho-card.tsx` para por qué reemplaza a «Nuevo» en vez de sumarse. */}
-            {rancho.verificado ? (
-              <InsigniaVerificado sobreFoto />
+            {selloDe(rancho) ? (
+              <InsigniaVerificado estado={selloDe(rancho)!} sobreFoto />
             ) : (
               esNuevo && (
                 <span className="rounded-lg bg-white/90 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-aventurea-ink backdrop-blur">
