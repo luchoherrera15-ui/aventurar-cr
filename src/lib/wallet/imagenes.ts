@@ -2,6 +2,7 @@ import sharp, { type OverlayOptions } from "sharp";
 import { join } from "node:path";
 import { ICONOS_SELLO, type IconoSello } from "@/lib/lealtad/iconos-sello";
 import { CONFIG_CLASICA, layoutDeLaTira, type ConfigTira } from "./layout-tira";
+import { svgDelFondo } from "./fondo-tira";
 
 /**
  * Las imágenes de la tarjeta de lealtad.
@@ -329,9 +330,30 @@ export async function dibujarTiraDeSellos({
 
   const piezas: OverlayOptions[] = [];
 
-  // La foto va primero y el velo en el medio: las dos ocupan el strip
-  // entero, así que se posicionan en 0,0 y no por gravedad.
-  if (banda) {
+  /**
+   * EL FONDO CON DEGRADADO MANDA SOBRE LA FOTO, y es a propósito.
+   *
+   * En la franja hay lugar para UNA cosa: la foto la cubriría entera.
+   * Elegir un degradado es una decisión posterior y explícita; la foto
+   * es un archivo que quedó guardado de antes. Si la foto ganara, elegir
+   * un degradado no haría nada visible y el control se leería como roto.
+   *
+   * La foto NO se borra: queda guardada por si el dueño vuelve al fondo
+   * clásico.
+   *
+   * Y al revés: con el fondo clásico —que es el de TODAS las tarjetas
+   * emitidas hasta hoy— este bloque no agrega ninguna capa, la foto se
+   * dibuja como siempre y el PNG sale byte por byte igual. Eso lo fija
+   * `tiras-emitidas.test.ts` con 99 huellas capturadas antes del cambio.
+   */
+  const svgFondo = svgDelFondo(diseno.fondo, colores.fondo, ancho, alto);
+  const hayDegradado = svgFondo !== null;
+
+  if (hayDegradado) {
+    piezas.push({ input: Buffer.from(svgFondo), left: 0, top: 0 });
+  } else if (banda) {
+    // La foto va primero y el velo en el medio: las dos ocupan el strip
+    // entero, así que se posicionan en 0,0 y no por gravedad.
     piezas.push({ input: await recortarACover(banda, ancho, alto), left: 0, top: 0 });
     piezas.push({
       input: Buffer.from([0, 0, 0, Math.round(255 * VELO_SOBRE_LA_BANDA)]),
@@ -386,10 +408,36 @@ export async function dibujarTiraDeSellos({
     piezas.push({ input: encendido ? par.lleno : par.vacio, left: x, top: y });
   }
 
-  return sharp({ create: { width: ancho, height: alto, channels: 4, background: colores.fondo } })
-    .composite(piezas)
-    .png()
-    .toBuffer();
+  const componer = (capas: OverlayOptions[]) =>
+    sharp({ create: { width: ancho, height: alto, channels: 4, background: colores.fondo } })
+      .composite(capas)
+      .png()
+      .toBuffer();
+
+  /**
+   * ⚠️ UN FONDO ROTO NO PUEDE DEJAR SIN TIRA A UN CLIENTE EN LA CAJA.
+   *
+   * `escalones-tira.ts` existe porque la escalera vieja reintentaba
+   * cambiando lo único que NO era el problema, y el pase salía sin
+   * `strip.png`: sin sellos, sin banda, sin nada.
+   *
+   * El respaldo del fondo vive ACÁ y no en esa escalera, por dos
+   * motivos: el diseño es CONSTANTE en los tres escalones —así que un
+   * SVG que librsvg rechace haría fallar los tres igual, y agregar un
+   * cuarto escalón sería un reintento idéntico— y porque acá cubre
+   * también el camino de la banda sola, que no tiene escalera ninguna.
+   *
+   * Sin degradado no hay nada que pueda fallar de más, así que ese
+   * camino ni se envuelve: sigue siendo la misma llamada de siempre.
+   */
+  if (!hayDegradado) return componer(piezas);
+  try {
+    return await componer(piezas);
+  } catch (e) {
+    console.warn("[wallet] No se pudo dibujar el fondo de la tira; va el color plano:", e);
+    // Se cae la PRIMERA capa, que es el degradado. Los sellos quedan.
+    return componer(piezas.slice(1));
+  }
 }
 
 /**

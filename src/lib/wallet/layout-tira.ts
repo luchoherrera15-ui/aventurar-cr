@@ -34,6 +34,8 @@
  * refactor.
  */
 
+import { FONDO_CLASICO, fondoDesdeJson, type FondoTira } from "./fondo-tira";
+
 /** Medidas de Apple para el strip de un storeCard, en puntos. */
 export const TIRA_ANCHO = 375;
 export const TIRA_ALTO = 123;
@@ -70,6 +72,29 @@ export type ConfigTira = {
    * rompe la tarjeta en los teléfonos que no tiene a mano para probar.
    */
   margenY: number;
+  /**
+   * El fondo de la franja (ago 2026): color plano o degradado.
+   *
+   * ⚠️ VA ADENTRO DE `ConfigTira` Y NO COMO UNA LLAVE SUELTA DEL JSONB.
+   * No es una cuestión de gusto — es lo que impide una pérdida
+   * silenciosa de datos:
+   *
+   * `configDesdeJson` construye un objeto con los campos que conoce y
+   * DESCARTA todo lo demás. Hay cuatro escritores de `pase_diseno`
+   * (`pases-actions`, `crear-actions`, `nuevo/actions` y el formulario),
+   * y los cuatro pasan por ahí. Si el fondo fuera una llave que
+   * `configDesdeJson` no conoce, pasaría esto: el negocio elige su
+   * degradado, después entra a cambiarle otra cosa a la tarjeta, guarda,
+   * y el degradado DESAPARECE de la base sin error y sin aviso — con el
+   * push de la 0150 empujando la tarjeta sin degradado a todos los
+   * teléfonos de sus clientes.
+   *
+   * Siendo parte del tipo, el compilador lo lleva de punta a punta por
+   * los ocho archivos que ya mueven un `ConfigTira`, y preservarlo pasa
+   * a ser una propiedad de la construcción en vez de una convención que
+   * hay que recordar en cuatro lugares.
+   */
+  fondo: FondoTira;
 };
 
 /** El layout que estaba escrito a mano en `imagenes.ts`. */
@@ -79,6 +104,7 @@ export const CONFIG_CLASICA: ConfigTira = {
   alineacionH: "centro",
   alineacionV: "centro",
   margenY: 0.07,
+  fondo: FONDO_CLASICO,
 };
 
 /**
@@ -137,7 +163,12 @@ export function configDesdeJson(valor: unknown): ConfigTira {
       ? Math.min(0.25, Math.max(0, d.margenY))
       : CONFIG_CLASICA.margenY;
 
-  return { filas, escalaSello, alineacionH, alineacionV, margenY };
+  // El fondo se sanea en su propio módulo, con el mismo criterio: un
+  // valor que no se reconoce degrada a «color plano», que es el fondo de
+  // todas las tarjetas emitidas hasta hoy.
+  const fondo = fondoDesdeJson(d.fondo);
+
+  return { filas, escalaSello, alineacionH, alineacionV, margenY, fondo };
 }
 
 /**
@@ -160,7 +191,8 @@ export function esClasica(config: ConfigTira): boolean {
     config.escalaSello === CONFIG_CLASICA.escalaSello &&
     config.alineacionH === CONFIG_CLASICA.alineacionH &&
     config.alineacionV === CONFIG_CLASICA.alineacionV &&
-    config.margenY === CONFIG_CLASICA.margenY
+    config.margenY === CONFIG_CLASICA.margenY &&
+    config.fondo.forma === "plano"
   );
 }
 

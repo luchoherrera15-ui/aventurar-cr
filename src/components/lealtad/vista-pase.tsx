@@ -15,6 +15,7 @@ import { metaDe, tipoDe, type ConfigBeneficio } from "@/lib/lealtad/tipos-tarjet
 import { selloParaGuardar, type DibujoDelSello, type SelloElegido } from "@/lib/lealtad/iconos-sello";
 import { SelloConIcono, SelloConImagen } from "@/app/lealtad/panel/[id]/iconos";
 import { CONFIG_CLASICA, layoutDeLaTira, type ConfigTira } from "@/lib/wallet/layout-tira";
+import { cssDelFondo } from "@/lib/wallet/fondo-tira";
 
 /**
  * LA VISTA PREVIA DEL PASE, en vivo.
@@ -475,9 +476,16 @@ function Tira({
          el de la ventana. Sin esto los sellos salen del tamaño de la
          pantalla. */
       className="relative mt-3 overflow-hidden rounded-lg [container-type:inline-size]"
-      style={{ aspectRatio: "375 / 123", background: colores.fondo }}
+      /* El fondo sale de `cssDelFondo`, que resuelve las MISMAS paradas
+         que `svgDelFondo` le da a sharp. Con el fondo clásico devuelve
+         el color plano de siempre y acá no cambia nada. */
+      style={{ aspectRatio: "375 / 123", background: cssDelFondo(diseno.fondo, colores.fondo) }}
     >
-      {tira.banda ? (
+      {/* La foto solo se dibuja con el fondo clásico — la MISMA regla
+          que aplica sharp: en la franja hay lugar para una cosa, y el
+          degradado manda sobre la foto. Ver el comentario de
+          `dibujarTiraDeSellos`. */}
+      {tira.banda && diseno.fondo.forma === "plano" ? (
         /* eslint-disable-next-line @next/next/no-img-element -- URL
            externa del negocio, y acá es una maqueta. */
         <img src={tira.banda} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -485,7 +493,10 @@ function Tira({
 
       {tira.tipo === "sellos" && (
         <>
-          {tira.banda ? (
+          {/* El velo acompaña a la foto: sin foto no hay nada que
+              oscurecer, y sobre un degradado sería un filtro gris que
+              sharp no aplica. Misma condición que la foto, arriba. */}
+          {tira.banda && diseno.fondo.forma === "plano" ? (
             <span aria-hidden className="absolute inset-0" style={{ background: "rgba(0,0,0,.42)" }} />
           ) : null}
           {/* ⚠️ ACÁ HABÍA UN SEGUNDO ALGORITMO DE LAYOUT, Y MENTÍA.
