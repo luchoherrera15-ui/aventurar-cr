@@ -75,142 +75,157 @@ export type DibujoIcono = {
   trazos: readonly string[];
 };
 
-/** Una elipse como `d` de path: dos arcos, sin `<ellipse>`. */
-function elipse(cx: number, cy: number, rx: number, ry: number): string {
-  return `M${cx} ${cy - ry}a${rx} ${ry} 0 1 0 0 ${ry * 2}a${rx} ${ry} 0 1 0 0 ${-ry * 2}`;
-}
-
-/** Un círculo: la elipse con los dos radios iguales. */
-function circulo(cx: number, cy: number, r: number): string {
-  return elipse(cx, cy, r, r);
-}
-
-/** Los cinco pétalos de la flor, alrededor del centro. */
-const PETALOS = [
-  [12, 6.2],
-  [16.1, 9.2],
-  [14.5, 14],
-  [9.5, 14],
-  [7.9, 9.2],
-].map(([cx, cy]) => circulo(cx, cy, 2.4));
-
 /**
- * Las cuatro almohadillas de los dedos de la huella.
+ * ════════════════════════════════════════════════════════════════════
+ *  LOS DOCE DIBUJOS — redibujados de cero (ago 2026)
+ * ════════════════════════════════════════════════════════════════════
  *
- * Elípticas y BIEN separadas: pegadas y redondas, las cuatro se leían
- * como una cara —dos ojos y dos orejas— en vez de como una pata.
+ * El dueño fue textual: «LOS ICONOS SON SUMAMENTE FEOS». Se
+ * rasterizaron los viejos al tamaño REAL al que salen en el pase
+ * —dentro de un círculo de ~34 px en la tira— y tenía razón, con
+ * creces: la pizza se leía como un TRIÁNGULO DE PELIGRO, la huella de
+ * mascota como una calavera, la flor como un brócoli, y la tijera como
+ * una equis con dos puntos.
+ *
+ * ── LA CAUSA DE FONDO, QUE NO ES OBVIA LEYENDO EL ARCHIVO ───────────
+ *
+ * `svgDelSello` (imagenes.ts) encoge el glifo al 58 % del círculo y
+ * COMPENSA engordando el trazo (`1.6 / ESCALA_GLIFO`). O sea que el
+ * dibujo llega chico y gordo: cualquier detalle interno se empasta.
+ *
+ * El criterio nuevo sale de ahí, y es lo que hace que los doce parezcan
+ * por fin de la misma familia:
+ *
+ *   · Caja óptica de 17-19 unidades centrada en (12,12), con 2 unidades
+ *     de margen por lado como mínimo. Los viejos se salían —`regalo`
+ *     medía 21,8 de ancho y `comida` llegaba a y=23,3— y la máscara
+ *     circular les comía las puntas.
+ *   · Pocos trazos y ninguno interior. La silueta tiene que hacer todo
+ *     el trabajo, porque a 34 px el interior no existe.
+ *   · Mismo peso óptico entre los doce: la pesa vieja eran cinco líneas
+ *     sueltas al lado de un café de cinco paths amontonados.
+ *
+ * ── LOS DOS QUE NO SE TOCARON ───────────────────────────────────────
+ * `corazon` y `estrella` ya estaban bien: son un polígono cerrado sin
+ * detalle interno, que es exactamente lo que este tamaño pide. Solo se
+ * recentraron en la caja óptica.
+ *
+ * ⚠️ CAMBIAR ESTOS DIBUJOS CAMBIA EL ASPECTO DE LAS TARJETAS YA
+ * EMITIDAS. Se redibujan en el teléfono del cliente la próxima vez que
+ * gana un sello. Fue un cambio PEDIDO, y por eso las huellas de
+ * `tiras-emitidas.test.ts` se actualizaron a propósito para los casos
+ * con ícono. Si algún día cambian sin que nadie lo pida, esa prueba lo
+ * delata.
+ *
+ * Los helpers `elipse`/`circulo` y las constantes `PETALOS`/`DEDOS` que
+ * vivían acá se fueron con los dibujos viejos: los doce nuevos son
+ * paths literales, medidos uno por uno.
  */
-const DEDOS = [
-  [6.5, 10.8],
-  [9.9, 7.3],
-  [14.1, 7.3],
-  [17.5, 10.8],
-].map(([cx, cy]) => elipse(cx, cy, 1.7, 2.1));
-
 export const ICONOS_SELLO: Record<IconoSello, DibujoIcono> = {
   cafe: {
     id: "cafe",
     nombre: "Café",
     trazos: [
-      "M5 8.6h11v5.2a5.2 5.2 0 0 1-5.2 5.2h-.6A5.2 5.2 0 0 1 5 13.8z",
-      "M16 10.2h1.5a2.4 2.4 0 0 1 0 4.8H16",
-      "M3.5 21.4h14",
-      "M8.6 5.6c0-1 1-1.4 1-2.6",
-      "M12.2 5.6c0-1 1-1.4 1-2.6",
+      "M5 10.6h10.4v6.6a2.8 2.8 0 0 1-2.8 2.8H7.8a2.8 2.8 0 0 1-2.8-2.8z",
+      "M15.4 12.2h1a3 3 0 0 1 0 6h-1",
+      "M8.4 6.4q-1.2-1.5 0-3",
+      "M13.6 6.4q-1.2-1.5 0-3",
     ],
   },
   tijera: {
     id: "tijera",
     nombre: "Barbería",
-    trazos: [circulo(6, 6, 3), circulo(6, 18, 3), "M20 4 8.12 15.88", "M14.47 14.48 20 20", "M8.12 8.12 12 12"],
+    trazos: [
+      "M6.8 3.9a3.1 3.1 0 1 0 0 6.2a3.1 3.1 0 1 0 0 -6.2",
+      "M6.8 13.9a3.1 3.1 0 1 0 0 6.2a3.1 3.1 0 1 0 0 -6.2",
+      "M9 9.2 19.4 19.6",
+      "M9 14.8 19.4 4.4",
+    ],
   },
   unas: {
     id: "unas",
     nombre: "Uñas",
-    // Un frasco de esmalte: cuerpo ANCHO y tapa angosta. Con el cuerpo
-    // flaco de la primera versión, a 30 píxeles se leía como una pila.
     trazos: [
-      "M11 2.6h2a2 2 0 0 1 2 2v2.2H9V4.6a2 2 0 0 1 2-2z",
-      "M10.6 6.8h2.8v2.6h-2.8z",
-      "M9.4 9.4h5.2a2.6 2.6 0 0 1 2.6 2.6v6.8a2.6 2.6 0 0 1-2.6 2.6H9.4a2.6 2.6 0 0 1-2.6-2.6V12a2.6 2.6 0 0 1 2.6-2.6z",
+      "M11.2 4.6a0.8 0.8 0 0 1 1.6 0v3a0.8 0.8 0 0 1-1.6 0z",
+      "M9.4 9.4h5.2l2.2 2.2a2.4 2.4 0 0 1 .7 1.7v4.3a2.4 2.4 0 0 1-2.4 2.4H8.9a2.4 2.4 0 0 1-2.4-2.4v-4.3a2.4 2.4 0 0 1 .7-1.7z",
     ],
   },
   comida: {
     id: "comida",
     nombre: "Comida",
-    // Porción de pizza: la corteza abajo y dos pepperonis grandes. Los
-    // dos detalles son los que la separan de un triángulo de peligro.
     trazos: [
-      "M12 2.6 20 20.4a1 1 0 0 1-1.3 1.4 20 20 0 0 0-13.4 0A1 1 0 0 1 4 20.4z",
-      "M7.4 16.4q4.6 1.5 9.2 0",
-      circulo(10.4, 10.2, 1.35),
-      circulo(13.5, 14, 1.35),
+      "M4 17.2h16",
+      "M5.1 17.2a6.9 6.9 0 0 1 13.8 0",
+      "M12 10.3V6.7",
     ],
   },
   cerveza: {
     id: "cerveza",
     nombre: "Cerveza",
     trazos: [
-      "M5.5 8.5h9v10.9a1.6 1.6 0 0 1-1.6 1.6H7.1a1.6 1.6 0 0 1-1.6-1.6z",
-      "M14.5 10.6h2.6a2.6 2.6 0 0 1 0 5.2h-2.6",
-      "M5.5 8.5a2.1 2.1 0 0 1 1.3-3.7 2.6 2.6 0 0 1 4.5-1.4 2.3 2.3 0 0 1 3.2 5.1",
-      "M8.5 12.2v5.6",
-      "M11.5 12.2v5.6",
+      "M6 8h9.6v9.6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z",
+      "M15.6 10.4h1a2.9 2.9 0 0 1 0 5.8h-1",
+      "M5 8a2.3 2.3 0 1 1 3.8 0 2.3 2.3 0 1 1 3.8 0 2.3 2.3 0 1 1 3.8 0",
     ],
   },
   pesa: {
     id: "pesa",
     nombre: "Gimnasio",
-    trazos: ["M4.2 9.6v4.8", "M6.8 7.6v8.8", "M17.2 7.6v8.8", "M19.8 9.6v4.8", "M6.8 12h10.4"],
+    trazos: [
+      "M4.8 8.8a0.8 0.8 0 0 1 1.6 0v6.4a0.8 0.8 0 0 1-1.6 0z",
+      "M17.6 8.8a0.8 0.8 0 0 1 1.6 0v6.4a0.8 0.8 0 0 1-1.6 0z",
+      "M7.4 12h9.2",
+    ],
   },
   flor: {
     id: "flor",
     nombre: "Flores",
-    trazos: [...PETALOS, circulo(12, 10.4, 1.7), "M12 16.6V21.4"],
+    trazos: [
+      "M10.59 10.06a2.8 2.8 0 1 1 2.82 0a2.8 2.8 0 1 1 .87 2.68a2.8 2.8 0 1 1-2.28 1.66a2.8 2.8 0 1 1-2.28-1.66a2.8 2.8 0 1 1 .87-2.68z",
+    ],
   },
   mascota: {
     id: "mascota",
     nombre: "Mascotas",
     trazos: [
-      ...DEDOS,
-      "M12 13.4c3.1 0 5.1 2.1 5.1 4.4 0 2.1-1.8 3.4-3.6 3.4-.6 0-1.1-.2-1.5-.2s-.9.2-1.5.2c-1.8 0-3.6-1.3-3.6-3.4 0-2.3 2-4.4 5.1-4.4z",
+      "M5.2 8.5a0.7 0.7 0 1 0 0 1.4a0.7 0.7 0 1 0 0 -1.4",
+      "M9.4 4.7a0.7 0.7 0 1 0 0 1.4a0.7 0.7 0 1 0 0 -1.4",
+      "M14.6 4.7a0.7 0.7 0 1 0 0 1.4a0.7 0.7 0 1 0 0 -1.4",
+      "M18.8 8.5a0.7 0.7 0 1 0 0 1.4a0.7 0.7 0 1 0 0 -1.4",
+      "M12 12.4c2.9 0 5 2.1 5 4.3 0 2.2-2.2 2.7-5 2.7s-5-.5-5-2.7c0-2.2 2.1-4.3 5-4.3z",
     ],
   },
   auto: {
     id: "auto",
     nombre: "Autos",
     trazos: [
-      "M2.8 15.8v-2.8a1.6 1.6 0 0 1 .2-.8l2-3.8a2 2 0 0 1 1.8-1.1h10.4a2 2 0 0 1 1.8 1.1l2 3.8a1.6 1.6 0 0 1 .2.8v2.8z",
-      "M4.6 12.2h14.8",
-      circulo(7.6, 16.6, 1.9),
-      circulo(16.4, 16.6, 1.9),
+      "M4.2 14.4v-2.2a1.8 1.8 0 0 1 .3-1l2.5-3.8a2.2 2.2 0 0 1 1.9-1h6.2a2.2 2.2 0 0 1 1.9 1l2.5 3.8a1.8 1.8 0 0 1 .3 1v2.2z",
+      "M7.6 14.7a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0 -3",
+      "M16.4 14.7a1.5 1.5 0 1 0 0 3a1.5 1.5 0 1 0 0 -3",
     ],
   },
   corazon: {
     id: "corazon",
     nombre: "Corazón",
     trazos: [
-      "M12 20.8 4.4 13.2a4.9 4.9 0 0 1 6.9-7l.7.7.7-.7a4.9 4.9 0 0 1 6.9 7z",
+      "M12 20.1 5 13.1a4.55 4.55 0 0 1 6.36-6.44l.64.64.64-.64a4.55 4.55 0 0 1 6.36 6.44z",
     ],
   },
   estrella: {
     id: "estrella",
     nombre: "Estrella",
-    // El mismo trazo que ya usaba `estrella` en iconos.tsx: no se
-    // redibuja, se comparte (ese archivo lee de acá).
-    trazos: ["M12 3.2l2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 17.1 6.6 20l1-6.1L3.2 9.6l6.1-.9z"],
+    trazos: [
+      "M12 3.9 14.32 8.9 19.8 9.57 15.76 13.32 16.82 18.73 12 16.05 7.18 18.73 8.24 13.32 4.2 9.57 9.68 8.9z",
+    ],
   },
   regalo: {
     id: "regalo",
     nombre: "Regalo",
-    // Idem `regalo` de iconos.tsx, con el `<rect>` de la tapa escrito
-    // como path para que sirva igual del lado de sharp.
     trazos: [
-      "M3.7 8h16.6a1.2 1.2 0 0 1 1.2 1.2v2.1a1.2 1.2 0 0 1-1.2 1.2H3.7a1.2 1.2 0 0 1-1.2-1.2V9.2A1.2 1.2 0 0 1 3.7 8z",
-      "M4.5 12.5V21h15v-8.5",
-      "M12 8v13",
-      "M12 8S9.8 3 7.8 4.3 8.9 8 12 8Z",
-      "M12 8s2.2-5 4.2-3.7S15.1 8 12 8Z",
+      "M6.2 9.8h11.6a1.8 1.8 0 0 1 1.8 1.8v5.6a1.8 1.8 0 0 1-1.8 1.8H6.2a1.8 1.8 0 0 1-1.8-1.8v-5.6a1.8 1.8 0 0 1 1.8-1.8z",
+      "M12 9.8v9.2",
+      "M12 9.8c-3.4-.4-4.8-2-4.2-3.4.5-1.2 2.6-1 4.2 3.4z",
+      "M12 9.8c3.4-.4 4.8-2 4.2-3.4-.5-1.2-2.6-1-4.2 3.4z",
     ],
   },
 };

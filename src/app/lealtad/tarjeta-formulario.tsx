@@ -10,6 +10,9 @@ import SelectorFranja from "@/components/lealtad/selector-franja";
 import SelectorImagenNegocio from "@/components/lealtad/selector-imagen-negocio";
 import PasoBeneficio from "@/components/lealtad/paso-beneficio";
 import ControlesTira from "@/components/lealtad/controles-tira";
+import PaletasPase from "@/components/lealtad/paletas-pase";
+import { Apartado, PlacaPase, Portada } from "@/components/lealtad/ficha";
+import { NOTA, ROTULO } from "@/components/lealtad/ficha-tokens";
 import CampoColor from "@/components/campo-color";
 import SubirImagen from "@/components/subir-imagen";
 import { PAISES, COSTA_RICA } from "@/lib/paises";
@@ -176,7 +179,19 @@ export type CandadoTipo = { puede: boolean; motivo: string | null };
 const CLAVE_SESION_RESPALDO = "bookea-lealtad-wizard:nuevo";
 const ANCLA = "/lealtad#configurador-lealtad";
 
-const etiqueta = "mb-1.5 block text-[9.5px] font-bold uppercase tracking-wide text-bookea-gris";
+/**
+ * El rótulo de un campo.
+ *
+ * Era `text-[9.5px] uppercase tracking-wide text-bookea-gris` — el texto
+ * más chico de todo el producto, repetido trece veces con el mismo peso
+ * y el mismo color. Eso era lo que hacía que la pantalla se leyera como
+ * un formulario viejo aunque se le movieran las cajas de lugar: no había
+ * jerarquía, todo pesaba igual.
+ *
+ * Ahora sale de `ficha-tokens.ts`, y el escalón lo da la TINTA, no el
+ * tamaño. Ver el comentario de ese módulo.
+ */
+const etiqueta = ROTULO;
 
 /**
  * EL ASTERISCO DE «ESTO SÍ HACE FALTA» — pedido del dueño (ago 2026).
@@ -320,11 +335,24 @@ function CampoTelefono({
  *
  * Ahora `campo` sigue trayendo su `w-full` para el 99 % de los casos, y
  * quien comparte fila usa `CAMPO_BASE` y decide el ancho él.
+ *
+ * ⚠️ Y SE LE CAYÓ EL `outline-none`, QUE ERA UN BUG DE VERDAD.
+ *
+ * El anillo de foco global vive en `globals.css` dentro de un
+ * `:where(...)`, o sea con especificidad CERO: cualquier `outline-none`
+ * lo apaga. Con esa clase puesta, NINGÚN campo de esta pantalla mostraba
+ * el anillo al navegar con teclado — y ese mismo archivo escribe tres
+ * líneas antes «⚠️ Y prohibido `outline-none` sin un reemplazo medido».
+ * No había reemplazo. Ahora no está la clase.
  */
 const CAMPO_BASE =
-  "rounded-xl border border-bookea-linea bg-white px-3 py-2.5 text-[13.5px] font-medium text-bookea-tinta placeholder:text-bookea-gris/70 outline-none focus:border-bookea-azul";
+  "rounded-xl border border-bookea-linea bg-white px-3 py-2.5 text-[15px] font-medium text-bookea-tinta transition-colors placeholder:font-normal placeholder:text-bookea-gris/70 hover:border-bookea-gris focus:border-bookea-azul";
 
-const campo = `w-full ${CAMPO_BASE}`;
+// `campo` (el `CAMPO_BASE` con `w-full`) vivía acá y se quedó sin usos:
+// el único input suelto de la pantalla era el nombre de la tarjeta, y
+// ése se mudó a la portada con su propia tipografía de 38 px. Lo que
+// queda usando `CAMPO_BASE` es el teléfono, que comparte fila con el
+// selector de país y por eso decide su ancho él.
 
 /** WCAG AA para texto — mismo umbral que ya usaba el editor autenticado. */
 const CONTRASTE_TEXTO = 4.5;
@@ -580,8 +608,6 @@ export default function TarjetaFormulario({
    * alta pública sin sesión. Sin este corrimiento la pantalla del panel
    * arrancaría en «2», o la pública tendría dos «1».
    */
-  const desplazamiento = esPublico && !haySesion ? 1 : 0;
-  const numeroDelBloque = (indice: number) => indice + 1 + desplazamiento;
 
   const contrasteTexto = contraste(valor.colorFondo, "#ffffff");
   const contrasteSello = contraste(valor.colorSello, valor.colorFondo);
@@ -605,6 +631,42 @@ export default function TarjetaFormulario({
    * que no hace nada.
    */
   const hayTira = valor.tipo === "sellos" && metaSellos > 0;
+
+  /**
+   * Los datos que la portada muestra bajo el nombre, en una línea.
+   *
+   * Son los que contestan «¿qué es esta tarjeta?» de un vistazo, y los
+   * tres salen de valores que ya se calculan más arriba — no se
+   * inventan ni se vuelven a derivar.
+   */
+  const metadatosDeLaPortada: string[] = [
+    TIPOS_TARJETA[valor.tipo].nombre,
+    ...(metaSellos > 0 ? [`Meta de ${metaSellos} sellos`] : []),
+    ...(esEditar && emitidos > 0
+      ? [`${emitidos} ${emitidos === 1 ? "tarjeta emitida" : "tarjetas emitidas"}`]
+      : []),
+  ];
+
+  /**
+   * Los cuatro datos al pie de la placa del pase.
+   *
+   * El contraste va con su número y no con un semáforo: «4,8:1» es
+   * comprobable y «bien» no. Los avisos ámbar que ya existen se siguen
+   * encargando de gritar cuando está mal.
+   */
+  const derivadosDelPase: { rotulo: string; valor: string }[] = [
+    { rotulo: "Tipo", valor: TIPOS_TARJETA[valor.tipo].nombre },
+    ...(metaSellos > 0 ? [{ rotulo: "Meta", valor: `${metaSellos} sellos` }] : []),
+    ...(hayTira
+      ? [
+          {
+            rotulo: "Filas",
+            valor: valor.diseno.filas === "auto" ? "Automático" : String(valor.diseno.filas),
+          },
+        ]
+      : []),
+    { rotulo: "Contraste", valor: `${contrasteTexto.toFixed(1)}:1` },
+  ];
 
   /**
    * DE QUÉ COLOR VA CADA BLOQUE.
@@ -638,7 +700,7 @@ export default function TarjetaFormulario({
 
   return (
     <>
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
         <div className="min-w-0">
           {esPublico && alVolver && (
             <button
@@ -669,7 +731,12 @@ export default function TarjetaFormulario({
               Todos abiertos y todos a la vez: se puede empezar por los
               colores y volver al nombre después. El número al costado
               ordena la lectura sin encerrar a nadie en un paso. */}
-          <div className="space-y-4">
+          <div>
+            {/* «Tu cuenta» queda FUERA de la hoja y fuera de la
+                numeración: es un requisito previo, no una propiedad de
+                la tarjeta. Numerarlo como capítulo 1 hacía que la
+                pantalla arrancara hablando de nosotros en vez de hablar
+                de su tarjeta. */}
             {esPublico && !haySesion && (
               <Bloque
                 superficie={superficie}
@@ -717,44 +784,51 @@ export default function TarjetaFormulario({
               </Bloque>
             )}
 
-            {/* ── 1 · Lo básico ─────────────────────────────────────── */}
-            <Bloque
-                superficie={superficie}
-              numero={numeroDelBloque(0)}
-              titulo="Lo básico"
-              bajada="Cómo se llama y qué tipo de tarjeta es."
-            >
-              <div className="space-y-4">
-                <label className="block">
-                  <span className={etiqueta}>
-                    {esPublico ? "Nombre del negocio" : "Nombre de la tarjeta"}
-                    <Obligatorio />
-                  </span>
-                  <input
-                    required
-                    value={valor.nombre}
-                    onChange={(e) => patch({ nombre: e.target.value.slice(0, 80) })}
-                    disabled={esEditar && bloqueada}
-                    maxLength={80}
-                    placeholder={
-                      esPublico
-                        ? "Café Aroma"
-                        : esCrear
-                          ? `${TIPOS_TARJETA[valor.tipo].nombre} de ${negocioNombre}`
-                          : undefined
-                    }
-                    className={campo}
-                  />
-                  {esEditar && (
-                    <p className="mt-1.5 text-[11.5px] text-bookea-gris">
+            {/* ── La hoja ─────────────────────────────────────────────
+                UNA superficie continua, no cinco cajas apiladas. Los
+                capítulos se separan con una línea fina y aire; el número
+                cuelga en el margen.
+
+                ⚠️ SIN `overflow-hidden`, aunque el radio lo pida. Esa
+                clase mata el `sticky bottom-0` de la barra de guardar —
+                un contenedor que recorta deja de ser el ancestro contra
+                el que se pega— y además cortaría los números colgantes
+                del `lg:-ml-9`. El radio de abajo lo pinta la barra con
+                su propio `rounded-b-3xl`. */}
+            <div className="rounded-3xl border border-bookea-linea bg-white shadow-elevado">
+              <Portada
+                valor={valor.nombre}
+                alCambiar={(v) => patch({ nombre: v })}
+                bloqueada={esEditar && bloqueada}
+                acento={valor.colorSello}
+                placeholder={
+                  esPublico
+                    ? "Café Aroma"
+                    : esCrear
+                      ? `${TIPOS_TARJETA[valor.tipo].nombre} de ${negocioNombre}`
+                      : "Tu tarjeta"
+                }
+                metadatos={metadatosDeLaPortada}
+                nota={
+                  esEditar ? (
+                    <>
                       Es el nombre con el que la ves vos en el panel. En el pase, el cliente lee
                       el nombre del negocio.
-                    </p>
-                  )}
-                </label>
+                    </>
+                  ) : undefined
+                }
+              />
 
+              {/* ── 1 · Identidad ─────────────────────────────────────
+                  El nombre se mudó a la portada: acá queda lo que de
+                  verdad decide cómo funciona la tarjeta. */}
+              <Apartado
+                numero={1}
+                capitulo="Identidad"
+                titulo="Qué tipo de tarjeta es"
+                nota="El tipo decide cómo suma el cliente y qué se lleva. Es lo único que queda fijo en cuanto se afilie el primero."
+              >
                 <div>
-                  <span className={etiqueta}>Tipo de tarjeta</span>
                   {esPublico ? (
                     <SelectorTipoExplorable valor={valor.tipo} alElegir={elegirTipo} />
                   ) : tipoLocked ? (
@@ -772,16 +846,15 @@ export default function TarjetaFormulario({
                     </>
                   )}
                 </div>
-              </div>
-            </Bloque>
+              </Apartado>
 
-            {/* ── 2 · Qué se gana ───────────────────────────────────── */}
-            <Bloque
-                superficie={superficie}
-              numero={numeroDelBloque(1)}
-              titulo="Qué se gana"
-              bajada="El premio y cómo se llega a él."
-            >
+              {/* ── 2 · El premio ──────────────────────────────────── */}
+              <Apartado
+                numero={2}
+                capitulo="El premio"
+                titulo="Qué se gana"
+                nota="Lo que el cliente se lleva, y cuánto le cuesta llegar. Es la promesa que va escrita en el pase."
+              >
               <div className="space-y-4">
                 <PasoBeneficio
                   config={valor.beneficio}
@@ -825,18 +898,54 @@ export default function TarjetaFormulario({
                   </div>
                 )}
               </div>
-            </Bloque>
+              </Apartado>
 
-            {/* ── 3 · Cómo se ve ────────────────────────────────────── */}
-            <Bloque
-                superficie={superficie}
-              numero={numeroDelBloque(2)}
-              titulo="Cómo se ve"
-              bajada="Los colores y las imágenes del pase."
-            >
+              {/* ── 3 · Apariencia ─────────────────────────────────── */}
+              <Apartado
+                numero={3}
+                capitulo="Apariencia"
+                titulo="Cómo se ve"
+                nota="El color es lo que se ve primero. Elegí un estilo terminado y después afiná lo que quieras."
+              >
               <div className="space-y-6">
+                {/* ── EL ESTILO VA PRIMERO, Y ESO ES EL ARREGLO ────────
+                    El dueño dijo que mover los sellos «es inservible», y
+                    tenía razón por un motivo concreto: dentro de una
+                    franja de un solo color, correr los círculos unos
+                    píxeles no cambia nada que se note. EL COLOR ES LO QUE
+                    SE VE.
+
+                    Por eso las ocho tarjetas terminadas abren el
+                    capítulo: un toque repinta el pase entero —tarjeta,
+                    sellos y degradado de la franja— y se ve al instante
+                    en la vista previa de al lado. La geometría queda
+                    después, como ajuste fino, que es su lugar real. */}
                 <div>
-                  <span className={etiqueta}>Color de la tarjeta</span>
+                  <span className={etiqueta}>Estilo de la tarjeta</span>
+                  <p className={`mb-3 ${NOTA}`}>
+                    Elegí uno y se aplica al toque. Después podés cambiarle los colores a mano.
+                  </p>
+                  <PaletasPase
+                    colorFondo={valor.colorFondo}
+                    colorSello={valor.colorSello}
+                    diseno={valor.diseno}
+                    meta={metaSellos || 10}
+                    alElegir={(p) =>
+                      patch({
+                        colorFondo: p.fondo,
+                        colorSello: p.sello,
+                        // El degradado viaja DENTRO de `diseno`, que es
+                        // un `ConfigTira` completo: mandarlo suelto lo
+                        // haría desaparecer en el próximo guardado. Ver
+                        // el aviso del campo `fondo` en `layout-tira.ts`.
+                        diseno: { ...valor.diseno, fondo: p.degradado },
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="border-t border-bookea-linea pt-6">
+                  <span className={etiqueta}>O elegí los colores a mano</span>
                   <PlantillasColor
                     colorFondo={valor.colorFondo}
                     colorSello={valor.colorSello}
@@ -1048,27 +1157,24 @@ export default function TarjetaFormulario({
                   </div>
                 )}
               </div>
-            </Bloque>
+              </Apartado>
 
-            {/* ── 4 · Dónde van los sellos (0212) ───────────────────── */}
-            {hayTira && (
-              <Bloque
-                superficie={superficie}
-                numero={numeroDelBloque(3)}
-                titulo="Dónde van los sellos"
-                bajada="Acomodá los círculos dentro de la franja. Cada opción muestra cómo queda."
-              >
-                <ControlesTira
-                  valor={valor.diseno}
-                  alCambiar={(d) => patch({ diseno: d })}
-                  meta={metaSellos}
-                />
-                <p className="mt-4 text-[11.5px] leading-relaxed text-bookea-gris">
-                  Los sellos y tu franja son la MISMA imagen en el teléfono: por eso se acomodan
-                  acá y no encima de la foto.
-                </p>
-              </Bloque>
-            )}
+              {/* ── 4 · La franja ──────────────────────────────────── */}
+              {hayTira && (
+                <Apartado
+                  numero={4}
+                  capitulo="La franja"
+                  titulo="Dónde van los sellos"
+                  nota="Los sellos y tu foto son la MISMA imagen en el teléfono. Por eso se acomodan acá y no encima de la foto."
+                >
+                  <ControlesTira
+                    valor={valor.diseno}
+                    alCambiar={(d) => patch({ diseno: d })}
+                    meta={metaSellos}
+                  />
+                </Apartado>
+              )}
+            </div>
           </div>
 
           {/* ── El cierre ────────────────────────────────────────────
@@ -1076,11 +1182,10 @@ export default function TarjetaFormulario({
               y vive donde termina el trabajo. En escritorio queda pegada
               abajo para que se pueda guardar desde cualquier punto del
               scroll sin volver al final. */}
-          <div
-            className={`sticky bottom-0 z-30 -mx-1 mt-6 rounded-t-2xl border-t border-bookea-linea px-1 pb-4 pt-4 backdrop-blur ${
-              esPublico ? "bg-white/95" : "bg-bookea-fondo/95"
-            }`}
-          >
+          {/* Es su propia tarjeta, separada de la hoja: la hoja termina
+              donde termina el diseño, y esto es la acción. Blanca en los
+              dos modos ahora que los capítulos viven sobre blanco. */}
+          <div className="sticky bottom-0 z-30 mt-4 rounded-3xl border border-bookea-linea bg-white/95 px-5 py-5 shadow-elevado backdrop-blur sm:px-10">
             {esPublico && (
               <div className="mb-4">
                 <CampoTelefono valor={valor.telefono} alCambiar={(t) => patch({ telefono: t })} />
@@ -1163,9 +1268,13 @@ export default function TarjetaFormulario({
         </div>
 
         {/* ── Vista previa: pegada en escritorio ─────────────────── */}
-        <aside className="mt-5 hidden lg:mt-0 lg:block">
+        {/* El pase deja de ser «una vista previa al costado»: es una
+            placa navy con presencia y sus datos derivados al pie. Es el
+            RESULTADO de todo lo de la izquierda, y ocupa el lugar de un
+            resultado. */}
+        <aside className="mt-6 hidden lg:mt-0 lg:block">
           <div className="sticky top-24">
-            <VistaPase datos={datosVista} superficie="clara" marco="telefono" />
+            <PlacaPase datos={datosVista} derivados={derivadosDelPase} />
           </div>
         </aside>
       </div>
