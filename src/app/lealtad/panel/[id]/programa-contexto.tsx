@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useTransition, type ReactNode } from "react";
 import { ACCION, ACCION_TINTA, BOTON_ACCION } from "../sistema-lealtad";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
+import { configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
 import { selloParaGuardar, type SelloElegido } from "@/lib/lealtad/iconos-sello";
 import {
   cambiarEstadoPrograma,
@@ -57,6 +58,8 @@ export type Borrador = {
    * archivo del negocio, y probar «Café» un rato no puede borrárselo.
    */
   iconoUrl: string;
+  /** Dónde y de qué tamaño van los sellos en la tira (0212). */
+  diseno: ConfigTira;
   codigoFormato: FormatoCodigo;
   textoReverso: string;
   mostrarSaldo: boolean;
@@ -95,6 +98,9 @@ function dePrograma(p: ProgramaFila | null): Borrador {
     notificacionLogoUrl: p?.pase_notificacion_logo_url ?? "",
     iconoSello: sello.icono,
     iconoUrl: sello.url ?? "",
+    // Sin la 0212 la fila llega sin la columna: `configDesdeJson` cae al
+    // layout clásico, que es exactamente lo que dibuja hoy el pase.
+    diseno: configDesdeJson(p?.pase_diseno),
     codigoFormato: p?.pase_codigo_formato === "code128" ? "code128" : "qr",
     textoReverso: p?.pase_texto_reverso ?? "",
     mostrarSaldo: p?.pase_mostrar_saldo ?? true,
@@ -219,6 +225,7 @@ export function ProveedorPrograma({
       notificacionLogoUrl: borrador.notificacionLogoUrl,
       iconoSello: borrador.iconoSello,
       iconoUrl: borrador.iconoUrl,
+      diseno: borrador.diseno,
       codigoFormato: borrador.codigoFormato,
       textoReverso: borrador.textoReverso,
       mostrarSaldo: borrador.mostrarSaldo,
@@ -279,6 +286,7 @@ export function ProveedorPrograma({
         notificacionLogoUrl: borrador.notificacionLogoUrl,
         iconoSello: datos.tipo === "sellos" ? borrador.iconoSello : null,
         iconoUrl: datos.tipo === "sellos" ? borrador.iconoUrl : "",
+        diseno: borrador.diseno,
         codigoFormato: borrador.codigoFormato,
         textoReverso: borrador.textoReverso,
         mostrarSaldo: borrador.mostrarSaldo,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import PlantillasColor from "@/components/lealtad/plantillas-color";
 import SelectorTipo from "@/components/lealtad/selector-tipo";
@@ -9,6 +9,7 @@ import SelectorIconoSello from "@/components/lealtad/selector-icono-sello";
 import SelectorFranja from "@/components/lealtad/selector-franja";
 import SelectorImagenNegocio from "@/components/lealtad/selector-imagen-negocio";
 import PasoBeneficio from "@/components/lealtad/paso-beneficio";
+import ControlesTira from "@/components/lealtad/controles-tira";
 import CampoColor from "@/components/campo-color";
 import SubirImagen from "@/components/subir-imagen";
 import { PAISES, COSTA_RICA } from "@/lib/paises";
@@ -20,18 +21,16 @@ import { PLANTILLAS_FRANJA } from "@/lib/lealtad/plantillas-franjas";
 import { subirImagenAlAlta } from "@/lib/lealtad/subida-alta";
 import { PALETAS, coloresDePaleta, paletaDeLosColores } from "@/lib/lealtad/paletas";
 import { PLANES, esPlanSinCosto, planQueDesbloquea, tiposDelPlan, type PlanId } from "@/lib/lealtad/planes";
-import {
-  ICONOS_SELLO,
-  esIconoSello,
-  type SelloElegido,
-} from "@/lib/lealtad/iconos-sello";
+import type { SelloElegido } from "@/lib/lealtad/iconos-sello";
 import {
   TIPOS_TARJETA,
   configPorDefecto,
+  metaDe,
   validarBeneficio,
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
+import type { ConfigTira } from "@/lib/wallet/layout-tira";
 import { Icono, type NombreIcono } from "@/app/lealtad/panel/[id]/iconos";
 import PasoReglas, { resumenDeReglas, type Reglas } from "@/app/lealtad/panel/[id]/paso-reglas";
 import AyudaDeDiseno from "@/app/lealtad/panel/[id]/ayuda-diseno";
@@ -101,11 +100,34 @@ import type { HiloAyuda } from "@/lib/lealtad/ayuda-hilo";
  *     aunque ahí solo editan la tarjeta PRINCIPAL. Con varias tarjetas,
  *     archivar/pausar una que no es la principal se quedó sin pantalla
  *     propia — es la contrapartida conocida de esta unificación.
- *   · El botón final: "Crear mi tarjeta YA" (publico, gratis) / aviso
- *     de paquete pago (publico, no gratis) / "Publicar tarjeta" (crear)
- *     / "Guardar cambios" sin sección "Revisar" (editar — el resto del
- *     panel de "editar" ya tiene su propio ritmo de guardado por
- *     bloque, ver `programa-contexto.tsx`).
+ *   · El botón final cambia de texto, no de lugar: "Crear mi tarjeta
+ *     YA" (publico, gratis) / "¡Pagar y activar tarjeta!" (publico, con
+ *     paquete pago) / "Publicar tarjeta" (crear) / "Guardar cambios"
+ *     (editar).
+ *
+ * ------------------------------------------------------------------
+ * UNA SOLA PANTALLA, SIN PASOS — pedido del dueño (ago 2026)
+ * ------------------------------------------------------------------
+ * Esto fue, en orden: cinco secciones apiladas en un scroll largo, y
+ * después un asistente de cuatro pasos con "Siguiente"/"Atrás". Las dos
+ * formas fallaban por lo mismo, desde lados opuestos: la primera pedía
+ * bajar mucho para encontrar algo, y la segunda ESCONDÍA los controles
+ * detrás de un paso — el dueño tocaba un color en el paso 3 y no podía
+ * ver el nombre que había escrito en el paso 1 sin perder de vista lo
+ * que estaba haciendo.
+ *
+ * Ahora es una pantalla: los bloques a la izquierda, el pase pegado a
+ * la derecha, y una barra de guardar que sigue al scroll. Se ve todo,
+ * se toca cualquier cosa en cualquier orden, y el resultado está
+ * siempre a la vista. «Ordenado y fácil de usar» fue el pedido literal.
+ *
+ * ── LO QUE SE FUE CON LOS PASOS ─────────────────────────────────────
+ * La sección «Revisar y crear» —una tabla con nombre, tipo, colores e
+ * imágenes— ya no existe. Era el resumen de lo que no se podía ver
+ * porque estaba en otro paso; con todo en pantalla y el pase al lado,
+ * repetía en texto lo que el dibujo ya dice mejor. Lo único que vivía
+ * ahí y SÍ hacía falta —el teléfono del alta pública— se mudó al bloque
+ * final, junto al botón.
  */
 
 export type ValorFormulario = {
@@ -125,6 +147,15 @@ export type ValorFormulario = {
    * Solo crear/editar lo ofrecen: sin rancho no hay dónde subirlo.
    */
   notificacionLogoUrl: string;
+  /**
+   * Dónde y de qué tamaño van los sellos dentro de la tira (0212).
+   *
+   * Solo se toca en tarjetas de sellos —en los otros siete tipos la
+   * tira no dibuja círculos— pero el campo viaja siempre: cambiar de
+   * tipo a «cupón» y volver a «sellos» no puede borrarle al dueño la
+   * posición que había elegido.
+   */
+  diseno: ConfigTira;
   /** Vigencia/días/horas/topes. Solo crear/editar la muestran. */
   reglas: Reglas;
   vencenMeses: number | null;
@@ -538,67 +569,19 @@ export default function TarjetaFormulario({
     bannerUrl: bannerUrlVista,
     iconoSello: valor.tipo === "sellos" ? valor.iconoSello : null,
     iconoUrl: valor.tipo === "sellos" ? valor.iconoUrl || null : null,
+    // La geometría de la tira (0212). La vista previa la resuelve con la
+    // MISMA función que el PNG del pase, así que lo que se ve acá es lo
+    // que va a recibir el cliente.
+    diseno: valor.diseno,
   };
 
-  // ── Pasos del wizard ─────────────────────────────────────────────────
-  // Antes esto dibujaba las secciones apiladas, todas juntas, en un solo
-  // scroll largo — lo más lejos posible de "un panel" que pidió el
-  // dueño la primera vez, y el mismo problema volvió a aparecer una vez
-  // armado: mucho para bajar de una sola vez. Ahora es un wizard de
-  // verdad — una sección visible a la vez, con "Siguiente"/"Atrás" — y
-  // la lista de pasos varía por `modo` exactamente con el mismo criterio
-  // que antes decidía qué sección existía.
   /**
-   * ⚠️ LA CUENTA VA PRIMERO (pedido del dueño, ago 2026).
-   *
-   * Estaba en cuarto lugar: se armaba la tarjeta entera —negocio,
-   * programa, colores, logo— y recién al final aparecía «creá tu
-   * cuenta». Quien no quería crear una descubría el peaje después de
-   * haber hecho todo el trabajo, que es el peor momento posible para
-   * enterarse.
-   *
-   * Ahora se pide de entrada y se explica qué cuesta: un correo, el
-   * nombre y un teléfono. Y a partir de ahí el flujo sigue igual que
-   * siempre.
-   *
-   * El paso solo existe si no hay sesión: quien ya entró no ve nada.
+   * Los bloques se numeran corridos, y «Tu cuenta» solo existe en el
+   * alta pública sin sesión. Sin este corrimiento la pantalla del panel
+   * arrancaría en «2», o la pública tendría dos «1».
    */
-  const pasos = [
-    ...(esPublico && !haySesion ? ["cuenta"] : []),
-    "negocio",
-    "programa",
-    "apariencia",
-    ...(!esEditar ? ["revisar"] : []),
-  ] as const;
-  const [paso, setPaso] = useState(0);
-  const pasoActual = pasos[Math.min(paso, pasos.length - 1)];
-  const esPasoNegocio = pasoActual === "negocio";
-  const esPasoPrograma = pasoActual === "programa";
-  const esPasoApariencia = pasoActual === "apariencia";
-  const esPasoCuenta = pasoActual === "cuenta";
-  const esPasoRevisar = pasoActual === "revisar";
-  function irAlSiguientePaso() {
-    setPaso((p) => Math.min(pasos.length - 1, p + 1));
-  }
-  function irAlPasoAnterior() {
-    setPaso((p) => Math.max(0, p - 1));
-  }
-
-  // Cada paso trae una altura distinta ("revisar" es mucho más largo
-  // que "apariencia"), así que sin esto el navegador conserva el
-  // scroll en el mismo PÍXEL de antes — y ese píxel cae en un punto
-  // distinto del paso nuevo, dando la sensación de que "la pantalla se
-  // scrolleó sola" al tocar Siguiente/Atrás. Se vuelve al principio del
-  // indicador "Paso X de Y", que existe en todos los pasos.
-  const inicioPasoRef = useRef<HTMLDivElement>(null);
-  const primerRender = useRef(true);
-  useEffect(() => {
-    if (primerRender.current) {
-      primerRender.current = false;
-      return;
-    }
-    inicioPasoRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [paso]);
+  const desplazamiento = esPublico && !haySesion ? 1 : 0;
+  const numeroDelBloque = (indice: number) => indice + 1 + desplazamiento;
 
   const contrasteTexto = contraste(valor.colorFondo, "#ffffff");
   const contrasteSello = contraste(valor.colorSello, valor.colorFondo);
@@ -607,76 +590,51 @@ export default function TarjetaFormulario({
   // pero calcularlo siempre es más simple que otro `useMemo` condicional.
   const resumenReglasActual = useMemo(() => resumenDeReglas(valor.reglas), [valor.reglas]);
 
-  const filasPublico: (readonly [string, React.ReactNode])[] = useMemo(() => {
-    const filas: (readonly [string, React.ReactNode])[] = [
-      ["Negocio", nombre || "— falta"],
-      ["Tipo", TIPOS_TARJETA[valor.tipo].nombre],
-      [
-        "Colores",
-        <span key="c" className="inline-flex items-center gap-1.5">
-          <span
-            aria-hidden
-            className="inline-block h-4 w-4 rounded-full border border-bookea-linea"
-            style={{ background: valor.colorFondo }}
-          />
-          <span
-            aria-hidden
-            className="inline-block h-4 w-4 rounded-full border border-bookea-linea"
-            style={{ background: valor.colorSello }}
-          />
-        </span>,
-      ],
-      [
-        "Imagen",
-        valor.imagenModo === "ninguna"
-          ? "Sin imagen (va tu nombre)"
-          : valor.imagenModo === "stock"
-            ? "De la galería"
-            : valor.logoUrl
-              ? "Subida"
-              : "Vista previa (falta subirla)",
-      ],
-    ];
-    if (valor.tipo === "sellos" && valor.iconoSello) {
-      filas.push([
-        "Ícono del sello",
-        esIconoSello(valor.iconoSello) ? ICONOS_SELLO[valor.iconoSello].nombre : "Tu ícono",
-      ]);
-    }
-    if (valor.franjaModo !== "ninguna") {
-      filas.push([
-        "Franja",
-        valor.franjaModo === "banco"
-          ? "De la galería"
-          : valor.bannerUrl
-            ? "Subida"
-            : "Vista previa (falta subirla)",
-      ]);
-    }
-    return filas;
-  }, [
-    nombre,
-    valor.tipo,
-    valor.colorFondo,
-    valor.colorSello,
-    valor.imagenModo,
-    valor.logoUrl,
-    valor.iconoSello,
-    valor.franjaModo,
-    valor.bannerUrl,
-  ]);
+  /**
+   * Cuántos sellos promete la tarjeta HOY.
+   *
+   * Sale del beneficio, que es de donde lo saca el pase real: las
+   * miniaturas de «Dónde van los sellos» dibujan ESTA tarjeta y no una
+   * genérica de diez.
+   */
+  const metaSellos = metaDe(valor.beneficio) ?? 0;
+  /**
+   * El bloque de geometría solo aparece cuando hay círculos que
+   * acomodar. En los otros siete tipos la tira es la foto sola —o nada—
+   * y estos controles no moverían un píxel: ofrecerlos sería un menú
+   * que no hace nada.
+   */
+  const hayTira = valor.tipo === "sellos" && metaSellos > 0;
 
-  const filasCrear: (readonly [string, React.ReactNode])[] = useMemo(() => {
-    const r = resumenDeReglas(valor.reglas);
-    return [
-      ["Nombre", nombre || "— falta"],
-      ["Tipo", TIPOS_TARJETA[valor.tipo].nombre],
-      ["Beneficio", resumenDelBeneficio(valor.beneficio)],
-      ["Vigencia", r.vigencia],
-      ["Cuándo vale", r.cuando],
-      ["Canjes", r.canjes],
-    ];
-  }, [nombre, valor.tipo, valor.beneficio, valor.reglas]);
+  /**
+   * DE QUÉ COLOR VA CADA BLOQUE.
+   *
+   * No es una preferencia: es contraste contra el fondo que le tocó. En
+   * el alta pública este formulario vive DENTRO de una tarjeta blanca
+   * (`configurador-lealtad.tsx` lo envuelve en `bg-white p-5 sm:p-8`), y
+   * en el panel va suelto sobre el gris de la pantalla (`var(--grey)` en
+   * `crear/page.tsx` y en `editar/[programaId]/page.tsx`).
+   *
+   * Bloques blancos en los dos lados dejarían la pantalla pública
+   * completamente plana —cinco cajas invisibles sobre el mismo blanco—
+   * y grises en los dos borrarían la separación en el panel. Se invierte
+   * con el fondo, que es lo único que hace que los bloques SE VEAN como
+   * bloques en las dos pantallas.
+   */
+  const superficie = esPublico ? "bg-bookea-fondo" : "bg-white";
+
+  // ── El botón de cerrar, que es UNO para los tres modos ──────────────
+  const textoGuardar = guardando
+    ? esPublico
+      ? "Creando…"
+      : esCrear
+        ? "Publicando…"
+        : "Guardando…"
+    : esPublico
+      ? "Crear mi tarjeta YA →"
+      : esCrear
+        ? "Publicar tarjeta"
+        : "Guardar cambios";
 
   return (
     <>
@@ -707,513 +665,501 @@ export default function TarjetaFormulario({
             </div>
           )}
 
-          <div ref={inicioPasoRef} className="mb-5 flex scroll-mt-20 items-center gap-3">
-            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-bookea-gris">
-              Paso {paso + 1} de {pasos.length}
-            </span>
-            <div className="flex items-center gap-1.5" role="presentation">
-              {pasos.map((p, i) => (
-                <span
-                  key={p}
-                  aria-hidden
-                  className={`h-1.5 rounded-full transition-all ${
-                    i === paso ? "w-5 bg-bookea-azul" : "w-1.5 bg-bookea-linea"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
+          {/* ── Los bloques, en el orden en que se piensa una tarjeta ──
+              Todos abiertos y todos a la vez: se puede empezar por los
+              colores y volver al nombre después. El número al costado
+              ordena la lectura sin encerrar a nadie en un paso. */}
+          <div className="space-y-4">
+            {esPublico && !haySesion && (
+              <Bloque
+                superficie={superficie}
+                numero={1}
+                titulo="Tu cuenta"
+                bajada="Empezá por acá: es lo único que hace falta antes de armar la tarjeta."
+              >
+                {/* La explicación va ANTES del formulario y no adentro:
+                    este es el PRIMER bloque, y quien recién llega
+                    necesita saber qué le van a pedir antes de decidir si
+                    sigue. Enterarse a mitad de camino es lo que hacía
+                    que esto se sintiera un peaje. */}
+                <ul className="mb-5 space-y-2">
+                  {[
+                    "Tu correo — te llega un código, no hay contraseñas que recordar.",
+                    "Tu nombre, para que la tarjeta quede a tu nombre.",
+                    "Un teléfono, para poder avisarte si algo pasa con tu programa.",
+                  ].map((linea) => (
+                    <li
+                      key={linea}
+                      className="flex items-start gap-2.5 text-[13px] leading-relaxed text-bookea-tinta"
+                    >
+                      <span
+                        aria-hidden
+                        className="mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
+                        style={{ background: "var(--accion)" }}
+                      >
+                        ✓
+                      </span>
+                      {linea}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mb-5 text-[12.5px] leading-relaxed text-bookea-gris">
+                  Si ya tenés cuenta en Bookea, con el correo entrás directo — no se te pide
+                  nada más.
+                </p>
+                <div className="-mx-1">
+                  <FormularioAuth
+                    destino={ANCLA}
+                    titulo="Creá tu cuenta"
+                    intro="Escribí tu correo. Si es tu primera vez te pedimos el nombre y un teléfono; si ya tenés cuenta, entrás directo."
+                  />
+                </div>
+              </Bloque>
+            )}
 
-          {esPasoNegocio && (
-          <Seccion numero={paso + 1} titulo="Tu negocio" bajada="Cómo se llama y qué tipo de tarjeta es." primera>
-            <div className="space-y-4">
-              <label className="block">
-                <span className={etiqueta}>
-                  {esPublico ? "Nombre del negocio" : "Nombre de la tarjeta"}
-                  <Obligatorio />
-                </span>
-                <input
-                  required
-                  autoFocus={esPublico}
-                  value={valor.nombre}
-                  onChange={(e) => patch({ nombre: e.target.value.slice(0, 80) })}
-                  disabled={esEditar && bloqueada}
-                  maxLength={80}
-                  placeholder={
-                    esPublico ? "Café Aroma" : esCrear ? `${TIPOS_TARJETA[valor.tipo].nombre} de ${negocioNombre}` : undefined
-                  }
-                  className={campo}
+            {/* ── 1 · Lo básico ─────────────────────────────────────── */}
+            <Bloque
+                superficie={superficie}
+              numero={numeroDelBloque(0)}
+              titulo="Lo básico"
+              bajada="Cómo se llama y qué tipo de tarjeta es."
+            >
+              <div className="space-y-4">
+                <label className="block">
+                  <span className={etiqueta}>
+                    {esPublico ? "Nombre del negocio" : "Nombre de la tarjeta"}
+                    <Obligatorio />
+                  </span>
+                  <input
+                    required
+                    value={valor.nombre}
+                    onChange={(e) => patch({ nombre: e.target.value.slice(0, 80) })}
+                    disabled={esEditar && bloqueada}
+                    maxLength={80}
+                    placeholder={
+                      esPublico
+                        ? "Café Aroma"
+                        : esCrear
+                          ? `${TIPOS_TARJETA[valor.tipo].nombre} de ${negocioNombre}`
+                          : undefined
+                    }
+                    className={campo}
+                  />
+                  {esEditar && (
+                    <p className="mt-1.5 text-[11.5px] text-bookea-gris">
+                      Es el nombre con el que la ves vos en el panel. En el pase, el cliente lee
+                      el nombre del negocio.
+                    </p>
+                  )}
+                </label>
+
+                <div>
+                  <span className={etiqueta}>Tipo de tarjeta</span>
+                  {esPublico ? (
+                    <SelectorTipoExplorable valor={valor.tipo} alElegir={elegirTipo} />
+                  ) : tipoLocked ? (
+                    <TipoCerrado tipo={valor.tipo} motivo={candado?.motivo ?? null} />
+                  ) : (
+                    <>
+                      <SelectorTipo valor={valor.tipo} alElegir={elegirTipo} plan={plan} />
+                      {esEditar && (
+                        <p className="mt-2 text-[11.5px] leading-relaxed text-bookea-gris">
+                          Todavía no hay nadie adentro, así que el tipo se puede cambiar. Apenas
+                          se afilie el primer cliente queda fijo — su saldo pasaría a significar
+                          otra cosa.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </Bloque>
+
+            {/* ── 2 · Qué se gana ───────────────────────────────────── */}
+            <Bloque
+                superficie={superficie}
+              numero={numeroDelBloque(1)}
+              titulo="Qué se gana"
+              bajada="El premio y cómo se llega a él."
+            >
+              <div className="space-y-4">
+                <PasoBeneficio
+                  config={valor.beneficio}
+                  alCambiar={(c) => patch({ beneficio: c })}
+                  {...(!esPublico
+                    ? {
+                        vencenMeses: valor.vencenMeses,
+                        alCambiarVencimiento: (v: number | null) => patch({ vencenMeses: v }),
+                      }
+                    : {})}
                 />
-                {esEditar && (
-                  <p className="mt-1.5 text-[11.5px] text-bookea-gris">
-                    Es el nombre con el que la ves vos en el panel. En el pase, el cliente lee el nombre del negocio.
+                {motivoBeneficio && (
+                  <p
+                    role="status"
+                    className="rounded-xl bg-bookea-azul-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-azul"
+                  >
+                    {motivoBeneficio}
                   </p>
                 )}
-              </label>
+                {esEditar && aviso && (
+                  <p
+                    role="status"
+                    className="rounded-xl bg-amber-50 px-3.5 py-3 text-[12.5px] font-bold leading-relaxed text-amber-800"
+                  >
+                    {aviso}
+                  </p>
+                )}
 
-              <div>
-                <span className={etiqueta}>Tipo de tarjeta</span>
-                {esPublico ? (
-                  <SelectorTipoExplorable valor={valor.tipo} alElegir={elegirTipo} />
-                ) : tipoLocked ? (
-                  <TipoCerrado tipo={valor.tipo} motivo={candado?.motivo ?? null} />
-                ) : (
-                  <>
-                    <SelectorTipo valor={valor.tipo} alElegir={elegirTipo} plan={plan} />
+                {!esPublico && (
+                  <div className="border-t border-bookea-linea pt-4">
+                    <span className={etiqueta}>Cuándo vale</span>
                     {esEditar && (
-                      <p className="mt-2 text-[11.5px] leading-relaxed text-bookea-gris">
-                        Todavía no hay nadie adentro, así que el tipo se puede cambiar. Apenas se afilie el primer
-                        cliente queda fijo — su saldo pasaría a significar otra cosa.
+                      <p className="mb-3 mt-1.5 text-[12.5px] leading-relaxed text-bookea-gris">
+                        Hoy: <strong>{resumenReglasActual.vigencia}</strong> ·{" "}
+                        {resumenReglasActual.cuando} · {resumenReglasActual.canjes}.
                       </p>
                     )}
-                  </>
-                )}
-              </div>
-            </div>
-          </Seccion>
-          )}
-
-          {esPasoPrograma && (
-          <Seccion numero={paso + 1} titulo="Programa" bajada="Qué se gana y cómo." primera>
-            <div className="space-y-4">
-              <PasoBeneficio
-                config={valor.beneficio}
-                alCambiar={(c) => patch({ beneficio: c })}
-                {...(!esPublico
-                  ? { vencenMeses: valor.vencenMeses, alCambiarVencimiento: (v: number | null) => patch({ vencenMeses: v }) }
-                  : {})}
-              />
-              {motivoBeneficio && (
-                <p
-                  role="status"
-                  className="rounded-xl bg-bookea-azul-suave px-3.5 py-2.5 text-[12.5px] font-bold text-bookea-azul"
-                >
-                  {motivoBeneficio}
-                </p>
-              )}
-              {esEditar && aviso && (
-                <p
-                  role="status"
-                  className="rounded-xl bg-amber-50 px-3.5 py-3 text-[12.5px] font-bold leading-relaxed text-amber-800"
-                >
-                  {aviso}
-                </p>
-              )}
-
-              {!esPublico && (
-                <div className="border-t border-bookea-linea pt-4">
-                  <span className={etiqueta}>Cuándo vale</span>
-                  {esEditar && (
-                    <p className="mb-3 mt-1.5 text-[12.5px] leading-relaxed text-bookea-gris">
-                      Hoy: <strong>{resumenReglasActual.vigencia}</strong> · {resumenReglasActual.cuando} ·{" "}
-                      {resumenReglasActual.canjes}.
-                    </p>
-                  )}
-                  <div className="mt-1.5">
-                    <PasoReglas reglas={valor.reglas} alCambiar={(r) => patch({ reglas: r })} />
-                  </div>
-                </div>
-              )}
-            </div>
-          </Seccion>
-          )}
-
-          {esPasoApariencia && (
-          <Seccion numero={paso + 1} titulo="Apariencia" bajada="Cómo se ve en el teléfono de tu cliente." primera>
-            <div className="space-y-6">
-              <div>
-                <span className={etiqueta}>Color de la tarjeta</span>
-                <PlantillasColor
-                  colorFondo={valor.colorFondo}
-                  colorSello={valor.colorSello}
-                  alElegir={(c) => patch({ colorFondo: c.fondo, colorSello: c.sello })}
-                />
-                {esPublico ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setVerMasColores((v) => !v)}
-                      className="presionable mt-2 text-[11.5px] font-bold text-bookea-azul underline"
-                    >
-                      {verMasColores ? "Ocultar colores personalizados" : "Ver más colores"}
-                    </button>
-                    {(verMasColores || paletaDeLosColores(valor.colorFondo, valor.colorSello) === null) && (
-                      <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
-                        <CampoColor
-                          id="tf-fondo"
-                          etiqueta="Color de fondo"
-                          valor={valor.colorFondo}
-                          alCambiar={(v) => patch({ colorFondo: v })}
-                        />
-                        <CampoColor
-                          id="tf-sello"
-                          etiqueta="Color del acento"
-                          valor={valor.colorSello}
-                          alCambiar={(v) => patch({ colorSello: v })}
-                        />
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
-                    <CampoColor
-                      id="tf-fondo"
-                      etiqueta="Color de fondo"
-                      valor={valor.colorFondo}
-                      alCambiar={(v) => patch({ colorFondo: v })}
-                    />
-                    <CampoColor
-                      id="tf-sello"
-                      etiqueta={valor.tipo === "sellos" ? "Color del sello" : "Color del acento"}
-                      valor={valor.colorSello}
-                      alCambiar={(v) => patch({ colorSello: v })}
-                    />
+                    <div className="mt-1.5">
+                      <PasoReglas reglas={valor.reglas} alCambiar={(r) => patch({ reglas: r })} />
+                    </div>
                   </div>
                 )}
-                {esEditar && contrasteTexto < CONTRASTE_TEXTO && (
-                  <p
-                    role="status"
-                    className="mt-3 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[12.5px] font-bold leading-relaxed text-amber-800"
-                  >
-                    Con ese fondo tan claro el texto de la tarjeta —que siempre es blanco— casi no se lee. Probá un
-                    tono más oscuro o elegí uno de los temas de arriba.
-                  </p>
-                )}
-                {esEditar && contrasteSello < CONTRASTE_SELLO && (
-                  <p
-                    role="status"
-                    className="mt-3 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[12.5px] font-bold leading-relaxed text-amber-800"
-                  >
-                    {valor.tipo === "sellos"
-                      ? "El color del sello se confunde con el fondo: los sellos van a verse todos iguales, ganados y por ganar."
-                      : "El acento se confunde con el fondo y no se va a notar."}
-                  </p>
-                )}
               </div>
+            </Bloque>
 
-              {valor.tipo === "sellos" && (
+            {/* ── 3 · Cómo se ve ────────────────────────────────────── */}
+            <Bloque
+                superficie={superficie}
+              numero={numeroDelBloque(2)}
+              titulo="Cómo se ve"
+              bajada="Los colores y las imágenes del pase."
+            >
+              <div className="space-y-6">
                 <div>
-                  <span className={etiqueta}>Icono del sello</span>
-                  {/* «Mi ícono» (la subida propia) se ofrece también en el
-                      flujo público EN CUANTO HAY SESIÓN — antes el público
-                      no lo pasaba nunca y la opción de subir el archivo
-                      simplemente no existía, que es lo que el dueño
-                      reportó como «no deja cargar la imagen». Sin sesión
-                      sigue sin ofrecerse (no hay bucket al que subir) y la
-                      nota de abajo explica dónde se habilita. */}
-                  <SelectorIconoSello
-                    valor={valor.iconoSello}
-                    alElegir={(i) => patch({ iconoSello: i })}
+                  <span className={etiqueta}>Color de la tarjeta</span>
+                  <PlantillasColor
                     colorFondo={valor.colorFondo}
                     colorSello={valor.colorSello}
-                    {...(!esPublico || haySesion
-                      ? { iconoUrl: valor.iconoUrl || null, alSubirIcono: (url: string) => patch({ iconoUrl: url }) }
-                      : {})}
+                    alElegir={(c) => patch({ colorFondo: c.fondo, colorSello: c.sello })}
                   />
-                  {esCrear && (
-                    <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
-                      Se llena cuando el cliente gana el sello y queda en contorno el que le falta. Con «Mi ícono»
-                      va el símbolo que subas, y con «Mi logo» va tu logo adentro del círculo.
-                    </p>
-                  )}
-                  {esPublico && !haySesion && (
-                    <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
-                      ¿Querés subir tu propio ícono? Se habilita en cuanto creés tu cuenta, en la
-                      sección «Tu cuenta» de abajo.
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {esPublico ? (
-                <>
-                  <div>
-                    <span className={etiqueta}>Franja (la imagen de arriba del pase)</span>
-                    <SelectorFranja
-                      valor={valor.franjaModo === "banco" ? valor.franjaBancoId : null}
-                      alElegir={elegirFranjaBanco}
-                    />
-                    <div className="mt-3">
-                      <SubidaPropia
-                        etiqueta="Tu franja"
-                        subiendo={subiendoFranja}
-                        error={errorFranja}
-                        activa={valor.franjaModo === "propia"}
-                        vista={valor.bannerUrl || previewLocalFranja}
-                        subida={!!valor.bannerUrl}
-                        onArchivo={(a) => void elegirArchivoPropio(a, "franja")}
-                        onQuitar={quitarFranjaPropia}
-                      />
-                      {!haySesion && previewLocalFranja && (
-                        <p className="mt-1.5 text-[11px] leading-relaxed text-bookea-gris">
-                          Esto es solo una vista previa: se sube de verdad en cuanto tengas tu cuenta, en la sección
-                          «Tu cuenta».
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <span className={etiqueta}>Imagen del negocio</span>
-                    <SelectorImagenNegocio
-                      valor={valor.imagenModo === "stock" ? valor.imagenStockId : null}
-                      alElegir={elegirImagenBanco}
-                      colorFondo={valor.colorFondo}
-                    />
-                    <div className="mt-3">
-                      <SubidaPropia
-                        etiqueta="Tu logo"
-                        subiendo={subiendoLogo}
-                        error={errorLogo}
-                        activa={valor.imagenModo === "propia"}
-                        vista={valor.logoUrl || previewLocalLogo}
-                        subida={!!valor.logoUrl}
-                        onArchivo={(a) => void elegirArchivoPropio(a, "logo")}
-                        onQuitar={quitarImagenPropia}
-                      />
-                      {!haySesion && previewLocalLogo && (
-                        <p className="mt-1.5 text-[11px] leading-relaxed text-bookea-gris">
-                          Esto es solo una vista previa: se sube de verdad en cuanto tengas tu cuenta, en la sección
-                          «Tu cuenta».
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <SubirImagen
-                      etiqueta="Logo del negocio"
-                      valor={valor.logoUrl}
-                      alCambiar={(url) => patch({ logoUrl: url })}
-                      destino="logo"
-                      carpeta="lealtad/logos"
-                    />
-                    <p className="mt-1.5 text-[11.5px] text-bookea-gris">
-                      Sin logo, la tarjeta escribe el nombre del negocio.
-                    </p>
-                  </div>
-                  <div>
-                    <SubirImagen
-                      etiqueta="Banda de la tarjeta (opcional)"
-                      valor={valor.bannerUrl}
-                      alCambiar={(url) => patch({ bannerUrl: url })}
-                      destino="banner"
-                      carpeta="lealtad/bandas"
-                    />
-                    <p className="mt-1.5 text-[11.5px] text-bookea-gris">
-                      {esEditar
-                        ? "La franja de arriba del pase."
-                        : "La franja de arriba del pase. Una foto de tu local o de lo que vendés."}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {!esPublico && (
-                <div className="border-t border-bookea-linea pt-4">
-                  <SubirImagen
-                    etiqueta="Logo para notificaciones"
-                    valor={valor.notificacionLogoUrl}
-                    alCambiar={(url) => patch({ notificacionLogoUrl: url })}
-                    destino="logo"
-                    carpeta="lealtad/notificaciones"
-                  />
-                  <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
-                    No va en la tarjeta — es la imagen que muestra el aviso del teléfono cuando el
-                    pase se actualiza.
-                  </p>
-                </div>
-              )}
-
-              {esEditar && emitidos > 0 && (
-                <p className="rounded-xl bg-amber-50 px-3.5 py-3 text-[12.5px] font-bold leading-relaxed text-amber-800">
-                  Ya hay {emitidos} {emitidos === 1 ? "tarjeta" : "tarjetas"} en teléfonos de clientes. Al guardar,{" "}
-                  {emitidos === 1 ? "esa tarjeta cambia" : "esas tarjetas cambian"} de aspecto la próxima vez que el
-                  teléfono las actualice.
-                </p>
-              )}
-            </div>
-          </Seccion>
-          )}
-
-          {esPasoCuenta && (
-            <Seccion
-              numero={paso + 1}
-              titulo="Tu cuenta"
-              bajada="Empezá por acá: es lo único que hace falta antes de armar la tarjeta."
-              primera
-            >
-              {/* La explicación va ANTES del formulario y no adentro:
-                  ahora este es el PRIMER paso, y quien recién llega
-                  necesita saber qué le van a pedir antes de decidir si
-                  sigue. Enterarse a mitad de camino es lo que hacía que
-                  este paso se sintiera un peaje. */}
-              <ul className="mb-5 space-y-2">
-                {[
-                  "Tu correo — te llega un código, no hay contraseñas que recordar.",
-                  "Tu nombre, para que la tarjeta quede a tu nombre.",
-                  "Un teléfono, para poder avisarte si algo pasa con tu programa.",
-                ].map((linea) => (
-                  <li
-                    key={linea}
-                    className="flex items-start gap-2.5 text-[13px] leading-relaxed text-bookea-tinta"
-                  >
-                    <span
-                      aria-hidden
-                      className="mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
-                      style={{ background: "var(--accion)" }}
-                    >
-                      ✓
-                    </span>
-                    {linea}
-                  </li>
-                ))}
-              </ul>
-              <p className="mb-5 text-[12.5px] leading-relaxed text-bookea-gris">
-                Si ya tenés cuenta en Bookea, con el correo entrás directo — no
-                se te pide nada más.
-              </p>
-
-              <div className="-mx-1">
-                <FormularioAuth
-                  destino={ANCLA}
-                  titulo="Creá tu cuenta"
-                  intro="Escribí tu correo. Si es tu primera vez te pedimos el nombre y un teléfono; si ya tenés cuenta, entrás directo."
-                />
-              </div>
-            </Seccion>
-          )}
-
-          {/* ── Navegación del wizard: Atrás + Siguiente, mientras falte
-              paso. En el ÚLTIMO paso esta fila no se dibuja — ahí
-              "Atrás" vive pegado al botón de guardar/publicar de abajo,
-              no flotando solo arriba de él con una línea de por medio. */}
-          {paso < pasos.length - 1 && (
-            <div className="mt-7 flex items-center justify-between gap-3 border-t border-bookea-linea pt-7">
-              <button
-                type="button"
-                onClick={irAlPasoAnterior}
-                disabled={paso === 0}
-                className="presionable rounded-xl border border-bookea-linea px-4 py-2.5 text-[13px] font-bold text-bookea-tinta disabled:opacity-0"
-              >
-                ← Atrás
-              </button>
-              <button
-                type="button"
-                onClick={irAlSiguientePaso}
-                className="presionable rounded-xl bg-bookea-tinta px-5 py-2.5 text-[13px] font-extrabold text-white"
-              >
-                Siguiente →
-              </button>
-            </div>
-          )}
-
-          {esEditar ? (
-            esPasoApariencia && (
-            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-bookea-linea pt-7">
-              <button
-                type="button"
-                onClick={irAlPasoAnterior}
-                className="presionable rounded-xl border border-bookea-linea px-4 py-2.5 text-[13px] font-bold text-bookea-tinta"
-              >
-                ← Atrás
-              </button>
-              <button
-                type="button"
-                onClick={onGuardar}
-                disabled={!puedeGuardar}
-                className="presionable rounded-xl bg-bookea-tinta px-5 py-3 text-[13px] font-extrabold text-white disabled:opacity-40"
-              >
-                {guardando ? "Guardando…" : "Guardar cambios"}
-              </button>
-            </div>
-            )
-          ) : (
-            esPasoRevisar && (
-            <Seccion numero={paso + 1} titulo="Revisar y crear" bajada="Una última mirada antes de publicar." primera>
-              <div className="space-y-4">
-                <div className="rounded-2xl border border-bookea-linea bg-white p-4">
-                  <dl className="divide-y divide-bookea-linea">
-                    {(esPublico ? filasPublico : filasCrear).map(([k, v]) => (
-                      <div key={k} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0">
-                        <dt className="text-[11px] font-bold uppercase tracking-wide text-bookea-gris">{k}</dt>
-                        <dd className="text-[13px] font-bold text-bookea-tinta">{v}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-
-                {esPublico && <CampoTelefono valor={valor.telefono} alCambiar={(t) => patch({ telefono: t })} />}
-
-                {requierePago && planACobrar && (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={irAlPlanPago}
-                      disabled={guardando}
-                      className="presionable w-full rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40 sm:w-auto"
-                      style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
-                    >
-                      ¡Pagar y activar tarjeta! →
-                    </button>
-                    {/* La salida de emergencia SOLO cuando el pago viene
-                        del paquete elegido y no del tipo: un clic curioso
-                        en «Impulso» no puede dejar a nadie obligado a
-                        pagar por una tarjeta que el paquete gratis ya
-                        cubre. Si el TIPO exige plan pago, no hay
-                        atajo — eso sería regalar el paquete. */}
-                    {planPagoElegido && esGratis && (
+                  {esPublico ? (
+                    <>
                       <button
                         type="button"
-                        onClick={() => patch({ planElegido: "prueba" })}
-                        disabled={guardando}
-                        className="mt-2.5 block text-[11.5px] font-bold text-bookea-gris underline disabled:opacity-60"
+                        onClick={() => setVerMasColores((v) => !v)}
+                        className="presionable mt-2 text-[11.5px] font-bold text-bookea-azul underline"
                       >
-                        Prefiero empezar con el paquete gratis y crear mi tarjeta ya
+                        {verMasColores ? "Ocultar colores personalizados" : "Ver más colores"}
                       </button>
+                      {(verMasColores ||
+                        paletaDeLosColores(valor.colorFondo, valor.colorSello) === null) && (
+                        <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+                          <CampoColor
+                            id="tf-fondo"
+                            etiqueta="Color de fondo"
+                            valor={valor.colorFondo}
+                            alCambiar={(v) => patch({ colorFondo: v })}
+                          />
+                          <CampoColor
+                            id="tf-sello"
+                            etiqueta="Color del acento"
+                            valor={valor.colorSello}
+                            alCambiar={(v) => patch({ colorSello: v })}
+                          />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+                      <CampoColor
+                        id="tf-fondo"
+                        etiqueta="Color de fondo"
+                        valor={valor.colorFondo}
+                        alCambiar={(v) => patch({ colorFondo: v })}
+                      />
+                      <CampoColor
+                        id="tf-sello"
+                        etiqueta={valor.tipo === "sellos" ? "Color del sello" : "Color del acento"}
+                        valor={valor.colorSello}
+                        alCambiar={(v) => patch({ colorSello: v })}
+                      />
+                    </div>
+                  )}
+                  {/* Los dos avisos de contraste dejaron de ser exclusivos
+                      de "editar". Una tarjeta ilegible se crea igual de
+                      fácil que se edita, y el flujo público es justamente
+                      donde nadie tiene a un diseñador al lado. */}
+                  {contrasteTexto < CONTRASTE_TEXTO && (
+                    <p
+                      role="status"
+                      className="mt-3 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[12.5px] font-bold leading-relaxed text-amber-800"
+                    >
+                      Con ese fondo tan claro el texto de la tarjeta —que siempre es blanco— casi
+                      no se lee. Probá un tono más oscuro o elegí uno de los temas de arriba.
+                    </p>
+                  )}
+                  {contrasteSello < CONTRASTE_SELLO && (
+                    <p
+                      role="status"
+                      className="mt-3 rounded-xl bg-amber-50 px-3.5 py-2.5 text-[12.5px] font-bold leading-relaxed text-amber-800"
+                    >
+                      {valor.tipo === "sellos"
+                        ? "El color del sello se confunde con el fondo: los sellos van a verse todos iguales, ganados y por ganar."
+                        : "El acento se confunde con el fondo y no se va a notar."}
+                    </p>
+                  )}
+                </div>
+
+                {valor.tipo === "sellos" && (
+                  <div>
+                    <span className={etiqueta}>Icono del sello</span>
+                    {/* «Mi ícono» (la subida propia) se ofrece también en
+                        el flujo público EN CUANTO HAY SESIÓN — antes el
+                        público no lo pasaba nunca y la opción de subir el
+                        archivo simplemente no existía, que es lo que el
+                        dueño reportó como «no deja cargar la imagen». */}
+                    <SelectorIconoSello
+                      valor={valor.iconoSello}
+                      alElegir={(i) => patch({ iconoSello: i })}
+                      colorFondo={valor.colorFondo}
+                      colorSello={valor.colorSello}
+                      {...(!esPublico || haySesion
+                        ? {
+                            iconoUrl: valor.iconoUrl || null,
+                            alSubirIcono: (url: string) => patch({ iconoUrl: url }),
+                          }
+                        : {})}
+                    />
+                    {esCrear && (
+                      <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
+                        Se llena cuando el cliente gana el sello y queda en contorno el que le
+                        falta. Con «Mi ícono» va el símbolo que subas, y con «Mi logo» va tu logo
+                        adentro del círculo.
+                      </p>
+                    )}
+                    {esPublico && !haySesion && (
+                      <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
+                        ¿Querés subir tu propio ícono? Se habilita en cuanto creés tu cuenta, acá
+                        arriba en «Tu cuenta».
+                      </p>
                     )}
                   </div>
                 )}
 
-                {error && (
-                  <p role="alert" className="rounded-xl bg-red-50 px-3.5 py-2.5 text-[12.5px] font-bold text-red-700">
-                    {error}
-                  </p>
+                {esPublico ? (
+                  <>
+                    <div>
+                      <span className={etiqueta}>Franja (la imagen de arriba del pase)</span>
+                      <SelectorFranja
+                        valor={valor.franjaModo === "banco" ? valor.franjaBancoId : null}
+                        alElegir={elegirFranjaBanco}
+                      />
+                      <div className="mt-3">
+                        <SubidaPropia
+                          etiqueta="Tu franja"
+                          subiendo={subiendoFranja}
+                          error={errorFranja}
+                          activa={valor.franjaModo === "propia"}
+                          vista={valor.bannerUrl || previewLocalFranja}
+                          subida={!!valor.bannerUrl}
+                          onArchivo={(a) => void elegirArchivoPropio(a, "franja")}
+                          onQuitar={quitarFranjaPropia}
+                        />
+                        {!haySesion && previewLocalFranja && (
+                          <p className="mt-1.5 text-[11px] leading-relaxed text-bookea-gris">
+                            Esto es solo una vista previa: se sube de verdad en cuanto tengas tu
+                            cuenta.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span className={etiqueta}>Imagen del negocio</span>
+                      <SelectorImagenNegocio
+                        valor={valor.imagenModo === "stock" ? valor.imagenStockId : null}
+                        alElegir={elegirImagenBanco}
+                        colorFondo={valor.colorFondo}
+                      />
+                      <div className="mt-3">
+                        <SubidaPropia
+                          etiqueta="Tu logo"
+                          subiendo={subiendoLogo}
+                          error={errorLogo}
+                          activa={valor.imagenModo === "propia"}
+                          vista={valor.logoUrl || previewLocalLogo}
+                          subida={!!valor.logoUrl}
+                          onArchivo={(a) => void elegirArchivoPropio(a, "logo")}
+                          onQuitar={quitarImagenPropia}
+                        />
+                        {!haySesion && previewLocalLogo && (
+                          <p className="mt-1.5 text-[11px] leading-relaxed text-bookea-gris">
+                            Esto es solo una vista previa: se sube de verdad en cuanto tengas tu
+                            cuenta.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <SubirImagen
+                        etiqueta="Logo del negocio"
+                        valor={valor.logoUrl}
+                        alCambiar={(url) => patch({ logoUrl: url })}
+                        destino="logo"
+                        carpeta="lealtad/logos"
+                      />
+                      <p className="mt-1.5 text-[11.5px] text-bookea-gris">
+                        Sin logo, la tarjeta escribe el nombre del negocio.
+                      </p>
+                    </div>
+                    <div>
+                      <SubirImagen
+                        etiqueta="Banda de la tarjeta (opcional)"
+                        valor={valor.bannerUrl}
+                        alCambiar={(url) => patch({ bannerUrl: url })}
+                        destino="banner"
+                        carpeta="lealtad/bandas"
+                      />
+                      <p className="mt-1.5 text-[11.5px] text-bookea-gris">
+                        {esEditar
+                          ? "La franja de arriba del pase."
+                          : "La franja de arriba del pase. Una foto de tu local o de lo que vendés."}
+                      </p>
+                    </div>
+                  </div>
                 )}
 
-                <div className="flex flex-wrap items-center gap-3">
+                {!esPublico && (
+                  <div className="border-t border-bookea-linea pt-4">
+                    <SubirImagen
+                      etiqueta="Logo para notificaciones"
+                      valor={valor.notificacionLogoUrl}
+                      alCambiar={(url) => patch({ notificacionLogoUrl: url })}
+                      destino="logo"
+                      carpeta="lealtad/notificaciones"
+                    />
+                    <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
+                      No va en la tarjeta — es la imagen que muestra el aviso del teléfono cuando
+                      el pase se actualiza.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </Bloque>
+
+            {/* ── 4 · Dónde van los sellos (0212) ───────────────────── */}
+            {hayTira && (
+              <Bloque
+                superficie={superficie}
+                numero={numeroDelBloque(3)}
+                titulo="Dónde van los sellos"
+                bajada="Acomodá los círculos dentro de la franja. Cada opción muestra cómo queda."
+              >
+                <ControlesTira
+                  valor={valor.diseno}
+                  alCambiar={(d) => patch({ diseno: d })}
+                  meta={metaSellos}
+                />
+                <p className="mt-4 text-[11.5px] leading-relaxed text-bookea-gris">
+                  Los sellos y tu franja son la MISMA imagen en el teléfono: por eso se acomodan
+                  acá y no encima de la foto.
+                </p>
+              </Bloque>
+            )}
+          </div>
+
+          {/* ── El cierre ────────────────────────────────────────────
+              Ni una sección numerada ni un paso: es la barra de guardar,
+              y vive donde termina el trabajo. En escritorio queda pegada
+              abajo para que se pueda guardar desde cualquier punto del
+              scroll sin volver al final. */}
+          <div
+            className={`sticky bottom-0 z-30 -mx-1 mt-6 rounded-t-2xl border-t border-bookea-linea px-1 pb-4 pt-4 backdrop-blur ${
+              esPublico ? "bg-white/95" : "bg-bookea-fondo/95"
+            }`}
+          >
+            {esPublico && (
+              <div className="mb-4">
+                <CampoTelefono valor={valor.telefono} alCambiar={(t) => patch({ telefono: t })} />
+              </div>
+            )}
+
+            {esEditar && emitidos > 0 && (
+              <p className="mb-3 rounded-xl bg-amber-50 px-3.5 py-3 text-[12.5px] font-bold leading-relaxed text-amber-800">
+                Ya hay {emitidos} {emitidos === 1 ? "tarjeta" : "tarjetas"} en teléfonos de
+                clientes. Al guardar, {emitidos === 1 ? "esa tarjeta cambia" : "esas tarjetas cambian"}{" "}
+                de aspecto la próxima vez que el teléfono las actualice.
+              </p>
+            )}
+
+            {error && (
+              <p
+                role="alert"
+                className="mb-3 rounded-xl bg-red-50 px-3.5 py-2.5 text-[12.5px] font-bold text-red-700"
+              >
+                {error}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3">
+              {requierePago && planACobrar ? (
+                <>
                   <button
                     type="button"
-                    onClick={irAlPasoAnterior}
-                    className="presionable rounded-xl border border-bookea-linea px-4 py-2.5 text-[13px] font-bold text-bookea-tinta"
+                    onClick={irAlPlanPago}
+                    disabled={guardando}
+                    className="presionable rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40"
+                    style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
                   >
-                    ← Atrás
+                    ¡Pagar y activar tarjeta! →
                   </button>
-                  {(!esPublico || !requierePago) && (
+                  {/* La salida de emergencia SOLO cuando el pago viene del
+                      paquete elegido y no del tipo: un clic curioso en
+                      «Impulso» no puede dejar a nadie obligado a pagar por
+                      una tarjeta que el paquete gratis ya cubre. Si el
+                      TIPO exige plan pago, no hay atajo — eso sería
+                      regalar el paquete. */}
+                  {planPagoElegido && esGratis && (
                     <button
                       type="button"
-                      onClick={onGuardar}
-                      disabled={!puedeGuardar}
-                      className="presionable rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40"
-                      style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+                      onClick={() => patch({ planElegido: "prueba" })}
+                      disabled={guardando}
+                      className="text-[11.5px] font-bold text-bookea-gris underline disabled:opacity-60"
                     >
-                      {esPublico
-                        ? guardando
-                          ? "Creando…"
-                          : "Crear mi tarjeta YA →"
-                        : guardando
-                          ? "Publicando…"
-                          : "Publicar tarjeta"}
+                      Prefiero empezar con el paquete gratis y crear mi tarjeta ya
                     </button>
                   )}
-                </div>
-              </div>
-            </Seccion>
-            )
-          )}
-
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onGuardar}
+                  disabled={!puedeGuardar}
+                  className="presionable rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40"
+                  style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+                >
+                  {textoGuardar}
+                </button>
+              )}
+              {/* Por qué el botón está apagado. Sin esto el dueño se queda
+                  mirando un botón gris sin saber qué le falta — que es lo
+                  mismo que arreglaba el asterisco de los obligatorios. */}
+              {!puedeGuardar && !guardando && !requierePago && (
+                <span className="text-[11.5px] font-bold text-bookea-gris">
+                  {faltaParaGuardar({
+                    nombre,
+                    motivoBeneficio,
+                    telefonoListo,
+                    pideTelefono: esPublico,
+                    bloqueada: esEditar && bloqueada,
+                  })}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── Vista previa: pegada en escritorio ─────────────────── */}
@@ -1240,11 +1186,13 @@ export default function TarjetaFormulario({
         </div>
       )}
 
-      {/* ── Móvil: la vista previa no cabe pegada, así que se abre desde un botón flotante. */}
+      {/* ── Móvil: la vista previa no cabe pegada, así que se abre desde
+          un botón flotante. Va ARRIBA del borde inferior para no taparle
+          el botón de guardar, que ahora vive pegado ahí. */}
       <button
         type="button"
         onClick={() => setVerPase(true)}
-        className="presionable fixed bottom-4 right-4 z-40 rounded-full border border-bookea-linea bg-white px-4 py-2.5 text-[12.5px] font-bold text-bookea-tinta shadow-[0_10px_24px_-8px_rgba(4,10,26,0.35)] lg:hidden"
+        className="presionable fixed bottom-24 right-4 z-40 rounded-full border border-bookea-linea bg-white px-4 py-2.5 text-[12.5px] font-bold text-bookea-tinta shadow-[0_10px_24px_-8px_rgba(4,10,26,0.35)] lg:hidden"
       >
         Ver tarjeta
       </button>
@@ -1273,21 +1221,65 @@ export default function TarjetaFormulario({
 
 // ── Piezas ─────────────────────────────────────────────────────────
 
-function Seccion({
+/**
+ * QUÉ LE FALTA AL BOTÓN PARA ENCENDERSE.
+ *
+ * Las condiciones son las MISMAS de `puedeGuardar`, en el mismo orden,
+ * y por eso esta función vive pegada a él. Un botón apagado sin motivo
+ * es el peor final posible de un formulario: todo el trabajo hecho y
+ * ninguna pista de qué corregir.
+ *
+ * ⚠️ Si `puedeGuardar` cambia, esto cambia con él. Un mensaje que
+ * nombra el campo equivocado es peor que ninguno — manda a corregir lo
+ * que ya está bien.
+ */
+function faltaParaGuardar({
+  nombre,
+  motivoBeneficio,
+  telefonoListo,
+  pideTelefono,
+  bloqueada,
+}: {
+  nombre: string;
+  motivoBeneficio: string | null;
+  telefonoListo: boolean;
+  pideTelefono: boolean;
+  bloqueada: boolean;
+}): string {
+  if (bloqueada) return "Esta tarjeta está archivada.";
+  if (!nombre) return "Falta el nombre.";
+  if (nombre.length > 80) return "El nombre es muy largo.";
+  if (motivoBeneficio) return motivoBeneficio;
+  if (pideTelefono && !telefonoListo) return "Falta el teléfono.";
+  return "";
+}
+
+/**
+ * UN BLOQUE de la pantalla.
+ *
+ * Reemplaza a `Seccion`, que numeraba PASOS de un asistente. La
+ * diferencia no es cosmética: aquella pintaba «el paso en el que
+ * estás», ésta pinta una tarjeta blanca que convive con las demás. El
+ * número sigue estando porque ordena la lectura —se entiende que el
+ * nombre va antes que los colores— pero ya no significa «todavía no
+ * llegaste acá».
+ */
+function Bloque({
   numero,
   titulo,
   bajada,
-  primera = false,
+  superficie,
   children,
 }: {
   numero: number;
   titulo: string;
   bajada: string;
-  primera?: boolean;
+  /** La clase de fondo, que se invierte con la pantalla — ver `superficie`. */
+  superficie: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className={primera ? "" : "mt-7 border-t border-bookea-linea pt-7"}>
+    <section className={`rounded-2xl border border-bookea-linea p-5 ${superficie}`}>
       <div className="flex items-baseline gap-2.5">
         <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-bookea-azul-suave text-[12px] font-extrabold text-bookea-azul">
           {numero}
@@ -1297,7 +1289,7 @@ function Seccion({
           <p className="text-[12px] text-bookea-gris">{bajada}</p>
         </div>
       </div>
-      <div className="mt-3.5 pl-[33px]">{children}</div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
@@ -1388,28 +1380,4 @@ function SubidaPropia({
       {error && <p className="mt-1.5 text-[11px] font-bold text-red-600">{error}</p>}
     </div>
   );
-}
-
-function resumenDelBeneficio(b: ConfigBeneficio): string {
-  switch (b.tipo) {
-    case "sellos":
-      return `${b.requeridos} sellos → ${b.recompensa || "…"}`;
-    case "puntos":
-      return `${b.porVisita} por visita · ${b.porMoneda} por colón`;
-    case "cupon":
-    case "descuento":
-      return b.beneficio.forma === "porcentaje"
-        ? `${b.beneficio.valor}% de descuento`
-        : b.beneficio.forma === "monto"
-          ? `₡${b.beneficio.valor.toLocaleString("es-CR")} de descuento`
-          : `${b.beneficio.que || "…"} gratis`;
-    case "membresia":
-      return `${b.nivel || "…"} · ${b.vigenciaMeses} meses`;
-    case "giftcard":
-      return `${b.moneda === "USD" ? "$" : "₡"}${b.valor.toLocaleString("es-CR")}`;
-    case "evento":
-      return `${b.fecha || "…"} ${b.hora} · ${b.ubicacion || "…"}`;
-    case "cashback":
-      return `${b.porcentaje}% de vuelta`;
-  }
 }

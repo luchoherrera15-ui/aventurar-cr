@@ -81,6 +81,89 @@ export const CONFIG_CLASICA: ConfigTira = {
   margenY: 0.07,
 };
 
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  LO QUE VIENE DE LA BASE NO SE USA TAL CUAL
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * `programa_lealtad.pase_diseno` es una columna `jsonb` (0212), y su
+ * único CHECK es que sea un objeto. Adentro puede haber cualquier cosa:
+ * una fila vieja, un valor guardado por una versión anterior del panel,
+ * o algo escrito a mano en el SQL Editor.
+ *
+ * Esta función lo convierte en una `ConfigTira` válida, campo por
+ * campo, cayendo al clásico en cada uno que no reconozca. NO es
+ * paranoia: lo que salga de acá va DIRECTO a dibujar el pase que
+ * termina en el teléfono de un cliente, y un `NaN` en la escala produce
+ * un PNG en blanco — que Apple rechaza sin decir por qué.
+ *
+ * Un campo mal guardado degrada ese campo solo. No tumba la tarjeta ni
+ * arrastra a los demás.
+ */
+export function configDesdeJson(valor: unknown): ConfigTira {
+  if (!valor || typeof valor !== "object" || Array.isArray(valor)) {
+    return CONFIG_CLASICA;
+  }
+  const d = valor as Record<string, unknown>;
+
+  const filas =
+    d.filas === 1 || d.filas === 2 || d.filas === 3 || d.filas === "auto"
+      ? (d.filas as ConfigTira["filas"])
+      : CONFIG_CLASICA.filas;
+
+  // Acotada acá ADEMÁS del tope de `layoutDeLaTira`: ese tope evita que
+  // los sellos se pisen, éste evita que un `Infinity` o un `NaN`
+  // guardado llegue siquiera a la aritmética.
+  const escalaSello =
+    typeof d.escalaSello === "number" && Number.isFinite(d.escalaSello)
+      ? Math.min(2, Math.max(0.4, d.escalaSello))
+      : CONFIG_CLASICA.escalaSello;
+
+  const alineacionH =
+    d.alineacionH === "izquierda" || d.alineacionH === "centro" || d.alineacionH === "derecha"
+      ? d.alineacionH
+      : CONFIG_CLASICA.alineacionH;
+
+  const alineacionV =
+    d.alineacionV === "arriba" || d.alineacionV === "centro" || d.alineacionV === "abajo"
+      ? d.alineacionV
+      : CONFIG_CLASICA.alineacionV;
+
+  // Techo en 0,25: más margen que eso deja la tira casi vacía y los
+  // sellos apretados en el centro, que no es una decisión de diseño
+  // sino una tarjeta rota.
+  const margenY =
+    typeof d.margenY === "number" && Number.isFinite(d.margenY)
+      ? Math.min(0.25, Math.max(0, d.margenY))
+      : CONFIG_CLASICA.margenY;
+
+  return { filas, escalaSello, alineacionH, alineacionV, margenY };
+}
+
+/**
+ * ¿Es el layout de siempre?
+ *
+ * Sirve para NO escribir lo que no hace falta: una tarjeta que nadie
+ * acomodó tiene que poder guardarse sin tocar la columna, porque `{}` y
+ * el clásico son la misma tarjeta. La usa el alta pública para no
+ * disparar un UPDATE que no cambia ningún píxel, y la pantalla de
+ * diseño para saber si «volver al clásico» tiene algo que deshacer.
+ *
+ * Campo por campo y no `JSON.stringify`: el orden de las claves de un
+ * objeto guardado no es asunto de nadie, y comparar serializado haría
+ * que un `{escalaSello, filas}` y un `{filas, escalaSello}` idénticos
+ * se leyeran como distintos.
+ */
+export function esClasica(config: ConfigTira): boolean {
+  return (
+    config.filas === CONFIG_CLASICA.filas &&
+    config.escalaSello === CONFIG_CLASICA.escalaSello &&
+    config.alineacionH === CONFIG_CLASICA.alineacionH &&
+    config.alineacionV === CONFIG_CLASICA.alineacionV &&
+    config.margenY === CONFIG_CLASICA.margenY
+  );
+}
+
 /** El margen horizontal, fijo. Ver el aviso de `margenY`. */
 const MARGEN_X = 0.07;
 

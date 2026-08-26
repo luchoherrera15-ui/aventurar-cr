@@ -35,6 +35,7 @@ import {
 import { avisarCambioDeDiseno } from "@/lib/wallet/aviso-de-diseno";
 import { refrescarClaseGoogle } from "@/lib/wallet/google";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
+import { configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
 
 /**
  * AVISARLE A LOS PASES YA INSTALADOS QUE LA TARJETA CAMBIÓ (0150).
@@ -93,6 +94,10 @@ const CAMPOS_QUE_SE_DIBUJAN = [
   "pase_banner_url",
   "pase_sello_icono",
   "pase_sello_icono_url",
+  // 0212: mover los sellos a la parte de abajo de la tira cambia el PNG
+  // igual que cambiar un color. Sin esta línea el dueño acomodaría su
+  // tarjeta y los teléfonos que ya la tienen seguirían con la vieja.
+  "pase_diseno",
 ] as const;
 
 function cambioElDiseno(previo: ProgramaFila, nuevo: ProgramaFila): boolean {
@@ -179,6 +184,8 @@ export type ProgramaFila = {
   pase_sello_icono?: string | null;
   /** El ícono propio que subió el negocio (0174). Opcional por lo mismo. */
   pase_sello_icono_url?: string | null;
+  /** Dónde va cada sello dentro de la tira (0212, jsonb). Opcional por lo mismo. */
+  pase_diseno?: unknown;
   pase_codigo_formato?: string | null;
   pase_texto_reverso?: string | null;
   pase_mostrar_saldo?: boolean | null;
@@ -235,6 +242,15 @@ export type ProgramaInput = {
   iconoSello: SelloElegido | null;
   /** El ícono propio subido (0174). Se guarda esté elegido o no. */
   iconoUrl: string;
+  /**
+   * Dónde y de qué tamaño van los sellos (0212).
+   *
+   * OBLIGATORIO, y a propósito: quien guarda tiene que decir con qué
+   * geometría, aunque sea la clásica. Opcional, la pantalla que se
+   * olvidara de mandarlo le devolvería los sellos al centro sin que
+   * nadie lo pidiera — y a los teléfonos que ya tienen el pase.
+   */
+  diseno: ConfigTira;
   codigoFormato: FormatoCodigo;
   /** Reemplaza el texto que el dorso del pase arma solo. "" = el de siempre. */
   textoReverso: string;
@@ -500,6 +516,10 @@ export async function guardarPrograma(
     pase_notificacion_logo_url: datos.notificacionLogoUrl.trim() || null,
     pase_sello_icono: sello.icono,
     pase_sello_icono_url: sello.url,
+    // Se re-sanea del lado del servidor y no se confía en lo que mandó
+    // el navegador: esta acción es una puerta pública, y lo que se
+    // escriba acá va DIRECTO al PNG que se firma y se manda al teléfono.
+    pase_diseno: configDesdeJson(datos.diseno),
     pase_codigo_formato: datos.codigoFormato,
     pase_texto_reverso: datos.textoReverso.trim() || null,
     pase_mostrar_saldo: datos.mostrarSaldo,
@@ -542,6 +562,7 @@ export async function guardarPrograma(
     "pase_notificacion_logo_url",
     "pase_sello_icono",
     "pase_sello_icono_url",
+    "pase_diseno",
     "pase_codigo_formato",
     "pase_texto_reverso",
     "pase_mostrar_saldo",

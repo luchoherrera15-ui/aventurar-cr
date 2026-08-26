@@ -14,7 +14,7 @@ import {
 import { metaDe, tipoDe, type ConfigBeneficio } from "@/lib/lealtad/tipos-tarjeta";
 import { selloParaGuardar, type DibujoDelSello, type SelloElegido } from "@/lib/lealtad/iconos-sello";
 import { SelloConIcono, SelloConImagen } from "@/app/lealtad/panel/[id]/iconos";
-import { layoutDeLaTira } from "@/lib/wallet/layout-tira";
+import { CONFIG_CLASICA, layoutDeLaTira, type ConfigTira } from "@/lib/wallet/layout-tira";
 
 /**
  * LA VISTA PREVIA DEL PASE, en vivo.
@@ -64,6 +64,12 @@ export type DatosVista = {
   iconoSello?: SelloElegido | null;
   /** El ícono propio que subió el negocio (0174). */
   iconoUrl?: string | null;
+  /**
+   * Dónde y de qué tamaño van los sellos (0212). Ausente = el layout
+   * clásico, que es lo que dibuja el pase de todo negocio que no tocó
+   * nada. Se pasa YA saneado (`configDesdeJson` / `disenoDeLaConfig`).
+   */
+  diseno?: ConfigTira;
   /** Saldo de ejemplo. Por defecto, la mitad de la meta. */
   saldoEjemplo?: number;
 };
@@ -389,7 +395,13 @@ function TarjetaApple({
           </span>
         </div>
 
-        <Tira tira={tira} colores={colores} saldo={saldo} sello={sello} />
+        <Tira
+          tira={tira}
+          colores={colores}
+          saldo={saldo}
+          sello={sello}
+          diseno={datos.diseno ?? CONFIG_CLASICA}
+        />
 
         <div className="mt-3">
           <span className="block text-[8.5px] uppercase tracking-wider text-white/55">
@@ -437,12 +449,15 @@ function Tira({
   colores,
   saldo,
   sello,
+  diseno,
 }: {
   tira: TiraDelPase;
   colores: { fondo: string; sello: string };
   saldo: number;
   /** Qué lleva cada sello (0145/0174). «logo» = el círculo liso de siempre. */
   sello: DibujoDelSello;
+  /** Dónde va cada uno (0212). Es EL MISMO objeto que recibe sharp. */
+  diseno: ConfigTira;
 }) {
   if (tira.tipo === "ninguna") return null;
 
@@ -451,7 +466,7 @@ function Tira({
      Apple —375×123— y abajo se convierte a porcentaje, así el dibujo
      escala con el ancho que la previa tenga en pantalla sin recalcular
      nada y sin medir con JavaScript. */
-  const layout = layoutDeLaTira(tira.tipo === "sellos" ? tira.total : 0);
+  const layout = layoutDeLaTira(tira.tipo === "sellos" ? tira.total : 0, diseno);
 
   return (
     <div

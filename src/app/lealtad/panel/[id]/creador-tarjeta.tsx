@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { coloresDePaleta, PALETAS } from "@/lib/lealtad/paletas";
 import { configPorDefecto } from "@/lib/lealtad/tipos-tarjeta";
+import { CONFIG_CLASICA } from "@/lib/wallet/layout-tira";
 import { REGLAS_VACIAS } from "./paso-reglas";
 import type { HiloAyuda } from "@/lib/lealtad/ayuda-hilo";
 import TarjetaFormulario, { type ValorFormulario } from "@/app/lealtad/tarjeta-formulario";
@@ -51,6 +52,9 @@ export default function CreadorTarjeta({
     colorSello: paletaInicial.sello,
     iconoSello: null,
     iconoUrl: "",
+    // Una tarjeta nueva nace con el layout de siempre. Quien lo quiera
+    // mover lo hace en «Dónde van los sellos», viendo el resultado.
+    diseno: CONFIG_CLASICA,
     logoUrl: "",
     bannerUrl: "",
     notificacionLogoUrl: "",
@@ -79,6 +83,7 @@ export default function CreadorTarjeta({
       colorSello: valor.colorSello,
       iconoSello: valor.tipo === "sellos" ? valor.iconoSello : null,
       iconoUrl: valor.tipo === "sellos" ? valor.iconoUrl.trim() : "",
+      diseno: valor.diseno,
       logoUrl: valor.logoUrl.trim(),
       bannerUrl: valor.bannerUrl.trim(),
       notificacionLogoUrl: valor.notificacionLogoUrl.trim(),

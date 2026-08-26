@@ -19,6 +19,7 @@ import {
   type DibujoDelSello,
   type SelloElegido,
 } from "@/lib/lealtad/iconos-sello";
+import { configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
 
 /**
  * Alias histórico de `TipoTarjeta`. El nombre «modo» quedó de cuando
@@ -65,6 +66,22 @@ export type ConfigPase = {
   pase_sello_icono?: SelloElegido | null;
   /** El ícono propio del negocio (0174). Opcional por lo mismo. */
   pase_sello_icono_url?: string | null;
+  /**
+   * DÓNDE va cada sello dentro de la tira (0212, jsonb).
+   *
+   * Viaja CRUDO —`unknown`, tal como salió de la base— y no ya validado,
+   * a propósito. Es la única forma de que el saneo ocurra en UN solo
+   * lugar (`disenoDeLaConfig`, abajo) en vez de repetirse en cada
+   * pantalla que arma un `ConfigPase` a mano: la vista previa, el
+   * póster, el visor del admin. Un `ConfigTira` acá invitaría a que cada
+   * una lo construyera a su manera, y la que se equivoque manda un
+   * `NaN` directo al PNG del pase.
+   *
+   * Opcional por lo mismo que la banda y el ícono: la migración puede no
+   * estar pegada y la fila llega sin la columna. `undefined` cae al
+   * layout clásico, que es el de todas las tarjetas ya emitidas.
+   */
+  pase_diseno?: unknown;
 };
 
 /** La recompensa activa más barata: es la META de la tarjeta. */
@@ -228,9 +245,26 @@ export function tarjetaDesdeFila(fila: Record<string, unknown>): {
       // fila rara no llega nunca hasta el dibujo.
       pase_sello_icono: sello.icono,
       pase_sello_icono_url: sello.url,
+      // Crudo a propósito: lo sanea `disenoDeLaConfig`, en un solo lugar.
+      pase_diseno: fila.pase_diseno,
     },
     beneficio: leerBeneficio(fila.beneficio, modo),
   };
+}
+
+/**
+ * DÓNDE VA CADA SELLO, según la config del pase.
+ *
+ * El gemelo de `selloDeLaConfig`: la misma pregunta hecha en un solo
+ * lugar para el generador (sharp) y para la vista previa (React). Que el
+ * dueño diseñe mirando lo que su cliente va a recibir depende de que las
+ * dos pantallas lean la columna con ESTA función y no cada una a su modo.
+ *
+ * `configDesdeJson` acota todos los valores: lo que salga de acá se
+ * puede dibujar aunque en la base haya cualquier cosa.
+ */
+export function disenoDeLaConfig(config: ConfigPase): ConfigTira {
+  return configDesdeJson(config.pase_diseno);
 }
 
 /**

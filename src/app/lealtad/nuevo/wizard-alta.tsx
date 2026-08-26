@@ -19,6 +19,7 @@ import {
 } from "@/lib/lealtad/tipos-tarjeta";
 import { coloresDePaleta, paletaDeLosColores, PALETAS } from "@/lib/lealtad/paletas";
 import { esIconoSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import { CONFIG_CLASICA, configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
 import { planIncluyeTipo } from "@/lib/lealtad/planes";
 import {
   ETIQUETAS_RUBRO,
@@ -119,6 +120,15 @@ type EstadoWizard = {
   iconoSello: IconoSello | null;
   logoUrl: string | null;
   bannerUrl: string | null;
+  /**
+   * Dónde van los sellos en la tira (0212).
+   *
+   * Este asistente NO tiene controles para tocarlo, y aun así lo guarda:
+   * cuando el configurador público manda a pagar, deja su borrador en
+   * sessionStorage y esta pantalla lo levanta. Sin el campo, elegir
+   * «sellos abajo» y después pagar devolvía los sellos al centro.
+   */
+  diseno: ConfigTira;
   telefono: string;
   descripcion: string;
 };
@@ -153,6 +163,7 @@ function estadoInicial(): EstadoWizard {
     iconoSello: null,
     logoUrl: null,
     bannerUrl: null,
+    diseno: CONFIG_CLASICA,
     telefono: "",
     descripcion: "",
   };
@@ -204,6 +215,10 @@ function sanearGuardado(crudo: unknown, plan: string | null, topePasos: number):
   if (esIconoSello(c.iconoSello)) limpio.iconoSello = c.iconoSello;
   if (typeof c.logoUrl === "string" && c.logoUrl) limpio.logoUrl = c.logoUrl;
   if (typeof c.bannerUrl === "string" && c.bannerUrl) limpio.bannerUrl = c.bannerUrl;
+  // La geometría de la tira (0212) llega por el camino "prellenado":
+  // `configDesdeJson` la sanea campo por campo, así que un respaldo
+  // viejo —que ni tenía la clave— cae al layout clásico solo.
+  limpio.diseno = configDesdeJson(c.diseno);
   if (typeof c.paso === "number" && Number.isInteger(c.paso)) {
     limpio.paso = Math.min(Math.max(0, c.paso), topePasos - 1);
   }
@@ -435,6 +450,7 @@ export default function WizardAlta({
         iconoUrl: "",
         logoUrl: estado.logoUrl ?? "",
         bannerUrl: estado.bannerUrl ?? "",
+        diseno: estado.diseno,
         // Igual que el ícono propio: sin sesión todavía no hay dónde
         // subirlo. Se agrega después, desde el editor de la tarjeta.
         notificacionLogoUrl: "",
@@ -502,6 +518,7 @@ export default function WizardAlta({
               iconoSello: estado.modo === "sellos" ? estado.iconoSello : null,
               logoUrl: estado.logoUrl,
               bannerUrl: estado.bannerUrl,
+              diseno: estado.diseno,
             },
     };
     iniciar(async () => {

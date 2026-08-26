@@ -3,6 +3,7 @@ import {
   CONFIG_CLASICA,
   TIRA_ALTO,
   TIRA_ANCHO,
+  configDesdeJson,
   layoutDeLaTira,
   type ConfigTira,
 } from "./layout-tira";
@@ -169,5 +170,63 @@ describe("los datos rotos no tumban el dibujo", () => {
     // 30 sellos en una sola fila es el peor caso de apretado.
     const l = layoutDeLaTira(30, { ...CONFIG_CLASICA, filas: 1 });
     expect(l.diametro).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe("lo que viene de la base se sanea antes de dibujar", () => {
+  it("un objeto vacío es el layout clásico", () => {
+    expect(configDesdeJson({})).toEqual(CONFIG_CLASICA);
+  });
+
+  it("null, un arreglo o un texto caen al clásico", () => {
+    expect(configDesdeJson(null)).toEqual(CONFIG_CLASICA);
+    expect(configDesdeJson([1, 2])).toEqual(CONFIG_CLASICA);
+    expect(configDesdeJson("filas: 2")).toEqual(CONFIG_CLASICA);
+    expect(configDesdeJson(undefined)).toEqual(CONFIG_CLASICA);
+  });
+
+  it("un campo roto degrada SOLO ese campo", () => {
+    const c = configDesdeJson({ alineacionV: "abajo", filas: "muchas" });
+    expect(c.alineacionV).toBe("abajo");
+    expect(c.filas).toBe(CONFIG_CLASICA.filas);
+  });
+
+  it("NaN e Infinity no llegan a la aritmética", () => {
+    // Un NaN en la escala produce un diámetro NaN y un PNG en blanco,
+    // que Apple rechaza sin decir por qué.
+    //
+    // NaN e Infinity NO se recortan, caen al clásico: JSON no puede
+    // representarlos, así que un valor así no es «alguien pidió mucho»
+    // sino un dato corrupto, y adivinarle una intención sería inventar.
+    expect(configDesdeJson({ escalaSello: NaN }).escalaSello).toBe(CONFIG_CLASICA.escalaSello);
+    expect(configDesdeJson({ escalaSello: Infinity }).escalaSello).toBe(CONFIG_CLASICA.escalaSello);
+    expect(configDesdeJson({ margenY: NaN }).margenY).toBe(CONFIG_CLASICA.margenY);
+  });
+
+  it("los valores fuera de rango se recortan, no se descartan", () => {
+    // Alguien que guardó 5 quería sellos grandes: se le da el máximo,
+    // no el default.
+    expect(configDesdeJson({ escalaSello: 5 }).escalaSello).toBe(2);
+    expect(configDesdeJson({ escalaSello: 0.01 }).escalaSello).toBe(0.4);
+    expect(configDesdeJson({ margenY: 0.9 }).margenY).toBe(0.25);
+    expect(configDesdeJson({ margenY: -1 }).margenY).toBe(0);
+  });
+
+  it("cualquier basura guardada sigue produciendo una tira dibujable", () => {
+    const basura = [
+      { filas: null, escalaSello: "grande", alineacionH: 7 },
+      { escalaSello: -99, margenY: "mucho" },
+      { alineacionV: {}, filas: [] },
+    ];
+    for (const b of basura) {
+      const l = layoutDeLaTira(10, configDesdeJson(b));
+      expect(Number.isFinite(l.diametro)).toBe(true);
+      expect(l.diametro).toBeGreaterThan(0);
+      for (const p of l.posiciones) {
+        expect(Number.isFinite(p.x)).toBe(true);
+        expect(p.x + l.diametro).toBeLessThanOrEqual(l.ancho);
+        expect(p.y + l.diametro).toBeLessThanOrEqual(l.alto);
+      }
+    }
   });
 });

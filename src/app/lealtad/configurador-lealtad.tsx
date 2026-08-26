@@ -18,6 +18,7 @@ import { PALETAS, coloresDePaleta, paletaDeLosColores } from "@/lib/lealtad/pale
 import { esIconoSello, SELLO_PROPIO, type SelloElegido } from "@/lib/lealtad/iconos-sello";
 import { esPlantillaIcono } from "@/lib/lealtad/plantillas-icono";
 import { PLANTILLAS_FRANJA } from "@/lib/lealtad/plantillas-franjas";
+import { CONFIG_CLASICA, configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
 
 /**
  * EL ORQUESTADOR de `/lealtad` — pivote del 2026-08-18.
@@ -116,6 +117,14 @@ export type EstadoLealtad = {
   /** SOLO una subida real (requiere sesión). */
   bannerUrl: string | null;
 
+  /**
+   * Dónde y de qué tamaño van los sellos en la tira (0212).
+   *
+   * A diferencia de `imagenStockId`/`franjaBancoId`, esto NO es solo
+   * preview: viaja al servidor con el alta y se guarda en la columna.
+   */
+  diseno: ConfigTira;
+
   telefono: string;
 };
 
@@ -155,6 +164,7 @@ function estadoInicial(planInicial?: PlanId | null): EstadoLealtad {
     franjaModo: "ninguna",
     franjaBancoId: null,
     bannerUrl: null,
+    diseno: CONFIG_CLASICA,
     telefono: "",
   };
 }
@@ -209,6 +219,11 @@ function sanearGuardado(crudo: unknown): EstadoLealtad {
     limpio.franjaModo = "propia";
     limpio.bannerUrl = c.bannerUrl;
   }
+
+  // La geometría de la tira (0212). `configDesdeJson` sanea campo por
+  // campo, así que un borrador viejo —que ni tenía el campo— cae al
+  // layout clásico sin ningún chequeo extra acá.
+  limpio.diseno = configDesdeJson(c.diseno);
 
   return limpio;
 }
@@ -311,6 +326,7 @@ export default function ConfiguradorLealtad({
     imagenStockId: estado.imagenStockId,
     franjaModo: estado.franjaModo,
     franjaBancoId: estado.franjaBancoId,
+    diseno: estado.diseno,
     planElegido: estado.planElegido,
   };
 
@@ -333,6 +349,7 @@ export default function ConfiguradorLealtad({
     if (p.imagenStockId !== undefined) cambios.imagenStockId = p.imagenStockId;
     if (p.franjaModo !== undefined) cambios.franjaModo = p.franjaModo;
     if (p.franjaBancoId !== undefined) cambios.franjaBancoId = p.franjaBancoId;
+    if (p.diseno !== undefined) cambios.diseno = p.diseno;
     if (p.planElegido !== undefined) cambios.planElegido = p.planElegido;
     patch(cambios);
   }
@@ -380,6 +397,9 @@ export default function ConfiguradorLealtad({
         // NUNCA cuando franjaModo === "banco": esa ruta es de public/,
         // no de nuestro Storage.
         bannerUrl: estado.franjaModo === "propia" ? estado.bannerUrl : null,
+        // La geometría de la tira (0212). El servidor la sanea y solo
+        // escribe la columna si difiere del layout de siempre.
+        diseno: estado.diseno,
       },
     };
     iniciarGuardado(async () => {

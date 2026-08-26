@@ -412,6 +412,10 @@ async function crearGratisAlInstante(d: {
     if (t.iconoUrl) cambios.pase_sello_icono_url = t.iconoUrl;
     if (t.logoUrl) cambios.pase_logo_url = t.logoUrl;
     if (t.bannerUrl) cambios.pase_banner_url = t.bannerUrl;
+    // La geometría de la tira (0212). `validarTarjetaDeAlta` la deja en
+    // null cuando es la de siempre, así que esta columna solo se escribe
+    // si la persona de verdad movió los sellos.
+    if (t.diseno) cambios.pase_diseno = t.diseno;
 
     const { error: eTarjeta } = await admin
       .from("programa_lealtad")

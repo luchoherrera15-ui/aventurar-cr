@@ -21,6 +21,7 @@ import { sembrarRecompensa } from "@/lib/lealtad/sembrar-recompensa";
 import { esColumnaAusente } from "@/lib/lealtad/errores-base";
 import { mesesGuardables } from "@/lib/lealtad/vencimiento-sellos";
 import { elegirPrograma, resumenDeFila } from "@/lib/wallet/programa-principal";
+import { configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
 import { estadoAlCrear } from "./estado-inicial";
 import { cupoLleno, lasQueOcupanCupo, tarjetaDelCupo } from "./cupo-tarjetas";
 import {
@@ -79,6 +80,8 @@ export type BorradorTarjeta = {
   iconoSello: SelloElegido | null;
   /** El ícono propio que subió el negocio (0174). */
   iconoUrl: string;
+  /** Dónde y de qué tamaño van los sellos en la tira (0212). */
+  diseno: ConfigTira;
   logoUrl: string;
   /** La banda de arriba del pase: `strip` en Apple, `heroImage` en Google. */
   bannerUrl: string;
@@ -133,6 +136,7 @@ const COLUMNAS_DEGRADABLES = [
   "pase_notificacion_logo_url",
   "pase_sello_icono",
   "pase_sello_icono_url",
+  "pase_diseno",
   "compra_minima",
   "vigente_desde",
   "vigencia_desde_primer_sello",
@@ -404,6 +408,9 @@ export async function crearTarjeta(datos: BorradorTarjeta): Promise<Resultado> {
     pase_color_sello: datos.colorSello,
     pase_sello_icono: sello.icono,
     pase_sello_icono_url: sello.url,
+    // Re-saneado del lado del servidor: lo que entre acá se dibuja en el
+    // pase que se firma y se manda al teléfono.
+    pase_diseno: configDesdeJson(datos.diseno),
     pase_logo_url: logo || null,
     pase_banner_url: banner || null,
     pase_notificacion_logo_url: notificacionLogo || null,

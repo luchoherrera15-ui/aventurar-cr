@@ -194,7 +194,7 @@ const FAQ: { pregunta: string; respuesta: string }[] = [
   {
     pregunta: "¿Cuánto tarda en estar listo?",
     respuesta:
-      "Armar la tarjeta son cinco pasos, sin diseñador: en menos de 10 minutos la tenés lista para compartir con tu primer cliente.",
+      "Se arma en una sola pantalla, sin diseñador y viendo cómo va quedando: en menos de 10 minutos la tenés lista para compartir con tu primer cliente.",
   },
   {
     pregunta: "¿Puedo empezar sin pagar?",

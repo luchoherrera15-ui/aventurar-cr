@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { validarTarjetaDeAlta, type TarjetaDeAlta } from "./tarjeta-alta";
 import type { ConfigBeneficio } from "./tipos-tarjeta";
+import { CONFIG_CLASICA } from "@/lib/wallet/layout-tira";
 
 /**
  * La tarjeta que viaja con el alta de /lealtad/nuevo se valida acá,
@@ -150,6 +151,10 @@ describe("validarTarjetaDeAlta — colores, icono e imágenes", () => {
         iconoUrl: null,
         logoUrl: LOGO_OK,
         bannerUrl: BANNER_OK,
+        // Nadie movió los sellos: la columna se deja como está en vez de
+        // congelar los valores de hoy en la fila (ver `diseno` en
+        // `TarjetaAltaValidada`).
+        diseno: null,
       },
     });
   });
@@ -214,7 +219,48 @@ describe("validarTarjetaDeAlta — colores, icono e imágenes", () => {
         iconoUrl: null,
         logoUrl: null,
         bannerUrl: null,
+        diseno: null,
       },
     });
+  });
+});
+
+describe("validarTarjetaDeAlta — dónde van los sellos (0212)", () => {
+  it("el layout de siempre NO viaja: null significa «no toques la columna»", () => {
+    const r = validarTarjetaDeAlta(completa({ diseno: { ...CONFIG_CLASICA } }), "prueba");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.tarjeta?.diseno).toBeNull();
+  });
+
+  it("un diseño movido sí viaja, saneado", () => {
+    const r = validarTarjetaDeAlta(
+      completa({ diseno: { alineacionV: "abajo", escalaSello: 99 } }),
+      "prueba",
+    );
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.tarjeta?.diseno?.alineacionV).toBe("abajo");
+      // Recortado al tope: lo que salga de acá se dibuja en el pase.
+      expect(r.tarjeta?.diseno?.escalaSello).toBe(2);
+    }
+  });
+
+  it("un diseño roto NO tumba el alta — degrada al clásico", () => {
+    // A diferencia de un icono inventado (que sí se rechaza), una
+    // alineación rara solo significa una versión vieja del panel: no hay
+    // motivo para negarle el negocio entero a alguien por eso.
+    for (const basura of ["abajo", 42, [1], { alineacionV: "diagonal" }]) {
+      const r = validarTarjetaDeAlta(completa({ diseno: basura }), "prueba");
+      expect(r.ok, JSON.stringify(basura)).toBe(true);
+      if (r.ok) expect(r.tarjeta?.diseno).toBeNull();
+    }
+  });
+
+  it("una tarjeta que SOLO trae el diseño movido no se descarta por vacía", () => {
+    // El chequeo de «objeto vacío» corta el alta sin UPDATE. Sin contar
+    // el diseño, mover los sellos y no tocar nada más se perdía entero.
+    const r = validarTarjetaDeAlta({ diseno: { filas: 2 } }, "prueba");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.tarjeta?.diseno?.filas).toBe(2);
   });
 });

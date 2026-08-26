@@ -13,6 +13,7 @@ import {
   type TipoTarjeta,
 } from "./tipos-tarjeta";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
+import { configDesdeJson, esClasica, type ConfigTira } from "@/lib/wallet/layout-tira";
 
 /**
  * LA TARJETA QUE VIAJA CON EL ALTA de /lealtad/nuevo.
@@ -57,6 +58,8 @@ export type TarjetaDeAlta = {
   iconoUrl?: string | null;
   logoUrl?: string | null;
   bannerUrl?: string | null;
+  /** Dónde van los sellos en la tira (0212). Crudo: lo sanea el servidor. */
+  diseno?: unknown;
 };
 
 /** Lo que sale de la validación: campos limpios, o null si no vino. */
@@ -75,6 +78,15 @@ export type TarjetaAltaValidada = {
   iconoUrl: string | null;
   logoUrl: string | null;
   bannerUrl: string | null;
+  /**
+   * La geometría de la tira (0212), o null si es la de siempre.
+   *
+   * Null y «el clásico» son lo mismo, y por eso se guarda null: la
+   * columna queda en `{}` y cualquier cambio futuro del layout por
+   * defecto alcanza también a estas tarjetas. Congelar los valores de
+   * hoy en la fila las dejaría fuera.
+   */
+  diseno: ConfigTira | null;
 };
 
 export type ResultadoTarjetaAlta =
@@ -180,6 +192,19 @@ export function validarTarjetaDeAlta(
     return { ok: false, motivo: "La banda no se subió bien — probá de nuevo." };
   }
 
+  // ── La geometría de la tira (0212) ──────────────────────────────
+  // NO se rechaza nunca: `configDesdeJson` sanea campo por campo y cae
+  // al clásico en cada uno que no reconozca, así que no hay valor que
+  // pueda romper el dibujo. Un id de icono inventado sí se rechaza
+  // —significa que el navegador mandó algo que no existe— pero una
+  // alineación rara solo significa una versión vieja del panel.
+  //
+  // Y solo viaja cuando DIFIERE del clásico: mandarlo siempre haría que
+  // el alta más simple del mundo disparara un UPDATE de una columna que
+  // queda igual (ver el chequeo de «objeto vacío» de acá abajo).
+  const disenoSaneado = configDesdeJson(cruda.diseno);
+  const diseno = esClasica(disenoSaneado) ? null : disenoSaneado;
+
   // Un objeto vacío es lo mismo que no mandar nada: el alta sigue el
   // camino de siempre, sin un UPDATE que no cambia ninguna columna.
   if (
@@ -189,7 +214,8 @@ export function validarTarjetaDeAlta(
     sello.icono === null &&
     sello.url === null &&
     logoUrl === null &&
-    bannerUrl === null
+    bannerUrl === null &&
+    diseno === null
   ) {
     return { ok: true, tarjeta: null };
   }
@@ -205,6 +231,7 @@ export function validarTarjetaDeAlta(
       iconoUrl: sello.url,
       logoUrl,
       bannerUrl,
+      diseno,
     },
   };
 }

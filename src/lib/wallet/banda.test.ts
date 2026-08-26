@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { selloDeLaConfig, tarjetaDesdeFila, tiraDelPase, type MetaRecompensa } from "./tarjeta";
+import {
+  disenoDeLaConfig,
+  selloDeLaConfig,
+  tarjetaDesdeFila,
+  tiraDelPase,
+  type MetaRecompensa,
+} from "./tarjeta";
+import { CONFIG_CLASICA } from "./layout-tira";
 import { construirObjeto, contenidoDelObjeto } from "./google";
 import {
   describirEscalon,
@@ -222,6 +229,51 @@ describe("el ícono PROPIO del negocio sale de la fila (0174)", () => {
       fila("sellos", { pase_sello_icono: "propio", pase_sello_icono_url: URL_ICONO }),
     );
     expect(conPropio).toEqual(objetoDeLaFila(fila("sellos")));
+  });
+});
+
+/**
+ * DÓNDE VAN LOS SELLOS, desde la fila hasta el dibujo (0212).
+ *
+ * El mismo cable que la banda: la pantalla guarda la geometría, la
+ * vista previa la dibuja, y si el generador no leyera la columna el
+ * dueño acomodaría su tarjeta en pantalla y en el teléfono seguiría
+ * viéndola igual. Este bloque comprueba el tramo que el compilador no
+ * puede: que la columna LLEGUE.
+ */
+describe("la geometría de la tira sale de la fila (0212)", () => {
+  it("lo guardado llega hasta el layout que dibuja el pase", () => {
+    const f = fila("sellos", { pase_diseno: { alineacionV: "abajo", filas: 2 } });
+    const diseno = disenoDeLaConfig(tarjetaDesdeFila(f).config);
+    expect(diseno.alineacionV).toBe("abajo");
+    expect(diseno.filas).toBe(2);
+  });
+
+  it("la 0212 sin correr: la fila llega sin la columna y el pase sale como hoy", () => {
+    for (const tipo of TIPOS_TARJETA_ID) {
+      const sinColumna = fila(tipo);
+      delete sinColumna.pase_diseno;
+      expect(disenoDeLaConfig(tarjetaDesdeFila(sinColumna).config)).toEqual(CONFIG_CLASICA);
+    }
+  });
+
+  it("un jsonb con basura adentro no tumba el dibujo", () => {
+    // Esta config termina en `sharp`, componiendo el PNG que se firma.
+    // Un NaN acá es un pase en blanco que Apple rechaza sin explicar.
+    for (const basura of ["abajo", 42, [1, 2], null, { escalaSello: "grande" }]) {
+      const { config } = tarjetaDesdeFila(fila("sellos", { pase_diseno: basura }));
+      const d = disenoDeLaConfig(config);
+      expect(Number.isFinite(d.escalaSello), JSON.stringify(basura)).toBe(true);
+      expect(Number.isFinite(d.margenY)).toBe(true);
+    }
+  });
+
+  it("no le cambia nada al pase de Google — la tira es solo de Apple", () => {
+    // Google no tiene strip: la geometría de los círculos no existe de
+    // ese lado. Si esto cambiara, la columna se estaría filtrando a un
+    // objeto donde no significa nada.
+    const movida = objetoDeLaFila(fila("sellos", { pase_diseno: { alineacionV: "abajo" } }));
+    expect(movida).toEqual(objetoDeLaFila(fila("sellos")));
   });
 });
 

@@ -44,12 +44,14 @@ const SITIO_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat")
 import {
   coloresDe,
   construirPassJson,
+  disenoDeLaConfig,
   selloDeLaConfig,
   tarjetaDesdeFila,
   tiraDelPase,
   type MetaRecompensa,
   type TiraDelPase,
 } from "./tarjeta";
+import type { ConfigTira } from "./layout-tira";
 
 /**
  * Genera el .pkpass de un cliente para un negocio.
@@ -378,6 +380,10 @@ export async function generarPaseDeLealtad({
       // El icono del sello (0145/0174). Sin nada elegido —que es el caso
       // de todo lo emitido hasta hoy— la tira se dibuja igual que siempre.
       sello,
+      // Dónde y de qué tamaño van los sellos (0212). Se lee con la MISMA
+      // función que la vista previa del panel, así el dueño diseña
+      // mirando lo que su cliente va a recibir.
+      diseno: disenoDeLaConfig(config),
     })),
   };
 
@@ -537,6 +543,7 @@ async function archivosDeLaTira({
   logo,
   saldo,
   sello,
+  diseno,
 }: {
   tira: TiraDelPase;
   colores: ColoresTarjeta;
@@ -545,6 +552,8 @@ async function archivosDeLaTira({
   saldo: number;
   /** Qué lleva el sello: el logo, uno de los doce, o el ícono propio. */
   sello: DibujoDelSello;
+  /** Dónde va cada sello dentro de la tira (0212), ya saneado. */
+  diseno: ConfigTira;
 }): Promise<Record<string, Buffer>> {
   if (tira.tipo === "ninguna") return {};
 
@@ -617,6 +626,7 @@ async function archivosDeLaTira({
           banda: escalon.banda ? banda : null,
           escala,
           icono,
+          diseno,
         }),
       ),
     (escalon, e) => console.warn(`[wallet] No se pudieron dibujar ${describirEscalon(escalon)}:`, e),

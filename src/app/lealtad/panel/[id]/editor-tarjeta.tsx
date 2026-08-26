@@ -132,6 +132,10 @@ export default function EditorTarjeta({
     if (p.logoUrl !== undefined) cambiosBorrador.logoUrl = p.logoUrl;
     if (p.bannerUrl !== undefined) cambiosBorrador.bannerUrl = p.bannerUrl;
     if (p.notificacionLogoUrl !== undefined) cambiosBorrador.notificacionLogoUrl = p.notificacionLogoUrl;
+    // La geometría de la tira (0212) vive en el borrador compartido por
+    // el mismo motivo que los colores: es diseño del pase, y quien lo
+    // guarda es `guardarPrograma`.
+    if (p.diseno !== undefined) cambiosBorrador.diseno = p.diseno;
     if (Object.keys(cambiosBorrador).length > 0) cambiar(cambiosBorrador);
   }
 
@@ -150,6 +154,7 @@ export default function EditorTarjeta({
     logoUrl: borrador.logoUrl,
     bannerUrl: borrador.bannerUrl,
     notificacionLogoUrl: borrador.notificacionLogoUrl,
+    diseno: borrador.diseno,
     reglas,
     vencenMeses,
     // Los tres de abajo no aplican en "editar" (son del banco de

@@ -1,7 +1,7 @@
 import sharp, { type OverlayOptions } from "sharp";
 import { join } from "node:path";
 import { ICONOS_SELLO, type IconoSello } from "@/lib/lealtad/iconos-sello";
-import { CONFIG_CLASICA, layoutDeLaTira } from "./layout-tira";
+import { CONFIG_CLASICA, layoutDeLaTira, type ConfigTira } from "./layout-tira";
 
 /**
  * Las imágenes de la tarjeta de lealtad.
@@ -269,6 +269,7 @@ export async function dibujarTiraDeSellos({
   banda,
   escala,
   icono = null,
+  diseno = CONFIG_CLASICA,
 }: {
   total: number;
   logrados: number;
@@ -291,6 +292,17 @@ export async function dibujarTiraDeSellos({
    * exactamente lo mismo que dibujaba antes de existir el parámetro.
    */
   icono?: IconoSello | null;
+  /**
+   * Dónde y de qué tamaño van los sellos (0212). Por defecto el layout
+   * clásico, y eso es lo que mantiene intacta a toda tarjeta emitida
+   * antes de que la columna existiera: sin `diseno`, esta función dibuja
+   * exactamente lo mismo que dibujaba ayer.
+   *
+   * Llega ya saneado por `disenoDeLaConfig`. Igual `layoutDeLaTira`
+   * acota todo de nuevo —la escala tiene tope, el diámetro tiene piso—
+   * porque la garantía tiene que vivir donde se hace la aritmética.
+   */
+  diseno?: ConfigTira;
 }): Promise<Buffer> {
   /**
    * ⚠️ EL CÁLCULO DEL LAYOUT SE MUDÓ A `layout-tira.ts`.
@@ -311,7 +323,7 @@ export async function dibujarTiraDeSellos({
    */
   const ancho = TIRA_ANCHO * escala;
   const alto = TIRA_ALTO * escala;
-  const layout = layoutDeLaTira(total, CONFIG_CLASICA, ancho, alto);
+  const layout = layoutDeLaTira(total, diseno, ancho, alto);
   const { diametro } = layout;
 
   const piezas: OverlayOptions[] = [];

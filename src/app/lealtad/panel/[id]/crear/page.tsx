@@ -91,9 +91,12 @@ export default async function CrearTarjetaPage({
           ← Volver al panel
         </Link>
 
-        {/* El titular del panel: kicker de contexto + h1 + bajada. Los
-            cinco pasos se cuentan del asistente, no se escriben acá. */}
-        <p className={`mt-4 ${EYEBROW_NEUTRO}`}>Asistente · 5 pasos</p>
+        {/* El titular del panel: kicker de contexto + h1 + bajada.
+            Decía «Asistente · 5 pasos» y era mentira desde que la
+            pantalla dejó de tener pasos (ago 2026): ahora es una sola,
+            con el pase al lado. Un kicker que promete un asistente y
+            entrega otra cosa desorienta antes de que nadie toque nada. */}
+        <p className={`mt-4 ${EYEBROW_NEUTRO}`}>Una sola pantalla</p>
         <h1 className={`mt-1.5 ${TITULO_PANTALLA}`}>Crear una tarjeta</h1>
         {/* Las dos mitades de este texto eran falsas y se corrigieron.
             «Nace en borrador» dejó de ser cierto cuando la tarjeta pasó
@@ -103,9 +106,10 @@ export default async function CrearTarjetaPage({
             la tarjeta, y lo único que se congela es el tipo — en cuanto
             hay un cliente adentro. Eso es lo que dice el texto. */}
         <p className={`mt-1.5 max-w-[560px] ${BAJADA_PANTALLA}`}>
-          Cinco pasos y queda publicada: apenas termines, tus clientes ya la pueden llevar en
-          el teléfono. Después podés cambiarle el beneficio, las reglas, las regalías y el
-          diseño — el tipo de tarjeta queda fijo en cuanto se afilie el primer cliente.
+          Armala mirando cómo va quedando y publicala: apenas termines, tus clientes ya la
+          pueden llevar en el teléfono. Después podés cambiarle el beneficio, las reglas, las
+          regalías y el diseño — el tipo de tarjeta queda fijo en cuanto se afilie el primer
+          cliente.
         </p>
 
         <div className="mt-7">
