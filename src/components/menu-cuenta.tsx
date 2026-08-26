@@ -55,6 +55,37 @@ export default function MenuCuenta({
 
   return (
     <div className="flex items-center gap-2">
+      {/* ════════════════════════════════════════════════════════════
+          SIN SESIÓN, «ENTRAR» SE VE. NO SE BUSCA.
+          ════════════════════════════════════════════════════════════
+
+          Reportado por el dueño desde un teléfono: «al cerrar sesión no
+          hay forma de volver a ingresar, no existe un botón de login
+          arriba».
+
+          Y tenía razón, aunque el enlace existía: «Iniciar sesión» vivía
+          ADENTRO del menú, detrás de un círculo gris sin nombre. En
+          escritorio uno prueba a hacer clic; en un teléfono, ese círculo
+          no dice nada y la persona se queda afuera de su propia cuenta.
+
+          Un enlace que existe pero que nadie encuentra no existe. Por
+          eso acá va un botón de verdad, con la palabra escrita, y el
+          menú se queda para lo demás («Publicá tu espacio»).
+
+          Solo aparece deslogueado: con sesión, ese lugar lo ocupa el
+          avatar, que ya dice quién sos. */}
+      {!sesionActiva && (
+        <Link
+          href="/cuenta"
+          className={`flex h-9 shrink-0 items-center px-4 text-[13.5px] font-bold transition-all ${
+            flotante
+              ? "rounded-full bg-aventurea-navy text-white shadow-sm hover:bg-aventurea-navy-2"
+              : "rounded-xl border border-aventurea-line bg-aventurea-navy text-white shadow-sm hover:shadow-md"
+          }`}
+        >
+          Entrar
+        </Link>
+      )}
       {sesionActiva && (
         <button
           type="button"

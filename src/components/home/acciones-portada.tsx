@@ -58,6 +58,31 @@ export default async function AccionesPortada() {
   if (!user) {
     return (
       <>
+        {/* ════════════════════════════════════════════════════════════
+            EL BOTÓN DE ENTRAR EN TELÉFONO. FALTABA.
+            ════════════════════════════════════════════════════════════
+
+            Reportado por el dueño: «en el móvil, al cerrar sesión en
+            bookea.lat no hay forma de volver a ingresar, no existe un
+            botón de login arriba».
+
+            Y era literal. Los dos enlaces de acá abajo son `hidden ...
+            sm:*`, o sea que en un teléfono el encabezado de la portada
+            —deslogueado— no mostraba NADA. Con sesión sí aparece el
+            avatar, así que el agujero era exactamente el de quien acaba
+            de salir: la pantalla desde la que uno vuelve a entrar era la
+            única sin puerta.
+
+            Va sólido y con la palabra escrita, no un ícono: quien
+            acaba de cerrar sesión está buscando cómo volver, y un
+            símbolo lo obliga a adivinar. */}
+        <Link
+          href="/cuenta"
+          className="presionable inline-flex items-center whitespace-nowrap rounded-full px-4 py-2 text-[13.5px] font-extrabold text-white transition-colors sm:hidden"
+          style={{ background: "var(--navy)" }}
+        >
+          Entrar
+        </Link>
         <Link
           href="/cuenta"
           className="hidden whitespace-nowrap px-2 text-[13.5px] font-bold text-aventurea-ink transition-colors hover:text-[color:var(--navy)] sm:block"
