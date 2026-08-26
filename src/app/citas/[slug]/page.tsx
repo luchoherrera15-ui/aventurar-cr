@@ -47,6 +47,7 @@ import {
   estadoAperturaDe,
 } from "./perfil-datos";
 import type { ProfesionalPerfil, ResenaPerfil, ResumenResenas, SeccionPerfil } from "./perfil-tipos";
+import ReclamarNegocio from "@/components/reclamar-negocio";
 import { serviciosPorMiembro } from "@/lib/agenda/servicios-por-miembro";
 
 type Miembro = {
@@ -609,6 +610,11 @@ export default async function NegocioCitasPage({
                 categoria={categoria}
                 detalles={negocio.detalles ?? {}}
               />
+              {/* Al final de la columna de contenido y discreto: no es un
+                  llamado a la acción, es una salida para quien la anda
+                  buscando. Arriba le restaría aire a lo que la mayoría
+                  viene a hacer, que es reservar. */}
+              <ReclamarNegocio ranchoId={negocio.id} nombreNegocio={negocio.nombre} />
             </div>
           </div>
 

@@ -1,6 +1,22 @@
 ﻿"use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
+
+/**
+ * El catálogo de la portada vive 60 s en la caché de datos (ver
+ * `home-datos.ts`). Cualquier acción de acá que lo toque —aprobar,
+ * despublicar, destacar, verificar, borrar— revienta el tag para que el
+ * cambio se vea de inmediato y no cuando venza el minuto.
+ *
+ * `updateTag` y no `revalidateTag`: en ESTE Next (16.3) `revalidateTag`
+ * exige un segundo argumento de perfil y está pensada para route
+ * handlers; `updateTag` es la forma para server actions y da
+ * lectura-de-lo-recién-escrito, que es justo lo que el admin espera —
+ * aprueba un negocio y lo ve aparecer, no «en un ratito».
+ */
+function reventarCatalogo() {
+  updateTag("catalogo-portada");
+}
 import { requireAdmin } from "@/lib/auth";
 import type { EstadoRancho } from "@/app/mi-negocio/types";
 
@@ -63,6 +79,7 @@ export async function setEstadoRancho(id: string, estado: EstadoRancho) {
   }
 
   revalidatePath("/admin/ranchos");
+  reventarCatalogo();
   revalidatePath("/");
   // ⚠️ Acá decía `revalidatePath("/")` DOS VECES, y el comentario de
   // arriba dice que las direcciones son dos: `/` y `/eventos`. La
@@ -106,6 +123,7 @@ export async function setDestacado(id: string, destacar: boolean) {
   }
 
   revalidatePath("/admin/ranchos");
+  reventarCatalogo();
   revalidatePath("/");
   return { error: null, cambios: [{ id, destacado_orden: nuevoOrden }] };
 }
@@ -139,6 +157,7 @@ export async function moverDestacado(id: string, direccion: -1 | 1) {
   }
 
   revalidatePath("/admin/ranchos");
+  reventarCatalogo();
   revalidatePath("/");
   return { error: null, cambios };
 }
@@ -193,6 +212,7 @@ export async function setSuperDestacado(id: string, valor: boolean) {
   }
 
   revalidatePath("/admin/ranchos");
+  reventarCatalogo();
   // El carrusel vive en la portada, y la portada responde en DOS
   // direcciones: `/` (src/app/page.tsx monta el mismo componente) y
   // `/eventos`. Revalidar solo `/eventos` dejaba a `/` —justo la que
@@ -236,6 +256,7 @@ export async function setVerificado(id: string, valor: boolean) {
   }
 
   revalidatePath("/admin/ranchos");
+  reventarCatalogo();
   // La insignia sale en las tarjetas de la portada Y del directorio.
   revalidatePath("/");
   revalidatePath("/eventos");
@@ -250,6 +271,7 @@ export async function borrarRancho(id: string) {
   if (error) return { error: error.message };
 
   revalidatePath("/admin/ranchos");
+  reventarCatalogo();
   revalidatePath("/");
   return { error: null };
 }

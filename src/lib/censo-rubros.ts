@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { createAnonClient } from "@/lib/supabase/server";
 import { pedirFilas } from "@/lib/ranchos-publicos";
 import {
@@ -105,7 +106,37 @@ type FilaCenso = {
  * la base costaría una ida por rubro, y la lista completa de fichas del
  * directorio entra holgada en un solo viaje.
  */
+/**
+ * ⚠️ DOS CAPAS DE CACHÉ, Y CADA UNA HACE OTRA COSA.
+ *
+ * El `cache()` de React (afuera) deduplica DENTRO de una misma visita:
+ * si tres componentes piden el censo, viaja uno. El `unstable_cache`
+ * (adentro) comparte ENTRE visitas: la primera paga el viaje a Supabase
+ * y las siguientes leen de la caché de datos de Vercel hasta 60 s.
+ *
+ * Antes solo estaba la primera capa, así que CADA visita a la portada
+ * repetía esta consulta — con la base en otra región, parte de la
+ * lentitud que reportó el dueño (26 ago 2026). El conteo de rubros
+ * puede llevar hasta un minuto de atraso sin que nadie lo note; el TTFB
+ * de cada visita, no.
+ */
+const leerCensoCacheado = unstable_cache(
+  async (): Promise<Censo> => leerCensoDeLaBase(),
+  ["censo-rubros"],
+  { revalidate: 60, tags: ["catalogo-portada"] },
+);
+
 export const leerCenso = cache(async function leerCenso(): Promise<Censo> {
+  try {
+    return await leerCensoCacheado();
+  } catch {
+    // La caché de datos puede no estar disponible (build, entornos sin
+    // soporte): se cae al viaje directo, que es lo que siempre hubo.
+    return leerCensoDeLaBase();
+  }
+});
+
+async function leerCensoDeLaBase(): Promise<Censo> {
   let filas: FilaCenso[];
   try {
     const supabase = createAnonClient();
@@ -144,7 +175,7 @@ export const leerCenso = cache(async function leerCenso(): Promise<Censo> {
   }
 
   return { porClave, total };
-});
+}
 
 function sumar(mapa: Record<string, number>, clave: string): void {
   mapa[clave] = (mapa[clave] ?? 0) + 1;

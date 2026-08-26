@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 // Solo el TIPO viaja desde el carrusel: es un módulo "use client" y un
 // import de valor lo arrastraría al servidor. Los tipos se borran al
@@ -73,9 +74,34 @@ type FilaDestacado = {
  * consultas: en el directorio eso ahorró ~165 ms de TTFB y la portada
  * hace lo mismo.
  */
+/**
+ * ⚠️ EL PARÁMETRO `supabase` SE IGNORA DESDE EL 26 AGO 2026, Y ES A
+ * PROPÓSITO. La lista de súper destacados es idéntica para todo el
+ * mundo, así que se lee con el cliente anónimo DENTRO de la caché de
+ * datos (60 s, mismo tag que el catálogo). Cachear una lectura hecha
+ * con el cliente de la sesión guardaría lo que vio UNA persona y se lo
+ * serviría a todas. La firma se conserva para no tocar a los que
+ * llaman; el guion bajo dice «no se usa».
+ */
+const leerSupersCacheado = unstable_cache(
+  async (): Promise<NegocioDestacado[]> => leerSupersDeLaBase(),
+  ["super-destacados"],
+  { revalidate: 60, tags: ["catalogo-portada"] },
+);
+
 export async function leerSuperDestacados(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
 ): Promise<NegocioDestacado[]> {
+  try {
+    return await leerSupersCacheado();
+  } catch {
+    return leerSupersDeLaBase();
+  }
+}
+
+async function leerSupersDeLaBase(): Promise<NegocioDestacado[]> {
+  const { createAnonClient } = await import("@/lib/supabase/server");
+  const supabase = createAnonClient();
   const { data } = await supabase
     .from("ranchos")
     .select(COLUMNAS_DESTACADO)

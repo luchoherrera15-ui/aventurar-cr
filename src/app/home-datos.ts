@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
 import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
+import { createAnonClient } from "@/lib/supabase/server";
+import { usuarioActual } from "@/lib/auth";
 import { leerSuperDestacados } from "@/lib/destacados";
 import { enConfiguracion, normalizarCategoria, type Rancho } from "@/app/mi-negocio/types";
 import { normalizarCategoriaCita } from "@/app/citas/tipos";
@@ -454,31 +457,61 @@ export type CatalogoPortada = {
  * riel se dibuja y la portada sigue de pie con su buscador, sus rubros
  * y su llamado a publicar.
  */
-export async function leerCatalogoPortada(): Promise<CatalogoPortada> {
-  const supabase = await createClient();
-
-  const [
-    { data },
-    {
-      data: { user },
-    },
-  ] = await Promise.all([
-    supabase
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  EL CATÁLOGO SE CACHEA ENTRE VISITAS — Y ESTO ES LO QUE ARREGLÓ
+ *  LA LENTITUD DE LA PORTADA (26 ago 2026)
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * La lista de negocios aprobados es IDÉNTICA para todos los visitantes,
+ * y aun así se le preguntaba a Supabase en CADA visita. Con la base en
+ * otra región, esa ida y vuelta es el grueso del TTFB que el dueño
+ * reportó como «la página es sumamente lenta».
+ *
+ * `unstable_cache` la guarda en la caché de datos de Vercel: la primera
+ * visita paga el viaje y las siguientes leen local, hasta 60 s o hasta
+ * que una acción del admin toque el catálogo y revalide el tag.
+ *
+ * ── POR QUÉ EL CLIENTE ANÓNIMO, Y NO ES OPCIONAL ────────────────────
+ *
+ * Dentro de `unstable_cache` no se puede tocar `cookies()` — Next lo
+ * rechaza, y con razón: lo que se guarde acá SE LE SIRVE A CUALQUIERA.
+ * Por eso adentro va `createAnonClient` y NADA de sesión. Lo que
+ * depende de quién mira (favoritos, sesión) queda afuera, abajo.
+ *
+ * 60 s es el tope de vejez que puede tener la portada. Para un
+ * marketplace donde entra un negocio por semana, es nada; y las
+ * acciones del admin revalidan el tag para no esperar ni eso.
+ */
+const leerAprobadosCacheado = unstable_cache(
+  async (): Promise<Rancho[]> => {
+    const supabase = createAnonClient();
+    const { data } = await supabase
       .from("ranchos")
       .select(COLUMNAS_CARD)
       .eq("estado", "aprobado")
       // Lo último publicado adelante: es el único orden que los datos
-      // sostienen hoy (cero filas en `resenas`, así que «lo mejor
-      // valorado» no existe). Dentro de cada riel, `ordenar()` vuelve a
+      // sostienen hoy. Dentro de cada riel, `ordenar()` vuelve a
       // acomodar poniendo los destacados primero.
-      .order("created_at", { ascending: false }),
-    supabase.auth.getUser(),
-  ]);
+      .order("created_at", { ascending: false });
+    return (data ?? []) as unknown as Rancho[];
+  },
+  ["catalogo-portada"],
+  { revalidate: 60, tags: ["catalogo-portada"] },
+);
 
-  // Las tarjetas piden el tipo `Rancho` completo pero solo leen las
-  // columnas de COLUMNAS_CARD (verificado campo por campo en
-  // ranchos-publicos.ts) — de ahí el cast.
-  const aprobados = (data ?? []) as unknown as Rancho[];
+export async function leerCatalogoPortada(): Promise<CatalogoPortada> {
+  // El catálogo (compartido, cacheado) y la sesión (propia, nunca
+  // cacheada) en paralelo. `usuarioActual` es el helper deduplicado:
+  // si otro componente de la misma página ya preguntó quién mira, esta
+  // llamada no repite el viaje a /auth/v1/user.
+  const [aprobadosCrudos, user] = await Promise.all([
+    leerAprobadosCacheado(),
+    usuarioActual(),
+  ]);
+  const data = aprobadosCrudos;
+
+  const aprobados = data;
   const pintables = aprobados.filter((r) => !enConfiguracion(r.detalles));
 
   // El conteo del encabezado se saca de `aprobados`, que es lo que
@@ -494,6 +527,9 @@ export async function leerCatalogoPortada(): Promise<CatalogoPortada> {
   // el id de la sesión. Solo la paga quien tiene sesión abierta.
   let favoritosIds: string[] = [];
   if (user) {
+    // La única lectura con sesión, y solo la paga quien la tiene. Va
+    // FUERA de la caché a propósito: los favoritos son de cada quien.
+    const supabase = await createClient();
     const { data: favData } = await supabase
       .from("favoritos")
       .select("rancho_id")
