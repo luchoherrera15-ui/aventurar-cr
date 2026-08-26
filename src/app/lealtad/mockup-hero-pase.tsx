@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FICHAS } from "./contenido-tipos";
 
@@ -171,19 +170,17 @@ export default function MockupHeroPase() {
 
   return (
     <div className="relative flex h-[560px] items-center justify-center sm:h-[640px]">
-      {/* ── "¡Ver demos!" — arriba a la derecha del mockup, por encima
-          de la tarjeta de "Personalizá tu tarjeta" (que empieza más
-          abajo, en top-[68px]). Rebota para que no se confunda con el
-          resto de piezas quietas de la composición; `motion-safe:`
-          hace que quien pidió menos movimiento la vea fija en vez de
-          rebotando — mismo criterio que ya usa el resto del sitio. */}
-      <Link
-        href="/lealtad/demo"
-        className="presionable motion-safe:animate-bounce absolute -top-2 right-0 z-[9] rounded-full px-3.5 py-2 text-[11.5px] font-extrabold shadow-[0_14px_30px_rgba(243,146,0,.35)] sm:-top-3 lg:-right-2"
-        style={{ background: "var(--orange)", color: "#fff" }}
-      >
-        ¡Ver demos! →
-      </Link>
+      {/* ── ACÁ REBOTABA UN BOTÓN "¡Ver demos!" Y SE FUE ────────────
+          Pedido del dueño (ago 2026): dejar solo el de planes.
+
+          Era una píldora naranja flotando sobre el mockup, con rebote,
+          compitiendo por la atención con el llamado principal del héroe
+          —crear la tarjeta— y con «Planes» del nav. Tres destinos
+          distintos peleando en la misma pantalla: quien llega no sabe
+          cuál es el camino.
+
+          Las demos no se pierden: `/lealtad/demo` sigue existiendo y
+          «Industrias» del nav lleva a los ejemplos por rubro. */}
 
       {/* ── El teléfono ─────────────────────────────────────────── */}
       <div

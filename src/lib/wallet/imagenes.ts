@@ -1,6 +1,7 @@
 import sharp, { type OverlayOptions } from "sharp";
 import { join } from "node:path";
 import { ICONOS_SELLO, type IconoSello } from "@/lib/lealtad/iconos-sello";
+import { CONFIG_CLASICA, layoutDeLaTira } from "./layout-tira";
 
 /**
  * Las imágenes de la tarjeta de lealtad.
@@ -291,35 +292,27 @@ export async function dibujarTiraDeSellos({
    */
   icono?: IconoSello | null;
 }): Promise<Buffer> {
+  /**
+   * ⚠️ EL CÁLCULO DEL LAYOUT SE MUDÓ A `layout-tira.ts`.
+   *
+   * Estaba escrito acá a mano —filas, márgenes, diámetro, pasos— y
+   * ADEMÁS estaba escrito otra vez, distinto, en `vista-pase.tsx` para
+   * la vista previa del navegador. Dos algoritmos para el mismo dibujo:
+   * el dueño diseñaba mirando uno y su cliente recibía el otro.
+   *
+   * Ahora los dos llaman a la misma función pura. Los tests de
+   * `layout-tira.test.ts` comparan el resultado contra el algoritmo
+   * viejo, píxel por píxel, en 11 metas × 3 escalas: ninguna tarjeta ya
+   * emitida cambia de aspecto por este refactor.
+   *
+   * Los porqués que vivían en este bloque —el margen horizontal fijo en
+   * 7 % por el recorte de iOS, los factores 0,88/0,90 del diámetro— se
+   * mudaron con él y siguen escritos allá.
+   */
   const ancho = TIRA_ANCHO * escala;
   const alto = TIRA_ALTO * escala;
-  const filas = total > 6 ? 2 : 1;
-  const porFila = Math.ceil(total / filas);
-
-  // Margen de seguridad: iOS recorta la tira según el ancho del
-  // teléfono, y lo que toca el filo es lo primero que se pierde en una
-  // pantalla angosta. `margenX` no se toca por eso —es el único de los
-  // dos con un riesgo de producción documentado—, pero `margenY` sí
-  // baja: el recorte de iOS es un fenómeno de ANCHO, no de alto, así que
-  // el 0.1 original era una precaución simétrica de más.
-  const margenX = ancho * 0.07;
-  const margenY = alto * 0.07;
-  const utilX = ancho - margenX * 2;
-  const utilY = alto - margenY * 2;
-
-  // Sellos más grandes (pedido del dueño): los multiplicadores suben de
-  // 0.82/0.86 a 0.88/0.90, siempre como fracción de `utilX/porFila` y
-  // `utilY/filas` — el `Math.min(...)` sigue siendo la salvaguarda que
-  // impide desbordar el ancho fijo de 375pt. Verificado a mano contra
-  // metaSellos=10 (2 filas de 5, el caso más denso): diámetro ~48pt
-  // (antes ~42pt) con ~5.3pt de respiro vertical entre filas — círculos
-  // más grandes sin quedar pegados.
-  const diametro = Math.max(
-    8,
-    Math.round(Math.min((utilX / porFila) * 0.88, (utilY / filas) * 0.9)),
-  );
-  const pasoX = utilX / porFila;
-  const pasoY = utilY / filas;
+  const layout = layoutDeLaTira(total, CONFIG_CLASICA, ancho, alto);
+  const { diametro } = layout;
 
   const piezas: OverlayOptions[] = [];
 
@@ -374,15 +367,10 @@ export async function dibujarTiraDeSellos({
     : null;
 
   for (let i = 0; i < total; i++) {
-    const fila = Math.floor(i / porFila);
-    const col = i % porFila;
     const encendido = i < logrados;
     const par = conIcono ?? conLogo!;
-    piezas.push({
-      input: encendido ? par.lleno : par.vacio,
-      left: Math.round(margenX + pasoX * col + (pasoX - diametro) / 2),
-      top: Math.round(margenY + pasoY * fila + (pasoY - diametro) / 2),
-    });
+    const { x, y } = layout.posiciones[i];
+    piezas.push({ input: encendido ? par.lleno : par.vacio, left: x, top: y });
   }
 
   return sharp({ create: { width: ancho, height: alto, channels: 4, background: colores.fondo } })

@@ -14,6 +14,7 @@ import {
 import { metaDe, tipoDe, type ConfigBeneficio } from "@/lib/lealtad/tipos-tarjeta";
 import { selloParaGuardar, type DibujoDelSello, type SelloElegido } from "@/lib/lealtad/iconos-sello";
 import { SelloConIcono, SelloConImagen } from "@/app/lealtad/panel/[id]/iconos";
+import { layoutDeLaTira } from "@/lib/wallet/layout-tira";
 
 /**
  * LA VISTA PREVIA DEL PASE, en vivo.
@@ -445,9 +446,20 @@ function Tira({
 }) {
   if (tira.tipo === "ninguna") return null;
 
+  /* El MISMO cálculo que usa el servidor para componer el PNG del pase
+     (`layoutDeLaTira`, en lib/wallet). Se resuelve en el espacio de
+     Apple —375×123— y abajo se convierte a porcentaje, así el dibujo
+     escala con el ancho que la previa tenga en pantalla sin recalcular
+     nada y sin medir con JavaScript. */
+  const layout = layoutDeLaTira(tira.tipo === "sellos" ? tira.total : 0);
+
   return (
     <div
-      className="relative mt-3 overflow-hidden rounded-lg"
+      /* `container-type: inline-size` es lo que hace que las unidades
+         `cqw` de los sellos se resuelvan contra ESTE ancho y no contra
+         el de la ventana. Sin esto los sellos salen del tamaño de la
+         pantalla. */
+      className="relative mt-3 overflow-hidden rounded-lg [container-type:inline-size]"
       style={{ aspectRatio: "375 / 123", background: colores.fondo }}
     >
       {tira.banda ? (
@@ -461,32 +473,61 @@ function Tira({
           {tira.banda ? (
             <span aria-hidden className="absolute inset-0" style={{ background: "rgba(0,0,0,.42)" }} />
           ) : null}
-          <div className="absolute inset-0 flex flex-wrap content-center items-center justify-center gap-1.5 px-3">
-            {Array.from({ length: Math.min(tira.total, 20) }, (_, i) =>
-              sello.clase === "icono" ? (
-                // Con icono: LLENO el ganado, CONTORNO el que falta —
-                // lo mismo que dibuja `dibujarTiraDeSellos` en el pase.
-                <SelloConIcono
-                  key={i}
-                  icono={sello.icono}
-                  encendido={i < saldo}
-                  colorFondo={colores.fondo}
-                  colorSello={colores.sello}
-                  lado={20}
-                />
-              ) : sello.clase === "propio" ? (
-                // Con el ícono propio: disco blanco con la imagen
-                // adentro, tenue el que falta. Es lo que dibuja
-                // `selloRedondo` — el mismo camino del logo.
-                <SelloConImagen key={i} url={sello.url} encendido={i < saldo} lado={20} />
-              ) : (
-                <span
-                  key={i}
-                  className="h-5 w-5 rounded-full transition-opacity"
-                  style={{ background: colores.sello, opacity: i < saldo ? 1 : 0.26 }}
-                />
-              ),
-            )}
+          {/* ⚠️ ACÁ HABÍA UN SEGUNDO ALGORITMO DE LAYOUT, Y MENTÍA.
+              Era `flex flex-wrap justify-center gap-1.5` con sellos de
+              20px fijos y un tope de 20 dibujados. El pase real usa una
+              grilla calculada: filas según la meta, diámetro según el
+              espacio, márgenes en porcentaje. O sea que el dueño
+              diseñaba mirando una cosa y su cliente recibía otra —y con
+              metas de más de 20 sellos, la previa directamente mostraba
+              menos de los que hay.
+
+              Ahora las posiciones salen de `layoutDeLaTira`, la MISMA
+              función que usa el servidor para componer el PNG. Se
+              calcula en el espacio de Apple (375×123) y se convierte a
+              porcentaje, así el dibujo escala con el ancho que tenga la
+              previa en pantalla sin recalcular nada. */}
+          <div className="absolute inset-0">
+            {layout.posiciones.map((pos, i) => {
+              const estilo: React.CSSProperties = {
+                position: "absolute",
+                left: `${(pos.x / layout.ancho) * 100}%`,
+                top: `${(pos.y / layout.alto) * 100}%`,
+                width: `${(layout.diametro / layout.ancho) * 100}%`,
+                aspectRatio: "1 / 1",
+              };
+              return (
+                <span key={i} style={estilo}>
+                  {sello.clase === "icono" ? (
+                    // Con icono: LLENO el ganado, CONTORNO el que falta —
+                    // lo mismo que dibuja `dibujarTiraDeSellos` en el pase.
+                    <SelloConIcono
+                      icono={sello.icono}
+                      encendido={i < saldo}
+                      colorFondo={colores.fondo}
+                      colorSello={colores.sello}
+                      lado={(layout.diametro / layout.ancho) * 100}
+                      unidad="cqw"
+                    />
+                  ) : sello.clase === "propio" ? (
+                    // Con el ícono propio: disco blanco con la imagen
+                    // adentro, tenue el que falta. Es lo que dibuja
+                    // `selloRedondo` — el mismo camino del logo.
+                    <SelloConImagen
+                      url={sello.url}
+                      encendido={i < saldo}
+                      lado={(layout.diametro / layout.ancho) * 100}
+                      unidad="cqw"
+                    />
+                  ) : (
+                    <span
+                      className="block h-full w-full rounded-full transition-opacity"
+                      style={{ background: colores.sello, opacity: i < saldo ? 1 : 0.26 }}
+                    />
+                  )}
+                </span>
+              );
+            })}
           </div>
         </>
       )}

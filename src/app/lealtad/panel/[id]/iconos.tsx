@@ -462,6 +462,7 @@ export function SelloConIcono({
   colorFondo,
   colorSello,
   lado,
+  unidad = "px",
 }: {
   icono: IconoSello;
   encendido: boolean;
@@ -469,25 +470,47 @@ export function SelloConIcono({
   colorFondo: string;
   /** El acento: el color del sello. */
   colorSello: string;
-  /** Diámetro en píxeles. */
+  /** Diámetro, medido en la unidad de `unidad`. */
   lado: number;
+  /**
+   * En qué unidad se mide `lado`.
+   *
+   * `"px"` es lo de siempre, para un sello de tamaño fijo (el selector
+   * de íconos).
+   *
+   * `"cqw"` es 1 % del ANCHO DEL CONTENEDOR, y existe para la vista
+   * previa del pase: ahí el sello tiene que escalar con el ancho que la
+   * tira tenga en pantalla, y ese ancho no se conoce al renderizar. Con
+   * píxeles habría que medirlo con JavaScript; con `cqw` lo resuelve el
+   * navegador, y el aro y el glifo —que son fracciones del diámetro—
+   * escalan solos sin tocar la aritmética.
+   *
+   * ⚠️ El contenedor tiene que declarar `container-type: inline-size`, o
+   * `cqw` se resuelve contra el viewport y el sello sale gigante.
+   */
+  unidad?: "px" | "cqw";
 }) {
+  const medida = (n: number) => `${n}${unidad}`;
+  /* El aro nunca baja de 1px cuando se mide en píxeles. En `cqw` ese
+     piso no aplica: el navegador ya lo resuelve contra un ancho real. */
+  const aro =
+    unidad === "px" ? `${Math.max(1, lado * 0.055)}px` : medida(lado * 0.055);
   return (
     <span
       aria-hidden
       className="grid shrink-0 place-items-center rounded-full transition-colors"
       style={{
-        height: lado,
-        width: lado,
+        height: medida(lado),
+        width: medida(lado),
         background: encendido ? colorSello : "transparent",
-        border: encendido ? undefined : `${Math.max(1, lado * 0.055)}px solid ${colorSello}`,
+        border: encendido ? undefined : `${aro} solid ${colorSello}`,
         color: encendido ? colorFondo : colorSello,
       }}
     >
       <IconoDeSello
         nombre={icono}
         className=""
-        style={{ height: lado * 0.58, width: lado * 0.58 }}
+        style={{ height: medida(lado * 0.58), width: medida(lado * 0.58) }}
       />
     </span>
   );
@@ -524,17 +547,22 @@ export function SelloConImagen({
   url,
   encendido,
   lado,
+  unidad = "px",
 }: {
   url: string;
   encendido: boolean;
-  /** Diámetro en píxeles. */
+  /** Diámetro, medido en la unidad de `unidad`. */
   lado: number;
+  /** Ver el mismo prop en `SelloConIcono`: `cqw` para que el sello
+   *  escale con el ancho de la tira en la vista previa. */
+  unidad?: "px" | "cqw";
 }) {
+  const medida = (n: number) => `${n}${unidad}`;
   return (
     <span
       aria-hidden
       className="grid shrink-0 place-items-center overflow-hidden rounded-full bg-white"
-      style={{ height: lado, width: lado }}
+      style={{ height: medida(lado), width: medida(lado) }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- imagen
           recién subida por el negocio; acá es una maqueta. */}
@@ -542,8 +570,8 @@ export function SelloConImagen({
         src={url}
         alt=""
         style={{
-          height: lado * 0.9,
-          width: lado * 0.9,
+          height: medida(lado * 0.9),
+          width: medida(lado * 0.9),
           objectFit: "contain",
           // El sello que falta no se «aclara» (eso era la técnica vieja,
           // alfa 26% sobre el círculo entero: hacía el dibujo más
