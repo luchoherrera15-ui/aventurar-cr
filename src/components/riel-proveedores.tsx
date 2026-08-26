@@ -10,7 +10,11 @@ import type { Rancho } from "@/app/mi-negocio/types";
 // En móvil se ven ~2 tarjetas completas más un asomo de la tercera,
 // que es justo lo que invita a deslizar (45vw ronda eso en 360-430px).
 // Más anchas a pedido: la foto manda y el bloque blanco es compacto.
-const ANCHO_TARJETA = "clamp(240px, 70vw, 330px)";
+// Sube de 330 a 360 acompañando el ensanche de la portada: con la foto
+// ya en 16/10 (ver `rancho-card.tsx`), dejarla en 330 haría que estas
+// tarjetas se vieran más chatas que las de la portada en la misma
+// visita.
+const ANCHO_TARJETA = "clamp(260px, 74vw, 360px)";
 
 /**
  * El `sizes` que se corresponde con ese ancho, traducido a algo que el
@@ -21,7 +25,7 @@ const ANCHO_TARJETA = "clamp(240px, 70vw, 330px)";
  * teléfono de 390 px pedía una foto para 175 px cuando la ranura mide
  * 273, y en escritorio una para 260 cuando mide 330.
  */
-const SIZES_TARJETA = "(max-width: 471px) 70vw, 330px";
+const SIZES_TARJETA = "(max-width: 471px) 74vw, 360px";
 
 /**
  * Fila horizontal con scroll-snap — la unidad básica del home (Fase 5).

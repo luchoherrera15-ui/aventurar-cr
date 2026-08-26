@@ -6,8 +6,20 @@ import { Colors, Fonts, Radios, Sombras, Spacing } from "@/constants/theme";
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
 
-/** El ancho de una tarjeta dentro de un riel horizontal. */
-export const ANCHO_RIEL = 186;
+/**
+ * El ancho de una tarjeta dentro de un riel horizontal.
+ *
+ * ⚠️ Sube de 186 a 240 (26 ago 2026), junto con el mismo cambio en la
+ * web: el dueño las pidió «más rectangulares y anchas». Va de la mano
+ * con la proporción de la foto, acá abajo — las dos cosas se mueven
+ * juntas o el alto se dispara.
+ *
+ * En una pantalla de 390 px entran ~1,6 tarjetas en vez de ~2,1. Es a
+ * favor y no en contra: una tarjeta cortada por el borde es la señal de
+ * que el riel sigue: con dos justas y una rayita, se lee como una fila
+ * que ya terminó.
+ */
+export const ANCHO_RIEL = 240;
 
 /**
  * La tarjeta de un negocio en cualquier directorio — la misma para un
@@ -15,16 +27,21 @@ export const ANCHO_RIEL = 186;
  * el componente más duplicado de la app (cuatro copias casi idénticas
  * con estilos que se iban separando); ahora vive una sola vez.
  *
- * ── LA FORMA: FOTO CUADRADA + PIE BLANCO, TODO MÁS CHICO ───────────
+ * ── LA FORMA: FOTO APAISADA 16/10 + PIE BLANCO ─────────────────────
  * La tarjeta blanca se queda (se probó sin ella y se veía peor: el
- * texto suelto sobre el fondo perdía el agrupamiento), pero encogió:
- * foto CUADRADA en vez de apaisada, tipografía chica y un pie de dos
- * renglones sin línea divisoria ni fila de CTA. Así entran bastantes
- * más por pantalla sin que se pierda la unidad visual del card.
+ * texto suelto sobre el fondo perdía el agrupamiento), con tipografía
+ * chica y un pie sin línea divisoria ni fila de CTA.
  *
- * El precio y el CTA se fusionaron en un solo renglón: en un card de
- * 186px "Desde ₡25.000" y "Reservar →" en extremos opuestos con una
- * línea divisoria era más ruido que información.
+ * ⚠️ LA FOTO ERA CUADRADA Y DEJÓ DE SERLO (26 ago 2026), a pedido del
+ * dueño: «más rectangulares y anchas». Es la MISMA proporción que la
+ * web usa desde el mismo día (`rancho-card.tsx`), y esa es la razón
+ * principal — el sitio y la app tienen que reconocerse como el mismo
+ * producto, y la silueta de la tarjeta es lo primero que se ve de
+ * lejos.
+ *
+ * De paso, una foto cuadrada a lo ancho de la pantalla ocupaba casi
+ * 360 px de alto en el modo `completo`: una sola tarjeta se comía la
+ * pantalla entera.
  */
 export default function TarjetaNegocio({
   nombre,
@@ -219,8 +236,11 @@ const styles = StyleSheet.create({
   // Cuadrada en las dos variantes: es la forma que pidió el dueño y la
   // que mejor aguanta una foto de negocio (un plato, una fachada, una
   // silla de barbería) sin recortar lo importante.
-  fotoRiel: { aspectRatio: 1 },
-  fotoCompleta: { aspectRatio: 1 },
+  // 16/10 = 1.6, el mismo número que la web. Va literal y no como
+  // `16/10` porque en React Native `aspectRatio` es un número, no una
+  // razón CSS.
+  fotoRiel: { aspectRatio: 1.6 },
+  fotoCompleta: { aspectRatio: 1.6 },
   foto: { height: "100%", width: "100%" },
   fotoVacia: { alignItems: "center", flex: 1, justifyContent: "center" },
   tagsFoto: {

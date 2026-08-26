@@ -145,7 +145,7 @@ export default function RanchoCard({
         {/* 4:3 en vez de 16:10 — la foto es la protagonista y el
             bloque blanco de abajo queda lo más chico posible. */}
         <div
-          className="relative aspect-[4/3] overflow-hidden bg-aventurea-blue-light"
+          className="relative aspect-[16/10] overflow-hidden bg-aventurea-blue-light"
           style={
             !rancho.foto_url
               ? { backgroundImage: categoriaGradiente(rancho.vertical ?? "eventos", rancho.categoria) }

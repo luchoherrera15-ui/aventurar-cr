@@ -77,8 +77,27 @@ const SIN_DISPONIBILIDAD = new Map<string, string | null>();
 // no hace falta que cada tarjeta pelee por el mismo ancho que en
 // /eventos. Se pasa como prop a `RielProveedores` — el directorio real
 // sigue con su tamaño de siempre.
-const ANCHO_TARJETA_PORTADA = "clamp(196px, 56vw, 250px)";
-const SIZES_TARJETA_PORTADA = "(max-width: 471px) 56vw, 250px";
+/**
+ * ⚠️ 16/10 Y NO 4/3 — ES LA MITAD DEL PEDIDO, NO UN CAPRICHO.
+ *
+ * Pedido del dueño (26 ago 2026): «estos cards podés hacerlos un poco
+ * más rectangulares y anchos; la altura está bien».
+ *
+ * Las dos mitades se pelean. La foto manda el alto de la tarjeta, así
+ * que ensanchar la tarjeta SOLA la hubiera hecho más alta:
+ *
+ *     250 px de ancho a 4/3   →  187,5 px de foto
+ *     300 px de ancho a 4/3   →  225,0 px de foto   (+37,5 — más alta)
+ *     300 px de ancho a 16/10 →  187,5 px de foto   (IGUAL)
+ *
+ * O sea que la proporción no es un detalle estético: es lo único que
+ * deja cumplir «más ancha» y «la altura está bien» a la vez.
+ */
+const ANCHO_TARJETA_PORTADA = "clamp(240px, 68vw, 300px)";
+// El `sizes` sube con el ancho: si se queda en 250 el navegador baja
+// una foto para 250 y la estira a 300, y se ve blanda justo en la
+// pantalla más visitada del sitio.
+const SIZES_TARJETA_PORTADA = "(max-width: 471px) 68vw, 300px";
 
 export default function RielesCatalogo({
   pintables,
