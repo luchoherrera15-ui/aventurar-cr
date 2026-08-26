@@ -13,7 +13,7 @@ import {
   normalizarCategoriaCita,
 } from "@/app/citas/tipos";
 import { categoriaOptions } from "@/lib/categorias-vertical";
-import { urlDeRubro } from "@/lib/rubros-portada";
+import { RUBROS_PORTADA, urlDeRubro } from "@/lib/rubros-portada";
 
 /**
  * ============================================================
@@ -602,4 +602,105 @@ export function hayFondoParaRecienPublicados(
   rieles: number,
 ): boolean {
   return rieles >= 2 && pintables >= MIN_CARRIL * 2;
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  UN CARRIL POR RUBRO — Uñas, Barbería, Spa, Lugares…
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Pedido del dueño (26 ago 2026): «separá los carriles: Uñas un riel
+ * conteniendo todo, Barbería un riel conteniendo todas las barberías».
+ *
+ * ── POR QUÉ NO ALCANZABA `agruparPorVertical` ───────────────────────
+ *
+ * Esa agrupa por VERTICAL: «Salud y belleza», «Eventos». Es vocabulario
+ * NUESTRO —un corte de producto— y mete en la misma fila a un salón de
+ * uñas, una barbería y un consultorio. Quien entra no busca «salud y
+ * belleza»: busca uñas, o busca barbería.
+ *
+ * Y la fila de íconos del héroe ya usa ese vocabulario. Tener arriba
+ * «Uñas / Barbería / Spa» y abajo «Salud y belleza» obliga a traducir
+ * entre dos maneras de nombrar lo mismo en la misma pantalla.
+ *
+ * ── EL ORDEN SALE DE `RUBROS_PORTADA`, NO DE UNA LISTA NUEVA ────────
+ *
+ * Es la misma constante que dibuja los íconos del héroe, así que las
+ * filas bajan en el mismo orden en que se ven los íconos arriba. Una
+ * segunda lista se habría despegado de la primera el día que alguien
+ * agregue un rubro a una sola.
+ *
+ * ── NINGÚN NEGOCIO PUEDE QUEDAR INVISIBLE ───────────────────────────
+ *
+ * Misma promesa que `agruparPorVertical`, y acá cuesta más cumplirla:
+ * las categorías de la base son muchas más que los nueve rubros de la
+ * portada. Un negocio de una categoría que no está en `RUBROS_PORTADA`
+ * —o de una nueva que se agregue mañana— NO se descarta: forma su
+ * propia fila al final, con la etiqueta que le dé `categoriaOptions` o,
+ * si tampoco está ahí, con el valor crudo de la columna.
+ *
+ * Feo, sí. Pero visible, y quien lo vea sabe de inmediato que falta
+ * darlo de alta en `RUBROS_PORTADA`. Un negocio publicado que no
+ * aparece en ningún lado es un fallo que nadie reporta porque nadie lo
+ * ve.
+ */
+export function agruparPorRubro(
+  todos: Rancho[],
+  superIds: string[] = [],
+): RielVertical[] {
+  const supers = new Set(superIds);
+
+  /** La clave junta vertical y categoría: «citas:unas». Dos verticales
+   *  pueden tener una categoría con el mismo id y no son lo mismo. */
+  const clave = (r: Rancho) => `${verticalDe(r)}:${r.categoria ?? "sin-categoria"}`;
+
+  const porRubro = new Map<string, Rancho[]>();
+  for (const r of todos) {
+    const k = clave(r);
+    const lista = porRubro.get(k);
+    if (lista) lista.push(r);
+    else porRubro.set(k, [r]);
+  }
+
+  // Primero los nueve de la portada, en SU orden; después lo que haya
+  // llegado y no esté en la lista, alfabético para que sea estable.
+  const conocidos = RUBROS_PORTADA.map((r) => `${r.vertical}:${r.categoria}`);
+  const set = new Set(conocidos);
+  const orden = [
+    ...conocidos,
+    ...[...porRubro.keys()].filter((k) => !set.has(k)).sort(),
+  ];
+
+  const rieles: RielVertical[] = [];
+  for (const k of orden) {
+    const propios = porRubro.get(k);
+    // La regla de oro: una fila sin negocios NO se dibuja.
+    if (!propios || propios.length === 0) continue;
+
+    const [vertical, categoria] = k.split(":");
+    const conocido = RUBROS_PORTADA.find(
+      (r) => r.vertical === vertical && r.categoria === categoria,
+    );
+
+    rieles.push({
+      // La clave del rubro, no la vertical: si fuera la vertical, las
+      // cinco filas de Citas compartirían `key` y React las trataría
+      // como la misma al reordenarse.
+      vertical: k,
+      titulo:
+        conocido?.label ??
+        categoriaOptions(vertical).find((o) => o.id === categoria)?.label ??
+        (categoria || vertical),
+      total: propios.length,
+      items: ordenar(propios, supers).slice(0, TOPE_CARRIL),
+      // «Ver todos» apunta a la portada filtrada por ESE rubro, que es
+      // donde de verdad está la lista completa: los directorios por
+      // vertical ya no existen (redirigen a `/`).
+      verTodoHref: conocido
+        ? urlDeRubro(conocido.vertical, conocido.categoria)
+        : DIRECTORIO[vertical as keyof typeof DIRECTORIO],
+    });
+  }
+
+  return rieles;
 }

@@ -5,6 +5,7 @@ import {
   TOPE_CARRIL,
   TOPE_CARRILES,
   agruparEnCarriles,
+  agruparPorRubro,
   agruparPorVertical,
   hayFondoParaRecienPublicados,
 } from "./carriles-home";
@@ -520,5 +521,121 @@ describe("«Recién publicados» solo cuando aporta algo", () => {
   it("con fondo suficiente y más de una fila, sí", () => {
     expect(hayFondoParaRecienPublicados(MIN_CARRIL * 2, 2)).toBe(true);
     expect(hayFondoParaRecienPublicados(200, 4)).toBe(true);
+  });
+});
+
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  EL REPARTO POR RUBRO — y la promesa de que nadie queda invisible
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * `agruparPorRubro` reemplazó a `agruparPorVertical` en la portada (26
+ * ago 2026): el dueño pidió un carril por Uñas, otro por Barbería, en
+ * vez de uno solo de «Salud y belleza».
+ *
+ * ⚠️ EL RIESGO DE ESTA FUNCIÓN NO ES QUE FALLE: ES QUE ESCONDA.
+ *
+ * Agrupa contra `RUBROS_PORTADA`, que tiene NUEVE rubros. Las
+ * categorías de la base son muchas más. Un `for` sobre la constante
+ * dejaría a esos negocios fuera de la portada sin un error, sin un log
+ * y sin que nadie lo reporte — porque nadie ve lo que no está.
+ *
+ * Las pruebas de «lo que no está en la lista» son las importantes acá.
+ * Si una falla, hay negocios publicados que no aparecen en ningún lado.
+ */
+describe("el reparto por rubro", () => {
+  it("separa uñas de barbería en vez de juntarlas en «salud y belleza»", () => {
+    const rieles = agruparPorRubro([
+      negocio({ categoria: "unas", vertical: "citas" }),
+      negocio({ categoria: "barberia", vertical: "citas" }),
+    ]);
+    expect(rieles).toHaveLength(2);
+    expect(rieles.map((r) => r.titulo)).toEqual(["Uñas", "Barbería"]);
+  });
+
+  it("junta en una sola fila a todos los del mismo rubro", () => {
+    const rieles = agruparPorRubro([
+      negocio({ categoria: "unas", vertical: "citas" }),
+      negocio({ categoria: "unas", vertical: "citas" }),
+      negocio({ categoria: "unas", vertical: "citas" }),
+    ]);
+    expect(rieles).toHaveLength(1);
+    expect(rieles[0].total).toBe(3);
+  });
+
+  it("sigue el orden de los íconos del héroe, no el de llegada", () => {
+    // Entran al revés; salen en el orden de RUBROS_PORTADA.
+    const rieles = agruparPorRubro([
+      negocio({ categoria: "decoracion", vertical: "eventos" }),
+      negocio({ categoria: "barberia", vertical: "citas" }),
+      negocio({ categoria: "unas", vertical: "citas" }),
+    ]);
+    expect(rieles.map((r) => r.titulo)).toEqual(["Uñas", "Barbería", "Decoración"]);
+  });
+
+  it("un rubro sin negocios no dibuja fila", () => {
+    const rieles = agruparPorRubro([negocio({ categoria: "unas", vertical: "citas" })]);
+    expect(rieles).toHaveLength(1);
+  });
+
+  it("sin negocios no hay ni un riel", () => {
+    expect(agruparPorRubro([])).toEqual([]);
+  });
+});
+
+describe("nadie queda invisible", () => {
+  it("una categoría que NO está en los nueve rubros arma su propia fila", () => {
+    // `alimentacion` de citas no está en RUBROS_PORTADA (ahí solo está
+    // la de eventos). Sin la vuelta sobre lo que de verdad llegó, este
+    // negocio no aparecería en la portada.
+    const rieles = agruparPorRubro([
+      negocio({ categoria: "unas", vertical: "citas" }),
+      negocio({ categoria: "alimentacion", vertical: "citas" }),
+    ]);
+    expect(rieles).toHaveLength(2);
+    expect(rieles.some((r) => r.total === 1 && r.titulo !== "Uñas")).toBe(true);
+  });
+
+  it("una categoría INVENTADA tampoco se pierde", () => {
+    // El caso de mañana: alguien agrega un valor nuevo a la columna y
+    // se olvida de RUBROS_PORTADA.
+    const rieles = agruparPorRubro([
+      negocio({ categoria: "veterinaria-espacial", vertical: "citas" }),
+    ]);
+    expect(rieles).toHaveLength(1);
+    // Con el valor crudo si nadie le puso etiqueta: feo, pero visible.
+    expect(rieles[0].titulo).toBeTruthy();
+    expect(rieles[0].total).toBe(1);
+  });
+
+  it("TODOS los negocios que entran salen en alguna fila", () => {
+    // La prueba que de verdad cierra la promesa: se cuenta lo que entra
+    // contra lo que sale, sin mirar en qué fila cayó cada uno.
+    const entrada = [
+      negocio({ categoria: "unas", vertical: "citas" }),
+      negocio({ categoria: "barberia", vertical: "citas" }),
+      negocio({ categoria: "lugares", vertical: "eventos" }),
+      negocio({ categoria: "rara-1", vertical: "citas" }),
+      negocio({ categoria: "rara-2", vertical: "hospedajes" }),
+    ];
+    const salida = agruparPorRubro(entrada).reduce((n, r) => n + r.total, 0);
+    expect(salida, "hay negocios publicados que no aparecen en ningún lado").toBe(
+      entrada.length,
+    );
+  });
+});
+
+describe("cada fila tiene su propia key", () => {
+  it("dos rubros de la MISMA vertical no comparten `vertical`", () => {
+    // Se usa de `key` en React. Si las cinco filas de Citas trajeran
+    // "citas", React las trataría como la misma al reordenarse y las
+    // tarjetas saltarían de fila.
+    const rieles = agruparPorRubro([
+      negocio({ categoria: "unas", vertical: "citas" }),
+      negocio({ categoria: "barberia", vertical: "citas" }),
+      negocio({ categoria: "spa", vertical: "citas" }),
+    ]);
+    const keys = rieles.map((r) => r.vertical);
+    expect(new Set(keys).size, "hay keys repetidas").toBe(keys.length);
   });
 });

@@ -5,7 +5,7 @@ import type { Calificacion } from "@/components/rancho-card";
 import type { RubroPortada } from "@/lib/rubros-portada";
 import {
   TOPE_CARRIL,
-  agruparPorVertical,
+  agruparPorRubro,
   etiquetaDeCategoria,
   filtrarPorRubro,
   hayFondoParaRecienPublicados,
@@ -128,7 +128,14 @@ export default function RielesCatalogo({
    */
   const enFoco = rubro ? filtrarPorRubro(pintables, rubro) : pintables;
 
-  const rieles = agruparPorVertical(enFoco);
+  // ⚠️ POR RUBRO Y NO POR VERTICAL (pedido del dueño, 26 ago 2026):
+  // «separá los carriles: Uñas un riel, Barbería un riel».
+  //
+  // «Salud y belleza» es vocabulario NUESTRO y mete en la misma fila a
+  // un salón de uñas, una barbería y un consultorio. Arriba, la fila de
+  // íconos ya dice «Uñas / Barbería / Spa»: tener los dos idiomas en la
+  // misma pantalla obliga a traducir entre ellos.
+  const rieles = agruparPorRubro(enFoco);
 
   /**
    * FILTRO PUESTO Y CERO RESULTADOS: hay que decirlo, no desaparecer.
