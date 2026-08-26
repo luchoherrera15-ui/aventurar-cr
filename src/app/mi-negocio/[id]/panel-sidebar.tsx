@@ -29,6 +29,17 @@ export type Tab = {
    */
   proximamente?: boolean;
   /**
+   * No se lista en el menú lateral, pero su contenido SIGUE montado y
+   * su `?tab=` sigue funcionando.
+   *
+   * Existe para el panel simplificado (ago 2026): el dueño pidió dejar
+   * a la izquierda solo Inicio, Configuración y Promos. Pero secciones
+   * como Finanzas tienen que seguir siendo alcanzables — los avisos del
+   * tablero enlazan a `?tab=finanzas`, y borrarlas del arreglo entero
+   * dejaría esos avisos mudos, sin error y sin nada que lo delate.
+   */
+  oculto?: boolean;
+  /**
    * El bloque del menú al que pertenece (Agenda, Gestión, Fitness…).
    * Solo se pinta el encabezado cuando el menú es largo — ver abajo.
    */
@@ -155,14 +166,17 @@ export default function PanelSidebar({
   // aparecen cuando el menú de verdad los necesita: con cuatro ítems
   // agrupar es ruido, con los doce de un consultorio es lo único que lo
   // hace leíble.
-  const gruposDistintos = new Set(tabs.map((t) => t.grupo).filter(Boolean)).size;
-  const conEncabezados = gruposDistintos > 1 && tabs.length > 4;
+  // Solo lo que SE VE decide el menú: los tabs ocultos siguen montados
+  // pero no se listan ni cuentan para los encabezados de grupo.
+  const tabsVisibles = tabs.filter((t) => !t.oculto);
+  const gruposDistintos = new Set(tabsVisibles.map((t) => t.grupo).filter(Boolean)).size;
+  const conEncabezados = gruposDistintos > 1 && tabsVisibles.length > 4;
 
   function itemsNav(alCerrar: () => void) {
     let grupoPintado: GrupoId | undefined;
     return (
       <nav className="flex flex-col gap-1">
-        {tabs.map((t) => {
+        {tabsVisibles.map((t) => {
           const activa = esActivo(t);
           const abreGrupo = conEncabezados && !!t.grupo && t.grupo !== grupoPintado;
           const primerGrupo = abreGrupo && grupoPintado === undefined;

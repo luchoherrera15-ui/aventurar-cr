@@ -22,6 +22,23 @@ export type EventoAgenda = {
   hora_inicio?: string | null;
   /** Solo en la vista del admin, que mezcla todos los negocios. */
   ranchoNombre?: string | null;
+  /**
+   * ── EL COBRO, PARA PODER DARLO POR RECIBIDO DESDE EL TABLERO ──────
+   *
+   * Pedido del dueño (ago 2026): «ahí podremos clickear PAGADA cuando
+   * sea el día, dar como el visto bueno manualmente».
+   *
+   * Hasta ahora eso solo se podía hacer en Finanzas, que era otra
+   * pantalla: había que ver la reserva en el tablero, acordarse del
+   * nombre, ir a Finanzas y buscarla ahí. Estos tres campos son lo
+   * mínimo para poder resolverlo donde se la está mirando.
+   *
+   * Opcionales porque `EventoAgenda` lo comparten la agenda del panel y
+   * la vista del admin, y esa segunda no cobra nada.
+   */
+  evento_pagado?: boolean;
+  deposito_monto?: number | null;
+  deposito_validado?: boolean;
 };
 
 function fmtColones(n: number | null) {

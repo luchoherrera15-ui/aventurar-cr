@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { hoyISOCR, sumarDiasISO } from "@/lib/fechas";
 import type { EventoAgenda } from "@/components/agenda-eventos";
 import { CardVacia, ContextoFila, FilaPanel, PildoraEstado } from "@/components/panel/piezas";
@@ -77,7 +77,15 @@ function fechaLarga(iso: string) {
   });
 }
 
-export default function ProximasReservasCards({ eventos }: { eventos: EventoAgenda[] }) {
+export default function ProximasReservasCards({
+  eventos,
+  /** Dar por cobrado el saldo. Sin esto la tarjeta no ofrece el botón —
+   *  la vista del admin, que mezcla negocios, no cobra nada. */
+  onCobrar,
+}: {
+  eventos: EventoAgenda[];
+  onCobrar?: (reservaId: string, montoFinal: number | null) => Promise<{ error: string | null }>;
+}) {
   const [abierta, setAbierta] = useState<string | null>(null);
   const hoy = hoyISOCR();
   const manana = sumarDiasISO(hoy, 1);
@@ -178,11 +186,96 @@ export default function ProximasReservasCards({ eventos }: { eventos: EventoAgen
                     </div>
                   )}
                 </dl>
+
+                {onCobrar && <Cobro evento={e} onCobrar={onCobrar} />}
               </div>
             </div>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  DAR EL SALDO POR COBRADO, SIN SALIR DEL TABLERO
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Pedido del dueño (ago 2026): «ahí podremos clickear PAGADA cuando sea
+ * el día, dar como el visto bueno manualmente».
+ *
+ * Antes esto vivía solo en Finanzas, que es otra pantalla: había que ver
+ * la reserva acá, acordarse del nombre, ir a Finanzas y buscarla. Ahora
+ * se resuelve donde se la está mirando.
+ *
+ * ── LLAMA A LA MISMA ACCIÓN QUE FINANZAS ───────────────────────────
+ * `registrarPagoFinal`, la de siempre. No hay un segundo camino para
+ * marcar una reserva como pagada: dos caminos son dos verdades el día
+ * que uno de los dos cambie.
+ *
+ * ── SE MANDA `null` COMO MONTO, Y ES DELIBERADO ────────────────────
+ * `registrarPagoFinal(ranchoId, reservaId, montoFinal)` acepta un monto
+ * final distinto del cotizado — un descuento de último momento, un
+ * extra. Desde acá se manda `null`: el atajo del tablero es «cobré lo
+ * acordado», no «cobré otra cosa». Para ajustar el monto está Finanzas,
+ * que tiene el modal con el campo. Meterlo acá convertiría un botón en
+ * un formulario.
+ *
+ * ── NO SE PUEDE DESHACER DESDE ACÁ ─────────────────────────────────
+ * `revertirPagoFinal` existe pero pide ser DUEÑO (no solo operativo) y
+ * vive en Finanzas. Un botón de deshacer al lado del de cobrar, en un
+ * tablero que se toca rápido, es un accidente esperando.
+ */
+function Cobro({
+  evento,
+  onCobrar,
+}: {
+  evento: EventoAgenda;
+  onCobrar: (reservaId: string, montoFinal: number | null) => Promise<{ error: string | null }>;
+}) {
+  const [guardando, iniciar] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  if (evento.evento_pagado) {
+    return (
+      <p className="mt-4 flex items-center gap-1.5 border-t border-aventurea-line pt-3.5 text-[12.5px] font-bold text-emerald-700">
+        <span aria-hidden>✓</span> Saldo cobrado
+      </p>
+    );
+  }
+
+  const adelanto =
+    evento.deposito_validado && (evento.deposito_monto ?? 0) > 0
+      ? fmtColones(evento.deposito_monto ?? 0)
+      : null;
+
+  return (
+    <div className="mt-4 border-t border-aventurea-line pt-3.5">
+      {adelanto && (
+        <p className="mb-2 text-[12px] text-aventurea-ink-soft">
+          Adelanto recibido: <strong className="text-aventurea-ink">{adelanto}</strong>
+        </p>
+      )}
+      <button
+        type="button"
+        disabled={guardando}
+        onClick={() => {
+          setError(null);
+          /* Se pregunta antes: cobrar no se puede deshacer desde acá, y
+             estos botones viven en una lista que se toca rápido. */
+          const nombre = evento.nombre?.trim() || "esta reserva";
+          if (!window.confirm(`¿Dar por cobrado el saldo de ${nombre}?`)) return;
+          iniciar(async () => {
+            const r = await onCobrar(evento.id, null);
+            if (r.error) setError(r.error);
+          });
+        }}
+        className="rounded-xl bg-aventurea-navy px-4 py-2 text-[12.5px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+      >
+        {guardando ? "Guardando…" : "Marcar como pagada"}
+      </button>
+      {error && <p className="mt-2 text-[12px] font-bold text-red-700">{error}</p>}
     </div>
   );
 }

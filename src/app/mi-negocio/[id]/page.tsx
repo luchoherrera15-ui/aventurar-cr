@@ -466,6 +466,13 @@ export default async function RanchoDetallePage({
       // Solo lo llevan las citas — sin esto, una cita próxima aparecía
       // en esta lista con el día pero sin la hora.
       hora_inicio: r.hora_inicio ?? null,
+      /* El estado del cobro, para poder darlo por recibido desde el
+         tablero. Cero consultas nuevas: `reservas` ya vino con
+         `select("*")` allá arriba, estos tres campos ya estaban en
+         memoria y solo faltaba pasarlos. */
+      evento_pagado: r.evento_pagado,
+      deposito_monto: r.deposito_monto,
+      deposito_validado: r.deposito_validado,
     }));
 
   // La vertical de Citas opera su agenda del día en su propia pantalla
@@ -938,7 +945,13 @@ export default async function RanchoDetallePage({
               ) : undefined
             }
           >
-            <ProximasReservasCards eventos={agenda} />
+            {/* `onCobrar` es la MISMA acción que usa Finanzas. No hay un
+                segundo camino para marcar una reserva como pagada: dos
+                caminos son dos verdades el día que uno cambie. */}
+            <ProximasReservasCards
+              eventos={agenda}
+              onCobrar={registrarPagoFinal.bind(null, rancho.id)}
+            />
           </Card>
         )}
 
@@ -1554,10 +1567,50 @@ export default async function RanchoDetallePage({
     config: tabConfiguracion,
   };
 
+  /**
+   * ════════════════════════════════════════════════════════════════
+   *  EL MENÚ LATERAL QUEDA EN TRES (pedido del dueño, ago 2026)
+   * ════════════════════════════════════════════════════════════════
+   *
+   * «Necesitamos ser una plataforma fácil de usar. A la izquierda vas a
+   * dejar solo: Inicio, Configuración y Promos.»
+   *
+   * ── POR QUÉ SE FILTRA ACÁ Y NO EN `itemsMenuNegocio` ─────────────
+   *
+   * Ese generador (src/lib/business/menu.ts) es el motor del sistema de
+   * módulos: decide qué tiene un consultorio y qué tiene una barbería,
+   * de dónde salen los nombres («Pacientes» vs «Miembros») y qué se
+   * anuncia como «Pronto». Lo cubren ocho pruebas.
+   *
+   * Recortarlo a tres habría tirado todo eso para conseguir un cambio
+   * que es de PRESENTACIÓN: lo que el dueño pidió es ver tres cosas en
+   * la columna, no que el negocio deje de tener módulos. La tarjeta
+   * «Tus herramientas» del tablero sigue mostrándolos todos.
+   *
+   * ── Y POR QUÉ `oculto` EN VEZ DE BORRARLOS DEL ARREGLO ───────────
+   *
+   * ⚠️ Finanzas TIENE que seguir siendo alcanzable. Los avisos del
+   * tablero enlazan a `?tab=finanzas` (ver `avisos`, más arriba: los
+   * depósitos sin validar y los saldos por cobrar). Sacarla del arreglo
+   * dejaría esos avisos mudos — el clic no haría nada, sin error y sin
+   * nada que lo delate. Igual con `?tab=catalogo`, que reciben links
+   * viejos y las redirecciones de `/mi-negocio/[id]/precios`.
+   *
+   * `oculto` las saca del menú y deja su contenido montado.
+   */
+  const EN_EL_MENU = new Set(["inicio", "config", "promos"]);
+
   const tabs: Tab[] = itemsMenu.flatMap((item): Tab[] => {
-    const comun = { grupo: item.grupo, icon: iconoModulo(item.id) };
+    const comun = {
+      grupo: item.grupo,
+      icon: iconoModulo(item.id),
+      oculto: !EN_EL_MENU.has(item.id),
+    };
 
     if (item.destino.clase === "proximamente") {
+      // Un módulo «Pronto» que además está oculto no aporta nada: no se
+      // puede abrir Y no se ve. Se cae del arreglo directamente.
+      if (comun.oculto) return [];
       return [{ id: item.id, label: item.label, proximamente: true, ...comun }];
     }
 
