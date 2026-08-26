@@ -47,6 +47,14 @@
         }
       ],
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Bookea usa la cámara solo para leer el código de la tarjeta de tu cliente en el mostrador.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",

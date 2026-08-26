@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
 import * as WebBrowser from "expo-web-browser";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { tienePasesDeFidelidad } from "@/lib/lealtad-app";
 import { supabase } from "@/lib/supabase";
 import BarraSuperior from "@/components/barra-superior";
 import AgendaCompacta from "@/components/agenda-compacta";
@@ -20,7 +21,7 @@ import ReservaAuditoria from "@/components/reserva-auditoria";
 import { Boton, ChipCategoria, Micro, Vacio } from "@/components/ui";
 import { pedirCorreoDeAprobacion } from "@/lib/notificaciones";
 import { useAuth } from "@/lib/auth-context";
-import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Sombras, Spacing } from "@/constants/theme";
 import { fmtColones } from "@/lib/types";
 import { fechaISOLocal } from "@/lib/citas";
 import { saldoPendiente, totalEvento } from "@/lib/finanzas";
@@ -105,6 +106,25 @@ export default function PanelNegocioScreen() {
   const [categoriaModal, setCategoriaModal] = useState<CategoriaPago | null>(null);
   const [fichaModalAbierta, setFichaModalAbierta] = useState<string | null>(null);
   const listaRef = useRef<FlatList<ReservaPanel>>(null);
+
+  /**
+   * ¿Este negocio tiene pases de fidelidad?
+   *
+   * Decide si se dibuja el acceso de arriba. Empieza en `false` y solo
+   * pasa a `true` si la consulta lo confirma: mostrar el botón mientras
+   * se averigua haría que parpadeara en el panel de todos los negocios
+   * que NO tienen el programa.
+   */
+  const [tieneLealtad, setTieneLealtad] = useState(false);
+  useEffect(() => {
+    let vigente = true;
+    void tienePasesDeFidelidad(id).then((tiene) => {
+      if (vigente) setTieneLealtad(tiene);
+    });
+    return () => {
+      vigente = false;
+    };
+  }, [id]);
 
   const cargar = useCallback(async () => {
     if (!session) return;
@@ -455,6 +475,34 @@ export default function PanelNegocioScreen() {
         refreshing={refrescando}
         ListHeaderComponent={
           <View style={styles.cabecera}>
+            {/* ---------------- 0. Pases de fidelidad ----------------
+                Solo si este negocio TIENE un programa. Un botón que
+                lleva a una pantalla vacía es peor que no tenerlo, y
+                `tienePasesDeFidelidad` devuelve false ante la duda.
+
+                Va arriba de todo porque es lo que se usa con un cliente
+                enfrente: buscarlo debajo de las reservas del mes es
+                buscarlo con alguien esperando en la caja. */}
+            {tieneLealtad && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Abrir los pases de fidelidad de este negocio"
+                onPress={() => router.push(`/negocio/${id}/lealtad`)}
+                style={({ pressed }) => [styles.lealtadAcceso, pressed && { opacity: 0.85 }]}
+              >
+                <View style={styles.lealtadIcono}>
+                  <Ionicons name="qr-code-outline" size={20} color={Colors.surface} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.lealtadTitulo}>Pases de fidelidad</Text>
+                  <Text style={styles.lealtadTexto}>
+                    Escaneá la tarjeta de tu cliente y dale su sello.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.inkMuted} />
+              </Pressable>
+            )}
+
             {/* ---------------- 1. Lo que pide respuesta ---------------- */}
             <View style={{ gap: Spacing.two + 2 }}>
               <View style={styles.filaMicro}>
@@ -795,6 +843,33 @@ function FilaAviso({
 }
 
 const styles = StyleSheet.create({
+  lealtadAcceso: {
+    alignItems: "center",
+    backgroundColor: Colors.surface,
+    borderRadius: Radios.lg,
+    flexDirection: "row",
+    gap: Spacing.two,
+    padding: Spacing.three,
+    ...Sombras.tarjeta,
+  },
+  lealtadIcono: {
+    alignItems: "center",
+    backgroundColor: Colors.navy,
+    borderRadius: Radios.md,
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  lealtadTexto: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.regular,
+    fontSize: 12.5,
+  },
+  lealtadTitulo: {
+    color: Colors.ink,
+    fontFamily: Fonts.bold,
+    fontSize: 15,
+  },
   contenedor: { backgroundColor: Colors.canvas, flex: 1 },
   centro: { alignItems: "center", flex: 1, justifyContent: "center" },
   cabecera: { gap: Spacing.four, marginBottom: Spacing.two },
