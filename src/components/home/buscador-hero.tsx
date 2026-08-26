@@ -9,6 +9,7 @@ import {
   type PestanaBuscador,
 } from "@/components/buscador-home-datos";
 import { PAISES } from "@/lib/paises";
+import LogoGooglePlay from "@/components/logo-google-play";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -340,9 +341,7 @@ function InsigniasTiendas() {
       </span>
 
       <span className={marco}>
-        <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6 shrink-0 fill-current text-[color:var(--navy)]">
-          <path d="M3.6 2.3c-.2.3-.3.6-.3 1v17.4c0 .4.1.8.3 1l9.2-9.7L3.6 2.3zm10.4 8.3 2.7-2.9-9.9-5.6c-.3-.2-.6-.2-.9-.2l8.1 8.7zm0 2.8-8.1 8.6c.3 0 .6 0 .9-.2l9.9-5.6-2.7-2.8zm5.9-2.1-2.3-1.3-3 3.2 3 3.1 2.3-1.3c.7-.4 1-1 1-1.9 0-.8-.3-1.4-1-1.8z" />
-        </svg>
+        <LogoGooglePlay />
         <span className="min-w-0">
           <span className="block text-[10.5px] font-bold uppercase tracking-[0.08em] text-aventurea-ink-soft">
             Pronto en

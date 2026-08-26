@@ -24,6 +24,7 @@ import {
 import { CATEGORIA_ICONO } from "../mi-negocio/types";
 import EscenaCitas from "./escena-citas";
 import EscenaEventos from "./escena-eventos";
+import LogoGooglePlay from "@/components/logo-google-play";
 
 /**
  * /publicar — rediseño completo con la misma línea que /lealtad e
@@ -515,12 +516,7 @@ function BadgeTienda({ tienda }: { tienda: "apple" | "google" }) {
           <path d="M14.5 6.7c.5-.7.9-1.6.8-2.6-.8 0-1.7.5-2.3 1.2-.5.6-.9 1.6-.8 2.5.9.1 1.8-.4 2.3-1.1Z" />
         </svg>
       ) : (
-        <svg viewBox="0 0 24 24" className="h-6 w-6 shrink-0">
-          <path fill="#69f0ae" d="M5.6 2.8c.3-.4.7-.5 1.1-.3l9.9 5.7-2.8 2.8L5.6 2.8Z" />
-          <path fill="#40c4ff" d="M5 3.4v17.2L13.6 12 5 3.4Z" />
-          <path fill="#ffd740" d="m13.8 12 2.8-2.8 3.2 1.8c.8.5.8 1.5 0 2l-3.2 1.8-2.8-2.8Z" />
-          <path fill="#ff5252" d="m5.6 21.2 8.2-9.2 2.8 2.8-9.9 5.7c-.4.2-.8.1-1.1-.3Z" />
-        </svg>
+        <LogoGooglePlay />
       )}
       <div>
         <p className="text-[9px] font-semibold uppercase tracking-wide text-white/50">
