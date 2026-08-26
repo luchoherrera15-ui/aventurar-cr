@@ -16,16 +16,25 @@ import {
   ProveedorPrograma,
   usePrograma,
 } from "./programa-contexto";
-import { BloqueDiseno } from "./seccion-tarjeta-digital";
 
 /**
- * «Tarjeta digital» ES el editor nuevo (seccion-tarjeta-digital.tsx).
+ * ⚠️ ACÁ HABÍA UN SEGUNDO DISEÑADOR DE TARJETA, Y SE FUE.
  *
- * Se re-exporta desde acá para que la página no cambie de import: el
- * bloque viejo que vivía en este archivo —dos ruedas de color y un
- * campo pidiendo la URL del logo— ya no existe.
+ * Este archivo importaba `BloqueDiseno` de `seccion-tarjeta-digital.tsx`
+ * —ruedas de color, ícono del sello, logo y banda— y lo montaba adentro.
+ * O sea que el diseño de una tarjeta se podía tocar desde DOS pantallas
+ * con dos interfaces distintas: ésta (que solo ve el admin de Bookea) y
+ * el editor de verdad.
+ *
+ * Pedido del dueño (ago 2026): «que solo quede UNA pantalla, que la que
+ * crea sea del mismo estilo que la que edita».
+ *
+ * Ya lo eran entre sí —`/crear` y `/editar/[programaId]` montan el MISMO
+ * `TarjetaFormulario`—; la que sobraba era ésta. Ahora en su lugar hay
+ * un enlace a ese editor único.
+ *
+ * Y de paso se cae el re-export `SeccionTarjeta`, que no lo usaba nadie.
  */
-export { default as SeccionTarjeta } from "./seccion-tarjeta-digital";
 
 /**
  * El escáner se carga aparte y SOLO en el navegador.
@@ -135,7 +144,7 @@ export default function PasesPanel({
         <AvisoGuardado />
         <BloqueComoSeGana />
         <BloqueQueSeGana />
-        <BloqueDiseno />
+        <EnlaceAlDisenador ranchoId={ranchoId} programaId={programaInicial?.id ?? null} />
         <BloqueEstado />
         <BarraGuardar />
         <NotaCercania />
@@ -481,3 +490,51 @@ export function BloqueEstado() {
   );
 }
 
+
+/**
+ * LA PUERTA AL ÚNICO DISEÑADOR DE TARJETA.
+ *
+ * Acá se montaba `BloqueDiseno` —una segunda interfaz para elegir
+ * colores, ícono, logo y banda—. Se fue: el diseño de una tarjeta se
+ * toca en UN solo lugar, `/lealtad/panel/[id]/editar/[programaId]`, que
+ * es el mismo `TarjetaFormulario` con el que se crea.
+ *
+ * ── POR QUÉ UN ENLACE Y NO EL EDITOR EMBEBIDO ──────────────────────
+ * Este panel es la vista de admin de Bookea y NO sabe qué tarjeta está
+ * mirando: recibe `programaInicial`, que es la principal del negocio.
+ * Un negocio con dos tarjetas editaba desde acá la que no estaba
+ * mirando — es exactamente el motivo por el que esta misma sección ya
+ * se había quitado del panel del dueño (ver el comentario en
+ * `panel/[id]/page.tsx`). El editor sí sabe cuál, porque lleva el
+ * `programaId` en la URL.
+ */
+function EnlaceAlDisenador({
+  ranchoId,
+  programaId,
+}: {
+  ranchoId: string;
+  programaId: string | null;
+}) {
+  return (
+    <div className="rounded-2xl border border-aventurea-line bg-aventurea-surface p-5">
+      <h3 className={TITULO_CARD}>Diseño de la tarjeta</h3>
+      <p className={ayudaCls}>
+        Los colores, el logo, la banda y el ícono del sello se editan en el
+        diseñador — la misma pantalla con la que se crea una tarjeta.
+      </p>
+      {programaId ? (
+        <a
+          href={`/lealtad/panel/${ranchoId}/editar/${programaId}`}
+          className={`${BOTON_ACCION} mt-4 inline-flex`}
+          style={{ background: ACCION, color: ACCION_TINTA }}
+        >
+          Abrir el diseñador →
+        </a>
+      ) : (
+        <p className="mt-3 text-[12.5px] font-bold text-aventurea-ink-soft">
+          Este negocio todavía no tiene ninguna tarjeta creada.
+        </p>
+      )}
+    </div>
+  );
+}
