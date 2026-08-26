@@ -30,7 +30,14 @@ export default function AjustesScreen() {
     // El token push se suelta ANTES del signOut: la política RLS solo
     // deja borrarlo mientras la sesión sigue viva.
     await desregistrarPush();
-    await supabase.auth.signOut();
+    // `scope: "local"` — cierra ESTA sesión y nada más.
+    //
+    // ⚠️ EL DEFAULT DE SUPABASE ES GLOBAL. `signOut()` a secas es
+    // `signOut({ scope: "global" })` (auth-js, GoTrueClient), y eso REVOCA
+    // los refresh tokens de TODOS los aparatos: quien cerraba sesión acá
+    // quedaba también deslogueado del teléfono, sin ninguna pista de por
+    // qué. Un botón que dice «cerrar sesión» cierra la de acá.
+    await supabase.auth.signOut({ scope: "local" });
     router.replace("/?tab=perfil" as never);
   }
 
@@ -67,7 +74,14 @@ export default function AjustesScreen() {
                       );
                       return;
                     }
-                    await supabase.auth.signOut();
+                    // `scope: "local"` — cierra ESTA sesión y nada más.
+                    //
+                    // ⚠️ EL DEFAULT DE SUPABASE ES GLOBAL. `signOut()` a secas es
+                    // `signOut({ scope: "global" })` (auth-js, GoTrueClient), y eso REVOCA
+                    // los refresh tokens de TODOS los aparatos: quien cerraba sesión acá
+                    // quedaba también deslogueado del teléfono, sin ninguna pista de por
+                    // qué. Un botón que dice «cerrar sesión» cierra la de acá.
+                    await supabase.auth.signOut({ scope: "local" });
                     router.replace("/?tab=perfil" as never);
                   },
                 },

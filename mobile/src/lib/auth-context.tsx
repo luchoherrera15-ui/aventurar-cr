@@ -42,10 +42,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [recarga, setRecarga] = useState(0);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setCargandoSesion(false);
-    });
+    /**
+     * ⚠️ EL `catch` NO ES DE TRÁMITE: SIN ÉL, EL APP SE QUEDA GIRANDO.
+     *
+     * `cargandoSesion` arranca en `true` y la pantalla de Perfil pinta
+     * una ruedita mientras lo esté. Si esta promesa RECHAZA —el
+     * AsyncStorage corrupto, un token que no se puede parsear, el
+     * dispositivo sin espacio— nadie baja esa bandera: la ruedita se
+     * queda para siempre y no aparece ni el campo de correo ni el botón
+     * de Google.
+     *
+     * Y el síntoma es exactamente «el app no me deja entrar», sin un
+     * solo pedido de red que lo delate en los logs del servidor. Es de
+     * los fallos más difíciles de diagnosticar que puede tener un
+     * cliente móvil, y se evita con estas tres líneas.
+     *
+     * Falla ABIERTO, no cerrado: ante el error se asume «no hay sesión»,
+     * que deja a la persona en la pantalla de entrar. Asumir lo
+     * contrario la dejaría mirando un perfil vacío sin poder salir.
+     */
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        setSession(data.session);
+        setCargandoSesion(false);
+      })
+      .catch(() => {
+        setSession(null);
+        setCargandoSesion(false);
+      });
 
     const { data: suscripcion } = supabase.auth.onAuthStateChange((_evento, nuevaSesion) => {
       setSession(nuevaSesion);
