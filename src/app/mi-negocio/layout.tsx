@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BotonVolver from "@/components/boton-volver";
 import { createClient } from "@/lib/supabase/server";
 import { saldoPendiente, type ReservaFinanzas } from "@/lib/finanzas";
 import { hoyISOCR } from "@/lib/fechas";
@@ -154,13 +155,7 @@ export default async function MiRanchoLayout({
             </span>
           </Link>
           <div className="ml-auto flex shrink-0 items-center gap-3 lg:pr-8 2xl:pr-10">
-            <Link
-              href="/"
-              className="whitespace-nowrap text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-orange"
-            >
-              ← <span className="hidden sm:inline">Volver al inicio</span>
-              <span className="sm:hidden">Inicio</span>
-            </Link>
+            <BotonVolver />
             {sesion && <NotificacionesBell items={sesion.items} />}
             {/* QUIÉN ESTÁ ADENTRO, a la derecha del todo — el `.user` de
                 la maqueta. No es un dato nuevo: es la misma sesión que

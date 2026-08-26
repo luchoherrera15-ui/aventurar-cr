@@ -44,6 +44,28 @@ import { dibujarTiraDeSellos } from "./imagenes";
  * procedimiento, y no «correr el test y pegar los números nuevos».
  */
 
+/**
+ * ⚠️ ESTA PRUEBA ES PESADA A PROPÓSITO, Y POR ESO LLEVA SU TIEMPO.
+ *
+ * Son 99 composiciones de `sharp` de verdad: 11 metas × 3 escalas × los
+ * tres caminos de dibujo. En una máquina tranquila corre en ~1,6 s; en
+ * una corrida completa del suite, con los demás archivos peleando por
+ * la CPU, se pasaba de los 5 s que vitest da por defecto y fallaba por
+ * TIMEOUT — no por un dibujo distinto.
+ *
+ * Eso importa distinguirlo: el mensaje de esta prueba nombra cada huella
+ * que cambió, y en esas corridas no nombraba ninguna. Era el reloj.
+ *
+ * Una alarma que suena sin motivo se termina ignorando, y el día que de
+ * verdad cambie el dibujo de las tarjetas de los clientes alguien va a
+ * mirar el rojo y pensar «es la flaky de siempre».
+ *
+ * (Primero se intentó con `sharp.concurrency(1)` culpando al
+ * paralelismo. Fue peor: un hilo la hace MÁS lenta, o sea más timeouts.
+ * La causa era el reloj, no la contención.)
+ */
+const TIEMPO_HOLGADO = 60_000;
+
 const COLORES = { fondo: "#2F4230", sello: "#D9E8C4" };
 
 /** El mismo logo determinista con el que se capturaron las huellas. */
@@ -193,5 +215,5 @@ describe("ninguna tarjeta ya emitida cambia de aspecto", () => {
       distintas,
       `CAMBIÓ EL DIBUJO DE TARJETAS YA EMITIDAS:\n${distintas.join("\n")}`,
     ).toEqual([]);
-  });
+  }, TIEMPO_HOLGADO);
 });

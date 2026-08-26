@@ -109,20 +109,49 @@ export default async function MiRanchoHubPage() {
   // negocio duplicado.
   if (todos.length === 0) redirect("/mi-negocio/nuevo");
 
-  // ── LOS DE LEALTAD VAN AL FINAL, NO ESCONDIDOS (0187) ─────────────
-  // Un negocio que nació en Bookea Lealtad no es un proveedor del
-  // directorio: no tiene ficha, ni provincia, ni reservas. Verlo
-  // primero, bajo el título «Marketplace de ranchos» y con el badge
-  // «Pendiente», le decía a su dueño que estaba esperando una
-  // aprobación que nunca va a llegar — porque nunca la pidió.
-  //
-  // `!== false` y no `=== true`: sin la 0187 corrida la propiedad llega
-  // `undefined` y todo queda exactamente como estaba.
-  const soloLealtad = todos.every((r) => r.en_marketplace === false);
-  const ranchos = [
-    ...todos.filter((r) => r.en_marketplace !== false),
-    ...todos.filter((r) => r.en_marketplace === false),
-  ];
+  /**
+   * ════════════════════════════════════════════════════════════════
+   *  LOS DE LEALTAD YA NO SE LISTAN ACÁ. NI AL FINAL.
+   * ════════════════════════════════════════════════════════════════
+   *
+   * Pedido del dueño (26 ago 2026), mirando su propia pantalla: «cuando
+   * creés un cliente desde Lealtad, eliminá completamente el registro
+   * hacia los negocios del marketplace; se crea acá también y eso no
+   * debería ser así — cambiá la metodología».
+   *
+   * La 0187 los había mandado al FINAL de la lista con un badge que dice
+   * «Lealtad». Fue una mejora sobre mostrarlos como «Pendiente», pero se
+   * quedó corta: seguían apareciendo bajo el título «Marketplace de
+   * ranchos», en una grilla cuyas tarjetas llevan a `/mi-negocio/[id]` —
+   * el panel de un PROVEEDOR DEL DIRECTORIO, con sus reservas, su ficha
+   * pública y su provincia. Nada de eso existe para un negocio que nació
+   * en Lealtad.
+   *
+   * Son dos productos, y cada uno tiene su panel:
+   *   · marketplace → /mi-negocio
+   *   · lealtad     → /lealtad/panel
+   *
+   * ── EL REDIRECT ES LA MITAD DEL ARREGLO ─────────────────────────
+   *
+   * Sacarlos de la lista sin más abría un agujero peor que el problema:
+   * quien SOLO tiene negocios de Lealtad se quedaba con una grilla vacía
+   * bajo un título que habla de un directorio en el que no está.
+   *
+   * El corte de `todos.length === 0` de arriba sigue mirando la lista
+   * COMPLETA a propósito —si mirara solo los del directorio, ese mismo
+   * dueño caería en el alta del marketplace y terminaría creando un
+   * negocio duplicado— y acá abajo hay un redirect propio al panel que
+   * sí es suyo.
+   *
+   * `!== false` y no `=== true`: sin la 0187 corrida la propiedad llega
+   * `undefined` y todo queda como estaba.
+   */
+  const ranchos = todos.filter((r) => r.en_marketplace !== false);
+  const deLealtad = todos.filter((r) => r.en_marketplace === false);
+
+  // Solo tiene Lealtad: su panel es el otro. Mandarlo a una grilla vacía
+  // del marketplace sería mandarlo a un lugar que no le sirve.
+  if (ranchos.length === 0 && deLealtad.length > 0) redirect("/lealtad/panel");
 
   return (
     <main className="mx-auto max-w-[1000px] px-5 py-12">
@@ -133,17 +162,35 @@ export default async function MiRanchoHubPage() {
               marketplace, y decirle que sí lo manda a esperar una
               aprobación que nadie le va a dar. El encabezado dice la
               verdad de cada caso. */}
+          {/* `soloLealtad` se cayó con la lista: quien solo tiene
+              Lealtad ya no llega hasta acá — lo manda al panel el
+              redirect de arriba. Lo que queda es siempre marketplace. */}
           <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
-            {soloLealtad ? "Bookea Lealtad" : "Marketplace de ranchos"}
+            Marketplace de ranchos
           </p>
-          <h1 className="titulo mt-2.5 text-[28px] text-aventurea-ink">
-            {soloLealtad ? "Tu negocio" : "Tus servicios y espacios"}
-          </h1>
+          <h1 className="titulo mt-2.5 text-[28px] text-aventurea-ink">Tus servicios y espacios</h1>
           <p className="mt-1.5 max-w-[52ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
-            {soloLealtad
-              ? "Acá entrás a tu panel: tu tarjeta de lealtad, tus clientes y tus promos. No estás publicado en el directorio de Bookea, y no hace falta que lo estés."
-              : "Una misma cuenta puede ofrecer varias cosas — tu rancho, tu catering, un coffee bar. Cada uno con sus propias reservas y finanzas."}
+            Una misma cuenta puede ofrecer varias cosas — tu rancho, tu catering, un coffee bar.
+            Cada uno con sus propias reservas y finanzas.
           </p>
+          {/* EL PUENTE HACIA EL OTRO PANEL.
+
+              Quien tiene las dos cosas —dos ranchos publicados y una
+              tarjeta de lealtad, por ejemplo— ya no ve sus negocios de
+              Lealtad en esta grilla. Sin este enlace, sacarlos de acá
+              sería esconderlos: no hay ninguna otra pista en esta
+              pantalla de que existen ni de dónde se administran. */}
+          {deLealtad.length > 0 && (
+            <Link
+              href="/lealtad/panel"
+              className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-aventurea-orange hover:underline"
+            >
+              {deLealtad.length === 1
+                ? "Tenés 1 negocio en Bookea Lealtad"
+                : `Tenés ${deLealtad.length} negocios en Bookea Lealtad`}
+              <span aria-hidden>→</span>
+            </Link>
+          )}
         </div>
         <form action={logoutDueno}>
           <button
@@ -189,21 +236,15 @@ export default async function MiRanchoHubPage() {
                   {CATEGORIA_ICONO[categoriaEventos]}
                 </span>
               )}
-              {/* Un negocio de Lealtad NO está «pendiente» de nada: no
-                  se postuló al directorio. El badge de estado es del
-                  marketplace y ahí no aplica — decirle «Pendiente» lo
-                  deja esperando una aprobación que nunca va a llegar. */}
+              {/* El badge de estado es del MARKETPLACE, y acá ya solo
+                  hay negocios del marketplace: la rama que dibujaba
+                  «Lealtad» se cayó con la lista, porque esos negocios
+                  dejaron de listarse en esta pantalla. Dejarla habría
+                  sido código muerto que le hace creer al próximo que
+                  este grid todavía los muestra. */}
               <span className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-lg border border-white/20 bg-black/35 px-2.5 py-1.5 text-[10.5px] font-bold uppercase tracking-wide text-white shadow-sm backdrop-blur-md">
-                {rancho.en_marketplace === false ? (
-                  "Lealtad"
-                ) : (
-                  <>
-                    <span
-                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[rancho.estado]}`}
-                    />
-                    {ESTADO_LABEL[rancho.estado]}
-                  </>
-                )}
+                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${ESTADO_PUNTO[rancho.estado]}`} />
+                {ESTADO_LABEL[rancho.estado]}
               </span>
             </div>
             <div className="p-4.5">
