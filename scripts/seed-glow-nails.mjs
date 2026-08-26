@@ -221,8 +221,15 @@ async function sembrar() {
   const galeria2 = await subirFoto("WhatsApp Image 2026-08-26 at 9.59.24 AM.jpeg", "local-1.jpg");
   const galeria3 = await subirFoto("WhatsApp Image 2026-08-26 at 9.59.25 AM.jpeg", "local-2.jpg");
   const fotoEstilista = await subirFoto("estilista.jpeg", "estilista.jpg");
-  const catalogoImg = await subirFoto("uñasglownailscatalogo.jpeg", "lista-de-precios.jpg");
-  console.log("  ✓ 5 fotos subidas");
+  // ⚠️ LA LISTA DE PRECIOS NO SE SUBE, Y ES A PROPÓSITO.
+  //
+  // Estuvo un rato en la galería y el dueño lo corrigió: ese cartel
+  // es MATERIAL DE ORIGEN —de ahí salieron los doce servicios y sus
+  // precios— no una foto del local. En la galería competía con las
+  // fotos del trabajo y, peor, duplicaba una información que ya vive
+  // en el catálogo: el día que suban un precio, el cartel seguiría
+  // mostrando el viejo y la ficha diría dos cosas distintas.
+  console.log("  ✓ 4 fotos subidas");
 
   const precioDesde = Math.min(...SERVICIOS.map((s) => s.precio));
 
@@ -233,8 +240,9 @@ async function sembrar() {
     slug: SLUG,
     nombre: "Glow Nails Studio",
     categoria: "unas",
-    provincia: "San José",
-    canton: "San José",
+    // San Antonio de Belén: el cantón es Belén, provincia Heredia.
+    provincia: "Heredia",
+    canton: "Belén",
     descripcion:
       "Manicura, pedicura, Gel X y rubber — trabajamos con cita previa y materiales esterilizados.",
     descripcion_larga:
@@ -244,10 +252,10 @@ async function sembrar() {
     // La que el dueño marcó como PRIMERA: es la que se ve en el
     // directorio y encabeza la ficha.
     foto_url: portada,
-    // La lista de precios va en la galería a propósito: es lo que la
-    // clienta quiere ver antes de reservar, y así queda aunque algún
-    // día los precios del catálogo y los del cartel se separen.
-    fotos: [portada, galeria2, galeria3, catalogoImg],
+    // Solo fotos del local y del trabajo. La lista de precios no va
+    // acá: los precios los muestra el catálogo, que es el que se
+    // edita. Ver arriba.
+    fotos: [portada, galeria2, galeria3],
     precio_desde: precioDesde,
     // Sin `demo: true`: este negocio es real. Ver la cabecera.
     detalles: { horario_citas: HORARIO },
@@ -290,7 +298,7 @@ async function sembrar() {
   const { error: errEquipo } = await db.from("equipo_rancho").insert([
     {
       rancho_id: ranchoId,
-      nombre: "Glow Nails",
+      nombre: "Mariana",
       rol: "Estilista",
       foto_url: fotoEstilista,
       activo: true,
