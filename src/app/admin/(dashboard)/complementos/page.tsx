@@ -41,6 +41,49 @@ import { hilosAbiertosDeAyuda } from "@/lib/lealtad/ayuda-hilo";
  * el total y DECIRLO en pantalla. Una lista que corta filas en silencio
  * miente.
  */
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  LOS PERFILES, DE A TANDAS
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Antes esto era un `.in("id", idsPersona)` suelto, y alcanzaba: la
+ * lista de ids salía de la bandeja de revisión y de las solicitudes
+ * pendientes — un puñado.
+ *
+ * Desde que la lista principal muestra el correo de CADA negocio, esos
+ * ids son uno por negocio: hasta `TOPE_NEGOCIOS` (1000). Y `.in()` de
+ * PostgREST viaja en la QUERY STRING de un GET: mil UUID son ~37 KB de
+ * URL, muy por encima de lo que aceptan los proxies de por medio. El
+ * fallo no lo atrapa el build ni ninguna prueba — aparece el día que
+ * el negocio 300 se registre, y aparece como la página entera sin
+ * correos, no como un error.
+ *
+ * De a 200 la URL queda en ~7 KB, cómoda. Las tandas van en paralelo
+ * porque son independientes.
+ *
+ * Si una tanda falla, se pierden ESOS perfiles y no los demás: en el
+ * panel eso es una fila que dice «—» en vez de un correo, que es
+ * infinitamente mejor que la pantalla completa caída por un correo.
+ */
+const PERFILES_POR_TANDA = 200;
+
+type PerfilBreve = { id: string; nombre: string | null; email: string | null };
+
+async function leerPerfiles(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  ids: string[],
+): Promise<PerfilBreve[]> {
+  if (ids.length === 0) return [];
+  const tandas: string[][] = [];
+  for (let i = 0; i < ids.length; i += PERFILES_POR_TANDA) {
+    tandas.push(ids.slice(i, i + PERFILES_POR_TANDA));
+  }
+  const respuestas = await Promise.all(
+    tandas.map((tanda) => admin.from("perfiles").select("id, nombre, email").in("id", tanda)),
+  );
+  return respuestas.flatMap((r) => (r.data ?? []) as PerfilBreve[]);
+}
+
 const TOPE_NEGOCIOS = 1000;
 /** Lo mismo para las tarjetas: son varias por negocio. */
 const TOPE_PROGRAMAS = 2000;
@@ -200,26 +243,43 @@ export default async function AdminComplementosPage() {
   const idsPersona = [
     ...new Set(
       [
+        // TODOS los dueños, no solo los de la bandeja de revisión
+        // (pedido del dueño, ago 2026: «colocá acá quién crea el
+        // usuario, o sea el correo»). La lista principal ahora muestra
+        // el correo de la cuenta en cada fila, así que necesita el
+        // perfil de cada negocio y no solo el de los que están en
+        // revisión.
+        ...filasRanchoTodas.map((r) => r.owner_id),
         ...enRevision.map((r) => r.owner_id),
         ...filasSolicitud.map((s) => s.solicitante_id),
         ...[...ultimoDe.values()].map((h) => h.autor_id),
       ].filter((id): id is string => typeof id === "string" && id.length > 0),
     ),
   ];
-  const { data: perfiles } = idsPersona.length
-    ? await admin.from("perfiles").select("id, nombre, email").in("id", idsPersona)
-    : { data: [] };
-  const perfilDe = new Map(
-    ((perfiles ?? []) as { id: string; nombre: string | null; email: string | null }[]).map((p) => [
-      p.id,
-      p,
-    ]),
-  );
+  const perfilesLeidos = await leerPerfiles(admin, idsPersona);
+  const perfilDe = new Map(perfilesLeidos.map((p) => [p.id, p]));
   const nombreDe = (id: string | null): string | null => {
     if (!id) return null;
     const p = perfilDe.get(id);
     if (!p) return null;
     return (p.nombre ?? "").trim() || p.email || null;
+  };
+
+  /**
+   * El dueño de un negocio, para la columna «Cuenta» de la lista.
+   *
+   * Devuelve `null` cuando NO hay perfil —un `owner_id` que apunta a
+   * una cuenta borrada, o la tanda de `perfiles` que falló— y un objeto
+   * con `correo: null` cuando el perfil existe pero no guarda correo.
+   * Son dos casos distintos y el panel los dice distinto: «—» contra
+   * «sin correo». Colapsarlos haría que un fallo de lectura se leyera
+   * como un dato faltante del usuario.
+   */
+  const duenoDe = (id: string | null): { nombre: string | null; correo: string | null } | null => {
+    if (!id) return null;
+    const p = perfilDe.get(id);
+    if (!p) return null;
+    return { nombre: (p.nombre ?? "").trim() || null, correo: p.email };
   };
 
   // ── La lista ───────────────────────────────────────────────────────
@@ -268,6 +328,10 @@ export default async function AdminComplementosPage() {
         tarjetas: tarjetasCompletas ? tarjetas.ocupan : null,
         tarjetasActivas: tarjetasCompletas ? tarjetas.activas : null,
         creadoEn: r.created_at ?? null,
+        // Quién creó el negocio. `null` (y no un objeto vacío) cuando el
+        // perfil no está: el panel distingue «no lo pudimos leer» de
+        // «existe pero no tiene correo», y son dos problemas distintos.
+        dueno: duenoDe(r.owner_id),
         stripe: stripePorRancho.get(r.id) ?? null,
         movimiento,
       };

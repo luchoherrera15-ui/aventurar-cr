@@ -79,6 +79,21 @@ export type NegocioConAddons = {
   tarjetasActivas: number | null;
   /** ISO. Desde cuándo existe el negocio. */
   creadoEn: string | null;
+  /**
+   * QUIÉN CREÓ EL NEGOCIO — el dueño de la cuenta (`ranchos.owner_id`).
+   *
+   * Pedido del dueño (ago 2026): «colocá acá quién crea el usuario, o
+   * sea el correo». Es el dato que faltaba para poder contestar «¿quién
+   * es este negocio?» sin salir de esta pantalla: la bandeja de
+   * negocios EN REVISIÓN ya mostraba creador y correo, pero la lista
+   * principal —la que se mira todos los días— no.
+   *
+   * `null` cuando el perfil no se pudo leer: un `owner_id` que apunta a
+   * una cuenta borrada, o la consulta a `perfiles` que falló. Se
+   * distingue de «sin correo» a propósito — no es lo mismo no saber que
+   * saber que no hay.
+   */
+  dueno: { nombre: string | null; correo: string | null } | null;
   /** Estado de la suscripción de Stripe (0143). null = no tiene. */
   stripe: string | null;
   movimiento: MovimientoPlan | null;
@@ -168,7 +183,7 @@ function regaliasDeAddons(n: NegocioConAddons) {
   return n.addons.filter((a) => a.es_cortesia && estadoDeAddon(a) !== "apagado");
 }
 
-type Campo = "nombre" | "categoria" | "plan" | "clientes" | "desde";
+type Campo = "nombre" | "cuenta" | "categoria" | "plan" | "clientes" | "desde";
 type Filtro = "todos" | "sin_plan" | "con_plan" | "regalia" | "stripe" | "vencido";
 
 const FILTROS: { id: Filtro; label: string }[] = [
@@ -237,8 +252,17 @@ export default function ComplementosPanel({
     // aparezca por culpa de una cookie de otra pantalla es el peor
     // resultado posible — parece que el negocio no existe.
     if (q) {
+      // El CORREO también busca, y no es un extra: la pregunta que trae
+      // a alguien a esta pantalla suele ser «¿qué tiene contratado esta
+      // persona?», y la persona se identifica por su correo, no por
+      // cómo le puso al negocio. Sin esto había que saber el nombre
+      // exacto del negocio para encontrar a su dueño.
       return negocios.filter(
-        (n) => n.nombre.toLowerCase().includes(q) || (n.slug ?? "").includes(q),
+        (n) =>
+          n.nombre.toLowerCase().includes(q) ||
+          (n.slug ?? "").includes(q) ||
+          (n.dueno?.correo ?? "").toLowerCase().includes(q) ||
+          (n.dueno?.nombre ?? "").toLowerCase().includes(q),
       );
     }
 
@@ -264,6 +288,16 @@ export default function ComplementosPanel({
   const ordenados = useMemo(() => {
     const orden = (a: NegocioConAddons, b: NegocioConAddons) => {
       switch (campo) {
+        case "cuenta":
+          // Ordenar por cuenta AGRUPA los negocios de una misma persona,
+          // que es para lo que sirve: alguien con tres negocios queda en
+          // tres filas seguidas en vez de repartido por todo el alfabeto.
+          // Los que no tienen correo van al final ("zzz") y no primero:
+          // un dato faltante no encabeza la lista.
+          return (
+            (a.dueno?.correo ?? "zzz").localeCompare(b.dueno?.correo ?? "zzz", "es") ||
+            a.nombre.localeCompare(b.nombre, "es")
+          );
         case "categoria":
           return (
             (SECCION_CORTA[a.vertical ?? ""] ?? "zzz").localeCompare(
@@ -327,7 +361,7 @@ export default function ComplementosPanel({
             setBusqueda(e.target.value);
             setPagina(0);
           }}
-          placeholder="Buscar un negocio por nombre… (busca en todas las secciones y sin filtros)"
+          placeholder="Buscar por negocio o por correo de la cuenta… (busca en todas las secciones y sin filtros)"
           className="w-full rounded-[10px] border border-aventurea-line bg-white px-3.5 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-400"
         />
         <select
@@ -381,11 +415,18 @@ export default function ComplementosPanel({
         </p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-white">
-          <table className="w-full min-w-[980px] border-collapse text-[13px]">
+          <table className="w-full min-w-[1120px] border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-aventurea-line bg-aventurea-cream-2/50 text-left text-[11px] uppercase tracking-[0.1em] text-aventurea-ink-soft">
                 <Encabezado campo="nombre" actual={campo} desc={desc} onClick={ordenarPor}>
                   Negocio
+                </Encabezado>
+                {/* La cuenta va PEGADA al negocio: las dos contestan
+                    «quién es esto». Puesta al final, en una tabla de
+                    once columnas con scroll horizontal, había que
+                    arrastrar para leer un dato de identidad. */}
+                <Encabezado campo="cuenta" actual={campo} desc={desc} onClick={ordenarPor}>
+                  Cuenta
                 </Encabezado>
                 <Encabezado campo="categoria" actual={campo} desc={desc} onClick={ordenarPor}>
                   Categoría
@@ -426,7 +467,7 @@ export default function ComplementosPanel({
                   />
                   {elegido === n.id && (
                     <tr>
-                      <td colSpan={11} className="bg-aventurea-cream-2/40 p-0">
+                      <td colSpan={12} className="bg-aventurea-cream-2/40 p-0">
                         <div className="px-3 py-3">
                           <Detalle
                             negocio={n}
@@ -603,6 +644,43 @@ function Fila({
             className="ml-2 rounded-full bg-aventurea-sky-light px-2 py-0.5 text-[10.5px] font-bold text-aventurea-orange-dark"
           >
             dato cruzado
+          </span>
+        )}
+      </td>
+
+      {/* ── QUIÉN CREÓ EL NEGOCIO ──────────────────────────────────
+          El correo va PRIMERO y en el tono fuerte: es lo que identifica
+          a la persona y lo que se copia para escribirle. El nombre va
+          debajo, apagado, porque puede faltar o estar mal escrito — y
+          un nombre repetido («María») no identifica a nadie.
+
+          `select-text` + `stopPropagation` porque la fila entera abre
+          el detalle al hacer clic: sin esto, intentar seleccionar el
+          correo para copiarlo desplegaba el panel de abajo. */}
+      <td className="px-3 py-2.5">
+        {n.dueno?.correo ? (
+          <span
+            className="block max-w-[210px] cursor-text select-text truncate font-medium text-aventurea-ink"
+            title={n.dueno.correo}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {n.dueno.correo}
+          </span>
+        ) : (
+          <span
+            className="text-aventurea-ink-soft"
+            title={
+              n.dueno
+                ? "La cuenta existe pero no tiene correo guardado."
+                : "No se pudo leer el perfil de quien creó este negocio."
+            }
+          >
+            {n.dueno ? "sin correo" : "—"}
+          </span>
+        )}
+        {n.dueno?.nombre && (
+          <span className="mt-0.5 block max-w-[210px] truncate text-[11.5px] text-aventurea-ink-soft">
+            {n.dueno.nombre}
           </span>
         )}
       </td>
