@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { IconHeart, IconPin, IconStar } from "@/components/icons";
 import {
   SUBCATEGORIA_LABEL,
-  UNIDAD_PRECIO_LABEL,
   enConfiguracion,
   type Rancho,
 } from "@/app/mi-negocio/types";
@@ -20,11 +19,6 @@ import {
 import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { esFechaHoy, fmtFechaCorta } from "@/lib/fechas";
 import type { Calificacion } from "@/components/rancho-card";
-
-function fmtColones(n: number | null) {
-  if (n === null) return null;
-  return "₡" + Number(n).toLocaleString("es-CR");
-}
 
 /**
  * La tarjeta grande de la vista por categoría / búsqueda: collage de
@@ -58,7 +52,6 @@ export default function RanchoCardGrande({
   const href = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
   // En configuración: visible en el directorio pero sin poder abrirse.
   const enPausa = enConfiguracion(rancho.detalles);
-  const precio = fmtColones(rancho.precio_desde);
   const ubicacion = [rancho.canton, rancho.provincia].filter(Boolean).join(", ");
   // eslint-disable-next-line react-hooks/purity -- "nuevo" es una etiqueta de vitrina; no pasa nada si queda desactualizada un instante entre renders
   const esNuevo = Date.now() - new Date(rancho.created_at).getTime() < 1000 * 60 * 60 * 24 * 30;
@@ -267,18 +260,25 @@ export default function RanchoCardGrande({
             </span>
           )}
 
-          {/* Pie: precio a la izquierda, la acción a la derecha. */}
-          <div className="mt-auto flex items-center justify-between border-t border-aventurea-line/70 pt-3">
-            <span className="text-[12.5px] text-aventurea-ink-soft">
-              {precio ? (
-                <>
-                  Desde <strong className="font-extrabold text-aventurea-ink">{precio}</strong>
-                  <span className="hidden sm:inline"> {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}</span>
-                </>
-              ) : (
-                "Precio a consultar"
-              )}
-            </span>
+          {/* ⚠️ ACÁ IBA «Desde ₡X» Y SE SACÓ A PEDIDO DEL DUEÑO (26 ago
+              2026): «en los CARDS quitá lo de desde y que sale el precio
+              más bajo».
+
+              El dato tenía un problema de fondo: `precio_desde` es UN
+              número para un negocio que vende MUCHAS cosas a precios
+              distintos. En un salón de eventos casi es el precio; en una
+              barbería con veinte servicios, «desde ₡5.000» es el corte
+              más barato y no dice nada de lo que la persona va a pagar
+              — pero le ancla la expectativa igual, y se la ancla mal.
+
+              El precio de verdad vive en la ficha, servicio por
+              servicio, que es donde se puede leer sin que engañe.
+
+              NO se tocó la ficha del negocio (`rancho-portal.tsx`) ni la
+              descripción que sale en Google (`lib/seo-negocio.ts`): ahí
+              el precio va con el contexto que lo hace cierto. */}
+          {/* Pie: solo la acción, alineada a la derecha como estaba. */}
+          <div className="mt-auto flex items-center justify-end border-t border-aventurea-line/70 pt-3">
             <span
               className={`text-[13px] font-extrabold ${
                 enPausa ? "text-aventurea-ink-soft" : "text-bookea-naranja-fuerte"

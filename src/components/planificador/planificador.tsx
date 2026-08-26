@@ -12,7 +12,6 @@ import {
   CATEGORIA_LABEL,
   PROVINCIAS,
   SUBCATEGORIA_LABEL,
-  UNIDAD_PRECIO_LABEL,
   type Categoria,
   type Provincia,
   type Rancho,
@@ -802,7 +801,6 @@ function CardResultado({
   const { rancho, calificacion, etiquetaDisponibilidad } = candidato;
   const href = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
   const esDemo = !!rancho.slug?.startsWith("demo-");
-  const precio = fmtColones(rancho.precio_desde);
   // El planificador solo trabaja con ranchos aprobados de la vertical
   // Eventos (ver motor.ts) — el cast es seguro.
   const categoriaEventos = rancho.categoria as Categoria;
@@ -848,16 +846,7 @@ function CardResultado({
             {rubro}
             {ubicacion ? ` · ${ubicacion}` : ""}
           </p>
-          <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-            {precio ? (
-              <>
-                Desde <strong className="font-extrabold text-aventurea-ink">{precio}</strong>{" "}
-                {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}
-              </>
-            ) : (
-              "Precio a consultar"
-            )}
-          </p>
+          {/* ⚠️ Acá iba «Desde ₡X». Se sacó a pedido del dueño (26 ago 2026) — ver `rancho-card.tsx`. */}
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1.5 rounded-md border border-aventurea-navy px-2 py-0.5 text-[10.5px] font-bold text-aventurea-navy">
               <i aria-hidden className="h-1 w-1 rounded-full bg-aventurea-navy" />

@@ -89,11 +89,6 @@ export const TOPE_DESTACADOS = 4;
  */
 export const MIN_DESTACADOS = 1;
 
-/** ₡ con separador de miles costarricense — igual que las cards. */
-function fmtColones(n: number) {
-  return "₡" + Number(n).toLocaleString("es-CR");
-}
-
 export default function NegociosDestacados({
   negocios,
   curado,
@@ -336,18 +331,9 @@ function TarjetaDestacada({
               0033, así que «desde ₡8.000 por evento» en una barbería
               sería falso. El monto sí es cierto; la unidad está en la
               ficha, donde el dueño la puede corregir. */}
-          <span className="min-w-0 truncate text-[12px] text-aventurea-ink-soft lg:text-[12.5px]">
-            {typeof negocio.precio_desde === "number" && negocio.precio_desde > 0 ? (
-              <>
-                Desde{" "}
-                <strong className="text-[13.5px] font-extrabold text-aventurea-ink lg:text-[14.5px]">
-                  {fmtColones(negocio.precio_desde)}
-                </strong>
-              </>
-            ) : (
-              "Consultar"
-            )}
-          </span>
+          {/* ⚠️ Acá iba «Desde ₡X». Se sacó a pedido del dueño (26 ago 2026) — ver `rancho-card.tsx`. Esta tira hoy no se monta
+              en ninguna pantalla, pero se corrige igual: si alguien la
+              revive, que reviva sin el precio y no con él. */}
 
           {/* Mismo lugar y mismo tono donde `RanchoCard` pone «Reservar →».
               Oculto en teléfono: en 329 px de tarjeta le pelearía el

@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 import { IconHeart, IconPin, IconStar } from "@/components/icons";
 import {
   SUBCATEGORIA_LABEL,
-  UNIDAD_PRECIO_LABEL,
   enConfiguracion,
   type Rancho,
 } from "@/app/mi-negocio/types";
@@ -23,11 +22,6 @@ import { alternarFavorito } from "@/app/eventos/favoritos-actions";
 import { esFechaHoy, fmtFechaCorta } from "@/lib/fechas";
 
 export type Calificacion = { rancho_id: string; promedio: number; total: number };
-
-function fmtColones(n: number | null) {
-  if (n === null) return null;
-  return "₡" + Number(n).toLocaleString("es-CR");
-}
 
 /**
  * Tarjeta única para todo el marketplace: grilla de resultados y
@@ -44,7 +38,6 @@ export default function RanchoCard({
   sesionActiva,
   ancho,
   sizes,
-  conUnidad = true,
   prioridad,
 }: {
   rancho: Rancho;
@@ -76,7 +69,6 @@ export default function RanchoCard({
    * arrastra el 'evento' por defecto de la 0033, la barbería diría
    * «desde ₡1.500 por evento». El monto es cierto; la unidad, no.
    */
-  conUnidad?: boolean;
   /**
    * Si esta tarjeta se pelea por el ancho de banda con el resto de la
    * página (`loading="eager"` + `fetchPriority="high"` en su foto).
@@ -96,7 +88,6 @@ export default function RanchoCard({
   // un 307: cada clic en el directorio pagaba un viaje de ida y vuelta
   // antes de empezar a cargar. Ver src/lib/ruta-negocio.ts.
   const href = rutaDeNegocio(rancho);
-  const precio = fmtColones(rancho.precio_desde);
   // Cantón y provincia alcanzan: la dirección exacta se desbordaba y
   // quedaba cortada a media palabra.
   const ubicacion = [rancho.canton, rancho.provincia].filter(Boolean).join(", ");
@@ -265,31 +256,24 @@ export default function RanchoCard({
             </span>
           )}
 
-          <div className="mt-auto flex items-center justify-between gap-2 border-t border-aventurea-line/70 pt-2.5">
-            <span className="min-w-0 truncate text-[12.5px] text-aventurea-ink-soft">
-              {precio ? (
-                <>
-                  Desde <strong className="font-extrabold text-aventurea-ink">{precio}</strong>
-                  {/* La unidad se puede OMITIR, y a veces hay que hacerlo.
-                      `unidad_precio` arrastra el 'evento' que dejó por
-                      defecto la 0033, así que fuera del directorio de
-                      Eventos —en la portada, donde el mismo riel mezcla
-                      una barbería con un salón— «desde ₡1.500 por
-                      evento» debajo de una cafetería es falso. Quien
-                      monta la tarjeta decide si su contexto sostiene la
-                      unidad; por defecto se muestra, que es el
-                      comportamiento de siempre en el directorio. */}
-                  {conUnidad && (
-                    <span className="hidden sm:inline">
-                      {" "}
-                      {UNIDAD_PRECIO_LABEL[rancho.unidad_precio]}
-                    </span>
-                  )}
-                </>
-              ) : (
-                "Consultar"
-              )}
-            </span>
+          {/* ⚠️ ACÁ IBA «Desde ₡X» Y SE SACÓ A PEDIDO DEL DUEÑO (26 ago
+              2026): «en los CARDS quitá lo de desde y que sale el precio
+              más bajo».
+
+              El dato tenía un problema de fondo: `precio_desde` es UN
+              número para un negocio que vende MUCHAS cosas a precios
+              distintos. En un salón de eventos casi es el precio; en una
+              barbería con veinte servicios, «desde ₡5.000» es el corte
+              más barato y no dice nada de lo que la persona va a pagar
+              — pero le ancla la expectativa igual, y se la ancla mal.
+
+              El precio de verdad vive en la ficha, servicio por
+              servicio, que es donde se puede leer sin que engañe.
+
+              NO se tocó la ficha del negocio (`rancho-portal.tsx`) ni la
+              descripción que sale en Google (`lib/seo-negocio.ts`): ahí
+              el precio va con el contexto que lo hace cierto. */}
+          <div className="mt-auto flex items-center justify-end gap-2 border-t border-aventurea-line/70 pt-2.5">
             <span
               className={`shrink-0 text-[13px] font-extrabold ${
                 enPausa ? "text-aventurea-ink-soft" : "text-bookea-naranja-fuerte"

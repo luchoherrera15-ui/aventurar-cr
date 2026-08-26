@@ -186,7 +186,6 @@ export default function RielesCatalogo({
           // `unidad_precio` arrastra el 'evento' por defecto de la 0033,
           // así que «desde ₡1.500 por evento» debajo de una barbería
           // sería falso. El monto sí es cierto.
-          conUnidad={false}
           // Es la primera lista de la página: su primera foto es el LCP
           // medido y va con prioridad alta. Ninguna otra la pide, o
           // serían cinco imágenes compitiendo por el mismo ancho de
@@ -219,7 +218,6 @@ export default function RielesCatalogo({
           // por defecto de la 0033 sigue pegado a negocios que cobran
           // por servicio. Se muestra solo en Eventos y Hospedajes, que
           // es donde `unidad_precio` significa algo.
-          conUnidad={riel.vertical === "eventos" || riel.vertical === "hospedajes"}
           // La primera foto de la página pide prioridad UNA sola vez.
           prioridad={!conRecientes && i === 0}
           anchoTarjeta={ANCHO_TARJETA_PORTADA}

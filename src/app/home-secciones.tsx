@@ -69,11 +69,6 @@ const ALTO_VITRINA = "h-[280px] sm:h-[340px] lg:h-[420px]";
  */
 const DIAS_NUEVO = 30 * 24 * 60 * 60 * 1000;
 
-/** ₡ con separador de miles costarricense — igual que las cards. */
-function fmtColones(n: number) {
-  return "₡" + Number(n).toLocaleString("es-CR");
-}
-
 /**
  * ============================================================
  * LA VITRINA DEL HÉROE, CON SU DEGRADADO DE TRES NIVELES
@@ -224,11 +219,7 @@ function VitrinaRespaldo({ negocio }: { negocio: Rancho }) {
                 dejó por defecto la 0033 y que nadie tocó, así que
                 "desde ₡1 500 por evento" en una cafetería sería falso.
                 El monto sí es cierto; la unidad se queda en la ficha. */}
-            {typeof negocio.precio_desde === "number" && negocio.precio_desde > 0 && (
-              <span className="font-extrabold text-white">
-                Desde {fmtColones(negocio.precio_desde)}
-              </span>
-            )}
+            {/* ⚠️ Acá iba «Desde ₡X». Se sacó a pedido del dueño (26 ago 2026) — ver `rancho-card.tsx`. */}
           </span>
         </div>
       </Link>
@@ -335,7 +326,6 @@ export function RielLoNuevo({
         // debajo de una cafetería es falso. Es la misma regla que la
         // vitrina de arriba ya aplicaba; faltaba acá, que es justo la
         // sección para la que se escribió.
-        conUnidad={false}
         // Este riel ya NO es la primera lista de la portada: arriba
         // están los carriles por rubro de la pestaña activa. Marcar
         // también acá una foto como prioritaria sería sumar otra imagen

@@ -38,11 +38,6 @@ export type NegocioDestacado = {
   precioDesde?: number | null;
 };
 
-/** ₡ con separador de miles costarricense — igual que rancho-card. */
-function fmtColones(n: number) {
-  return "₡" + Number(n).toLocaleString("es-CR");
-}
-
 /** Cuánto se queda quieta cada tarjeta antes de empezar a cambiar. */
 const INTERVALO_MS = 4000;
 /**
@@ -284,11 +279,9 @@ export default function CarruselSuperDestacados({
               {/* El precio solo si el negocio lo publicó. Nunca un "a
                   consultar" acá arriba: en la vitrina, un dato de más
                   que no dice nada le quita aire al nombre. */}
-              {typeof n.precioDesde === "number" && n.precioDesde > 0 && (
-                <span className="font-extrabold text-white">
-                  Desde {fmtColones(n.precioDesde)}
-                </span>
-              )}
+              {/* ⚠️ Acá iba «Desde ₡X». Se sacó a pedido del dueño (26 ago 2026) — ver `rancho-card.tsx`. En la vitrina se
+                  nota más todavía: un número solo, sin el servicio al
+                  lado, no dice qué se lleva la persona por esa plata. */}
             </span>
           </div>
         </Link>

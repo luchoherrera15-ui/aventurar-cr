@@ -7,7 +7,7 @@ import { Colors, Spacing } from "@/constants/theme";
 import BarraSuperior from "@/components/barra-superior";
 import TarjetaNegocio from "@/components/tarjeta-negocio";
 import { Vacio } from "@/components/ui";
-import { CATEGORIA_LABEL, SUBCATEGORIAS, enConfiguracion, fmtColones } from "@/lib/types";
+import { CATEGORIA_LABEL, SUBCATEGORIAS, enConfiguracion } from "@/lib/types";
 import { type Fila } from "@/pantallas/explorar";
 
 /**
@@ -139,7 +139,6 @@ export default function FavoritosScreen() {
                 ubicacion={
                   [item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica"
                 }
-                precio={item.precio_desde !== null ? fmtColones(item.precio_desde) : null}
                 pausado={enConfiguracion(item.detalles)}
                 favorito
                 onToggleFavorito={() => quitar(item.id)}

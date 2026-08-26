@@ -173,8 +173,7 @@ export default function RestaurantesDirectorioScreen() {
         etiqueta={CATEGORIA_RESTAURANTE_LABEL[normalizarCategoriaRestaurante(n.categoria)]}
         calificacion={calificaciones[n.id] ?? null}
         ubicacion={[n.canton, n.provincia].filter(Boolean).join(", ") || null}
-        precio={null}
-        textoSinPrecio={rangoPrecio !== null ? RANGO_PRECIO_LABEL[rangoPrecio] : "Ver el menú"}
+        nota={rangoPrecio !== null ? RANGO_PRECIO_LABEL[rangoPrecio] : "Ver el menú"}
         distintivos={distintivos}
         demo={n.slug?.startsWith("demo-")}
         onPress={() => router.push(`/restaurantes/${n.id}` as never)}

@@ -48,7 +48,6 @@ export default function RielProveedores({
   favoritosIds,
   sesionActiva,
   cardExtra,
-  conUnidad = true,
   prioridad = true,
   anchoTarjeta = ANCHO_TARJETA,
   sizesTarjeta = SIZES_TARJETA,
@@ -87,7 +86,6 @@ export default function RielProveedores({
    * porque el riel mezcla verticales y `unidad_precio` arrastra el
    * 'evento' por defecto de la 0033.
    */
-  conUnidad?: boolean;
   /**
    * Si la PRIMERA tarjeta de este riel pelea por el ancho de banda
    * (`eager` + `fetchPriority=high` en su foto).
@@ -262,7 +260,6 @@ export default function RielProveedores({
               proximaLibre={r.categoria === "lugares" ? proximasLibres.get(r.id) : undefined}
               favoritoInicial={favoritosIds.has(r.id)}
               sesionActiva={sesionActiva}
-              conUnidad={conUnidad}
               prioridad={prioridad && i === 0}
             />
           </div>

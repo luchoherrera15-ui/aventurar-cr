@@ -223,7 +223,6 @@ export default function MapaScreen() {
                   foto={n.foto_url}
                   etiqueta={n.canton ?? n.provincia ?? "Costa Rica"}
                   ubicacion={[n.canton, n.provincia].filter(Boolean).join(", ") || null}
-                  precio={n.precio_desde ? fmtColones(n.precio_desde) : null}
                   nuevo={esNegocioNuevo(n.created_at)}
                   onPress={() => router.push(rutaDeNegocio(n.vertical, n.id) as never)}
                 />

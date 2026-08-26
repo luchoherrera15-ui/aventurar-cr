@@ -10,7 +10,6 @@ import { esNegocioNuevo } from "@/components/tag-nuevo";
 import { ChipCategoria, Vacio } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { Colors, Spacing } from "@/constants/theme";
-import { fmtColones } from "@/lib/types";
 import { normalizarTexto } from "@/lib/busqueda";
 import {
   CATEGORIA_HOSPEDAJE_LABEL,
@@ -244,8 +243,6 @@ export default function HospedajesDirectorioScreen() {
                   etiqueta={etiquetaCategoria(h.categoria)}
                   calificacion={calificaciones[h.id] ?? null}
                   ubicacion={[h.canton, h.provincia].filter(Boolean).join(", ") || null}
-                  precio={h.precio_desde ? fmtColones(h.precio_desde) : null}
-                  sufijoPrecio="por noche"
                   demo={h.slug?.startsWith("demo-")}
                   nuevo={esNegocioNuevo(h.created_at)}
                   onPress={() => router.push(`/rancho/${h.id}` as never)}

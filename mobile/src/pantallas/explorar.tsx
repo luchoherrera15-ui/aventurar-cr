@@ -366,7 +366,6 @@ export default function DirectorioScreen() {
         etiqueta={subLabel ?? CATEGORIA_LABEL[item.categoria]}
         calificacion={calificaciones[item.id] ?? null}
         ubicacion={[item.canton, item.provincia].filter(Boolean).join(", ") || "Costa Rica"}
-        precio={item.precio_desde !== null ? fmtColones(item.precio_desde) : null}
         // En pausa: se ve, no se abre — igual que la card de la web.
         pausado={enConfiguracion(item.detalles)}
         nuevo={esNegocioNuevo(item.created_at)}

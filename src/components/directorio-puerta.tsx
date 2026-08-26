@@ -156,7 +156,6 @@ export default async function DirectorioPuerta({
                    eventos comparten grilla, y `unidad_precio` arrastra el
                    'evento' por defecto de la 0033. El monto es cierto; la
                    unidad, no. Mismo criterio que la portada. */
-                conUnidad={false}
               />
             ))}
           </div>

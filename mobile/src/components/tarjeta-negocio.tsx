@@ -33,9 +33,7 @@ export default function TarjetaNegocio({
   iconoVacio = "image-outline",
   calificacion,
   ubicacion,
-  precio,
-  sufijoPrecio,
-  textoSinPrecio = "Consultar",
+  nota,
   distintivos,
   demo = false,
   nuevo = false,
@@ -52,11 +50,16 @@ export default function TarjetaNegocio({
   iconoVacio?: IconoNombre;
   calificacion?: { promedio: number; total: number } | null;
   ubicacion?: string | null;
-  /** Ya formateado en colones; `null` cae en `textoSinPrecio`. */
-  precio?: string | null;
-  /** Lo que sigue al monto: "por noche", "por persona"… */
-  sufijoPrecio?: string;
-  textoSinPrecio?: string;
+  /**
+   * Una nota corta bajo el nombre: el rango de precio de un
+   * restaurante, "Ver el menú", "Precios en línea".
+   *
+   * Antes se llamaba `textoSinPrecio` y era el respaldo de cuando no
+   * había precio. Al sacarse el precio (26 ago 2026) dejó de ser un
+   * respaldo y pasó a ser lo único que va en ese renglón — el nombre
+   * viejo ya no describía lo que hace.
+   */
+  nota?: string | null;
   /** Etiquetas de lo que se puede hacer acá ("Reservá mesa"). */
   distintivos?: string[];
   demo?: boolean;
@@ -178,19 +181,26 @@ export default function TarjetaNegocio({
           )}
         </View>
 
-        <Text style={styles.precio} numberOfLines={1}>
-          {pausado ? (
-            "En configuración"
-          ) : precio ? (
-            <>
-              <Text style={styles.precioMonto}>{precio}</Text>
-              {sufijoPrecio ? ` ${sufijoPrecio}` : ""}
-            </>
-          ) : (
-            textoSinPrecio
-          )}
-          {!!distintivos?.length && ` · ${distintivos.join(" · ")}`}
-        </Text>
+        {/* ⚠️ ACÁ IBA EL PRECIO. Se sacó a pedido del dueño (26 ago
+            2026) junto con el de las tarjetas de la web — la app y el
+            sitio tienen que contar lo mismo.
+
+            `precio_desde` es UN número para un negocio que vende muchas
+            cosas a precios distintos: en una barbería con veinte
+            servicios es el corte más barato, y no dice nada de lo que
+            la persona va a pagar. El precio de verdad está en la ficha,
+            servicio por servicio.
+
+            El renglón NO desaparece: sigue diciendo "En configuración"
+            cuando el negocio está pausado, y sigue mostrando los
+            distintivos. */}
+        {(pausado || !!nota || !!distintivos?.length) && (
+          <Text style={styles.precio} numberOfLines={1}>
+            {[pausado ? "En configuración" : null, pausado ? null : nota, ...(distintivos ?? [])]
+              .filter(Boolean)
+              .join(" · ")}
+          </Text>
+        )}
       </View>
     </Pressable>
   );

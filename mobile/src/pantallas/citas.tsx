@@ -20,7 +20,6 @@ import { esNegocioNuevo } from "@/components/tag-nuevo";
 import { Encabezado, Vacio } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
-import { fmtColones } from "@/lib/types";
 import { normalizarTexto } from "@/lib/busqueda";
 import {
   CATEGORIA_CITA_LABEL,
@@ -258,8 +257,7 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
       etiqueta={CATEGORIA_CITA_LABEL[normalizarCategoriaCita(n.categoria)]}
       calificacion={calificaciones[n.id] ?? null}
       ubicacion={[n.canton, n.provincia].filter(Boolean).join(", ") || null}
-      precio={n.precio_desde ? fmtColones(n.precio_desde) : null}
-      textoSinPrecio="Precios en línea"
+      nota="Precios en línea"
       demo={n.slug?.startsWith("demo-")}
       nuevo={esNegocioNuevo(n.created_at)}
       onPress={() => router.push(`/citas/${n.id}` as never)}

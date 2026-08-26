@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { COLUMNAS_CARD } from "@/lib/ranchos-publicos";
-import { enConfiguracion, UNIDAD_PRECIO_LABEL, type Rancho, type UnidadPrecio } from "@/app/mi-negocio/types";
+import { enConfiguracion, type Rancho } from "@/app/mi-negocio/types";
 import { categoriaGradiente, categoriaIcono, categoriaLabel } from "@/lib/categorias-vertical";
 import { rutaDeNegocio } from "@/lib/ruta-negocio";
 import { esDemo } from "@/lib/demo";
@@ -37,11 +37,6 @@ type NegocioVidriera = {
   icono: React.ReactNode;
   href: string;
 };
-
-function fmtColones(n: number | null): string | null {
-  if (n === null) return null;
-  return "₡" + Number(n).toLocaleString("es-CR");
-}
 
 /** Hasta 5, preferiendo no repetir vertical+categoría antes de repetir. */
 function elegirVariados(lista: Rancho[], tope: number): Rancho[] {
@@ -80,13 +75,14 @@ async function leerVidrieraMarketplace(): Promise<NegocioVidriera[]> {
 
   return elegidos.map((r) => {
     const vertical = r.vertical ?? "eventos";
-    const unidad = r.unidad_precio as UnidadPrecio | null;
-    const precio = fmtColones(r.precio_desde);
     return {
       id: r.id,
       nombre: r.nombre,
       categoriaTexto: categoriaLabel(vertical, r.categoria),
-      precioTexto: precio ? `Desde ${precio}${unidad ? ` ${UNIDAD_PRECIO_LABEL[unidad]}` : ""}` : null,
+      // ⚠️ Sin precio en la tarjeta. Se sacó a pedido del dueño (26 ago 2026) — ver `rancho-card.tsx`.
+      // Se deja en null en vez de borrar el campo: el mismo tipo lo
+      // consumen otras vistas y el pintado ya sabe no dibujar un null.
+      precioTexto: null,
       fotoUrl: r.foto_url ?? null,
       gradiente: categoriaGradiente(vertical, r.categoria),
       icono: categoriaIcono(vertical, r.categoria),

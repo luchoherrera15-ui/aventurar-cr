@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CRC } from "@/lib/food/tipos";
 import type { TarjetaFood } from "@/lib/food/tarjetas";
 import { IconCloche, IconPin } from "@/components/icons";
 import BotonFavorito from "./boton-favorito";
@@ -39,15 +38,12 @@ export default function RestauranteCard({
     fotoUrl,
     ubicacion,
     platos,
-    precioDesde,
-    precioConDescuento,
     descuentoPorcentaje,
     esNuevo,
     franjasProximas,
     franjasProximasEtiqueta,
   } = tarjeta;
 
-  const tieneOferta = precioConDescuento != null;
   const mejorDelDia = franjasProximas.reduce((max, f) => Math.max(max, f.descuento), 0);
 
   return (
@@ -147,25 +143,22 @@ export default function RestauranteCard({
           </div>
         )}
 
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-aventurea-line pt-4">
-          <div className="min-w-0">
-            {tieneOferta ? (
-              <p className="flex items-baseline gap-2">
-                <span className="text-[18px] font-extrabold text-aventurea-navy">
-                  {CRC.format(precioConDescuento!)}
-                </span>
-                <span className="text-[12.5px] text-aventurea-ink-soft line-through">
-                  {CRC.format(precioDesde!)}
-                </span>
-              </p>
-            ) : precioDesde != null ? (
-              <p className="text-[14px] font-bold text-aventurea-ink">
-                Desde {CRC.format(precioDesde)}
-              </p>
-            ) : (
-              <span aria-hidden />
-            )}
-          </div>
+        {/* ⚠️ ACÁ IBA EL PRECIO Y SE SACÓ A PEDIDO DEL DUEÑO (26 ago
+            2026), igual que en las tarjetas del marketplace.
+
+            Tenía las dos formas y las dos medían lo mismo: «Desde ₡X»
+            cuando no había oferta, y el par tachado cuando sí. Ese
+            número era `Math.min` de todos los platos del restaurante
+            (`lib/food/tarjetas.ts`), o sea el plato MÁS BARATO de la
+            carta — y presentado como si fuera lo que se va a pagar.
+            Con un café de ₡1.200 en la lista, un restaurante entero
+            quedaba anunciado «desde ₡1.200».
+
+            NO le cuesta nada al producto: el descuento por franja —que
+            es de lo que se trata FOOD— sigue arriba, en los chips de
+            horario con su −%, que es donde de verdad se lee. El precio
+            de cada plato está en la ficha, al lado del plato. */}
+        <div className="mt-4 flex items-center justify-end gap-3 border-t border-aventurea-line pt-4">
           <span className="shrink-0 text-[14px] font-extrabold text-aventurea-orange transition-transform group-hover:translate-x-0.5">
             Reservar →
           </span>
