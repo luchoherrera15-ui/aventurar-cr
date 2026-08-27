@@ -1,5 +1,4 @@
 import Link from "next/link";
-import LeyendaSellos from "@/components/home/leyenda-sellos";
 import RielProveedores from "@/components/riel-proveedores";
 import type { Calificacion } from "@/components/rancho-card";
 import type { RubroPortada } from "@/lib/rubros-portada";
@@ -193,19 +192,8 @@ export default function RielesCatalogo({
   // consulta: «lo más nuevo» es literalmente el principio de la lista.
   const recientes = conRecientes ? pintables.slice(0, TOPE_CARRIL) : [];
 
-  // Qué sellos hay DE VERDAD en pantalla. La leyenda no explica un
-  // sello que nadie va a ver: eso le enseña a la persona a buscar algo
-  // que no existe. Se mira `pintables`, que es lo que se dibuja, y no
-  // el catálogo entero.
-  const hayVerificados = pintables.some((n) => n.verificado && !n.info_publica);
-  const hayInfoPublica = pintables.some((n) => n.verificado && n.info_publica);
-
   return (
     <div className="flex flex-col gap-5 sm:gap-7">
-      {/* Antes del primer listado y no en el pie: tiene que leerse ANTES
-          de la primera tarjeta que lleva sello. Abajo llegaría cuando la
-          persona ya decidió. */}
-      <LeyendaSellos hayVerificados={hayVerificados} hayInfoPublica={hayInfoPublica} />
       {conRecientes && (
         <RielProveedores
           titulo="Recién publicados"

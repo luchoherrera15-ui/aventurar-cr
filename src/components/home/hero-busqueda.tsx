@@ -1,5 +1,6 @@
 import BuscadorHero from "@/components/home/buscador-hero";
 import RubrosIcono from "@/components/home/rubros-icono";
+import LeyendaSellos from "@/components/home/leyenda-sellos";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -66,6 +67,9 @@ export default function HeroBusqueda({
 
         <BuscadorHero />
         <RubrosIcono activo={rubroActivo} />
+        {/* Los dos renglones que explican los sellos de las tarjetas.
+            Acá y no sobre el primer carril: ver `leyenda-sellos.tsx`. */}
+        <LeyendaSellos />
       </div>
     </section>
   );
