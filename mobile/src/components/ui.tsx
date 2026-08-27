@@ -272,12 +272,20 @@ export function ChipCategoria({
   texto,
   activo,
   icono,
+  dibujo,
   apagado,
   onPress,
 }: {
   texto: string;
   activo: boolean;
   icono?: IconoNombre;
+  /**
+   * Un dibujo propio en lugar del Ionicon — para los rubros, que desde
+   * el 26 ago 2026 usan LOS MISMOS trazos que la web (ver
+   * `components/iconos-rubro.tsx`). Quien lo pasa decide el color según
+   * el estado, porque el chip no puede pintar un ReactNode ya armado.
+   */
+  dibujo?: React.ReactNode;
   /** El rubro existe en el catálogo pero todavía no tiene negocios:
    *  se ve (es vitrina) pero no responde al toque. */
   apagado?: boolean;
@@ -296,13 +304,13 @@ export function ChipCategoria({
         pressed && { opacity: 0.85 },
       ]}
     >
-      {icono ? (
+      {dibujo ?? (icono ? (
         <Ionicons
           name={icono}
           size={14}
           color={activo ? "#ffffff" : apagado ? Colors.inkMuted : Colors.accent}
         />
-      ) : null}
+      ) : null)}
       <Text
         numberOfLines={1}
         style={[

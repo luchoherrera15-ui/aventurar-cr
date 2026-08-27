@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { IconoRubro } from "@/components/iconos-rubro";
 import {
   ActivityIndicator,
   FlatList,
@@ -33,19 +34,19 @@ type IconoNombre = keyof typeof Ionicons.glyphMap;
 /**
  * Un ícono por rubro. Son los MISMOS conceptos que la portada web
  * (tijeras para belleza, poste para barbería, esmalte para uñas, loto
- * para spa, estetoscopio para consultorio): la web los dibuja a mano en
- * SVG y acá se toman de Ionicons, que es lo que la app ya usa en todas
- * las demás pantallas. Traer los SVG de la web habría sido un juego de
- * íconos paralelo para nueve dibujos.
+ * para spa, estetoscopio para consultorio).
+ *
+ * ⚠️ ANTES ACÁ HABÍA UN MAPA DE IONICONS (cut-outline, man-outline…) con
+ * un comentario defendiendo que traer los SVG de la web «habría sido un
+ * juego de íconos paralelo». El dueño decidió lo contrario (26 ago
+ * 2026): «la misma sintonía de íconos en el app, que se sincronice con
+ * la web». Y tiene razón en lo que importa: la silueta del ícono es lo
+ * primero que se reconoce de un producto, y el poste de barbero de la
+ * web y un "man-outline" acá eran dos productos distintos.
+ *
+ * Los trazos viven en `components/iconos-rubro.tsx`, copiados número
+ * por número de la web — no «parecidos».
  */
-const CATEGORIA_CITA_ICONO: Record<CategoriaCita, IconoNombre> = {
-  belleza: "cut-outline",
-  barberia: "man-outline",
-  unas: "hand-left-outline",
-  spa: "flower-outline",
-  consultorio: "medkit-outline",
-  otros: "ellipsis-horizontal-outline",
-};
 
 /**
  * Un rubro del riel: disco con ícono arriba, rótulo abajo.
@@ -56,12 +57,16 @@ const CATEGORIA_CITA_ICONO: Record<CategoriaCita, IconoNombre> = {
  */
 function RubroIcono({
   icono,
+  categoria,
   label,
   activo,
   apagado,
   onPress,
 }: {
-  icono: IconoNombre;
+  /** Un Ionicon suelto — solo lo usa el disco «Todos». */
+  icono?: IconoNombre;
+  /** El rubro: dibuja el MISMO trazo que la web (iconos-rubro.tsx). */
+  categoria?: CategoriaCita;
   label: string;
   activo: boolean;
   apagado?: boolean;
@@ -83,11 +88,20 @@ function RubroIcono({
           apagado && styles.rubroApagado,
         ]}
       >
-        <Ionicons
-          name={icono}
-          size={22}
-          color={activo ? "#ffffff" : Colors.navy}
-        />
+        {categoria ? (
+          <IconoRubro
+            vertical="citas"
+            categoria={categoria}
+            size={22}
+            color={activo ? "#ffffff" : Colors.navy}
+          />
+        ) : (
+          <Ionicons
+            name={icono ?? "apps-outline"}
+            size={22}
+            color={activo ? "#ffffff" : Colors.navy}
+          />
+        )}
       </View>
       <Text
         numberOfLines={1}
@@ -380,7 +394,7 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
               return (
                 <RubroIcono
                   key={c}
-                  icono={CATEGORIA_CITA_ICONO[c]}
+                  categoria={c}
                   label={CATEGORIA_CITA_LABEL[c]}
                   activo={categoriaActiva === c}
                   apagado={n === 0}

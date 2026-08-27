@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { IconoRubro } from "@/components/iconos-rubro";
 import {
   ActivityIndicator,
   FlatList,
@@ -464,7 +465,9 @@ export default function DirectorioScreen() {
             {CATEGORIAS.map((cat) => (
               <ChipCategoria
                 key={cat}
-                icono={CATEGORIA_ICONO[cat]}
+                // El MISMO trazo que la web para este rubro; el color
+                // sigue el estado igual que lo hacía el Ionicon.
+                dibujo={<IconoRubro vertical="eventos" categoria={cat} size={14} color={Colors.accent} />}
                 texto={CATEGORIA_LABEL[cat]}
                 activo={false}
                 onPress={() => elegirCategoria(cat)}
@@ -482,7 +485,14 @@ export default function DirectorioScreen() {
               <Text style={styles.volverTexto}>Volver</Text>
             </Pressable>
             <ChipCategoria
-              icono={CATEGORIA_ICONO[filtro]}
+              dibujo={
+                <IconoRubro
+                  vertical="eventos"
+                  categoria={filtro}
+                  size={14}
+                  color={!subcategoria ? "#ffffff" : Colors.accent}
+                />
+              }
               texto={`Todo (${totalCategoria})`}
               activo={!subcategoria}
               onPress={() => setSubcategoria("")}
