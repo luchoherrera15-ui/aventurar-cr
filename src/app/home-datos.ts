@@ -484,9 +484,9 @@ export type CatalogoPortada = {
  * acciones del admin revalidan el tag para no esperar ni eso.
  */
 const leerAprobadosCacheado = unstable_cache(
-  async (): Promise<Rancho[]> => {
+  async (demo: boolean): Promise<Rancho[]> => {
     const supabase = createAnonClient();
-    const { data } = await supabase
+    const consulta = supabase
       .from("ranchos")
       .select(COLUMNAS_CARD)
       .eq("estado", "aprobado")
@@ -509,24 +509,35 @@ const leerAprobadosCacheado = unstable_cache(
       // distinto a true, así que `eq("en_marketplace", true)` dejaría
       // afuera cualquier fila vieja con la columna en null. El default es
       // true, pero no se apuesta la portada entera a eso.
-      .neq("en_marketplace", false)
-      // Lo último publicado adelante: es el único orden que los datos
-      // sostienen hoy. Dentro de cada riel, `ordenar()` vuelve a
-      // acomodar poniendo los destacados primero.
+      //
+      // Y es EL MISMO EJE el que separa la demo: los negocios de muestra
+      // llevan la columna en false, así que la portada real los excluye
+      // con este `neq` y la portada de demostración los pide con el `eq`
+      // de abajo. Una sola columna, dos catálogos, cero código repetido.
       .order("created_at", { ascending: false });
+
+    const { data } = demo
+      ? await consulta.eq("en_marketplace", false)
+      : await consulta.neq("en_marketplace", false);
     return (data ?? []) as unknown as Rancho[];
   },
+  // ⚠️ EL MODO VA EN LA CLAVE. `unstable_cache` cachea por la clave que
+  // se le da MÁS los argumentos de la función, así que con `demo` como
+  // parámetro las dos listas se guardan por separado. Si el modo se
+  // hubiera leído de una variable de módulo en vez de recibirse por
+  // argumento, la primera visita habría dejado su catálogo cacheado
+  // para las dos portadas.
   ["catalogo-portada"],
   { revalidate: 60, tags: ["catalogo-portada"] },
 );
 
-export async function leerCatalogoPortada(): Promise<CatalogoPortada> {
+export async function leerCatalogoPortada(demo = false): Promise<CatalogoPortada> {
   // El catálogo (compartido, cacheado) y la sesión (propia, nunca
   // cacheada) en paralelo. `usuarioActual` es el helper deduplicado:
   // si otro componente de la misma página ya preguntó quién mira, esta
   // llamada no repite el viaje a /auth/v1/user.
   const [aprobadosCrudos, user] = await Promise.all([
-    leerAprobadosCacheado(),
+    leerAprobadosCacheado(demo),
     usuarioActual(),
   ]);
   const data = aprobadosCrudos;

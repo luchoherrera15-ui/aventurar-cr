@@ -91,6 +91,27 @@ const PASSWORD_DEMO = env.DEMO_ACCOUNTS_PASSWORD || "BookeaDemo2026!";
 const PREFIJO = "demo100-";
 const PADRON = 400;
 
+const FOTOS = JSON.parse(
+  readFileSync(path.join(raiz, "scripts", "fotos-demo-100.json"), "utf8"),
+);
+
+/**
+ * ⚠️ LOS IDS SE VERIFICARON UNO POR UNO ANTES DE GUARDARLOS.
+ *
+ * Un id de Unsplash inventado NO da error: da una imagen rota en la
+ * tarjeta, y con 99 fichas nadie las revisa a mano. Los 36 de
+ * `fotos-demo-100.json` devolvieron 200 con content-type de imagen.
+ *
+ * Unsplash y no Google Imágenes: lo segundo es material con derechos de
+ * terceros y enlazarlo sería usar fotos ajenas sin permiso. Unsplash es
+ * gratis para esto y ya está permitido en `next.config.ts`.
+ */
+const foto = (categoria, i) => {
+  const pool = FOTOS[categoria] ?? FOTOS.otros;
+  const id = pool[i % pool.length];
+  return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&q=70`;
+};
+
 const NEGOCIOS = JSON.parse(
   readFileSync(path.join(raiz, "scripts", "datos-demo-100.json"), "utf8"),
 );
@@ -104,7 +125,14 @@ function slugDe(nombre, i) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 48);
-  return `demo-${base || "negocio"}-${i}`;
+  // ⚠️ SIN el prefijo `demo-`. El dueño pidió «los cards iguales a los
+  // de Bookea normal», y `esDemo()` (lib/demo.ts) le pinta el aviso
+  // «Demo» a todo slug que empiece así.
+  //
+  // Lo que los mantiene separados NO es el slug ni ese aviso: es
+  // `en_marketplace = false`, que los saca de la portada real. La marca
+  // de lote en `detalles` queda para poder borrarlos.
+  return `${base || "negocio"}-${i}`;
 }
 
 function correoDe(nombre, i) {
@@ -272,7 +300,11 @@ async function main() {
     // ⚠️ Lo único que lo mantiene fuera del marketplace real.
     en_marketplace: false,
     verificado: false,
-    detalles: { demo: true, lote: "demo100" },
+    // `demo: true` NO va: es lo que dispara el aviso «Demo» en la
+    // tarjeta. Solo la marca de lote, que nadie muestra y sirve para
+    // identificar y borrar exactamente estas 99 filas.
+    detalles: { lote: "demo100" },
+    foto_url: foto(n.categoria, i),
   }));
   console.log("  negocios…");
   await enTandas("ranchos", filasNegocio, 100);

@@ -78,8 +78,28 @@ export const metadata: Metadata = {
  */
 export default async function Home({
   searchParams,
+  demo = false,
 }: {
   searchParams: Promise<{ [clave: string]: string | string[] | undefined }>;
+  /**
+   * ⚠️ EL MODO DEMOSTRACIÓN: LA MISMA PORTADA, CON EL OTRO CATÁLOGO.
+   *
+   * Pedido del dueño (27 ago 2026): «necesito el MISMO MISMO sitio de
+   * Bookea, solamente que lleno de demos, con los cards iguales a los
+   * de Bookea normal, todo igual».
+   *
+   * Primero le hice una página aparte y estaba mal: por más que reusara
+   * las mismas piezas, era OTRA pantalla — con su encabezado, su franja
+   * y su propio armado. Lo que se enseña en una demo tiene que ser el
+   * producto, no una imitación del producto.
+   *
+   * Así que la portada es UNA sola y este bandera cambia únicamente de
+   * dónde salen los negocios. Todo lo demás —el héroe, el buscador, los
+   * íconos de rubro, los carriles, la tarjeta— es literalmente el mismo
+   * código. Si mañana cambia la tarjeta, cambia en los dos a la vez,
+   * que es la única forma de que la demo no se despegue del producto.
+   */
+  demo?: boolean;
 }) {
   /**
    * ⚠️ `leerCenso()` VA ACÁ AUNQUE NO SE USE EN ESTE ARCHIVO.
@@ -98,7 +118,7 @@ export default async function Home({
    * archivo estático del CDN. Una de esas idas era esta.
    */
   const [catalogo, params] = await Promise.all([
-    leerCatalogoPortada(),
+    leerCatalogoPortada(demo),
     searchParams,
     leerCenso(),
   ]);
