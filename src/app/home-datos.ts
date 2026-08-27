@@ -490,6 +490,26 @@ const leerAprobadosCacheado = unstable_cache(
       .from("ranchos")
       .select(COLUMNAS_CARD)
       .eq("estado", "aprobado")
+      // ⚠️ `en_marketplace` DECIDE SI LA FILA ES UNA FICHA DEL
+      // DIRECTORIO, y hasta hoy la portada no lo miraba.
+      //
+      // La 0187 creó esa columna justo para eso —«¿esta fila es una
+      // ficha del directorio?»— y el censo de rubros SÍ la respetaba
+      // (`censo-rubros.ts:157`). O sea que los conteos y las tarjetas
+      // contestaban preguntas distintas: bastaba un negocio aprobado con
+      // la columna en false para que el encabezado dijera «3 negocios» y
+      // abajo hubiera cuatro.
+      //
+      // Estaba latente porque hoy los diez que la tienen en false están
+      // todos en `pendiente`. Deja de estarlo con la demo: sus negocios
+      // nacen APROBADOS —para poder navegarlos y reservarlos— y sin este
+      // filtro cien fichas de mentira enterrarían a los tres reales.
+      //
+      // `neq` y no `eq(true)`: en Postgres un NULL no es igual NI
+      // distinto a true, así que `eq("en_marketplace", true)` dejaría
+      // afuera cualquier fila vieja con la columna en null. El default es
+      // true, pero no se apuesta la portada entera a eso.
+      .neq("en_marketplace", false)
       // Lo último publicado adelante: es el único orden que los datos
       // sostienen hoy. Dentro de cada riel, `ordenar()` vuelve a
       // acomodar poniendo los destacados primero.
