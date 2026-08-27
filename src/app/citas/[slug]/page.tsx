@@ -2,7 +2,9 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createAnonClient, createClient } from "@/lib/supabase/server";
+import { usuarioActual } from "@/lib/auth";
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import { IconChatBubble } from "@/components/icons";
@@ -87,8 +89,47 @@ type NegocioCitas = RanchoPublico & { vertical: string };
  * negocio quedaba escrito en el HTML público de su ficha (ver el
  * comentario grande de @/lib/ranchos-publicos).
  */
+/**
+ * ⚠️ DOS CAPAS DE CACHÉ, CADA UNA CONTRA OTRO DESPERDICIO.
+ *
+ * `cache()` de React (afuera) deduplica DENTRO de una visita: esta
+ * página la pide en `generateMetadata` y otra vez en el cuerpo, y sin
+ * esa capa serían dos viajes por visita.
+ *
+ * `unstable_cache` (adentro) la comparte ENTRE visitas: la ficha de un
+ * negocio es idéntica para todo el mundo, y con la base en otra región
+ * ese viaje es parte de los ~1,3 s de TTFB que tenían las fichas
+ * cuando el dueño reportó la lentitud (26 ago 2026).
+ *
+ * ── EL CLIENTE ANÓNIMO NO ES OPCIONAL ───────────────────────────────
+ *
+ * Dentro de `unstable_cache` no se puede tocar `cookies()` — y con
+ * razón: lo que se guarde ahí SE LE SIRVE A CUALQUIERA. Acá es seguro
+ * porque la consulta ya filtra `estado = 'aprobado'` y las columnas son
+ * las públicas (`COLUMNAS_CITAS`, sin SINPE ni datos de cobro; ver el
+ * comentario grande de arriba). Nada de lo que entra depende de quién
+ * mira.
+ *
+ * El tag lleva el slug para que la edición de UN negocio no tire la
+ * caché de todos.
+ */
 const cargarNegocio = cache(async (slug: string): Promise<NegocioCitas | null> => {
-  const supabase = await createClient();
+  const leer = unstable_cache(
+    () => negocioDeLaBase(slug),
+    ["ficha-citas", slug],
+    { revalidate: 60, tags: ["negocio:" + slug] },
+  );
+  try {
+    return await leer();
+  } catch {
+    // Sin caché de datos disponible (build, entornos raros) se cae al
+    // viaje directo, que es lo que siempre hubo.
+    return negocioDeLaBase(slug);
+  }
+});
+
+async function negocioDeLaBase(slug: string): Promise<NegocioCitas | null> {
+  const supabase = createAnonClient();
   const buscarPor = (campo: "slug" | "id", valor: string) => (columnas: string) =>
     supabase
       .from("ranchos")
@@ -103,7 +144,7 @@ const cargarNegocio = cache(async (slug: string): Promise<NegocioCitas | null> =
     data = await pedirFila(buscarPor("id", slug), COLUMNAS_CITAS, COLUMNAS_CITAS_JOVENES);
   }
   return (data as unknown as NegocioCitas | null) ?? null;
-});
+}
 
 /** Lo que necesita el presentador de metadata, sacado de la fila pública. */
 function paraCompartir(negocio: NegocioCitas, slug: string): NegocioSeo {
@@ -162,16 +203,17 @@ export default async function NegocioCitasPage({
   const { slug } = await params;
   const supabase = await createClient();
 
-  // La sesión y el negocio, juntos: antes `auth.getUser()` esperaba sola
-  // antes de que arrancara siquiera la consulta del negocio. No depende
-  // una de la otra. La del negocio es la MISMA que ya pidió
-  // `generateMetadata` — `cargarNegocio` está cacheada, así que si esa
-  // ya volvió, acá no hay viaje.
-  const [sesion, negocio] = await Promise.all([
-    supabase.auth.getUser(),
+  // La sesión y el negocio, juntos: no depende una de la otra.
+  //
+  // ⚠️ `usuarioActual()` y no `supabase.auth.getUser()`. Ese método
+  // manda el token al servidor de auth y ESPERA (~150 ms), y ese mismo
+  // trabajo YA lo hizo el middleware en esta misma petición. El helper
+  // lee la sesión localmente y además está deduplicado por render — el
+  // porqué completo, con su cadena de confianza, está en lib/auth.ts.
+  const [user, negocio] = await Promise.all([
+    usuarioActual(),
     cargarNegocio(slug),
   ]);
-  const user = sesion.data.user;
 
   if (!negocio) notFound();
 

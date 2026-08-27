@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { selloDe } from "@/components/tag-sello";
 import { IconoRubro } from "@/components/iconos-rubro";
 import {
   ActivityIndicator,
@@ -76,6 +77,10 @@ export type Fila = Pick<
   /** Opcional: los filtros de invitados lo usan si viene en el select;
    * favoritos.tsx no lo trae y la tarjeta no lo necesita. */
   capacidad_max?: number | null;
+  /** El sello de la tarjeta: los mismos que la web (0214/0217). */
+  verificado?: boolean | null;
+  info_publica?: boolean | null;
+
   /** Opcional por lo mismo: acá vive `en_configuracion`, la pausa que
    * el dueño le pone a su publicación. Ver `enConfiguracion`. */
   detalles?: Record<string, unknown> | null;
@@ -370,6 +375,7 @@ export default function DirectorioScreen() {
         // En pausa: se ve, no se abre — igual que la card de la web.
         pausado={enConfiguracion(item.detalles)}
         nuevo={esNegocioNuevo(item.created_at)}
+        sello={selloDe(item)}
         favorito={favoritos.has(item.id)}
         onToggleFavorito={() => alternarFavorito(item.id)}
         onPress={() => router.push(`/rancho/${item.id}`)}

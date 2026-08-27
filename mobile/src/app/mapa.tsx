@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { selloDe } from "@/components/tag-sello";
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, View } from "react-native";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -43,6 +44,10 @@ const REGION_INICIAL: RegionMapa = {
 };
 
 type NegocioMapa = {
+  /** El sello de la tarjeta: los mismos que la web (0214/0217). */
+  verificado?: boolean | null;
+  info_publica?: boolean | null;
+
   id: string;
   nombre: string;
   vertical: string | null;
@@ -84,7 +89,7 @@ export default function MapaScreen() {
     let q = supabase
       .from("ranchos")
       .select(
-        "id, nombre, vertical, categoria, provincia, canton, foto_url, precio_desde, latitud, longitud, created_at",
+        "id, nombre, vertical, categoria, provincia, canton, foto_url, precio_desde, latitud, longitud, created_at, verificado, info_publica",
       )
       .eq("estado", "aprobado")
       // Sin coordenadas no hay nada que poner en el mapa.
@@ -224,6 +229,7 @@ export default function MapaScreen() {
                   etiqueta={n.canton ?? n.provincia ?? "Costa Rica"}
                   ubicacion={[n.canton, n.provincia].filter(Boolean).join(", ") || null}
                   nuevo={esNegocioNuevo(n.created_at)}
+                  sello={selloDe(n)}
                   onPress={() => router.push(rutaDeNegocio(n.vertical, n.id) as never)}
                 />
               </View>

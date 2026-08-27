@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { verificarAccesoRancho } from "@/lib/auth";
 import { extraerCoordenadas } from "@/lib/mapas";
 import { camposDeCategoria, COBERTURA, type Campo, type DetallesServicio } from "../../campos-servicio";
@@ -87,7 +87,10 @@ export async function actualizarRancho(
   // (ver LLAVES_DE_SISTEMA).
   const { data: ranchoVertical } = await supabase
     .from("ranchos")
-    .select("vertical, detalles")
+    // `slug` viaja en el mismo select para poder reventar la caché
+    // de la ficha pública al final (updateTag). Sin él, ese tag nunca
+    // dispararía y el dueño no vería su cambio hasta pasado un minuto.
+    .select("vertical, detalles, slug")
     .eq("id", ranchoId)
     .maybeSingle();
   const vertical = (ranchoVertical?.vertical as string | undefined) ?? "eventos";
@@ -289,5 +292,27 @@ export async function actualizarRancho(
   revalidatePath("/mi-negocio", "layout");
   revalidatePath("/");
   revalidatePath(`/eventos/${ranchoId}`);
+
+  /**
+   * ⚠️ SIN ESTO EL DUEÑO GUARDA Y NO VE SU CAMBIO HASTA UN MINUTO
+   * DESPUÉS.
+   *
+   * Desde el 26 ago 2026 la ficha pública vive 60 s en la caché de
+   * datos (ver `app/citas/[slug]/page.tsx`) y el catálogo de la portada
+   * también. `revalidatePath` tira el HTML pero NO esa caché: la página
+   * se volvería a generar leyendo los MISMOS datos viejos.
+   *
+   * Y es peor que lento: quien acaba de cambiar su precio lo ve igual
+   * que antes y guarda otra vez, creyendo que no se aplicó.
+   *
+   * El tag del negocio lleva su slug para no tirar la caché de todos
+   * por la edición de uno. Se lee de la fila que ya se consultó arriba
+   * — si por algún motivo no vino, se salta: perder los 60 s es
+   * aceptable, reventar el guardado no.
+   */
+  const slugDelNegocio = (ranchoVertical as { slug?: string | null } | null)?.slug;
+  if (slugDelNegocio) updateTag(`negocio:${slugDelNegocio}`);
+  updateTag("catalogo-portada");
+
   return { ok: true };
 }

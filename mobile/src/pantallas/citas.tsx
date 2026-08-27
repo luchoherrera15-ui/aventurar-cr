@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { selloDe } from "@/components/tag-sello";
 import { IconoRubro } from "@/components/iconos-rubro";
 import {
   ActivityIndicator,
@@ -114,6 +115,10 @@ function RubroIcono({
 }
 
 type Negocio = {
+  /** El sello de la tarjeta: los mismos que la web (0214/0217). */
+  verificado?: boolean | null;
+  info_publica?: boolean | null;
+
   id: string;
   nombre: string;
   slug: string | null;
@@ -171,7 +176,7 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
     const [{ data: filas, error: errorNegocios }, { data: califs }] = await Promise.all([
       supabase
         .from("ranchos")
-        .select("id, nombre, slug, categoria, subcategoria, descripcion, provincia, canton, foto_url, precio_desde, created_at")
+        .select("id, nombre, slug, categoria, subcategoria, descripcion, provincia, canton, foto_url, precio_desde, created_at, verificado, info_publica")
         .eq("vertical", "citas")
         .eq("estado", "aprobado")
         .order("created_at", { ascending: false }),
@@ -274,6 +279,7 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
       nota="Precios en línea"
       demo={n.slug?.startsWith("demo-")}
       nuevo={esNegocioNuevo(n.created_at)}
+      sello={selloDe(n)}
       onPress={() => router.push(`/citas/${n.id}` as never)}
     />
   );

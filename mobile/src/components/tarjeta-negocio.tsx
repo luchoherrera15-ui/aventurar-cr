@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import TagNuevo from "@/components/tag-nuevo";
+import TagSello, { type EstadoSello } from "@/components/tag-sello";
 import { Colors, Fonts, Radios, Sombras, Spacing } from "@/constants/theme";
 
 type IconoNombre = keyof typeof Ionicons.glyphMap;
@@ -54,6 +55,7 @@ export default function TarjetaNegocio({
   distintivos,
   demo = false,
   nuevo = false,
+  sello = null,
   pausado = false,
   ancho = "completo",
   favorito,
@@ -83,6 +85,12 @@ export default function TarjetaNegocio({
   /** Se registró hace poco: lleva el tag "NUEVO" con su punto verde
    *  (ver `esNegocioNuevo` en components/tag-nuevo.tsx). */
   nuevo?: boolean;
+  /**
+   * «Verificado» o «Info pública» — el mismo sello que la web pinta en
+   * sus tarjetas (ver `components/tag-sello.tsx`). `null` = el negocio
+   * no está verificado y no lleva ninguno.
+   */
+  sello?: EstadoSello | null;
   /**
    * En pausa (`detalles.en_configuracion`): el dueño todavía la está
    * armando. Se sigue viendo en el directorio pero NO se abre — igual
@@ -161,12 +169,15 @@ export default function TarjetaNegocio({
           )}
         </View>
 
-        {/* El tag va ABAJO de la foto, adentro — pedido textual. Es el
-            primero del sistema de tags; los que vengan se suman a esta
-            misma fila. */}
-        {nuevo && !pausado && (
+        {/* El tag va ABAJO de la foto, adentro — pedido textual.
+            ⚠️ EL SELLO LE GANA EL PUESTO A «NUEVO», igual que en la web.
+            Las dos etiquetas dicen cosas opuestas: «Nuevo» es «todavía
+            no sabemos nada de esto» y «Verificado» es «lo comprobamos».
+            Un negocio puede ser las dos cosas en la base; en la tarjeta
+            gana el que aporta confianza. */}
+        {!pausado && (sello || nuevo) && (
           <View style={styles.tagsFoto}>
-            <TagNuevo />
+            {sello ? <TagSello estado={sello} /> : <TagNuevo />}
           </View>
         )}
       </View>

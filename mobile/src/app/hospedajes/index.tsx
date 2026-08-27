@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { selloDe } from "@/components/tag-sello";
 import { ActivityIndicator, FlatList, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import BarraSuperior from "@/components/barra-superior";
@@ -19,6 +20,10 @@ import {
 } from "@/lib/hospedajes";
 
 type Hospedaje = {
+  /** El sello de la tarjeta: los mismos que la web (0214/0217). */
+  verificado?: boolean | null;
+  info_publica?: boolean | null;
+
   id: string;
   nombre: string;
   slug: string | null;
@@ -61,7 +66,7 @@ export default function HospedajesDirectorioScreen() {
     const [{ data: filas, error: errorHospedajes }, { data: califs }] = await Promise.all([
       supabase
         .from("ranchos")
-        .select("id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde, created_at")
+        .select("id, nombre, slug, categoria, descripcion, provincia, canton, foto_url, precio_desde, created_at, verificado, info_publica")
         .eq("vertical", "hospedajes")
         .eq("estado", "aprobado")
         .order("created_at", { ascending: false }),
@@ -245,6 +250,7 @@ export default function HospedajesDirectorioScreen() {
                   ubicacion={[h.canton, h.provincia].filter(Boolean).join(", ") || null}
                   demo={h.slug?.startsWith("demo-")}
                   nuevo={esNegocioNuevo(h.created_at)}
+                  sello={selloDe(h)}
                   onPress={() => router.push(`/rancho/${h.id}` as never)}
                 />
               )}

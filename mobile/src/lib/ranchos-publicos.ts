@@ -48,7 +48,7 @@ export const COLUMNAS_COBRO =
 export const COLUMNAS_CARD =
   "id, slug, nombre, categoria, subcategoria, vertical, provincia, canton, " +
   "capacidad_min, capacidad_max, precio_desde, unidad_precio, foto_url, " +
-  "detalles, estado, destacado_orden, created_at";
+  "detalles, estado, destacado_orden, created_at, verificado, info_publica";
 
 /**
  * Lo que pinta la ficha pública de un negocio de Eventos
