@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { categoriaIcono } from "@/lib/categorias-vertical";
-import { IconCompass, IconMail, IconSparkles } from "@/components/icons";
+import { IconMail, IconSparkles } from "@/components/icons";
 import { leerCenso } from "@/lib/censo-rubros";
 import { RUBROS_PORTADA, urlDeRubro } from "@/lib/rubros-portada";
 
@@ -129,41 +129,17 @@ export default async function RubrosIcono({
       className="mt-6 flex justify-start gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:justify-center"
       style={{ scrollbarWidth: "none" }}
     >
-      {/* ════════════════════════════════════════════════════════════
-          «TODOS» — LA VUELTA VISIBLE (pedido del dueño, 26 ago 2026)
-          ════════════════════════════════════════════════════════════
+      {/* ⚠️ ACÁ VIVIÓ UN DISCO «TODOS» DURANTE UNAS HORAS (26 ago 2026).
+          El dueño lo pidió como vuelta visible del filtro y él mismo lo
+          sacó al verlo: «descuadra todo». Tenía razón — su ícono no
+          venía de `categoriaIcono` como el resto y rompía la fila.
 
-          El gesto de volver YA EXISTÍA: el rubro activo apunta a «/» y
-          tocarlo de nuevo quita el filtro. Se comprobó en el HTML antes
-          de tocar nada — el href del activo es literalmente «/».
-
-          El problema no era el mecanismo sino que ES INVISIBLE: nada
-          le dice a nadie que el ícono prendido se apaga tocándolo. El
-          dueño lo vivió como «no hay forma de retroceder», que es el
-          veredicto que importa — una salida que hay que adivinar no es
-          una salida.
-
-          Este disco es la señal explícita. El toggle se queda porque ya
-          está aprendido por quien lo descubrió, pero deja de ser la
-          ÚNICA puerta. Va primero y no al final: es el estado por
-          defecto de la página, no un rubro más. */}
-      <Link
-        href="/"
-        aria-current={activo === null ? "true" : undefined}
-        className={`${DISCO_ENVOLTORIO} ${activo === null ? "bg-white/80" : ""}`}
-      >
-        <span
-          aria-hidden
-          className={`${DISCO} ${activo === null ? "ring-2 ring-[color:var(--navy)] ring-offset-2 ring-offset-transparent" : ""}`}
-        >
-          <IconCompass className="h-6 w-6" />
-        </span>
-        <span className={`${ROTULO} ${activo === null ? "text-[color:var(--navy)]" : ""}`}>
-          Todos
-        </span>
-      </Link>
-
-      <Separador />
+          La vuelta queda SOLO en el gesto: el rubro activo apunta a «/»
+          y tocarlo de nuevo quita el filtro (ver `DiscoRubro`). Si
+          alguien vuelve a pedir «no hay forma de volver a todos», la
+          respuesta NO es revivir este disco: es hacer visible el gesto
+          (un rótulo bajo el activo, un aro que invite), no sumar una
+          ficha que compite con los rubros reales. */}
 
       {/* IZQUIERDA · lo que se reserva por hora: barbería, uñas, spa… */}
       {deCitas.map((r) => (
