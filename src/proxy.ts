@@ -33,33 +33,26 @@ import { NextResponse, type NextRequest } from "next/server";
  * sitio principal tiene que volver a iniciar sesión acá — pendiente
  * para cuando food.bookea.lat maneje reservas reales, no solo el demo.
  */
-function esHostFood(host: string): boolean {
-  return host.split(":")[0] === "food.bookea.lat";
-}
 
 export default async function proxy(request: NextRequest) {
-  const host = request.headers.get("host") ?? "";
-  if (esHostFood(host)) {
-    const { pathname } = request.nextUrl;
-    const yaResuelta =
-      pathname.startsWith("/food") ||
-      pathname.startsWith("/_next") ||
-      pathname.startsWith("/api") ||
-      // /cuenta pasa TAL CUAL: es la pantalla de acceso compartida de
-      // todo Bookea y la ficha de un restaurante manda ahí a quien
-      // quiere reservar (`/cuenta?volver=food:slug`). Sin esta
-      // excepción, food.bookea.lat/cuenta se reescribía a /food/cuenta
-      // —que no existe— y el login moría en un 404 (visto en vivo el
-      // 2026-08-20). La cookie de sesión ya alcanza al subdominio.
-      pathname.startsWith("/cuenta") ||
-      /\.[a-z0-9]+$/i.test(pathname); // archivos estáticos: favicon.ico, robots.txt...
-    if (!yaResuelta) {
-      const url = request.nextUrl.clone();
-      url.pathname = `/food${pathname === "/" ? "" : pathname}`;
-      return NextResponse.rewrite(url);
-    }
-  }
-
+  /**
+   * ⚠️ ACÁ VIVÍA EL SUBDOMINIO food.bookea.lat, Y SE APAGÓ.
+   *
+   * Decisión del dueño (27 ago 2026): «desactivá todo lo que tenga que
+   * ver con Bookea Foods, lo haremos en otro desde 0».
+   *
+   * Eran siete líneas que reescribían food.bookea.lat/loquesea hacia
+   * /food/loquesea. Sin ellas ese host —si sigue apuntando acá— sirve
+   * el marketplace normal, que es lo correcto mientras FOOD no exista.
+   *
+   * El código de FOOD no se borró: está apagado desde
+   * , y ahí queda anotado que esto también
+   * hay que revertirlo si algún día se vuelve a prender.
+   *
+   * Conviene además sacar el dominio del proyecto en Vercel: un alias
+   * que apunta acá y sirve otra cosa confunde más que un dominio que
+   * no resuelve.
+   */
   const path = request.nextUrl.pathname;
   const isAdminRoute = path.startsWith("/admin") && path !== "/admin/login";
   const isMiRanchoRoute =

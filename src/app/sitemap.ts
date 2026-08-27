@@ -71,7 +71,9 @@ const SECCIONES: { ruta: string; prioridad: number; frecuencia: "daily" | "weekl
     // aparece en la navegación principal) pero SÍ quiere clientes
     // reales por buscador — por eso va acá con sus propias fichas
     // abajo, igual criterio que /restaurantes.
-    { ruta: "/food", prioridad: 0.7, frecuencia: "daily" },
+    // ⚠️ `/food` salió del sitemap: Bookea Food se apagó (27 ago 2026,
+    // ver src/lib/food-apagado.ts). Dejarla acá le pediría a Google que
+    // indexe una ruta que hoy devuelve 404.
     { ruta: "/lealtad", prioridad: 0.7, frecuencia: "weekly" },
     { ruta: "/invitaciones", prioridad: 0.7, frecuencia: "weekly" },
     { ruta: "/publicar", prioridad: 0.6, frecuencia: "monthly" },
@@ -140,26 +142,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     fichas = [];
   }
 
-  // Las fichas de FOOD.BOOKEA: tabla propia (food_businesses), no
-  // `ranchos` — misma lógica de "sin esto no falla, sale sin ellas".
-  let fichasFood: MetadataRoute.Sitemap = [];
-  try {
-    const supabase = createAnonClient();
-    const { data } = await supabase
-      .from("food_businesses")
-      .select("slug, created_at")
-      .eq("activo", true)
-      .limit(MAX_FICHAS);
-
-    fichasFood = ((data ?? []) as { slug: string; created_at: string | null }[]).map((f) => ({
-      url: urlSitio(`/food/restaurante/${f.slug}`),
-      lastModified: f.created_at ? new Date(f.created_at) : ahora,
-      changeFrequency: "weekly" as const,
-      priority: 0.7,
-    }));
-  } catch {
-    fichasFood = [];
-  }
+  // ⚠️ ACÁ SE LEÍAN LAS FICHAS DE FOOD (`food_businesses`) PARA EL
+  // SITEMAP. Bookea Food se apagó el 27 ago 2026 —ver
+  // `src/lib/food-apagado.ts`— así que esas URLs devuelven 404 y
+  // pedirle a Google que las visite sería mandarlo a la nada.
+  //
+  // La consulta se va entera, no solo las URLs: era una ida a Supabase
+  // en cada generación del sitemap para una tabla que este sitio ya no
+  // sirve.
+  const fichasFood: MetadataRoute.Sitemap = [];
 
   return [...secciones, ...fichas, ...fichasFood];
 }

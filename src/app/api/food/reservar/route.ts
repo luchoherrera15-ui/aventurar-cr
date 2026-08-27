@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { FOOD_APAGADO } from "@/lib/food-apagado";
 import { createAnonClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -41,6 +42,21 @@ export function OPTIONS() {
 }
 
 export async function POST(req: Request) {
+  // ⚠️ BOOKEA FOOD ESTÁ APAGADO (27 ago 2026). Ver
+  // `src/lib/food-apagado.ts`: el producto se rehace desde cero en su
+  // propio proyecto y este puente dejó de servirse.
+  //
+  // 410 y no 404: 410 significa «existía y se fue a propósito», que es
+  // exactamente lo que pasó. Un 404 le diría a la app que se equivocó
+  // de dirección.
+  if (FOOD_APAGADO) {
+    return NextResponse.json(
+      { error: "Bookea Food ya no se atiende desde este servidor." },
+      { status: 410 },
+    );
+  }
+
+
   const auth = req.headers.get("authorization") ?? "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
   if (!token) {

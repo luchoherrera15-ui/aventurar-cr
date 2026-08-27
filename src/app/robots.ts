@@ -32,11 +32,11 @@ export default function robots(): MetadataRoute.Robots {
         "/cuenta",
         "/mensajes",
         "/lealtad/panel",
-        // FOOD.BOOKEA: el panel del restaurante y las reservas de cada
-        // cliente son privados, igual criterio que /cuenta arriba.
-        "/food/negocio",
-        "/food/mis-reservas",
-        "/food/reserva",
+        // ⚠️ Acá había tres reglas de FOOD. Bookea Food se apagó el 27
+        // ago 2026 (ver src/lib/food-apagado.ts): todo /food/* devuelve
+        // 404, así que no hay nada que esconderle a Google. Se dejan
+        // fuera en vez de comentadas para que este archivo siga
+        // describiendo el sitio que existe hoy.
         // Endpoints y flujos que no son páginas.
         "/api/",
         "/auth",
