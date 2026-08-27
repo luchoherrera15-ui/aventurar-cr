@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { tieneNegocioPropio } from "@/lib/negocio-propio";
+import { usuarioActual } from "@/lib/auth";
 import MenuCuentaPortada from "./menu-cuenta-portada";
 
 /**
@@ -51,9 +52,11 @@ async function cerrarSesionPortada() {
 
 export default async function AccionesPortada() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // `usuarioActual()` y no un `getUser()` propio: es el helper
+  // deduplicado (ver lib/auth.ts) — el middleware ya validó la sesión
+  // en esta petición y el resto de la página comparte esta misma
+  // respuesta sin volver a la red.
+  const user = await usuarioActual();
 
   if (!user) {
     return (

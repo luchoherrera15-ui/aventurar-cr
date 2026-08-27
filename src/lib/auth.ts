@@ -26,10 +26,37 @@ import { accesoRanchoCon, resolverAccesoLealtad } from "@/lib/lealtad/acceso";
  */
 export const usuarioActual = cache(async () => {
   const supabase = await createClient();
+
+  /**
+   * ⚠️ `getSession()` Y NO `getUser()` — Y POR QUÉ ACÁ ES SEGURO.
+   *
+   * `getUser()` manda el token al servidor de auth y ESPERA: ~150 ms de
+   * red por visita para quien tiene sesión. Pero ese mismo trabajo ya
+   * lo hizo EL MIDDLEWARE en esta misma petición (src/proxy.ts valida
+   * con `getUser()` toda petición que trae cookie de sesión). Repetirlo
+   * acá era pagar dos veces el mismo peaje — en la URL más visitada del
+   * sitio, y justo para la gente con sesión, que es la que más vuelve.
+   *
+   * `getSession()` lee la cookie localmente, sin red. La cadena de
+   * confianza que lo hace seguro:
+   *
+   *   1. El middleware YA validó este token contra Supabase en esta
+   *      misma petición. Un token revocado o vencido no llega acá.
+   *   2. Todo lo que este `user` habilita a LEER O ESCRIBIR lo decide
+   *      la RLS en la base con el JWT real: un id falsificado en la
+   *      cookie no pasa una sola política.
+   *   3. Lo que se decide con esto en el servidor es PRESENTACIÓN: qué
+   *      nombre saludar, qué favoritos pintar, qué botón mostrar.
+   *
+   * Lo que NO debe colgarse de acá: decisiones de privilegio.
+   * `requireAdmin()` (abajo) sigue con su `getUser()` propio a
+   * propósito — para dejar entrar al panel de administración, el viaje
+   * a la fuente se paga.
+   */
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+    data: { session },
+  } = await supabase.auth.getSession();
+  return session?.user ?? null;
 });
 
 /**
