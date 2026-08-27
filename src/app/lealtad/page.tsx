@@ -304,7 +304,9 @@ export default async function LealtadPage() {
             <div className="mt-8">
               <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
                 <BotonCrearPase variante="primario" grande>
-                  ¡Creá tu tarjeta de fidelidad gratis! <span aria-hidden>→</span>
+                  ¡Creá tu tarjeta de fidelidad{" "}
+                  <span className="palabra-gratis">gratis</span>!{" "}
+                  <span aria-hidden>→</span>
                 </BotonCrearPase>
                 <BotonAyudaPersonalizada grande />
               </div>
@@ -788,7 +790,9 @@ export default async function LealtadPage() {
             </p>
             <div className="mt-9">
               <BotonCrearPase variante="oscuro">
-                ¡Creá tu tarjeta de fidelidad gratis! <span aria-hidden>→</span>
+                ¡Creá tu tarjeta de fidelidad{" "}
+                <span className="palabra-gratis palabra-gratis--sobre-claro">gratis</span>!{" "}
+                <span aria-hidden>→</span>
               </BotonCrearPase>
             </div>
           </div>

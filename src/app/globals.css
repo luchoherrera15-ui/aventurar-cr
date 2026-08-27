@@ -2065,3 +2065,156 @@ body {
   color: rgba(255, 255, 255, 0.45);
 }
 
+
+/* ═══════════════════════════════════════════════════════════════════
+   LA PALABRA «GRATIS» DEL BOTÓN DE LEALTAD
+   ═══════════════════════════════════════════════════════════════════
+
+   Pedido del dueño (27 ago 2026): «esa palabra GRATIS ponela más
+   grande y como que brilla por ratos, y al pasar el mouse por encima
+   tiene efecto de hacerse grande y salirse del botón».
+
+   ── POR QUÉ CSS Y NO UN COMPONENTE CLIENTE ────────────────────────
+   `BotonCrearPase` es de SERVIDOR: un `<Link>` de verdad que se puede
+   abrir en otra pestaña, copiar e indexar. Animarlo con JavaScript lo
+   habría convertido en cliente y le habría quitado esas cuatro cosas
+   por un brillo.
+
+   ── «POR RATOS», NO SIEMPRE ───────────────────────────────────────
+   El destello dura 1,1 s dentro de un ciclo de 6: el resto del tiempo
+   la palabra está quieta. Un brillo continuo deja de leerse como un
+   énfasis y pasa a ser ruido — y en un botón que ya es el único
+   llamado a la acción de la pantalla, compite consigo mismo.
+
+   ── SALIRSE DEL BOTÓN, DE VERDAD ──────────────────────────────────
+   Al crecer, la palabra desborda la caja del botón. Funciona porque
+   nada en el camino la recorta: el `<Link>` no lleva `overflow`, y la
+   sección que sí lo lleva está a más de cien píxeles de distancia.
+   `display: inline-block` es lo que hace que `transform` la agarre —
+   un `<span>` en línea ignora `scale`. */
+
+.palabra-gratis {
+  display: inline-block;
+  /* Relativo al botón (`em`, no `px`): el del héroe es de 18px y el
+     del cierre de 14px, y la palabra tiene que crecer proporcional en
+     los dos. */
+  font-size: 1.22em;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  /* `will-change` acá y no en el hover: declararlo recién al pasar el
+     mouse llega tarde, el navegador ya empezó a componer. */
+  will-change: transform;
+  transform-origin: center;
+  transition:
+    transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    color 160ms ease,
+    text-shadow 220ms ease;
+  animation: destello-gratis 6s ease-in-out infinite;
+}
+
+/* El botón oscuro va sobre fondo claro: ahí un brillo blanco no se ve
+   y hay que apagarlo. La clase la pone el propio botón. */
+.palabra-gratis--sobre-claro {
+  animation-name: destello-gratis-claro;
+}
+
+/* Crece y se sale al pasar por el BOTÓN, no por la palabra: apuntar al
+   `:hover` de la palabra haría que se escape del cursor y volviera a
+   achicarse sola, temblando. */
+/* ⚠️ LOS NÚMEROS SALEN DE UNA MEDICIÓN, NO DEL OJO.
+
+   El botón del héroe mide 69 px de alto y la caja de la palabra 33.
+   Con `scale(1.42)` la palabra llegaba a 47 px: crecía, sí, pero se
+   quedaba ADENTRO — el efecto que el dueño pidió («salirse del botón»)
+   no pasaba. Para romper el borde hace falta pasar de 69/33 = 2,09×,
+   o ayudarse con un desplazamiento.
+
+   Se hacen las dos cosas: crece 2× y sube 0,4em. Así rompe el borde de
+   ARRIBA y queda flotando sobre el botón, en vez de desbordar por los
+   cuatro lados a la vez — que se lee como un error de maquetación y no
+   como un gesto. */
+.grupo-gratis:hover .palabra-gratis,
+.grupo-gratis:focus-visible .palabra-gratis {
+  /* ⚠️ EL SALTO HACIA ARRIBA NO ES DECORACIÓN: ES LO QUE EVITA QUE
+     LA PALABRA TAPE EL RESTO DE LA FRASE.
+
+     Con `scale(2) translateY(-0.4em)` crecía y salía del botón, sí,
+     pero al ensancharse al doble se montaba sobre «fidelidad» y el
+     botón quedaba ilegible mientras el mouse estuviera encima. Se vio
+     en una captura, no en la teoría.
+
+     Ahora sube lo suficiente para despegarse de la línea de texto y
+     flotar sobre el borde del botón. La traslación va DESPUÉS del
+     `scale`, así que la multiplica: -1,15em × 1,8 ≈ -2em reales. */
+  transform: scale(1.8) translateY(-1.15em);
+  /* ⚠️ EL COLOR CAMBIA PORQUE LA PALABRA CAMBIA DE FONDO.
+
+     Adentro del botón es blanca sobre navy. Al salirse queda sobre el
+     fondo CLARO de la página, y blanco sobre claro es invisible: en la
+     primera prueba la palabra literalmente desaparecía al crecer.
+
+     Al salir se pinta del navy del propio botón, que es el color con
+     el que se lee sobre la página. */
+  color: #0a1226;
+  /* El brillo se enciende fijo mientras el mouse está encima: el
+     destello por ratos es para llamar la atención de lejos; con el
+     cursor ya puesto, lo que corresponde es responder. */
+  text-shadow:
+    0 0 10px rgba(255, 196, 120, 0.9),
+    0 0 28px rgba(238, 116, 32, 0.55);
+}
+
+/* El botón claro vive sobre la franja NAVY del cierre: ahí la palabra
+   sale al revés —de oscura sobre claro a clara sobre oscuro— así que el
+   color se invierte respecto del de arriba. */
+.grupo-gratis:hover .palabra-gratis--sobre-claro,
+.grupo-gratis:focus-visible .palabra-gratis--sobre-claro {
+  color: #ffffff;
+  text-shadow:
+    0 0 10px rgba(255, 196, 120, 0.9),
+    0 0 28px rgba(238, 116, 32, 0.6);
+}
+
+@keyframes destello-gratis {
+  0%,
+  82%,
+  100% {
+    text-shadow: none;
+  }
+  /* El pico va con dos sombras: una cerrada que le da filo a la letra
+     y una abierta que la envuelve. Con una sola se ve borrosa, no
+     brillante. */
+  90% {
+    text-shadow:
+      0 0 6px rgba(255, 196, 120, 0.95),
+      0 0 22px rgba(238, 116, 32, 0.65);
+  }
+}
+
+@keyframes destello-gratis-claro {
+  0%,
+  82%,
+  100% {
+    text-shadow: none;
+  }
+  90% {
+    text-shadow:
+      0 0 5px rgba(238, 116, 32, 0.55),
+      0 0 18px rgba(238, 116, 32, 0.35);
+  }
+}
+
+/* ⚠️ QUIETA, PERO GRANDE. Con `prefers-reduced-motion` se apagan el
+   destello y el salto de escala — pero la palabra SIGUE más grande y
+   en negrita, porque eso no es movimiento: es jerarquía, y quitarla
+   dejaría el botón sin el énfasis que el dueño pidió. */
+@media (prefers-reduced-motion: reduce) {
+  .palabra-gratis {
+    animation: none;
+    transition: none;
+  }
+  .grupo-gratis:hover .palabra-gratis,
+  .grupo-gratis:focus-visible .palabra-gratis {
+    transform: none;
+  }
+}
