@@ -60,6 +60,10 @@ export const GRUPOS_ADMIN: GrupoAdmin[] = [
         badge: "publicaciones",
       },
       { href: "/admin/eventos", etiqueta: "Reservas", icono: "reserva" },
+      // Quién dice ser dueño de una ficha publicada y pide el traspaso
+      // (0218). Va en Operación y pegado a Publicaciones: resolver un
+      // reclamo ES operar publicaciones — cambia el owner de una.
+      { href: "/admin/reclamos", etiqueta: "Reclamos", icono: "llave" },
       { href: "/admin/agenda", etiqueta: "Agenda", icono: "calendario" },
       {
         href: "/admin/eventos/precios",
