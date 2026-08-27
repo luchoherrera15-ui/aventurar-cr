@@ -93,11 +93,11 @@ const SIN_DISPONIBILIDAD = new Map<string, string | null>();
  * O sea que la proporción no es un detalle estético: es lo único que
  * deja cumplir «más ancha» y «la altura está bien» a la vez.
  */
-const ANCHO_TARJETA_PORTADA = "clamp(240px, 68vw, 300px)";
+const ANCHO_TARJETA_PORTADA = "clamp(250px, 72vw, 360px)";
 // El `sizes` sube con el ancho: si se queda en 250 el navegador baja
 // una foto para 250 y la estira a 300, y se ve blanda justo en la
 // pantalla más visitada del sitio.
-const SIZES_TARJETA_PORTADA = "(max-width: 471px) 68vw, 300px";
+const SIZES_TARJETA_PORTADA = "(max-width: 471px) 72vw, 360px";
 
 export default function RielesCatalogo({
   pintables,

@@ -296,15 +296,20 @@ export default function RanchoCard({
               NO se tocó la ficha del negocio (`rancho-portal.tsx`) ni la
               descripción que sale en Google (`lib/seo-negocio.ts`): ahí
               el precio va con el contexto que lo hace cierto. */}
-          <div className="mt-auto flex items-center justify-end gap-2 border-t border-aventurea-line/70 pt-2.5">
-            <span
-              className={`shrink-0 text-[13px] font-extrabold ${
-                enPausa ? "text-aventurea-ink-soft" : "text-bookea-naranja-fuerte"
-              }`}
-            >
-              {enPausa ? "No disponible aún" : "Reservar →"}
-            </span>
-          </div>
+          {/* ⚠️ ACÁ IBA UN PIE CON «Reservar →» Y SE FUE (27 ago 2026).
+
+              El dueño marcó en una captura hasta dónde tenía que llegar
+              la tarjeta, y el recuadro cortaba justo ARRIBA de ese pie.
+
+              Y tiene sentido más allá del gusto: la tarjeta ENTERA ya es
+              un enlace —todo el bloque está envuelto en <Link>—, así que
+              ese «Reservar →» no era un botón, era una etiqueta que
+              parecía uno. Quitarlo no le saca ninguna acción a nadie:
+              tocar la foto, el nombre o el vacío hace exactamente lo
+              mismo que hacía tocar esas dos palabras.
+
+              La línea divisoria se va con él: separaba el pie del
+              cuerpo, y sin pie no hay nada que separar. */}
         </div>
       </Link>
     </article>
