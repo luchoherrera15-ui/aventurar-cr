@@ -167,6 +167,87 @@ export function IconoGlobos({ size = 22, color = "#16295e" }: IconoRubroProps) {
   );
 }
 
+/* ── Los siete del segundo nivel de Citas (28 ago 2026) ──────────────
+   Copiados número por número de src/components/icons.tsx de la web,
+   como el resto de la familia: viewBox 24, trazo 1.7, puntas redondas. */
+
+/** Cejas y pestañas: el ojo cerrado con sus pestañas y la ceja. */
+export function IconoOjoPestanas({ size = 22, color = "#16295e" }: IconoRubroProps) {
+  return (
+    <Svg viewBox="0 0 24 24" width={size} height={size} stroke={color} strokeWidth={1.7} {...BASE}>
+      <Path strokeLinecap="round" d="M4.5 11c2.4 2.9 5 4.3 7.5 4.3s5.1-1.4 7.5-4.3" />
+      <Path strokeLinecap="round" d="m7.4 14.6-1.3 1.9M12 15.7v2.3M16.6 14.6l1.3 1.9" />
+      <Path strokeLinecap="round" d="M7 6.8c1.6-1.1 3.3-1.6 5-1.6s3.4.5 5 1.6" />
+    </Svg>
+  );
+}
+
+/** Peinados: el peine de mano. */
+export function IconoPeine({ size = 22, color = "#16295e" }: IconoRubroProps) {
+  return (
+    <Svg viewBox="0 0 24 24" width={size} height={size} stroke={color} strokeWidth={1.7} {...BASE}>
+      <Rect x={5.5} y={4.5} width={13} height={4} rx={1.6} />
+      <Path strokeLinecap="round" d="M7.6 8.5v10M10.5 8.5v10M13.5 8.5v10M16.4 8.5v10" />
+    </Svg>
+  );
+}
+
+/** Maquillaje: el labial abierto. */
+export function IconoLabial({ size = 22, color = "#16295e" }: IconoRubroProps) {
+  return (
+    <Svg viewBox="0 0 24 24" width={size} height={size} stroke={color} strokeWidth={1.7} {...BASE}>
+      <Rect x={8.5} y={13.5} width={7} height={6.5} rx={1.2} />
+      <Path strokeLinecap="round" strokeLinejoin="round" d="M10.3 13.5v-2.4h3.4v2.4" />
+      <Path strokeLinecap="round" strokeLinejoin="round" d="M10.3 11.1V5.6c0-.5.3-.9.8-1l2.6-.7v7.2" />
+    </Svg>
+  );
+}
+
+/** Depilación: la banda de cera y la gota. */
+export function IconoCera({ size = 22, color = "#16295e" }: IconoRubroProps) {
+  return (
+    <Svg viewBox="0 0 24 24" width={size} height={size} stroke={color} strokeWidth={1.7} {...BASE}>
+      <Rect x={3.6} y={7.6} width={12.6} height={4.6} rx={2.3} transform="rotate(-16 9.9 9.9)" />
+      <Path strokeLinejoin="round" d="M18.3 13.4s-2 2.3-2 3.7a2 2 0 0 0 4 0c0-1.4-2-3.7-2-3.7Z" />
+      <Path strokeLinecap="round" d="M5.5 15.5 4 17M8.8 16.8l-.8 2" />
+    </Svg>
+  );
+}
+
+/** Masajes: las piedras calientes apiladas, con su vapor. */
+export function IconoPiedras({ size = 22, color = "#16295e" }: IconoRubroProps) {
+  return (
+    <Svg viewBox="0 0 24 24" width={size} height={size} stroke={color} strokeWidth={1.7} {...BASE}>
+      <Ellipse cx={12} cy={17.8} rx={6.2} ry={2.6} />
+      <Ellipse cx={12} cy={13.3} rx={4.6} ry={2.1} />
+      <Ellipse cx={12} cy={9.6} rx={3.1} ry={1.7} />
+      <Path strokeLinecap="round" d="M10 5.4c.5-.7.5-1.4 0-2.1M14 5.4c.5-.7.5-1.4 0-2.1" />
+    </Svg>
+  );
+}
+
+/** Sauna y jacuzzi: el vapor subiendo de la banca. */
+export function IconoVapor({ size = 22, color = "#16295e" }: IconoRubroProps) {
+  return (
+    <Svg viewBox="0 0 24 24" width={size} height={size} stroke={color} strokeWidth={1.7} {...BASE}>
+      <Path strokeLinecap="round" d="M8 4.5c-1.1 1.5-1.1 3 0 4.5 1.1 1.5 1.1 3 0 4.5M12 4.5c-1.1 1.5-1.1 3 0 4.5 1.1 1.5 1.1 3 0 4.5M16 4.5c-1.1 1.5-1.1 3 0 4.5 1.1 1.5 1.1 3 0 4.5" />
+      <Path strokeLinecap="round" d="M5 18h14M7.2 18v2.5M16.8 18v2.5" />
+    </Svg>
+  );
+}
+
+/** Estética (tratamientos faciales): el frasco de crema y el destello. */
+export function IconoCrema({ size = 22, color = "#16295e" }: IconoRubroProps) {
+  return (
+    <Svg viewBox="0 0 24 24" width={size} height={size} stroke={color} strokeWidth={1.7} {...BASE}>
+      <Rect x={6} y={10} width={12} height={9.5} rx={2} />
+      <Path strokeLinecap="round" d="M7 10V8.9a1.4 1.4 0 0 1 1.4-1.4h7.2A1.4 1.4 0 0 1 17 8.9V10" />
+      <Path strokeLinecap="round" d="M6 14.8h12" />
+      <Path strokeLinecap="round" d="M19.6 3.2v3.2M18 4.8h3.2" />
+    </Svg>
+  );
+}
+
 /**
  * El ícono de un rubro, con el MISMO reparto que la web
  * (`categoriaIcono` en `src/lib/categorias-vertical.ts` +
@@ -176,11 +257,28 @@ export function IconoGlobos({ size = 22, color = "#16295e" }: IconoRubroProps) {
 export function IconoRubro({
   vertical,
   categoria,
+  subcategoria,
   size,
   color,
-}: IconoRubroProps & { vertical: "citas" | "eventos"; categoria: string }) {
+}: IconoRubroProps & {
+  vertical: "citas" | "eventos";
+  categoria: string;
+  /** Subcategoría de Citas con trazo propio (la grilla de dos
+   *  carriles). Una desconocida cae en el ícono de su CATEGORÍA, no en
+   *  la varita: es lo más cierto que queda. */
+  subcategoria?: string;
+}) {
   const props = { size, color };
   if (vertical === "citas") {
+    switch (subcategoria) {
+      case "cejas_pestanas": return <IconoOjoPestanas {...props} />;
+      case "peinados": return <IconoPeine {...props} />;
+      case "maquillaje": return <IconoLabial {...props} />;
+      case "depilacion": return <IconoCera {...props} />;
+      case "tratamientos_faciales": return <IconoCrema {...props} />;
+      case "masajes": return <IconoPiedras {...props} />;
+      case "sauna_jacuzzi": return <IconoVapor {...props} />;
+    }
     switch (categoria) {
       case "unas": return <IconoEsmalte {...props} />;
       case "barberia": return <IconoPosteBarbero {...props} />;

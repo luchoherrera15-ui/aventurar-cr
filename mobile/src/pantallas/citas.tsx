@@ -59,6 +59,7 @@ type IconoNombre = keyof typeof Ionicons.glyphMap;
 function RubroIcono({
   icono,
   categoria,
+  sub,
   label,
   activo,
   apagado,
@@ -68,6 +69,8 @@ function RubroIcono({
   icono?: IconoNombre;
   /** El rubro: dibuja el MISMO trazo que la web (iconos-rubro.tsx). */
   categoria?: CategoriaCita;
+  /** La subcategoría, si el disco es fino (Peinados, Masajes…). */
+  sub?: string;
   label: string;
   activo: boolean;
   apagado?: boolean;
@@ -93,6 +96,7 @@ function RubroIcono({
           <IconoRubro
             vertical="citas"
             categoria={categoria}
+            subcategoria={sub}
             size={22}
             color={activo ? "#ffffff" : Colors.navy}
           />
@@ -114,6 +118,57 @@ function RubroIcono({
   );
 }
 
+/**
+ * ════════════════════════════════════════════════════════════════════
+ * LA GRILLA DE RUBROS EN DOS CARRILES — espejo de la portada web
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Pedido del dueño (28 ago 2026): «la lista de iconos igual, de dos
+ * carriles», también en el teléfono. Las columnas son las MISMAS
+ * parejas que `rubros-icono.tsx` de la web (Uñas/Pestañas,
+ * Barbería/Peinados…), con la línea divisoria entre grupos. Acá solo
+ * van los de Citas: Eventos tiene su propia pestaña (explorar).
+ *
+ * ⚠️ LOS IDS DE SUBCATEGORÍA SON LOS DE LA BASE (el CHECK de la 0188;
+ * en la web viven en src/app/citas/subcategorias.ts), letra por letra.
+ * Un id inventado acá sería un disco que nunca enciende: el conteo por
+ * sub daría cero para siempre y quedaría apagado sin que nada avise.
+ * Los labels cortos («Pestañas» por «Cejas y pestañas», «Estética» por
+ * «Tratamientos faciales», «Sauna» por «Sauna y jacuzzi») son los del
+ * dueño y también los de la portada web — el id no se toca.
+ */
+type ItemRubro = { categoria: CategoriaCita; sub?: string; label: string };
+
+const COLUMNAS_RUBROS: (ItemRubro[] | "|")[] = [
+  [
+    { categoria: "unas", label: CATEGORIA_CITA_LABEL.unas },
+    { categoria: "belleza", sub: "cejas_pestanas", label: "Pestañas" },
+  ],
+  [
+    { categoria: "barberia", label: CATEGORIA_CITA_LABEL.barberia },
+    { categoria: "belleza", sub: "peinados", label: "Peinados" },
+  ],
+  [
+    { categoria: "belleza", label: CATEGORIA_CITA_LABEL.belleza },
+    { categoria: "belleza", sub: "maquillaje", label: "Maquillaje" },
+  ],
+  [
+    { categoria: "belleza", sub: "depilacion", label: "Depilación" },
+    { categoria: "belleza", sub: "tratamientos_faciales", label: "Estética" },
+  ],
+  "|",
+  [
+    { categoria: "spa", label: CATEGORIA_CITA_LABEL.spa },
+    { categoria: "spa", sub: "masajes", label: "Masajes" },
+  ],
+  [
+    { categoria: "consultorio", label: CATEGORIA_CITA_LABEL.consultorio },
+    { categoria: "spa", sub: "sauna_jacuzzi", label: "Sauna" },
+  ],
+  "|",
+  [{ categoria: "otros", label: CATEGORIA_CITA_LABEL.otros }],
+];
+
 type Negocio = {
   /** El sello de la tarjeta: los mismos que la web (0214/0217). */
   verificado?: boolean | null;
@@ -123,6 +178,7 @@ type Negocio = {
   nombre: string;
   slug: string | null;
   categoria: string | null;
+  subcategoria: string | null;
   descripcion: string | null;
   provincia: string | null;
   canton: string | null;
@@ -169,6 +225,9 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
   const [errorCarga, setErrorCarga] = useState(false);
   const [busqueda, setBusqueda] = useState("");
   const [categoriaActiva, setCategoriaActiva] = useState<CategoriaCita | null>(null);
+  // La subcategoría activa de la grilla (Peinados, Masajes…). Solo vive
+  // junto a su categoría: elegirla la fija, y volver a «Todos» la borra.
+  const [subActiva, setSubActiva] = useState<string | null>(null);
   /** El panel de atajos que se abre al tocar el buscador. */
   const [desplegable, setDesplegable] = useState(false);
 
@@ -231,11 +290,12 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
   // El buscador filtra en memoria por nombre, zona, rubro o descripción,
   // sin pelear con tildes: "unas" encuentra "Uñas".
   const filtrados = useMemo(() => {
-    const base = categoriaActiva
-      ? (negocios ?? []).filter(
-          (n) => normalizarCategoriaCita(n.categoria) === categoriaActiva,
-        )
-      : (negocios ?? []);
+    const base = (negocios ?? []).filter(
+      (n) =>
+        (!categoriaActiva ||
+          normalizarCategoriaCita(n.categoria) === categoriaActiva) &&
+        (!subActiva || n.subcategoria === subActiva),
+    );
     const aguja = normalizarTexto(busqueda).trim();
     if (!aguja) return base;
     return base.filter((n) =>
@@ -245,11 +305,16 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
           n.canton ?? "",
           n.provincia ?? "",
           n.descripcion ?? "",
+          // El id crudo alcanza: «masajes» ya es la palabra, y en los
+          // compuestos («cejas_pestanas») el includes case por la
+          // palabra suelta igual. La web hace lo mismo en
+          // filtrarPorBusqueda.
+          n.subcategoria ?? "",
           CATEGORIA_CITA_LABEL[normalizarCategoriaCita(n.categoria)],
         ].join(" "),
       ).includes(aguja),
     );
-  }, [negocios, categoriaActiva, busqueda]);
+  }, [negocios, categoriaActiva, subActiva, busqueda]);
 
   // Sin filtro ni búsqueda: una fila horizontal por categoría, en el
   // orden oficial y saltando las vacías — espejo de /citas en la web.
@@ -396,25 +461,79 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
             contentContainerStyle={styles.rubros}
             keyboardShouldPersistTaps="handled"
           >
-            <RubroIcono
-              icono="apps-outline"
-              label="Todos"
-              activo={categoriaActiva === null}
-              onPress={() => setCategoriaActiva(null)}
-            />
-            {CATEGORIAS_CITAS.map((c) => {
-              const n = conteo[c] ?? 0;
-              return (
-                <RubroIcono
-                  key={c}
-                  categoria={c}
-                  label={CATEGORIA_CITA_LABEL[c]}
-                  activo={categoriaActiva === c}
-                  apagado={n === 0}
-                  onPress={() => n > 0 && setCategoriaActiva(categoriaActiva === c ? null : c)}
-                />
-              );
-            })}
+            {/* «Todos» ocupa el alto de los dos carriles, centrado. */}
+            <View style={styles.todosCentrado}>
+              <RubroIcono
+                icono="apps-outline"
+                label="Todos"
+                activo={categoriaActiva === null}
+                onPress={() => {
+                  setCategoriaActiva(null);
+                  setSubActiva(null);
+                }}
+              />
+            </View>
+            {COLUMNAS_RUBROS.map((col, i) =>
+              col === "|" ? (
+                <View key={`div-${i}`} style={styles.divisorRubros} />
+              ) : (
+                <View key={`col-${i}`} style={styles.columnaRubros}>
+                  {col.map((item) => {
+                    // Los discos FINOS nunca se apagan (la verificación
+                    // del 28 ago los cazó nacidos muertos: la
+                    // subcategoría recién empieza a llenarse y un
+                    // conteo en cero los dejaba grises e intocables
+                    // para siempre). Igual que en la web: siempre
+                    // tocables, y el que no encuentra nada aterriza en
+                    // el vacío honesto con la salida puesta.
+                    const n = conteo[item.categoria] ?? 0;
+                    const activo = item.sub
+                      ? subActiva === item.sub
+                      : categoriaActiva === item.categoria && !subActiva;
+                    return (
+                      <RubroIcono
+                        key={item.sub ?? item.categoria}
+                        categoria={item.categoria}
+                        sub={item.sub}
+                        label={item.label}
+                        activo={activo}
+                        apagado={!item.sub && n === 0}
+                        onPress={() => {
+                          if (!item.sub && n === 0) return;
+                          if (item.sub) {
+                            // Elegir un sub fija también su categoría:
+                            // el filtro es «peinados», no «peinados de
+                            // cualquier rubro».
+                            if (subActiva === item.sub) {
+                              // Apagarlo quita TODO el filtro, como en
+                              // la web (href="/"): dejar puesta la
+                              // categoría padre sería un estado que la
+                              // persona nunca eligió.
+                              setSubActiva(null);
+                              setCategoriaActiva(null);
+                            } else {
+                              setCategoriaActiva(item.categoria);
+                              setSubActiva(item.sub);
+                            }
+                          } else {
+                            // Con un sub activo, tocar la categoría
+                            // AMPLÍA a toda la categoría (el disco se
+                            // ve inactivo y así se comporta la web);
+                            // solo apaga si de verdad estaba activa.
+                            const estabaActiva =
+                              categoriaActiva === item.categoria && !subActiva;
+                            setSubActiva(null);
+                            setCategoriaActiva(
+                              estabaActiva ? null : item.categoria,
+                            );
+                          }
+                        }}
+                      />
+                    );
+                  })}
+                </View>
+              ),
+            )}
           </ScrollView>
 
           {filtrados.length === 0 ? (
@@ -429,6 +548,7 @@ export default function CitasScreen({ activa = true }: { activa?: boolean }) {
                   onPress: () => {
                     setBusqueda("");
                     setCategoriaActiva(null);
+                    setSubActiva(null);
                   },
                 }}
               />
@@ -519,6 +639,17 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   rubro: { alignItems: "center", gap: 6, width: 68 },
+  /* Los dos pisos de una columna de la grilla (28 ago 2026): cada
+     columna es una pareja elegida, igual que en la portada web. */
+  columnaRubros: { gap: 2 },
+  divisorRubros: {
+    width: 1,
+    alignSelf: "stretch",
+    backgroundColor: Colors.line,
+    marginVertical: 10,
+    marginHorizontal: 2,
+  },
+  todosCentrado: { justifyContent: "center" },
   rubroDisco: {
     alignItems: "center",
     backgroundColor: "#ffffff",
