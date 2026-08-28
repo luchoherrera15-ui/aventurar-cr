@@ -192,18 +192,19 @@ export default function NegociosPage() {
        los acentos; el resto lo ponen las tres manchas de la aurora,
        moviéndose despacio sobre blanco. */
     <div className="relative isolate flex min-h-screen flex-col overflow-x-clip bg-white">
-      {/* ── LA AURORA, EN TODA LA PÁGINA (pedido del dueño, 28 ago 2026:
-          «el efecto blur naranja que anda moviéndose por la pantalla,
-          a toda la página completa») ──────────────────────────────────
-          Capa FIJA al viewport y no absoluta a la página: en una página
-          de 5000 px las manchas quedarían ancladas arriba y el resto
-          del scroll iría en seco. Fija, las tres manchas acompañan
-          TODO el recorrido. Clases `aurora-lenta-*` (48-67 s, viajes
-          largos) y no las del héroe: acá se lee, y el movimiento corto
-          y frecuente se vuelve un tic. `aurora-lienzo` no lleva
-          máscara — el efecto es el fondo entero, no un remate. */}
-      <div aria-hidden className="fixed inset-0 -z-10">
-        <div className="aurora-lienzo">
+      {/* ── LA AURORA, SOLO ARRIBA (tercera vuelta del dueño, 28 ago
+          2026: «un solo blanco en toda la página, que el blur naranja
+          se mueva en la parte superior») ──────────────────────────────
+          La primera versión pintaba la página crema; la segunda llevaba
+          la aurora FIJA por todo el scroll y el naranja aparecía a
+          mitad de página. Esta es la definitiva: una franja absoluta
+          anclada al TOPE, con `aurora-caja` — que ya trae la máscara
+          que se apaga hacia abajo — así el naranja vive en el héroe,
+          se funde a blanco antes de la agenda, y el resto de la página
+          es blanco de verdad. Clases `aurora-lenta-*` (48-67 s, viajes
+          largos): acá se lee, y el movimiento corto se vuelve un tic. */}
+      <div aria-hidden className="absolute inset-x-0 top-0 -z-10 h-[560px] sm:h-[700px]">
+        <div className="aurora-caja">
           <div className="aurora-mancha-lenta aurora-lenta-1" />
           <div className="aurora-mancha-lenta aurora-lenta-2" />
           <div className="aurora-mancha-lenta aurora-lenta-3" />
