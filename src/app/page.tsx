@@ -9,7 +9,6 @@ import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
 import { leerCatalogoPortada } from "./home-datos";
 import { urlSitio } from "@/lib/sitio";
 import { rubroDeParametro } from "@/lib/rubros-portada";
-import { leerCenso } from "@/lib/censo-rubros";
 
 /**
  * ============================================================
@@ -102,25 +101,17 @@ export default async function Home({
   demo?: boolean;
 }) {
   /**
-   * ⚠️ `leerCenso()` VA ACÁ AUNQUE NO SE USE EN ESTE ARCHIVO.
-   *
-   * Lo consume `RubrosIcono`, allá abajo dentro de `HeroBusqueda`. Pero
-   * un componente de servidor que hace `await` recién sale a la red
-   * cuando le toca RENDERIZARSE — o sea, después de que esta función ya
-   * esperó el catálogo. Eran dos viajes a Supabase EN FILA, uno detrás
-   * del otro, en la URL más visitada del sitio.
-   *
-   * Arrancarlo acá los pone en paralelo. `leerCenso` está envuelto en el
-   * `cache()` de React, así que la llamada de `RubrosIcono` no repite la
-   * consulta: encuentra la promesa ya resuelta y sigue de largo.
-   *
-   * Medido: el servidor de `/` tardaba 480 ms contra los 136 ms de un
-   * archivo estático del CDN. Una de esas idas era esta.
+   * ⚠️ ACÁ SE PRE-CALENTABA `leerCenso()` (dos viajes a Supabase en
+   * paralelo en vez de en fila; llegó a medirse en 480 ms el servidor
+   * de `/`). Se quitó el 28 ago 2026: la grilla de rubros de dos
+   * carriles tiene orden CURADO y ya no consulta el censo, así que la
+   * llamada calentaba una promesa que nadie esperaba — una ida a la
+   * base por visita, de regalo. Si algún componente de la portada
+   * vuelve a necesitar el censo, este es el lugar donde arrancarlo.
    */
   const [catalogo, params] = await Promise.all([
     leerCatalogoPortada(demo),
     searchParams,
-    leerCenso(),
   ]);
   const rubro = rubroDeParametro(params.rubro, params.sub);
 
@@ -195,7 +186,16 @@ export default async function Home({
         </div>
 
         <HeaderSimple />
-        <HeroBusqueda rubroActivo={rubro ? `${rubro.vertical}-${rubro.categoria}` : null} />
+        {/* La clave lleva `|sub` cuando el filtro trae subcategoría: es la
+            MISMA forma que arma `claveDe` en rubros-icono.tsx, para que el
+            disco fino (Peinados, Masajes…) también sepa marcarse activo. */}
+        <HeroBusqueda
+          rubroActivo={
+            rubro
+              ? `${rubro.vertical}-${rubro.categoria}${rubro.subcategoria ? `|${rubro.subcategoria}` : ""}`
+              : null
+          }
+        />
       </div>
 
       <main className="flex-1">

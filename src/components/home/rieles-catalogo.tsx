@@ -13,6 +13,8 @@ import {
   type BusquedaPortada,
 } from "@/lib/carriles-home";
 import type { CatalogoPortada } from "@/app/home-datos";
+import { SUBCATEGORIA_CITA_LABEL } from "@/app/citas/subcategorias";
+import { SUBCATEGORIA_LABEL } from "@/app/mi-negocio/types";
 
 /**
  * ============================================================
@@ -174,7 +176,18 @@ export default function RielesCatalogo({
     const mensaje = busquedaActiva
       ? "No encontramos negocios que coincidan con tu búsqueda."
       : rubro
-        ? `Todavía no hay negocios de ${(rubro.label ?? etiquetaDeCategoria(rubro.vertical, rubro.categoria)).toLowerCase()} publicados.`
+        ? // Con `?sub=` el vacío nombra la SUBCATEGORÍA: filtrar Peinados
+          // y leer «no hay salones de belleza» sería un mensaje
+          // equivocado. Los dos mapas cubren las dos verticales; un sub
+          // desconocido cae en el nombre de su categoría, que es lo más
+          // cierto que queda.
+          `Todavía no hay negocios de ${(
+            (rubro.subcategoria &&
+              (SUBCATEGORIA_CITA_LABEL[rubro.subcategoria] ??
+                SUBCATEGORIA_LABEL[rubro.subcategoria])) ||
+            rubro.label ||
+            etiquetaDeCategoria(rubro.vertical, rubro.categoria)
+          ).toLowerCase()} publicados.`
         : "";
     return (
       <div className="rounded-3xl border border-aventurea-line bg-aventurea-cream-2 px-6 py-12 text-center">

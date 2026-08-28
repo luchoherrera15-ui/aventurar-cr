@@ -909,3 +909,93 @@ export function IconWallet({ className = base }: IconProps) {
     </svg>
   );
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   LOS ÍCONOS DEL SEGUNDO NIVEL DE CITAS (pedido del dueño, 28 ago 2026:
+   «conseguí más iconos» para la fila de rubros de dos carriles).
+
+   Cada uno corresponde a una SUBCATEGORÍA real de la 0188
+   (src/app/citas/subcategorias.ts) — no hay ícono sin filtro detrás.
+   Mismo lenguaje que el resto de la familia: viewBox 24, trazo fino,
+   puntas redondeadas. ⚠️ Si se toca un trazo acá, se copia número por
+   número a mobile/src/components/iconos-rubro.tsx (misma sintonía de
+   íconos web↔app, pedido del 26 ago).
+   ════════════════════════════════════════════════════════════════════ */
+
+/** Cejas y pestañas: el ojo cerrado con sus pestañas y la ceja. */
+export function IconOjoPestanas({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" d="M4.5 11c2.4 2.9 5 4.3 7.5 4.3s5.1-1.4 7.5-4.3" />
+      <path strokeLinecap="round" d="m7.4 14.6-1.3 1.9M12 15.7v2.3M16.6 14.6l1.3 1.9" />
+      <path strokeLinecap="round" d="M7 6.8c1.6-1.1 3.3-1.6 5-1.6s3.4.5 5 1.6" />
+    </svg>
+  );
+}
+
+/** Peinados: el peine de mano. */
+export function IconPeine({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <rect x="5.5" y="4.5" width="13" height="4" rx="1.6" />
+      <path strokeLinecap="round" d="M7.6 8.5v10M10.5 8.5v10M13.5 8.5v10M16.4 8.5v10" />
+    </svg>
+  );
+}
+
+/** Maquillaje: el labial abierto. */
+export function IconLabial({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <rect x="8.5" y="13.5" width="7" height="6.5" rx="1.2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.3 13.5v-2.4h3.4v2.4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.3 11.1V5.6c0-.5.3-.9.8-1l2.6-.7v7.2" />
+    </svg>
+  );
+}
+
+/** Depilación: la banda de cera y la gota. */
+export function IconCera({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <rect x="3.6" y="7.6" width="12.6" height="4.6" rx="2.3" transform="rotate(-16 9.9 9.9)" />
+      <path strokeLinejoin="round" d="M18.3 13.4s-2 2.3-2 3.7a2 2 0 0 0 4 0c0-1.4-2-3.7-2-3.7Z" />
+      <path strokeLinecap="round" d="M5.5 15.5 4 17M8.8 16.8l-.8 2" />
+    </svg>
+  );
+}
+
+/** Masajes: las piedras calientes apiladas, con su vapor. */
+export function IconPiedras({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <ellipse cx="12" cy="17.8" rx="6.2" ry="2.6" />
+      <ellipse cx="12" cy="13.3" rx="4.6" ry="2.1" />
+      <ellipse cx="12" cy="9.6" rx="3.1" ry="1.7" />
+      <path strokeLinecap="round" d="M10 5.4c.5-.7.5-1.4 0-2.1M14 5.4c.5-.7.5-1.4 0-2.1" />
+    </svg>
+  );
+}
+
+/** Sauna y jacuzzi: el vapor subiendo de la banca. */
+export function IconVapor({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" d="M8 4.5c-1.1 1.5-1.1 3 0 4.5 1.1 1.5 1.1 3 0 4.5M12 4.5c-1.1 1.5-1.1 3 0 4.5 1.1 1.5 1.1 3 0 4.5M16 4.5c-1.1 1.5-1.1 3 0 4.5 1.1 1.5 1.1 3 0 4.5" />
+      <path strokeLinecap="round" d="M5 18h14M7.2 18v2.5M16.8 18v2.5" />
+    </svg>
+  );
+}
+
+/** Estética (tratamientos faciales): el frasco de crema y el destello. */
+export function IconCrema({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <rect x="6" y="10" width="12" height="9.5" rx="2" />
+      <path strokeLinecap="round" d="M7 10V8.9a1.4 1.4 0 0 1 1.4-1.4h7.2A1.4 1.4 0 0 1 17 8.9V10" />
+      <path strokeLinecap="round" d="M6 14.8h12" />
+      <path strokeLinecap="round" d="M19.6 3.2v3.2M18 4.8h3.2" />
+    </svg>
+  );
+}
+
