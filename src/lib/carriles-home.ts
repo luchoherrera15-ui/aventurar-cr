@@ -504,11 +504,12 @@ export function filtrarPorRubro(
     if (verticalDe(r) !== rubro.vertical) return false;
     const cruda = (r as { categoria?: string | null }).categoria ?? "";
     if (normalizarDe(rubro.vertical, cruda) !== buscada) return false;
-    /* La subcategoría solo la traen los destinos de Eventos (ver
-       `LEE_SUBCATEGORIA` en taxonomia-navegacion.ts). Cuando viene, el
-       recorte es DENTRO de la categoría ya filtrada: sin este segundo
-       paso, entrar por «Ranchos para fiestas» en el mega menú devolvía
-       todos los Lugares, que es justo el enlace que promete una lista y
+    /* La subcategoría llega de las DOS verticales: de Eventos por el
+       mega menú (`LEE_SUBCATEGORIA`), y de Citas por los discos finos
+       de la portada (Peinados, Masajes… — 28 ago 2026). Cuando viene,
+       el recorte es DENTRO de la categoría ya filtrada: sin este
+       segundo paso, entrar por «Ranchos para fiestas» devolvía todos
+       los Lugares, que es justo el enlace que promete una lista y
        entrega otra. */
     if (!rubro.subcategoria) return true;
     const sub = (r as { subcategoria?: string | null }).subcategoria ?? "";

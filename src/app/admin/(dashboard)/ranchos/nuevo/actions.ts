@@ -7,6 +7,7 @@ import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { PROVINCIAS, SUBCATEGORIAS } from "@/app/mi-negocio/types";
 import {
   esCategoriaValida,
+  subcategoriasDe,
   usaSubcategoria,
   type VerticalNegocio,
 } from "@/lib/categorias-vertical";
@@ -80,14 +81,21 @@ export async function crearRanchoComoAdmin(
     return { error: "Completá al menos la categoría, el nombre y la provincia." };
   }
 
-  // Las subcategorías son solo de Eventos; el resto de verticales no
-  // las usa (mismo criterio que mi-negocio/nuevo/actions.ts).
+  // El segundo nivel, por vertical (mismo criterio que
+  // mi-negocio/nuevo/actions.ts): obligatorio en Eventos, OPCIONAL en
+  // Citas desde el 28 ago 2026 — lo inválido en Citas cae en null.
   const subcategoria = String(formData.get("subcategoria") || "");
-  if (usaSubcategoria(vertical)) {
+  let subcategoriaFinal: string | null = null;
+  if (vertical === "eventos") {
     const validas = SUBCATEGORIAS[categoria as keyof typeof SUBCATEGORIAS] ?? [];
     if (!validas.some((s) => s.id === subcategoria)) {
       return { error: "Elegí qué ofrece exactamente dentro de esa categoría." };
     }
+    subcategoriaFinal = subcategoria;
+  } else if (usaSubcategoria(vertical)) {
+    subcategoriaFinal = subcategoriasDe(vertical, categoria).some((s) => s.id === subcategoria)
+      ? subcategoria
+      : null;
   }
 
   // El rubro operativo, validado igual que en el alta del dueño: contra
@@ -106,7 +114,7 @@ export async function crearRanchoComoAdmin(
     owner_id: ownerId,
     vertical,
     categoria,
-    subcategoria: usaSubcategoria(vertical) ? subcategoria : null,
+    subcategoria: subcategoriaFinal,
     nombre,
     descripcion: String(formData.get("descripcion") || "").trim() || null,
     provincia,

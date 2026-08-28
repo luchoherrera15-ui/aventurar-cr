@@ -1,4 +1,8 @@
 import { readFileSync } from "node:fs";
+import {
+  categoriaDeSubcategoriaCita,
+  esSubcategoriaCita,
+} from "@/app/citas/subcategorias";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
@@ -112,16 +116,31 @@ describe("todo destino «real» filtra de verdad", () => {
     }
   });
 
-  it("solo /eventos lleva subcategoría, que es el único directorio que la lee", () => {
+  it("toda subcategoría real la lee su destino y cuelga de SU categoría", () => {
+    // Hasta el 28 ago 2026 acá se fijaba «solo /eventos»: la portada no
+    // leía `?sub=` para Citas y un enlace con subcategoría de Citas
+    // mentía. Ese día la grilla de dos carriles abrió el filtro para
+    // Citas (rubroDeParametro + filtrarPorRubro), así que el contrato
+    // real es este: la vertical del destino tiene que LEER la
+    // subcategoría, y el par (categoría, sub) tiene que ser coherente —
+    // el filtro aplica los dos a la vez y un par incoherente devuelve
+    // cero resultados.
     for (const d of DESTINOS) {
       if (d.respaldo !== "real" || !d.subcategoria) continue;
-      expect(d.vertical, `${d.subcategoria} cuelga de una vertical que no lee ?subcategoria=`).toBe(
-        "eventos",
-      );
-      expect(SUBCATEGORIAS_TODAS).toContain(d.subcategoria);
-      // Y cuelga de SU categoría: /eventos aplica los dos filtros a la
-      // vez, así que un par incoherente devuelve cero resultados.
-      expect(CATEGORIA_DE_SUBCATEGORIA[d.subcategoria]).toBe(d.categoria);
+      if (d.vertical === "eventos") {
+        expect(SUBCATEGORIAS_TODAS).toContain(d.subcategoria);
+        expect(CATEGORIA_DE_SUBCATEGORIA[d.subcategoria]).toBe(d.categoria);
+      } else if (d.vertical === "citas") {
+        expect(
+          esSubcategoriaCita(d.subcategoria),
+          `${d.subcategoria} no es una subcategoría de Citas de la 0188`,
+        ).toBe(true);
+        expect(categoriaDeSubcategoriaCita(d.subcategoria)).toBe(d.categoria);
+      } else {
+        throw new Error(
+          `${d.subcategoria} cuelga de ${d.vertical}, que no lee ?sub=`,
+        );
+      }
     }
   });
 

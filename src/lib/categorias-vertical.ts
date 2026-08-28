@@ -18,11 +18,13 @@ import {
   CATEGORIAS,
   CATEGORIA_LABEL,
   CATEGORIA_ICONO,
+  SUBCATEGORIAS,
   CATEGORIA_GRADIENTE,
   type Categoria,
 } from "../app/mi-negocio/types";
 import { CATEGORIAS_CITAS, CATEGORIA_CITA_LABEL, type CategoriaCita } from "../app/citas/tipos";
 import { CATEGORIA_CITA_ICONO } from "../app/citas/iconos";
+import { SUBCATEGORIAS_CITAS } from "../app/citas/subcategorias";
 
 export type VerticalNegocio = "eventos" | "citas" | "hospedajes" | "restaurantes";
 
@@ -102,11 +104,43 @@ export function esUbicacionFija(vertical: string, categoria: string): boolean {
 }
 
 /**
- * Eventos usa un segundo nivel (subcategoria) vía SUBCATEGORIAS; las
- * demás verticales son de un solo nivel y no lo usan.
+ * ¿Esta vertical tiene segundo nivel (columna `subcategoria`)?
+ *
+ * Eventos desde siempre. Citas desde el 28 ago 2026: la 0188 ya
+ * autorizaba sus 26 valores en el CHECK, pero esta función decía que
+ * no — así que los tres formularios forzaban null al guardar y la
+ * grilla de la portada (Peinados, Masajes…) filtraba contra una
+ * columna vacía PARA SIEMPRE. Lo cazó la verificación del 28 ago: el
+ * dato nacía muerto aunque todo el camino del filtro funcionara.
+ *
+ * ⚠️ La obligatoriedad es POR VERTICAL, no de esta función: en Eventos
+ * el segundo nivel es obligatorio en los formularios (la vitrina se
+ * navega por él); en Citas es OPCIONAL — «Barbería» ya es específico, y
+ * obligar a elegir entre «corte» y «afeitado» a quien hace los dos
+ * sería mentir. Quien valide, que valide con `subcategoriasDe`.
  */
 export function usaSubcategoria(vertical: string): boolean {
-  return vertical === "eventos";
+  return vertical === "eventos" || vertical === "citas";
+}
+
+/**
+ * Las opciones del segundo nivel de una categoría, según la vertical
+ * REAL del negocio. Punto único: antes cada formulario indexaba
+ * `SUBCATEGORIAS` (que solo tiene las claves de Eventos) y el día que
+ * `usaSubcategoria` abriera otra vertical, eso era `undefined.map` —
+ * el propio comentario de editar-form.tsx lo venía advirtiendo.
+ */
+export function subcategoriasDe(
+  vertical: string,
+  categoria: string,
+): { id: string; label: string }[] {
+  if (vertical === "eventos") {
+    return SUBCATEGORIAS[categoria as Categoria] ?? [];
+  }
+  if (vertical === "citas") {
+    return SUBCATEGORIAS_CITAS[categoria as CategoriaCita] ?? [];
+  }
+  return [];
 }
 
 /**

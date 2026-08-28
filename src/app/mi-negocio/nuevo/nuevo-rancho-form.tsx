@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import { subcategoriasDe } from "@/lib/categorias-vertical";
+
 import { useActionState, useMemo, useState } from "react";
 import { crearRancho, type NuevoRanchoState } from "./actions";
 import { createClient } from "@/lib/supabase/client";
@@ -78,6 +80,13 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
       ? (categoria as Categoria)
       : null;
   const esLugar = categoriaEvento === "lugares";
+  // Las opciones del segundo nivel según la vertical real — en Citas
+  // existen desde el 28 ago 2026 (antes el formulario ni las ofrecía y
+  // la columna nacía null). Hospedajes y Restaurantes devuelven [].
+  const opcionesSub = subcategoriasDe(
+    esEventos ? "eventos" : esHospedajes || esRestaurantes ? "otra" : "citas",
+    categoria,
+  );
 
   // Verificación de identidad: las fotos se suben apenas se eligen
   // (al bucket privado verificacion-proveedores) y el formulario solo
@@ -181,22 +190,27 @@ export default function NuevoRanchoForm({ vertical }: { vertical: Vertical }) {
         </p>
       </div>
 
-      {/* Las subcategorías son de la vertical de eventos; en citas la
-          categoría ya es lo bastante específica. */}
-      {categoriaEvento && (
+      {/* El segundo nivel. En Eventos es obligatorio (la vitrina se
+          navega por él); en Citas es OPCIONAL desde el 28 ago 2026 —
+          antes se decía que «la categoría ya es lo bastante específica»,
+          pero la grilla de la portada filtra por Peinados, Masajes o
+          Depilación, y sin este campo esos filtros no encontraban nada. */}
+      {opcionesSub.length > 0 && (
         <div>
           <label className={labelCls}>
             {esLugar ? "Tipo de lugar" : "¿Qué ofrecés exactamente?"}
           </label>
           <select
             name="subcategoria"
-            required
+            required={esEventos}
             value={subcategoria}
             onChange={(e) => setSubcategoria(e.target.value)}
             className={inputCls}
           >
-            <option value="">Selecciona una opción</option>
-            {SUBCATEGORIAS[categoriaEvento].map((s) => (
+            <option value="">
+              {esEventos ? "Selecciona una opción" : "Sin especificar (opcional)"}
+            </option>
+            {opcionesSub.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
               </option>

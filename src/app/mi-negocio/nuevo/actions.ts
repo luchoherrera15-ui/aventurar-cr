@@ -1,5 +1,7 @@
 ﻿"use server";
 
+import { subcategoriasDe } from "@/lib/categorias-vertical";
+
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -96,13 +98,23 @@ export async function crearRancho(
     };
   }
 
-  // Las subcategorías existen solo en eventos; en citas la categoría
-  // ya es el rubro y la columna queda en null.
+  // El segundo nivel, por vertical: en Eventos es OBLIGATORIO (la
+  // vitrina se navega por él); en Citas es OPCIONAL desde el 28 ago
+  // 2026 — antes este insert lo forzaba a null y los discos finos de la
+  // portada filtraban contra una columna vacía para siempre. Lo
+  // inválido en Citas cae en null, nunca en error: nadie se queda sin
+  // publicar por un desplegable opcional.
+  let subcategoriaFinal: string | null = null;
   if (vertical === "eventos") {
     const validas = SUBCATEGORIAS[categoria as keyof typeof SUBCATEGORIAS] ?? [];
     if (!validas.some((s) => s.id === subcategoria)) {
       return { error: "Elegí qué ofrecés exactamente dentro de esa categoría." };
     }
+    subcategoriaFinal = subcategoria;
+  } else if (vertical === "citas") {
+    subcategoriaFinal = subcategoriasDe(vertical, categoria).some((s) => s.id === subcategoria)
+      ? subcategoria
+      : null;
   }
 
   const slug = await generarSlugUnico(supabase, nombre);
@@ -113,7 +125,7 @@ export async function crearRancho(
       owner_id: user.id,
       vertical,
       categoria,
-      subcategoria: vertical === "eventos" ? subcategoria : null,
+      subcategoria: subcategoriaFinal,
       pais,
       zona_horaria: zonaDePais(pais),
       nombre,

@@ -28,6 +28,7 @@ import {
 import {
   categoriaOptions,
   esUbicacionFija,
+  subcategoriasDe,
   usaSubcategoria,
 } from "@/lib/categorias-vertical";
 import { CAMPOS_POR_CATEGORIA_CITA } from "@/app/citas/campos-servicio";
@@ -425,24 +426,28 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               <label className={labelCls}>
                 {esLugarEventos ? "Tipo de lugar" : "¿Qué ofrecés exactamente?"}
               </label>
+              {/* `required` solo en Eventos: en Citas el segundo nivel
+                  es OPCIONAL (28 ago 2026) — «Barbería» ya es
+                  específico, y obligar a elegir entre corte y afeitado
+                  a quien hace los dos sería mentir. Las opciones salen
+                  de `subcategoriasDe`, que conoce las DOS taxonomías —
+                  ese día que el viejo comentario advertía («el día que
+                  usaSubcategoria devuelva true para otra vertical…»)
+                  llegó, y el `undefined.map` que anunciaba se evita
+                  justamente acá. */}
               <select
                 name="subcategoria"
-                required
+                required={(rancho.vertical ?? "eventos") === "eventos"}
                 value={subcategoria}
                 onChange={(e) => setSubcategoria(e.target.value)}
                 className={inputCls}
               >
-                <option value="">Selecciona una opción</option>
-                {/* El `?? []` no es cosmético: `SUBCATEGORIAS` solo
-                    tiene las seis claves de EVENTOS, y la única guarda
-                    de este bloque es `usaSubcategoria()`. El día que esa
-                    función devuelva true para otra vertical —cuyas
-                    categorías no son claves de este mapa— esto sería
-                    `undefined.map`: TypeError, y la pantalla de editar de
-                    todo negocio de esa vertical deja de abrir. Su
-                    hermano `editar/actions.ts` ya tiene el mismo
-                    resguardo. */}
-                {(SUBCATEGORIAS[categoria as Categoria] ?? []).map((s) => (
+                <option value="">
+                  {(rancho.vertical ?? "eventos") === "eventos"
+                    ? "Selecciona una opción"
+                    : "Sin especificar (opcional)"}
+                </option>
+                {subcategoriasDe(rancho.vertical ?? "eventos", categoria).map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.label}
                   </option>

@@ -41,7 +41,9 @@ export type RubroPortada = {
   vertical: string;
   /** La categoría en la base. */
   categoria: string;
-  /** La subcategoría, si el destino la traía. Solo Eventos las lee. */
+  /** La subcategoría, si el destino la traía. La leen las DOS
+   *  verticales de la portada: Eventos desde siempre, Citas desde la
+   *  grilla de dos carriles (28 ago 2026). */
   subcategoria?: string;
   /** Cómo se lee en pantalla. Solo lo traen los nueve del héroe; para
    *  cualquier otra categoría lo resuelve quien lo necesite con

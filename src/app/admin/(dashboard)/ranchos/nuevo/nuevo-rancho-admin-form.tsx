@@ -19,6 +19,7 @@ import {
 } from "@/app/mi-negocio/types";
 import {
   categoriaOptions,
+  subcategoriasDe,
   usaSubcategoria,
   type VerticalNegocio,
 } from "@/lib/categorias-vertical";
@@ -73,14 +74,15 @@ export default function NuevoRanchoAdminForm({
     [nombre, vertical, categoria],
   );
   const tipoElegido = tipoTocado ? tipoNegocio : sugerido;
-  // Las subcategorías y la capacidad solo existen en Eventos > Lugares;
-  // el resto de verticales no las usa (mismo criterio que
-  // mi-negocio/nuevo/nuevo-rancho-form.tsx y editar-form.tsx).
+  // `categoriaEvento` queda SOLO para la capacidad (Eventos > Lugares);
+  // el segundo nivel ahora es por vertical: Citas también lo tiene
+  // desde el 28 ago 2026 (opcional), vía `subcategoriasDe`.
   const categoriaEvento =
-    usaSubcategoria(vertical) && (CATEGORIAS as readonly string[]).includes(categoria)
+    vertical === "eventos" && (CATEGORIAS as readonly string[]).includes(categoria)
       ? (categoria as Categoria)
       : null;
   const esLugar = categoriaEvento === "lugares";
+  const opcionesSub = usaSubcategoria(vertical) ? subcategoriasDe(vertical, categoria) : [];
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -226,20 +228,22 @@ export default function NuevoRanchoAdminForm({
             </select>
           </div>
 
-          {categoriaEvento && (
+          {opcionesSub.length > 0 && (
             <div>
               <label className={labelCls}>
                 {esLugar ? "Tipo de lugar" : "¿Qué ofrece exactamente?"}
               </label>
               <select
                 name="subcategoria"
-                required
+                required={vertical === "eventos"}
                 value={subcategoria}
                 onChange={(e) => setSubcategoria(e.target.value)}
                 className={inputCls}
               >
-                <option value="">Selecciona una opción</option>
-                {SUBCATEGORIAS[categoriaEvento].map((s) => (
+                <option value="">
+                  {vertical === "eventos" ? "Selecciona una opción" : "Sin especificar (opcional)"}
+                </option>
+                {opcionesSub.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.label}
                   </option>

@@ -6,7 +6,7 @@ import { verificarAccesoRancho } from "@/lib/auth";
 import { extraerCoordenadas } from "@/lib/mapas";
 import { camposDeCategoria, COBERTURA, type Campo, type DetallesServicio } from "../../campos-servicio";
 import { AMENIDADES, FOTOS_MAX, PROVINCIAS, SUBCATEGORIAS, type Categoria } from "../../types";
-import { esCategoriaValida, usaSubcategoria } from "@/lib/categorias-vertical";
+import { esCategoriaValida, subcategoriasDe, usaSubcategoria } from "@/lib/categorias-vertical";
 import { camposDeCategoriaCita } from "@/app/citas/campos-servicio";
 import { COMODIDADES_CITA } from "@/app/citas/comodidades";
 import type { CategoriaCita } from "@/app/citas/tipos";
@@ -107,16 +107,24 @@ export async function actualizarRancho(
     return { error: "Completá al menos el tipo de servicio, el nombre y la provincia." };
   }
 
-  // Eventos usa un segundo nivel (subcategoria); las demás verticales son
-  // de un solo nivel y no lo tienen — la columna exige null o un valor
-  // válido de la lista de Eventos (ranchos_subcategoria_check), así que
-  // cualquier otra cosa rompería el guardado.
+  // El segundo nivel, por vertical. En Eventos es obligatorio y un
+  // valor fuera de lista es error. En Citas es OPCIONAL (28 ago 2026):
+  // antes este bloque solo corría para Eventos y el update de abajo
+  // escribía null SIEMPRE en Citas — cada guardado del dueño borraba la
+  // subcategoría, así que los discos finos de la portada no podían
+  // encender ni rellenando la base a mano. Lo inválido en Citas cae en
+  // null: la columna exige null o un valor del CHECK de la 0188.
   let subcategoria: string | null = null;
   if (usaSubcategoria(vertical)) {
-    subcategoria = String(formData.get("subcategoria") || "");
-    const validas = SUBCATEGORIAS[categoria as keyof typeof SUBCATEGORIAS] ?? [];
-    if (!validas.some((s) => s.id === subcategoria)) {
-      return { error: "Elegí qué ofrecés exactamente dentro de esa categoría." };
+    const crudo = String(formData.get("subcategoria") || "");
+    const validas = subcategoriasDe(vertical, categoria);
+    if (vertical === "eventos") {
+      if (!validas.some((s) => s.id === crudo)) {
+        return { error: "Elegí qué ofrecés exactamente dentro de esa categoría." };
+      }
+      subcategoria = crudo;
+    } else {
+      subcategoria = validas.some((s) => s.id === crudo) ? crudo : null;
     }
   }
 

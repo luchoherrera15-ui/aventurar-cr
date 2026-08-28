@@ -4,7 +4,7 @@ import {
   SUBCATEGORIAS,
   type Categoria,
 } from "@/app/mi-negocio/types";
-import { CATEGORIA_CITA_LABEL } from "@/app/citas/tipos";
+import { CATEGORIAS_CITAS, CATEGORIA_CITA_LABEL } from "@/app/citas/tipos";
 import { CATEGORIA_HOSPEDAJE_LABEL } from "@/app/booking/tipos";
 import { DIRECTORIO } from "@/lib/carriles-home";
 import { urlDirectorio } from "@/lib/url-directorio";
@@ -188,7 +188,10 @@ export type Puerta = {
  */
 const LEE_SUBCATEGORIA: Record<VerticalNegocio, boolean> = {
   eventos: true,
-  citas: false,
+  // true desde el 28 ago 2026: la portada lee `?sub=` para Citas (la
+  // grilla de dos carriles filtra por ella), así que estos enlaces ya
+  // no mienten. /citas —el motivo original del false— ni existe.
+  citas: true,
   hospedajes: false,
   restaurantes: false,
 };
@@ -344,15 +347,37 @@ function subcategoriaDeCitas(
   id: string,
   label: string,
 ): EntradaNav {
+  // «real» SOLO si su categoría padre ya está cableada en
+  // CATEGORIAS_CITAS. La portada filtra NORMALIZANDO la categoría
+  // (normalizarCategoriaCita), y una sin cablear —mascotas, automotriz,
+  // tatuajes— cae en «otros»: el enlace diría «Grooming» y filtraría
+  // otra lista, que es el enlace que miente. Las cableadas sí aterrizan
+  // en un filtro de verdad desde el 28 ago 2026: la portada lee
+  // `?sub=` para Citas (rubroDeParametro + filtrarPorRubro). El motivo
+  // viejo del sin-filtro global («/citas todavía no lee
+  // ?subcategoria=») murió dos veces: /citas ya no existe y su
+  // reemplazo sí lee.
+  if (!(CATEGORIAS_CITAS as readonly string[]).includes(categoria)) {
+    return {
+      id: `citas-${id}`,
+      label,
+      destino: {
+        respaldo: "sin-filtro",
+        vertical: "citas",
+        categoria,
+        subcategoria: id,
+        motivo: "Su categoría padre todavía no está cableada en CATEGORIAS_CITAS.",
+      },
+    };
+  }
   return {
     id: `citas-${id}`,
     label,
     destino: {
-      respaldo: "sin-filtro",
+      respaldo: "real",
       vertical: "citas",
       categoria,
       subcategoria: id,
-      motivo: "La 0188 autoriza el valor; /citas todavía no lee ?subcategoria=.",
     },
   };
 }
