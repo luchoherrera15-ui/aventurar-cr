@@ -299,7 +299,7 @@ export default function TableroModos({
 
                 {/* ── LOS DOS MODOS, LOS DOS A LA VISTA ──────────────
                     Antes esto era UN botón que cambiaba de texto:
-                    decía «Modo Negocio» o «Volver a mi perfil» según
+                    decía «Modo Negocio» o «Volver al modo normal» según
                     dónde estuvieras. El problema es que un botón que
                     dice a dónde vas NO dice dónde estás — había que
                     deducir el modo actual leyendo el nombre del botón
@@ -321,7 +321,14 @@ export default function TableroModos({
                       onClick={toggleModo}
                       icono={<IconUserCircle className="h-[14px] w-[14px]" />}
                     >
-                      {modoNegocio ? "Volver a mi perfil" : "Mi perfil"}
+                      {/* «Volver al modo normal» y no «Volver a mi
+                          perfil» (pedido del dueño, 28 ago 2026): el
+                          renglón es la salida de un MODO, y nombrarlo
+                          por el destino («mi perfil») sonaba a página,
+                          no a modo. En modo normal el renglón se llama
+                          como su hermano de abajo: «Modo normal» /
+                          «Modo Negocio», simétricos. */}
+                      {modoNegocio ? "Volver al modo normal" : "Modo normal"}
                     </BotonModo>
                     <BotonModo
                       activo={modoNegocio}
@@ -363,7 +370,7 @@ export default function TableroModos({
                  modo Negocio estaba vacío.
 
                  No es un botón: es un ESTADO. Por eso no se puede
-                 clickear — para salir del modo está «Volver a mi perfil»
+                 clickear — para salir del modo está «Volver al modo normal»
                  en el menú, que es una acción de verdad. Un cartel de
                  estado con pinta de botón manda a la gente a tocarlo. */
               <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-aventurea-line bg-aventurea-surface px-3.5 py-2 text-[12.5px] font-bold text-aventurea-navy shadow-sm">
@@ -500,7 +507,7 @@ const RAIL_ITEM =
  *  UN MODO DEL RAIL, CON SU LUZ DE «ACÁ ESTÁS»
  * ════════════════════════════════════════════════════════════════════
  *
- * Pedido del dueño (ago 2026): que «Volver a mi perfil» y «Modo
+ * Pedido del dueño (ago 2026): que la salida del modo y «Modo
  * Negocio» estén los dos a la vista, uno encima del otro, y que un
  * punto verde tipo «online» marque en cuál estás.
  *
