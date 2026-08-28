@@ -488,40 +488,101 @@ export default function NegociosPage() {
               </div>
             </div>
 
-            {/* El iPad con el resumen, y el teléfono encima recibiendo
-                la reserva que el resumen ya cuenta. */}
+            {/* ── EL iPAD Y EL TELÉFONO, EN VIVO ──────────────────────
+                Segunda pasada de realismo (pedido del dueño, 28 ago
+                2026: «más realistas, que salgan más popups»). Sobre el
+                reloj de 24 s de siempre ahora pasan MÁS cosas, todas
+                derivadas de los mismos tres actos (ver globals.css):
+
+                  · el teléfono tiene barra de estado y notch, y se
+                    SACUDE una gota cuando le cae cada aviso;
+                  · cuatro avisos en vez de tres (se sumó el violeta de
+                    «recordatorios enviados» — la automatización
+                    también avisa);
+                  · el iPad tiene la identidad del negocio (Studio
+                    Bella) y le caen DOS popups propios: la
+                    confirmación de María y su reseña de 5 estrellas;
+                  · los tres números viven: reservas 23⇄24, ocupación
+                    82⇄84 % y clientes nuevos 6→7 con la clienta del
+                    tercer acto;
+                  · la barra del viernes destella cuando entra la
+                    reserva (brightness, no transform: la entrada de
+                    las barras ya usa transform y dos animaciones sobre
+                    la misma propiedad no se componen — gana la última). */}
             <div aria-hidden className="relative mx-auto w-full max-w-[560px] pb-12 pl-6">
               <div className="mock-flotar overflow-hidden rounded-[26px] border-[10px] border-[#0a1226] bg-white shadow-[0_40px_90px_-40px_rgba(10,18,38,0.55)]">
-                <div className="bg-[#fbfcff] p-4 sm:p-5">
+                <div className="relative bg-[#fbfcff] p-4 sm:p-5">
+                  {/* Los popups del iPad, apilados arriba a la derecha. */}
+                  <div className="mock-pila absolute right-3 top-3 z-10 w-[190px]">
+                    <div className="mock-ipad-toast-1 rounded-xl border border-emerald-100 bg-white px-2.5 py-1.5 shadow-lg opacity-0">
+                      <p className="text-[8px] font-extrabold uppercase tracking-wide text-emerald-700">
+                        ✓ Cita confirmada
+                      </p>
+                      <p className="truncate text-[9.5px] font-bold text-aventurea-ink">
+                        María — Gel X, hoy 15:00
+                      </p>
+                    </div>
+                    <div className="mock-ipad-toast-2 rounded-xl border border-amber-100 bg-white px-2.5 py-1.5 shadow-lg opacity-0">
+                      <p className="text-[8px] font-extrabold uppercase tracking-wide text-amber-600">
+                        ★ Reseña nueva — 5.0
+                      </p>
+                      <p className="truncate text-[9.5px] font-bold text-aventurea-ink">
+                        «Me encantó, volví a reservar»
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="mb-3 flex items-center justify-between">
-                    <p className="text-[13px] font-extrabold text-aventurea-ink">Resumen de la semana</p>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[color:var(--navy)] text-[8.5px] font-extrabold text-white">
+                        SB
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-[12px] font-extrabold leading-tight text-aventurea-ink">
+                          Studio Bella
+                        </span>
+                        <span className="block text-[8.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                          Resumen de la semana
+                        </span>
+                      </span>
+                    </span>
                     <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-emerald-700">
                       <span aria-hidden className="mock-punto-vivo block h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       En vivo
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    {[
-                      ["Reservas", "24"],
-                      ["Clientes nuevos", "6"],
-                      ["Ocupación", "82%"],
-                    ].map(([kk, vv]) => (
-                      <div key={kk} className="rounded-xl bg-white p-2.5 shadow-[0_6px_18px_-10px_rgba(16,47,82,0.3)]">
-                        <p className="text-[9.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">{kk}</p>
-                        <p className="mt-0.5 text-[19px] font-extrabold tabular-nums text-[color:var(--navy)]">
-                          {kk === "Reservas" ? (
-                            /* 23 → 24 en el reloj de la demo: es la
-                               reserva que el teléfono acaba de anunciar. */
-                            <span className="mock-cifra">
-                              <span className="mock-cifra-vieja">23</span>
-                              <span className="mock-cifra-nueva">24</span>
-                            </span>
-                          ) : (
-                            vv
-                          )}
-                        </p>
-                      </div>
-                    ))}
+                    <div className="rounded-xl bg-white p-2.5 shadow-[0_6px_18px_-10px_rgba(16,47,82,0.3)]">
+                      <p className="text-[9.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">Reservas</p>
+                      <p className="mt-0.5 text-[19px] font-extrabold tabular-nums text-[color:var(--navy)]">
+                        <span className="mock-cifra">
+                          <span className="mock-cifra-vieja">23</span>
+                          <span className="mock-cifra-nueva">24</span>
+                        </span>
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white p-2.5 shadow-[0_6px_18px_-10px_rgba(16,47,82,0.3)]">
+                      <p className="text-[9.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">Clientes nuevos</p>
+                      <p className="mt-0.5 text-[19px] font-extrabold tabular-nums text-[color:var(--navy)]">
+                        {/* 6 → 7 con la Manicura francesa del acto 3:
+                            clienta nueva, número nuevo. */}
+                        <span className="mock-cifra">
+                          <span className="mock-cifra2-vieja">6</span>
+                          <span className="mock-cifra2-nueva">7</span>
+                        </span>
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-white p-2.5 shadow-[0_6px_18px_-10px_rgba(16,47,82,0.3)]">
+                      <p className="text-[9.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">Ocupación</p>
+                      <p className="mt-0.5 text-[19px] font-extrabold tabular-nums text-[color:var(--navy)]">
+                        {/* Mismo reloj que Reservas: 82 cuando 23, 84
+                            cuando 24 — los números no se contradicen. */}
+                        <span className="mock-cifra">
+                          <span className="mock-cifra-vieja">82%</span>
+                          <span className="mock-cifra-nueva">84%</span>
+                        </span>
+                      </p>
+                    </div>
                   </div>
                   <div className="mt-3 rounded-xl bg-white p-3 shadow-[0_6px_18px_-10px_rgba(16,47,82,0.3)]">
                     <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
@@ -532,13 +593,9 @@ export default function NegociosPage() {
                         ["L", 45], ["K", 60], ["M", 38], ["J", 72], ["V", 100], ["S", 88], ["D", 20],
                       ].map(([dia, alto], i) => (
                         <div key={dia as string} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-                          {/* La caja de altura FIJA es la que hace real el
-                              height porcentual de la barra: contra la columna
-                              (auto) el 45% era 45% de nada — barras de 0px,
-                              cazadas mirando el computed style en vivo. */}
                           <div className="flex h-20 w-full items-end">
                             <div
-                              className="mock-barra w-full rounded-t-md"
+                              className={`${dia === "V" ? "mock-barra mock-barra-destello" : "mock-barra"} w-full rounded-t-md`}
                               style={{
                                 height: `${alto}%`,
                                 background: dia === "V" ? "var(--navy)" : "#dbe3f2",
@@ -562,68 +619,87 @@ export default function NegociosPage() {
                 </div>
               </div>
 
-              <div className="mock-flotar-tel absolute -bottom-2 -left-1 w-[150px] overflow-hidden rounded-[26px] border-[7px] border-[#0a1226] bg-white shadow-[0_30px_60px_-25px_rgba(10,18,38,0.6)] sm:w-[180px]">
-                <div className="bg-white p-2.5 pt-1.5">
-                  <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#0a1226]/80" />
-                  {/* Los TRES avisos del reloj, apilados en una celda:
-                      reserva nueva (azul), cancelación (ámbar) y el
-                      reemplazo (verde). Los actos 2 y 3 llevan
-                      opacity-0 de base — ver el bloque mock-* en
-                      globals.css para el porqué. */}
-                  <div className="mock-pila mb-2">
-                    <div className="mock-toast-1 rounded-lg bg-[#eef4ff] px-2 py-1.5">
-                      <p className="text-[8px] font-extrabold uppercase tracking-wide text-[color:var(--navy)]">
-                        Nueva reserva
-                      </p>
-                      <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
-                        Gel X — hoy 15:00, con Sofía
-                      </p>
+              <div className="mock-flotar-tel absolute -bottom-2 -left-1 w-[150px] sm:w-[180px]">
+                <div className="mock-tel-sacudida overflow-hidden rounded-[26px] border-[7px] border-[#0a1226] bg-white shadow-[0_30px_60px_-25px_rgba(10,18,38,0.6)]">
+                  <div className="bg-white p-2.5 pt-1.5">
+                    {/* La barra de estado y el notch: lo que hace que un
+                        rectángulo se lea como un teléfono. */}
+                    <div className="relative mb-1.5 flex items-center justify-between px-0.5 pt-0.5">
+                      <span className="text-[8px] font-extrabold tabular-nums text-aventurea-ink">9:41</span>
+                      <span aria-hidden className="absolute left-1/2 top-0 h-[9px] w-12 -translate-x-1/2 rounded-full bg-[#0a1226]" />
+                      <span className="flex items-center gap-1">
+                        <span className="flex items-end gap-[1.5px]">
+                          <span className="block h-[3px] w-[2px] rounded-sm bg-aventurea-ink" />
+                          <span className="block h-[5px] w-[2px] rounded-sm bg-aventurea-ink" />
+                          <span className="block h-[7px] w-[2px] rounded-sm bg-aventurea-ink" />
+                        </span>
+                        <span className="relative block h-[7px] w-[13px] rounded-[2px] border border-aventurea-ink">
+                          <span className="absolute inset-[1px] right-[4px] rounded-[1px] bg-aventurea-ink" />
+                        </span>
+                      </span>
                     </div>
-                    <div className="mock-toast-2 rounded-lg bg-[#fff1de] px-2 py-1.5 opacity-0">
-                      <p className="text-[8px] font-extrabold uppercase tracking-wide text-[#9a4b00]">
-                        Cancelación
-                      </p>
-                      <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
-                        Uñas acrílicas — hoy 13:30
-                      </p>
-                    </div>
-                    <div className="mock-toast-3 rounded-lg bg-[#e3f6ec] px-2 py-1.5 opacity-0">
-                      <p className="text-[8px] font-extrabold uppercase tracking-wide text-[#146c43]">
-                        Nueva reserva
-                      </p>
-                      <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
-                        Manicura francesa — hoy 13:30
-                      </p>
-                    </div>
-                  </div>
-                  <p className="mb-1.5 px-0.5 text-[10px] font-extrabold text-aventurea-ink">Hoy</p>
-                  <div className="flex flex-col gap-1">
-                    {/* Las quietas. */}
-                    <div className="rounded-md px-1.5 py-1" style={{ background: "#dbeafe" }}>
-                      <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">9:00</p>
-                      <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Manicura</p>
-                    </div>
-                    <div className="rounded-md px-1.5 py-1" style={{ background: "#dcfce7" }}>
-                      <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">11:00</p>
-                      <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Pedicura spa</p>
-                    </div>
-                    {/* El hueco de las 13:30: la que se CANCELA y la que
-                        lo vuelve a llenar, apiladas — mismo tamaño, cero
-                        saltos de layout. */}
-                    <div className="mock-pila">
-                      <div className="mock-cita-sale rounded-md px-1.5 py-1" style={{ background: "#ffedd5" }}>
-                        <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">13:30</p>
-                        <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Uñas acrílicas</p>
+                    {/* Los CUATRO avisos del reloj, apilados. Los que no
+                        son del primer acto llevan opacity-0 de base
+                        (prefers-reduced-motion deja el cuadro del acto
+                        1, quieto y coherente). */}
+                    <div className="mock-pila mb-2">
+                      <div className="mock-toast-1 rounded-lg bg-[#eef4ff] px-2 py-1.5">
+                        <p className="text-[8px] font-extrabold uppercase tracking-wide text-[color:var(--navy)]">
+                          Nueva reserva
+                        </p>
+                        <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
+                          Gel X — hoy 15:00, con Sofía
+                        </p>
                       </div>
-                      <div className="mock-cita-reemplazo rounded-md px-1.5 py-1 opacity-0" style={{ background: "#e3f6ec" }}>
-                        <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">13:30</p>
-                        <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Manicura francesa</p>
+                      <div className="mock-toast-4 rounded-lg bg-[#efe9ff] px-2 py-1.5 opacity-0">
+                        <p className="text-[8px] font-extrabold uppercase tracking-wide text-[#5b34c4]">
+                          Automático
+                        </p>
+                        <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
+                          Recordatorios enviados a 5 clientas ✓
+                        </p>
+                      </div>
+                      <div className="mock-toast-2 rounded-lg bg-[#fff1de] px-2 py-1.5 opacity-0">
+                        <p className="text-[8px] font-extrabold uppercase tracking-wide text-[#9a4b00]">
+                          Cancelación
+                        </p>
+                        <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
+                          Uñas acrílicas — hoy 13:30
+                        </p>
+                      </div>
+                      <div className="mock-toast-3 rounded-lg bg-[#e3f6ec] px-2 py-1.5 opacity-0">
+                        <p className="text-[8px] font-extrabold uppercase tracking-wide text-[#146c43]">
+                          Nueva reserva
+                        </p>
+                        <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
+                          Manicura francesa — hoy 13:30
+                        </p>
                       </div>
                     </div>
-                    {/* La que ENTRA con el primer aviso. */}
-                    <div className="mock-cita-entra rounded-md px-1.5 py-1" style={{ background: "#fce7f3" }}>
-                      <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">15:00</p>
-                      <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Gel X</p>
+                    <p className="mb-1.5 px-0.5 text-[10px] font-extrabold text-aventurea-ink">Hoy</p>
+                    <div className="flex flex-col gap-1">
+                      <div className="rounded-md px-1.5 py-1" style={{ background: "#dbeafe" }}>
+                        <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">9:00</p>
+                        <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Manicura</p>
+                      </div>
+                      <div className="rounded-md px-1.5 py-1" style={{ background: "#dcfce7" }}>
+                        <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">11:00</p>
+                        <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Pedicura spa</p>
+                      </div>
+                      <div className="mock-pila">
+                        <div className="mock-cita-sale rounded-md px-1.5 py-1" style={{ background: "#ffedd5" }}>
+                          <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">13:30</p>
+                          <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Uñas acrílicas</p>
+                        </div>
+                        <div className="mock-cita-reemplazo rounded-md px-1.5 py-1 opacity-0" style={{ background: "#e3f6ec" }}>
+                          <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">13:30</p>
+                          <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Manicura francesa</p>
+                        </div>
+                      </div>
+                      <div className="mock-cita-entra rounded-md px-1.5 py-1" style={{ background: "#fce7f3" }}>
+                        <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">15:00</p>
+                        <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Gel X</p>
+                      </div>
                     </div>
                   </div>
                 </div>

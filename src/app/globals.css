@@ -2469,3 +2469,96 @@ body {
     animation: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   SEGUNDA PASADA DE REALISMO DE LOS APARATOS (28 ago 2026: «más
+   realistas, más popups»). Piezas NUEVAS sobre el mismo reloj de 24 s
+   de la sección «Startup» — los momentos siguen siendo los tres actos.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* El aviso violeta del teléfono: la automatización también avisa.
+   Ocupa la ventana muerta entre el acto 1 y el 2. */
+@keyframes mock-toast-4 {
+  0%, 26% { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  30%, 36% { opacity: 1; transform: translateY(0) scale(1); }
+  40%, 100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+.mock-toast-4 { animation: mock-toast-4 24s ease-in-out infinite; }
+
+/* Los dos popups del iPad: la confirmación tras el acto 1 y la reseña
+   tras el acto 3. Entran desde la derecha, como un aviso de escritorio. */
+@keyframes mock-ipad-toast-1 {
+  0%, 12% { opacity: 0; transform: translateX(12px); }
+  16%, 30% { opacity: 1; transform: translateX(0); }
+  34%, 100% { opacity: 0; transform: translateX(6px); }
+}
+@keyframes mock-ipad-toast-2 {
+  0%, 76% { opacity: 0; transform: translateX(12px); }
+  80%, 94% { opacity: 1; transform: translateX(0); }
+  98%, 100% { opacity: 0; transform: translateX(6px); }
+}
+.mock-ipad-toast-1 { animation: mock-ipad-toast-1 24s ease-in-out infinite; }
+.mock-ipad-toast-2 { animation: mock-ipad-toast-2 24s ease-in-out infinite; }
+
+/* Clientes nuevos 6 → 7: UNA sola vez, con la clienta del acto 3. */
+@keyframes mock-cifra2-vieja {
+  0%, 70% { opacity: 1; transform: translateY(0); }
+  74%, 100% { opacity: 0; transform: translateY(-9px); }
+}
+@keyframes mock-cifra2-nueva {
+  0%, 70% { opacity: 0; transform: translateY(9px); }
+  74%, 100% { opacity: 1; transform: translateY(0); }
+}
+.mock-cifra2-vieja { animation: mock-cifra2-vieja 24s ease-in-out infinite; }
+.mock-cifra2-nueva { animation: mock-cifra2-nueva 24s ease-in-out infinite; }
+
+/* La barra del viernes destella cuando cae la reserva. Va por
+   `filter` y NO por transform: la entrada de la barra ya anima
+   transform, y dos animaciones sobre la misma propiedad no se
+   componen — la última pisa a la primera y la entrada moriría. */
+@keyframes mock-barra-destello {
+  0%, 10% { filter: brightness(1); }
+  13% { filter: brightness(1.65); }
+  17%, 67% { filter: brightness(1); }
+  71% { filter: brightness(1.65); }
+  75%, 100% { filter: brightness(1); }
+}
+.mock-barra-destello { animation-name: mock-barra, mock-barra-destello; animation-duration: 0.9s, 24s; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1), ease-in-out; animation-fill-mode: backwards, none; animation-iteration-count: 1, infinite; }
+
+/* El teléfono se sacude una gota cuando le cae cada aviso — el
+   temblor va en el MARCO interno: la inclinación y el flote viven en
+   el envoltorio (mock-flotar-tel) y no se pelean. */
+@keyframes mock-tel-sacudida {
+  0%, 3% { transform: rotate(0deg); }
+  4% { transform: rotate(0.9deg); }
+  5% { transform: rotate(-0.7deg); }
+  6%, 26% { transform: rotate(0deg); }
+  27% { transform: rotate(0.9deg); }
+  28% { transform: rotate(-0.7deg); }
+  29%, 40% { transform: rotate(0deg); }
+  41% { transform: rotate(0.9deg); }
+  42% { transform: rotate(-0.7deg); }
+  43%, 61% { transform: rotate(0deg); }
+  62% { transform: rotate(0.9deg); }
+  63% { transform: rotate(-0.7deg); }
+  64%, 100% { transform: rotate(0deg); }
+}
+.mock-tel-sacudida { animation: mock-tel-sacudida 24s ease-in-out infinite; will-change: transform; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mock-toast-4,
+  .mock-ipad-toast-1,
+  .mock-ipad-toast-2,
+  .mock-cifra2-vieja,
+  .mock-cifra2-nueva,
+  .mock-tel-sacudida {
+    animation: none;
+  }
+  /* El destello se apaga pero la ENTRADA de la barra tampoco corre con
+     reduced-motion (mock-barra ya está en la lista de arriba): la
+     barra queda puesta, quieta. */
+  .mock-barra-destello { animation: none; }
+  /* El cuadro quieto muestra el acto 1: 6 clientes, sin popups extra. */
+  .mock-cifra2-nueva { opacity: 0; }
+  .mock-cifra2-vieja { opacity: 1; }
+}
