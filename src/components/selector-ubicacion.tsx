@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Map as MapaLeaflet, Marker as MarcadorLeaflet } from "leaflet";
+import type { Map as MapaLeaflet, Marker as MarcadorLeaflet, TileLayer } from "leaflet";
 
 /**
  * EL SELECTOR DE UBICACIÓN: un mapa donde el negocio pone su pin.
@@ -67,6 +67,8 @@ export default function SelectorUbicacion({
   /** `poner` nace dentro del efecto del mapa; el buscador vive afuera
    *  y le llega por acá. */
   const ponerRef = useRef<((lat: number, lng: number) => void) | null>(null);
+  /** Las dos capas de fondo, para el botón Mapa/Satélite. */
+  const capasRef = useRef<{ calles: TileLayer; satelite: TileLayer } | null>(null);
   // En ref y no en el closure: el efecto del mapa corre una vez y el
   // callback puede cambiar por render. Se sincroniza en un efecto sin
   // deps (cada render) porque escribir un ref DURANTE el render es lo
@@ -82,6 +84,7 @@ export default function SelectorUbicacion({
       : null,
   );
   const [buscandome, setBuscandome] = useState(false);
+  const [vistaSatelite, setVistaSatelite] = useState(false);
 
   const [busqueda, setBusqueda] = useState("");
   const [buscando, setBuscando] = useState(false);
@@ -149,10 +152,23 @@ export default function SelectorUbicacion({
 
       const inicio = punto ? ([punto.lat, punto.lng] as [number, number]) : CENTRO_CR;
       const mapa = L.map(contenedor.current).setView(inicio, punto ? 16 : 9);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      /**
+       * DOS FONDOS, UN BOTÓN (pedido del dueño, 28 ago 2026: «opción
+       * satelital también, por si desean cambiarlo»). El satelital es
+       * World Imagery de Esri: gratis con atribución y sin llave —
+       * mismo criterio que OpenStreetMap en la cabecera. Para poner un
+       * pin sobre un techo, la foto aérea gana por paliza al plano.
+       */
+      const calles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap",
         maxZoom: 19,
-      }).addTo(mapa);
+      });
+      const satelite = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        { attribution: "© Esri — World Imagery", maxZoom: 19 },
+      );
+      calles.addTo(mapa);
+      capasRef.current = { calles, satelite };
 
       // El ícono por defecto de Leaflet apunta a imágenes que el bundler
       // no copia; se dibuja uno propio para no depender de eso.
@@ -186,6 +202,7 @@ export default function SelectorUbicacion({
         mapaRef.current = null;
         marcadorRef.current = null;
         ponerRef.current = null;
+        capasRef.current = null;
       };
     })();
 
@@ -196,6 +213,21 @@ export default function SelectorUbicacion({
     // Solo al montar: el mapa se maneja solo desde acá en adelante.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** El botón Mapa/Satélite: quita una capa, pone la otra. */
+  function alternarVista() {
+    const mapa = mapaRef.current;
+    const capas = capasRef.current;
+    if (!mapa || !capas) return;
+    if (vistaSatelite) {
+      mapa.removeLayer(capas.satelite);
+      capas.calles.addTo(mapa);
+    } else {
+      mapa.removeLayer(capas.calles);
+      capas.satelite.addTo(mapa);
+    }
+    setVistaSatelite(!vistaSatelite);
+  }
 
   /** "Usar mi ubicación": el navegador la da con permiso. */
   function ubicarme() {
@@ -284,11 +316,22 @@ export default function SelectorUbicacion({
         )}
       </div>
 
-      <div
-        ref={contenedor}
-        className="h-[260px] w-full overflow-hidden rounded-xl border border-aventurea-line"
-        style={{ background: "#e8ecf6" }}
-      />
+      <div className="relative">
+        <div
+          ref={contenedor}
+          className="h-[260px] w-full overflow-hidden rounded-xl border border-aventurea-line"
+          style={{ background: "#e8ecf6" }}
+        />
+        {/* Sobre el mapa y no en la fila de abajo: es un control DEL
+            mapa, como el zoom. z sobre los panes de Leaflet (400). */}
+        <button
+          type="button"
+          onClick={alternarVista}
+          className="absolute right-2 top-2 z-[500] rounded-lg border border-aventurea-line bg-white/95 px-2.5 py-1 text-[11.5px] font-bold text-aventurea-navy shadow-sm"
+        >
+          {vistaSatelite ? "Mapa" : "Satélite"}
+        </button>
+      </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button
