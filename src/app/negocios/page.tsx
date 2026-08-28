@@ -86,36 +86,6 @@ const RUBROS: { label: string; foto: string }[] = [
   { label: "Yoga y pilates", foto: "photo-1518611012118-696072aa579a" },
 ];
 
-/** La agenda del héroe: dibujada, no capturada — así nunca desactualiza. */
-const AGENDA_MOCK: {
-  dia: string;
-  citas: { hora: string; titulo: string; tono: string }[];
-}[] = [
-  {
-    dia: "Jueves",
-    citas: [
-      { hora: "9:00", titulo: "Manicura semipermanente", tono: "#dbeafe" },
-      { hora: "10:30", titulo: "Corte y barba", tono: "#ffedd5" },
-      { hora: "13:00", titulo: "Masaje relajante", tono: "#dcfce7" },
-    ],
-  },
-  {
-    dia: "Viernes",
-    citas: [
-      { hora: "8:30", titulo: "Consulta de valoración", tono: "#fef9c3" },
-      { hora: "11:00", titulo: "Gel X — set completo", tono: "#dbeafe" },
-      { hora: "15:00", titulo: "Color y peinado", tono: "#fce7f3" },
-    ],
-  },
-  {
-    dia: "Sábado",
-    citas: [
-      { hora: "9:00", titulo: "Pedicura spa", tono: "#dcfce7" },
-      { hora: "10:00", titulo: "Fade clásico", tono: "#ffedd5" },
-      { hora: "12:30", titulo: "Limpieza facial", tono: "#e0e7ff" },
-    ],
-  },
-];
 
 /**
  * La agenda grande, por colaborador. Misma filosofía que AGENDA_MOCK:
@@ -253,41 +223,108 @@ export default function NegociosPage() {
               </div>
             </div>
 
-            {/* La agenda, dibujada. Una captura envejece; esto no. */}
-            <div
-              aria-hidden
-              className="mock-flotar rounded-3xl border border-aventurea-line bg-white p-4 shadow-[0_30px_70px_-30px_rgba(16,47,82,0.4)] sm:p-5"
-            >
-              <div className="mb-3 flex items-center justify-between px-1">
-                <p className="text-[13px] font-extrabold text-aventurea-ink">Tu agenda</p>
-                <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wide text-emerald-700">
-                  3 reservas nuevas
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2.5">
-                {AGENDA_MOCK.map((col) => (
-                  <div key={col.dia} className="rounded-2xl bg-aventurea-cream-2/60 p-2">
-                    <p className="mb-2 px-1 text-[11px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft">
-                      {col.dia}
-                    </p>
-                    <div className="flex flex-col gap-1.5">
-                      {col.citas.map((c) => (
-                        <div
-                          key={c.hora}
-                          className="rounded-lg px-2 py-1.5"
-                          style={{ background: c.tono }}
-                        >
-                          <p className="text-[10px] font-bold tabular-nums text-aventurea-ink-soft">
-                            {c.hora}
-                          </p>
-                          <p className="truncate text-[11px] font-bold leading-tight text-aventurea-ink">
-                            {c.titulo}
-                          </p>
-                        </div>
-                      ))}
+            {/* ── EL ANTES Y EL DESPUÉS, EN UN SOLO TELÉFONO ──────────
+                (pedido del dueño, 28 ago 2026: «un mockup de un
+                teléfono de WhatsApp recibiendo muchas notificaciones y
+                luego una transición hacia otro teléfono brindando las
+                soluciones de Bookea»). Dos teléfonos APILADOS en la
+                misma celda con fundido entre ellos (reloj de 16 s en
+                globals.css): primero la pantalla bloqueada ahogada en
+                avisos de WhatsApp — que es el día a día real de un
+                salón sin sistema — y después la agenda de Bookea con
+                las mismas citas entrando solas y confirmadas. El caos
+                no usa el logo de WhatsApp, solo su realidad: avisos
+                que se apilan y un contador de «sin responder». Con
+                prefers-reduced-motion queda SOLO el después. */}
+            <div aria-hidden className="mx-auto w-full max-w-[300px]">
+              <div className="mock-pila">
+                {/* Teléfono A · el caos */}
+                <div className="mock-tel-caos opacity-0">
+                  <div className="overflow-hidden rounded-[30px] border-[8px] border-[#0a1226] bg-[#eef1f6] shadow-[0_36px_80px_-36px_rgba(10,18,38,0.55)]">
+                    <div className="px-3 pb-4 pt-2">
+                      <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#0a1226]/80" />
+                      <p className="text-center text-[26px] font-extrabold tabular-nums text-aventurea-ink">9:41</p>
+                      <div className="mb-2 flex justify-center">
+                        <span className="mock-badge-caos rounded-full bg-red-500 px-2.5 py-0.5 text-[9.5px] font-extrabold text-white">
+                          14 sin responder
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {[
+                          ["María", "Hola!! ¿Tienen campo mañana?", "mock-msj-1"],
+                          ["Camila", "¿Me pasás los precios? 🙏", "mock-msj-2"],
+                          ["José", "¿Puedo mover mi cita de hoy?", "mock-msj-3"],
+                          ["Daniela", "Llamada perdida (2)", "mock-msj-4"],
+                          ["Andrea", "Al final no llego 😞", "mock-msj-5"],
+                        ].map(([quien, texto, clase]) => (
+                          <div key={quien} className={`${clase} rounded-xl bg-white px-2.5 py-1.5 shadow-sm`}>
+                            <p className="flex items-center gap-1.5 text-[8px] font-extrabold uppercase tracking-wide text-[#128c4b]">
+                              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#25d366]" />
+                              {quien} · ahora
+                            </p>
+                            <p className="truncate text-[10px] font-bold leading-tight text-aventurea-ink">
+                              {texto}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                ))}
+                </div>
+
+                {/* Teléfono B · Bookea, todo entrando solo */}
+                <div className="mock-tel-orden">
+                  <div className="overflow-hidden rounded-[30px] border-[8px] border-[#0a1226] bg-white shadow-[0_36px_80px_-36px_rgba(10,18,38,0.55)]">
+                    <div className="px-3 pb-4 pt-2">
+                      <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#0a1226]/80" />
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-[12px] font-extrabold text-aventurea-ink">Tu agenda</p>
+                        <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wide text-emerald-700">
+                          <span className="mock-punto-vivo block h-1 w-1 rounded-full bg-emerald-500" />
+                          En vivo
+                        </span>
+                      </div>
+                      <div className="mock-b-toast mb-1.5 rounded-xl bg-[#e3f6ec] px-2.5 py-1.5">
+                        <p className="text-[8px] font-extrabold uppercase tracking-wide text-[#146c43]">
+                          Reserva nueva
+                        </p>
+                        <p className="text-[10px] font-bold leading-tight text-aventurea-ink">
+                          Entró sola — sin un solo chat
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {[
+                          ["9:00", "Manicura — María", "#dbeafe", "mock-b-1"],
+                          ["11:00", "Corte y barba — José", "#ffedd5", "mock-b-2"],
+                          ["13:30", "Pedicura spa — Camila", "#dcfce7", "mock-b-3"],
+                          ["15:00", "Gel X — Andrea", "#fce7f3", "mock-b-4"],
+                        ].map(([hh, tt, tono, clase]) => (
+                          <div
+                            key={hh}
+                            className={`${clase} flex items-center justify-between rounded-xl px-2.5 py-1.5`}
+                            style={{ background: tono }}
+                          >
+                            <span className="min-w-0">
+                              <span className="block text-[8px] font-bold tabular-nums text-aventurea-ink-soft">{hh}</span>
+                              <span className="block truncate text-[10px] font-bold text-aventurea-ink">{tt}</span>
+                            </span>
+                            <span className="shrink-0 text-[8.5px] font-extrabold text-emerald-700">✓ Confirmada</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* El rótulo de cada mitad, apilado con el mismo reloj. */}
+              <div className="mock-pila mt-3 text-center">
+                <p className="mock-cap-caos text-[12.5px] font-bold text-aventurea-ink-soft opacity-0">
+                  Así se ve organizar citas por WhatsApp…
+                </p>
+                <p className="mock-cap-orden text-[12.5px] font-bold text-aventurea-ink-soft">
+                  …y así se ve con Bookea: solas y confirmadas.
+                </p>
               </div>
             </div>
           </div>

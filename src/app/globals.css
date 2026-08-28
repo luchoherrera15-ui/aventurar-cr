@@ -2383,3 +2383,89 @@ body {
   .mock-flotar-tel { transform: rotate(-5deg); }
   .mock-cifra-vieja { opacity: 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   EL ANTES/DESPUÉS DEL HÉROE DE /negocios — reloj propio de 16 s
+   ═══════════════════════════════════════════════════════════════════
+
+   Dos teléfonos apilados (mock-pila): el CAOS de WhatsApp primero —
+   cinco avisos que se apilan uno tras otro, como llegan de verdad — y
+   un fundido hacia la agenda de Bookea, donde las MISMAS citas entran
+   solas y confirmadas. El reloj es aparte del de 24 s de la sección
+   «Startup»: cuentan historias distintas y sincronizarlas obligaría a
+   la peor duración común.
+
+   La costura del bucle es un fundido cruzado (A vuelve mientras B se
+   va), no un teletransporte.
+
+   ⚠️ El teléfono A y su rótulo llevan `opacity-0` de BASE en el JSX:
+   con la animación andando mandan los keyframes; sin animación
+   (prefers-reduced-motion) queda SOLO el después — la solución, no el
+   caos. */
+
+@keyframes mock-tel-caos {
+  0%, 44% { opacity: 1; transform: translateX(0); }
+  52%, 90% { opacity: 0; transform: translateX(-14px); }
+  98%, 100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes mock-tel-orden {
+  0%, 44% { opacity: 0; transform: translateX(14px); }
+  52%, 90% { opacity: 1; transform: translateX(0); }
+  98%, 100% { opacity: 0; transform: translateX(14px); }
+}
+.mock-tel-caos { animation: mock-tel-caos 16s ease-in-out infinite; }
+.mock-tel-orden { animation: mock-tel-orden 16s ease-in-out infinite; }
+
+/* Los cinco avisos del caos, apilándose uno tras otro: cada uno se
+   anima con la duración del reloj entero y su ventana porcentual — el
+   padre (el teléfono) los esconde en bloque en la otra mitad del
+   ciclo, así que con aparecer UNA vez por vuelta alcanza. */
+@keyframes mock-msj-1 { 0%, 3% { opacity: 0; transform: translateY(5px); } 6%, 100% { opacity: 1; transform: translateY(0); } }
+@keyframes mock-msj-2 { 0%, 9% { opacity: 0; transform: translateY(5px); } 12%, 100% { opacity: 1; transform: translateY(0); } }
+@keyframes mock-msj-3 { 0%, 15% { opacity: 0; transform: translateY(5px); } 18%, 100% { opacity: 1; transform: translateY(0); } }
+@keyframes mock-msj-4 { 0%, 21% { opacity: 0; transform: translateY(5px); } 24%, 100% { opacity: 1; transform: translateY(0); } }
+@keyframes mock-msj-5 { 0%, 27% { opacity: 0; transform: translateY(5px); } 30%, 100% { opacity: 1; transform: translateY(0); } }
+.mock-msj-1 { animation: mock-msj-1 16s ease-out infinite; }
+.mock-msj-2 { animation: mock-msj-2 16s ease-out infinite; }
+.mock-msj-3 { animation: mock-msj-3 16s ease-out infinite; }
+.mock-msj-4 { animation: mock-msj-4 16s ease-out infinite; }
+.mock-msj-5 { animation: mock-msj-5 16s ease-out infinite; }
+
+/* El contador de «sin responder» tiembla mientras siguen cayendo. */
+@keyframes mock-badge-caos {
+  0%, 5% { transform: scale(1); }
+  8% { transform: scale(1.14); }
+  11%, 14% { transform: scale(1); }
+  17% { transform: scale(1.14); }
+  20%, 26% { transform: scale(1); }
+  29% { transform: scale(1.14); }
+  32%, 100% { transform: scale(1); }
+}
+.mock-badge-caos { display: inline-block; animation: mock-badge-caos 16s ease-in-out infinite; }
+
+/* Las citas del después entran en cascada, y el aviso verde al final. */
+@keyframes mock-b-1 { 0%, 53% { opacity: 0; transform: translateY(5px); } 57%, 100% { opacity: 1; transform: translateY(0); } }
+@keyframes mock-b-2 { 0%, 58% { opacity: 0; transform: translateY(5px); } 62%, 100% { opacity: 1; transform: translateY(0); } }
+@keyframes mock-b-3 { 0%, 63% { opacity: 0; transform: translateY(5px); } 67%, 100% { opacity: 1; transform: translateY(0); } }
+@keyframes mock-b-4 { 0%, 68% { opacity: 0; transform: translateY(5px); } 72%, 100% { opacity: 1; transform: translateY(0); } }
+@keyframes mock-b-toast { 0%, 73% { opacity: 0; transform: translateY(-6px); } 77%, 100% { opacity: 1; transform: translateY(0); } }
+.mock-b-1 { animation: mock-b-1 16s ease-out infinite; }
+.mock-b-2 { animation: mock-b-2 16s ease-out infinite; }
+.mock-b-3 { animation: mock-b-3 16s ease-out infinite; }
+.mock-b-4 { animation: mock-b-4 16s ease-out infinite; }
+.mock-b-toast { animation: mock-b-toast 16s ease-out infinite; }
+
+/* Los rótulos acompañan a su teléfono. */
+.mock-cap-caos { animation: mock-tel-caos 16s ease-in-out infinite; }
+.mock-cap-orden { animation: mock-tel-orden 16s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mock-tel-caos,
+  .mock-tel-orden,
+  .mock-msj-1, .mock-msj-2, .mock-msj-3, .mock-msj-4, .mock-msj-5,
+  .mock-badge-caos,
+  .mock-b-1, .mock-b-2, .mock-b-3, .mock-b-4, .mock-b-toast,
+  .mock-cap-caos, .mock-cap-orden {
+    animation: none;
+  }
+}
