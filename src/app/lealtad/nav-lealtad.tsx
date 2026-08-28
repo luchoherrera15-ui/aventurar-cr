@@ -24,7 +24,13 @@ import { createClient } from "@/lib/supabase/client";
  */
 
 const ENLACES: { href: string; label: string }[] = [
-  { href: "#como-funciona", label: "Cómo funciona" },
+  // Al TUTORIAL (/lealtad/ayuda, 28 ago 2026) y ya no al ancla
+  // #como-funciona: el dueño pidió la puerta en el nav, y una ruta real
+  // funciona desde CUALQUIER página de Lealtad — el ancla solo servía
+  // parada sobre la landing (desde /lealtad/industrias no iba a ningún
+  // lado). La sección de la landing conserva su id por si algún enlace
+  // viejo la apunta.
+  { href: "/lealtad/ayuda", label: "¿Cómo funciona?" },
   { href: "#soluciones", label: "Soluciones" },
   { href: "#planes", label: "Planes" },
 ];

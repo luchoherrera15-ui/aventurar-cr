@@ -47,6 +47,7 @@ function Paso({
   numero,
   titulo,
   invertido = false,
+  apilado = false,
   mockup,
   children,
 }: {
@@ -54,9 +55,36 @@ function Paso({
   titulo: string;
   /** En pantallas anchas los pasos alternan texto|mockup. */
   invertido?: boolean;
+  /**
+   * Texto arriba y mockup a lo ANCHO abajo. Existe por el paso 3:
+   * `MockupEscaneo` es una composición de dos piezas lado a lado
+   * (teléfono + tarjeta del mostrador) pensada para la franja completa
+   * de la landing — metida en media columna, la tarjeta del escáner
+   * quedaba aplastada a un tercio de su ancho (lo cazó el dueño en la
+   * primera revisión). A una composición ancha se le da la fila entera.
+   */
+  apilado?: boolean;
   mockup: React.ReactNode;
   children: React.ReactNode;
 }) {
+  if (apilado) {
+    return (
+      <section className="mx-auto w-full max-w-[1080px] px-5 py-12">
+        <div className="mx-auto max-w-[720px] text-center">
+          <p className="inline-flex items-center gap-2 rounded-full bg-aventurea-navy px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white">
+            Paso {numero}
+          </p>
+          <h2 className="titulo mt-4 text-[clamp(22px,3vw,32px)] leading-[1.12] text-aventurea-navy">
+            {titulo}
+          </h2>
+          <div className="mx-auto mt-3 flex max-w-[56ch] flex-col gap-3 text-left text-[15px] leading-relaxed text-aventurea-ink-soft">
+            {children}
+          </div>
+        </div>
+        <div className="mt-10">{mockup}</div>
+      </section>
+    );
+  }
   return (
     <section className="mx-auto grid w-full max-w-[1080px] items-center gap-8 px-5 py-12 lg:grid-cols-2 lg:gap-14">
       <div className={invertido ? "lg:order-2" : ""}>
@@ -118,7 +146,7 @@ export default function AyudaLealtadPage() {
           </p>
         </Paso>
 
-        <Paso numero={3} titulo="Invitá a tus clientes" mockup={<MockupEscaneo />}>
+        <Paso numero={3} titulo="Invitá a tus clientes" apilado mockup={<MockupEscaneo />}>
           <p>
             En el local, tu cliente escanea el código del póster y su tarjeta
             queda guardada en el teléfono — de una, sin descargar nada.
