@@ -73,6 +73,13 @@ export default function RestaurantesDirectorioScreen() {
         )
         .eq("vertical", "restaurantes")
         .eq("estado", "aprobado")
+        // ⚠️ Sin los negocios de la DEMO (27 ago 2026). El seed de
+        // /demo-bookea siembra 99 negocios APROBADOS con
+        // en_marketplace=false — la web los filtra así desde
+        // home-datos.ts, pero la app no lo hacía y los 99 se le
+        // colaron a los listados. `neq` y no `eq(true)`: un NULL
+        // viejo no es ni igual ni distinto a true en Postgres.
+        .neq("en_marketplace", false)
         .order("created_at", { ascending: false }),
       supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
     ]);

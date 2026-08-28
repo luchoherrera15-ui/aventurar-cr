@@ -92,6 +92,13 @@ export default function MapaScreen() {
         "id, nombre, vertical, categoria, provincia, canton, foto_url, precio_desde, latitud, longitud, created_at, verificado, info_publica",
       )
       .eq("estado", "aprobado")
+      // ⚠️ Sin los negocios de la DEMO (27 ago 2026). El seed de
+      // /demo-bookea siembra 99 negocios APROBADOS con
+      // en_marketplace=false — la web los filtra así desde
+      // home-datos.ts, pero la app no lo hacía y los 99 se le
+      // colaron a los listados. `neq` y no `eq(true)`: un NULL
+      // viejo no es ni igual ni distinto a true en Postgres.
+      .neq("en_marketplace", false)
       // Sin coordenadas no hay nada que poner en el mapa.
       .not("latitud", "is", null)
       .not("longitud", "is", null);
