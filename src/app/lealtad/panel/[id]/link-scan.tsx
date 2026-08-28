@@ -11,7 +11,7 @@ import { guardarPermiteManualEnLink } from "./link-scan-actions";
  *
  * Pedido del dueño: una ventana aparte —sin el menú del panel
  * alrededor— para dejar puesta en el teléfono del mostrador. Adentro se
- * ve exactamente el mismo escáner que "Modo mostrador" (mismo componente,
+ * ve exactamente el mismo escáner que el Inicio del panel (mismo componente,
  * misma sesión, mismo checklist de la 0127); lo único que se configura
  * ACÁ es si ese link, además de escanear, también deja buscar y atender
  * a mano — arranca apagado, tarjeta por tarjeta.

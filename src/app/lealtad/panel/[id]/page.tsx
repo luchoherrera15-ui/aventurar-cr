@@ -1229,32 +1229,6 @@ export default async function PanelNegocioLealtad({
         }}
         grupos={grupos}
         contenidos={contenidos}
-        mostrador={
-          p && permisos.acreditar ? (
-            <ModoMostrador
-              ranchoId={id}
-              programaId={p.id}
-              // `registraCompraElTipo` y no «todo lo que no sea
-              // sellos»: a un cupón, a una entrada de evento y a un
-              // carnet de socio el monto no les cambia absolutamente
-              // nada — y el empleado, con el cliente enfrente, se queda
-              // mirando un campo que no sabe qué poner. Puntos,
-              // cashback y gift card dependen de cuánto se gastó; y
-              // SELLOS entra desde la 0197 con el campo OPCIONAL: la
-              // compra queda registrada (y decide los sellos si la
-              // tarjeta tiene la regla por monto).
-              pideMonto={registraCompraElTipo(tipoPrincipal)}
-              tipo={p.modo ?? null}
-              permisos={permisos}
-              // El catálogo activo (0198). Vacío —o sin la migración—
-              // el mostrador queda idéntico: monto a mano.
-              productos={productosDeVenta}
-              recompensa={
-                meta ? { id: meta.id, nombre: meta.nombre, costo: meta.costo_puntos } : null
-              }
-            />
-          ) : undefined
-        }
       />
     </ProveedorPrograma>
   );

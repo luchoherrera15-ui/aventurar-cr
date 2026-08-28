@@ -15,11 +15,7 @@ import { Icono, type NombreIcono } from "./iconos";
 import "../panel-oscuro.css";
 import {
   ACCION,
-  ACCION_BORDE,
-  ACCION_TINTA,
   ACCION_TINTE,
-  BOTON_ACCION,
-  BOTON_LEALTAD,
   RAIL_GRUPO_LEALTAD,
   RAIL_ITEM_LEALTAD,
 } from "../sistema-lealtad";
@@ -166,22 +162,24 @@ export default function ShellLealtad({
   usuario,
   grupos,
   contenidos,
-  mostrador,
 }: {
   negocio: { nombre: string; plan: string | null };
   usuario: { nombre: string; email: string; rol: string };
   grupos: GrupoLealtad[];
   contenidos: Record<string, ReactNode>;
-  /** El escáner a pantalla completa. null = quien mira no acredita. */
-  mostrador?: ReactNode;
 }) {
   const items = useMemo(() => grupos.flatMap((g) => g.items), [grupos]);
   const primera = items[0]?.id ?? "inicio";
 
   const [activa, setActiva] = useState(primera);
   const [menuAbierto, setMenuAbierto] = useState(false);
-  const [enMostrador, setEnMostrador] = useState(false);
-  const [pidiendoSalida, setPidiendoSalida] = useState(false);
+  // ── ACÁ VIVIÓ EL «MODO MOSTRADOR» (retirado el 28 ago 2026) ──────
+  // Un interruptor en la barra dejaba la pantalla solo con el escáner
+  // («Staff Mode»). Murió por redundante: desde que «Inicio» ES el
+  // mostrador, el modo no agregaba nada — y para dejarle el escáner
+  // pelado a un empleado está el «Link directo de la caja»
+  // (link-scan.tsx), que ni siquiera carga el panel. El dueño lo
+  // remató: «eliminá lo de modo mostrador».
   // El menú del avatar (0163): «Mi perfil» y «Mis negocios» ya no son
   // ítems del rail — viven acá, colgando del mismo bloque que ya
   // mostraba el nombre.
@@ -191,16 +189,6 @@ export default function ShellLealtad({
   // localStorage y se lee como lo que es, un sistema externo.
   const claro = useSyncExternalStore(suscribirseAlTema, leerTemaClaro, () => false);
 
-  function entrarAlMostrador() {
-    setMenuAbierto(false);
-    setPidiendoSalida(false);
-    setEnMostrador(true);
-  }
-
-  function salirDelMostrador() {
-    setPidiendoSalida(false);
-    setEnMostrador(false);
-  }
 
   // Qué tarjeta se está mirando. NO se usa para nada más que como
   // disparador del efecto de abajo — ver ahí por qué hace falta.
@@ -230,7 +218,6 @@ export default function ShellLealtad({
       const destino = window.location.hash.replace("#", "");
       if (!destino) return;
       setActiva(destino);
-      setEnMostrador(false);
       setMenuAbierto(false);
     };
     aplicarHash();
@@ -254,9 +241,9 @@ export default function ShellLealtad({
     >
       {/* EN MODO MOSTRADOR NO HAY COLUMNA DE MENÚ. Ver el comentario del
           <aside>: el menú no se esconde con CSS, no se monta. */}
-      <div className={enMostrador ? "" : "lg:grid lg:grid-cols-[254px_minmax(0,1fr)]"}>
+      <div className="lg:grid lg:grid-cols-[254px_minmax(0,1fr)]">
         {/* ── Fondo que cierra el cajón en móvil ─────────────────── */}
-        {menuAbierto && !enMostrador && (
+        {menuAbierto && (
           <button
             type="button"
             aria-label="Cerrar el menú"
@@ -283,7 +270,7 @@ export default function ShellLealtad({
             evita el resbalón, que es lo que de verdad pasa en una caja.
             El candado de verdad es el PIN de la 0137/0148, que va
             aparte. */}
-        {!enMostrador && (
+        {(
         <aside
           className={`fixed inset-y-0 left-0 z-50 flex w-[268px] flex-col overflow-y-auto border-r transition-transform duration-200 lg:sticky lg:top-0 lg:z-auto lg:h-svh lg:w-auto lg:translate-x-0 ${
             menuAbierto ? "translate-x-0" : "-translate-x-full"
@@ -340,7 +327,7 @@ export default function ShellLealtad({
                 <p className={RAIL_GRUPO_LEALTAD}>{grupo.titulo}</p>
                 <ul className="space-y-0.5">
                   {grupo.items.map((item) => {
-                    const esta = item.id === efectiva && !enMostrador;
+                    const esta = item.id === efectiva;
                     return (
                       <li key={item.id}>
                         <a
@@ -348,7 +335,6 @@ export default function ShellLealtad({
                           aria-current={esta ? "page" : undefined}
                           onClick={() => {
                             setActiva(item.id);
-                            setEnMostrador(false);
                             setMenuAbierto(false);
                           }}
                           /* La barrita del acento entra por el BORDE
@@ -398,7 +384,7 @@ export default function ShellLealtad({
               borderColor: RAIL_LINEA,
             }}
           >
-            {!enMostrador && (
+            {(
               <button
                 type="button"
                 onClick={() => setMenuAbierto(true)}
@@ -412,37 +398,20 @@ export default function ShellLealtad({
             <p className="flex min-w-0 flex-1 items-center gap-2.5 truncate">
               {/* El nombre del negocio solo entra en la barra cuando el
                   rail no está a la vista: en escritorio ya se lee arriba
-                  del menú, y repetirlo a 20 cm de distancia es ruido. En
-                  modo mostrador el rail no se monta en ningún tamaño, así
-                  que ahí se muestra siempre — es la única pista de en qué
-                  negocio está parado quien tiene el teléfono en la caja. */}
-              <span
-                className={`shrink-0 truncate text-[13px] font-bold text-aventurea-rail ${
-                  enMostrador ? "" : "lg:hidden"
-                }`}
-              >
+                  del menú, y repetirlo a 20 cm de distancia es ruido. */}
+              <span className="shrink-0 truncate text-[13px] font-bold text-aventurea-rail lg:hidden">
                 {negocio.nombre}
               </span>
               <span
                 aria-hidden
-                className={`h-4 w-px shrink-0 ${enMostrador ? "" : "lg:hidden"}`}
+                className="h-4 w-px shrink-0 lg:hidden"
                 style={{ background: "rgba(255,255,255,.18)" }}
               />
               <span className="min-w-0 truncate text-[14px] font-extrabold text-white">
-                {enMostrador ? "Modo mostrador" : (actual?.etiqueta ?? "Panel")}
+                {actual?.etiqueta ?? "Panel"}
               </span>
             </p>
 
-            {/* Modo mostrador: el equivalente nuestro del "Staff Mode".
-                Deja la pantalla en el escáner y nada más — es lo que se
-                le pasa al empleado en la caja. Solo aparece si quien
-                mira puede acreditar.
-
-                ENTRAR es un toque; SALIR pide confirmación. Era un
-                interruptor en las dos direcciones, y el interruptor está
-                justo donde el pulgar agarra el teléfono: un roce y el
-                empleado quedaba en el panel completo sin haber querido
-                ir a ningún lado. */}
             {/* CLARO / OSCURO. Va en la barra y no enterrado en
                 Configuración porque es una preferencia de VISTA que se
                 cambia mirando la pantalla: quien atiende de día junto a
@@ -467,65 +436,7 @@ export default function ShellLealtad({
               <span className="hidden sm:block">{claro ? "Claro" : "Oscuro"}</span>
             </button>
 
-            {mostrador && !enMostrador && (
-              <label className="flex shrink-0 cursor-pointer items-center gap-2">
-                <span className="hidden text-[12px] font-bold text-aventurea-rail sm:block">
-                  Modo mostrador
-                </span>
-                <input
-                  type="checkbox"
-                  checked={false}
-                  onChange={entrarAlMostrador}
-                  className="peer sr-only"
-                />
-                {/* El interruptor se pinta con el estado de React y no
-                    con `peer-checked:`: la perilla es NIETA del input,
-                    no su hermana, y la variante de Tailwind solo
-                    alcanza hermanos. */}
-                <span
-                  aria-hidden
-                  className="relative h-[22px] w-[40px] rounded-full transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-white/50"
-                  style={{ background: "rgba(255,255,255,.15)" }}
-                >
-                  <span className="absolute left-[3px] top-[3px] h-4 w-4 rounded-full bg-white transition-transform" />
-                </span>
-              </label>
-            )}
-
-            {enMostrador ? (
-              pidiendoSalida ? (
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className="hidden text-[12px] font-bold text-aventurea-rail sm:block">
-                    ¿Salir?
-                  </span>
-                  <button
-                    type="button"
-                    onClick={salirDelMostrador}
-                    className="rounded-lg px-3 py-1.5 text-[12px] font-extrabold"
-                    style={{ background: ACCION, color: ACCION_TINTA }}
-                  >
-                    Sí, salir
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPidiendoSalida(false)}
-                    className="rounded-lg border px-3 py-1.5 text-[12px] font-bold text-aventurea-rail"
-                    style={{ borderColor: ACCION_BORDE }}
-                  >
-                    No
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setPidiendoSalida(true)}
-                  className="shrink-0 rounded-lg border px-3 py-1.5 text-[12px] font-bold text-aventurea-rail hover:text-white"
-                  style={{ borderColor: ACCION_BORDE }}
-                >
-                  Salir
-                </button>
-              )
-            ) : (
+            {(
               <>
                 {/* AVATAR + NOMBRE, como en la maqueta — ahora con menú
                     (0163). «Mi perfil» y «Mis negocios» vivían como
@@ -620,55 +531,8 @@ export default function ShellLealtad({
               del panel. */}
           <main className="px-4 py-5 sm:px-6 sm:py-7">
             <div className="mx-auto w-full max-w-[1080px]">
-              {/* El mostrador se monta SOLO al encenderlo: arrastra el
-                  escáner (jsQR + cámara), y cargarlo escondido en cada
-                  visita al panel es peso que casi nadie usa. */}
-              {mostrador && enMostrador && (
-                <section>
-                  {mostrador}
-                  {/* El botón de abajo también confirma: es el mismo
-                      estado que el «Salir» de la barra, así que tocar
-                      uno u otro pregunta lo mismo. */}
-                  {pidiendoSalida ? (
-                    <div className="mt-3.5 rounded-3xl border border-aventurea-line bg-aventurea-surface px-5 py-4 text-center">
-                      <p className="text-[13px] font-bold text-aventurea-ink">
-                        ¿Salir del modo mostrador?
-                      </p>
-                      <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
-                        Se vuelve al panel completo, con la configuración del programa.
-                      </p>
-                      <div className="mt-3 flex flex-wrap justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={salirDelMostrador}
-                          className={BOTON_ACCION}
-                          style={{ background: ACCION, color: ACCION_TINTA }}
-                        >
-                          Sí, salir
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPidiendoSalida(false)}
-                          className={BOTON_LEALTAD}
-                        >
-                          Seguir acá
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setPidiendoSalida(true)}
-                      className={`${BOTON_LEALTAD} mt-3.5 w-full`}
-                    >
-                      Salir del modo mostrador
-                    </button>
-                  )}
-                </section>
-              )}
-
               {items.map((item) => (
-                <section key={item.id} hidden={enMostrador || item.id !== efectiva}>
+                <section key={item.id} hidden={item.id !== efectiva}>
                   {contenidos[item.id]}
                 </section>
               ))}
