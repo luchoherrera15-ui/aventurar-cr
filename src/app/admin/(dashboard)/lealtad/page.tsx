@@ -1,4 +1,5 @@
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
+import { esUtileriaDemoMarketplace } from "@/lib/demo";
 import { estadoDeAddon } from "@/lib/addons";
 import { planEfectivo } from "@/lib/lealtad/cuenta";
 import { estadoVisible } from "@/lib/lealtad/programas";
@@ -237,7 +238,14 @@ export default async function AdminComplementosPage() {
   // Los nombres de los admins que movieron algo, más los dueños y
   // solicitantes de las bandejas: TODOS en una sola consulta a perfiles.
   const enRevision = filasRanchoTodas.filter(
-    (r) => "lealtad_aprobado_en" in r && r.lealtad_aprobado_en === null,
+    (r) =>
+      "lealtad_aprobado_en" in r &&
+      r.lealtad_aprobado_en === null &&
+      // ⚠️ La utilería del demo también cae en «sin aprobar para
+      // lealtad» —nunca se aprobó porque nunca fue de lealtad— y sin
+      // este filtro la bandeja decía «Negocios nuevos en revisión:
+      // 102». Nadie tiene que revisar una ficha de mentira.
+      !esUtileriaDemoMarketplace(r.detalles),
   );
   const filasSolicitud = (solicitudesRes.data ?? []) as FilaSolicitud[];
   const idsPersona = [
@@ -284,6 +292,11 @@ export default async function AdminComplementosPage() {
 
   // ── La lista ───────────────────────────────────────────────────────
   const negocios: NegocioConAddons[] = filasRanchoTodas
+    // ⚠️ FUERA LA UTILERÍA DEL DEMO DEL MARKETPLACE. Sus 99 fichas
+    // llevan en_marketplace=false —la misma marca que esta pantalla lee
+    // como «Lealtad»— y aparecieron acá como si fueran clientes. Ver
+    // esUtileriaDemoMarketplace en lib/demo.ts.
+    .filter((r) => !esUtileriaDemoMarketplace(r.detalles))
     // NO se filtra por sección acá: se le pasan todos al panel, que
     // aplica la sección como filtro VISIBLE y la ignora al buscar.
     // Filtrarlos en el servidor dejaba a un negocio invisible en la
@@ -445,6 +458,9 @@ type FilaRanchoAdmin = {
   owner_id: string;
   created_at?: string | null;
   lealtad_aprobado_en?: string | null;
+  /** Para excluir la utilería del demo (`detalles.lote`) — ver
+   *  `esUtileriaDemoMarketplace` en lib/demo.ts. */
+  detalles?: Record<string, unknown> | null;
   /** 0187. false = nació en Bookea Lealtad, nunca se ofreció al directorio. */
   en_marketplace?: boolean | null;
 };

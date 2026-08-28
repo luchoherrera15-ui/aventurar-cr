@@ -37,3 +37,28 @@ export function esDemo(
   if (detalles?.demo === true) return true;
   return !!slug?.startsWith("demo-");
 }
+
+/**
+ * ¿Esta ficha es utilería del demo del marketplace (/demo-bookea)?
+ *
+ * El seed demo100 siembra 99 negocios con `en_marketplace = false` para
+ * que no salgan en la portada — y esa es LA MISMA bandera con la que el
+ * admin reconoce a un negocio de Lealtad. El 27 ago 2026 eso metió 99
+ * fichas de mentira al panel de Lealtad del dueño («mezclás todos los
+ * negocios del marketplace, esto no es así»), porque dos cosas
+ * distintas —«no está en el directorio» y «es de Lealtad»— compartían
+ * una sola marca.
+ *
+ * La marca que SÍ es exclusiva del lote es `detalles.lote`. Todo lo
+ * que administre Lealtad debe excluir estas filas con esta función —
+ * no re-derivar el criterio, que es como se llegó al enredo.
+ *
+ * ⚠️ Los demos VIEJOS de lealtad (Aqua Detail, Studio Aura Nails…) NO
+ * caen acá a propósito: esos son el banco de pruebas de Lealtad y le
+ * pertenecen a su panel.
+ */
+export function esUtileriaDemoMarketplace(
+  detalles?: Record<string, unknown> | null,
+): boolean {
+  return detalles?.lote === "demo100";
+}

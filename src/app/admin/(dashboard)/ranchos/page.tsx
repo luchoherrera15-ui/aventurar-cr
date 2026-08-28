@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { esUtileriaDemoMarketplace } from "@/lib/demo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import RanchosTable, { type RanchoConDueno } from "./ranchos-table";
 import type { Rancho } from "@/app/mi-negocio/types";
@@ -51,7 +52,13 @@ export default async function AdminRanchosPage() {
   // propiedad llega `undefined`, y con `=== true` los contadores del
   // admin quedarían todos en CERO. Así degrada al default `true` de la
   // columna, que es el comportamiento de siempre.
-  const delDirectorio = ranchos.filter((r) => r.en_marketplace !== false);
+  // La utilería del demo (/demo-bookea) no es del directorio NI de
+  // Lealtad: no se administra desde acá. Sin este filtro, sus 99 fichas
+  // aparecían en la vista «Lealtad» de esta misma tabla.
+  const ranchosSinUtileria = ranchos.filter(
+    (r) => !esUtileriaDemoMarketplace(r.detalles),
+  );
+  const delDirectorio = ranchosSinUtileria.filter((r) => r.en_marketplace !== false);
   const pendientes = delDirectorio.filter((r) => r.estado === "pendiente").length;
   const publicados = delDirectorio.filter((r) => r.estado === "aprobado").length;
 
