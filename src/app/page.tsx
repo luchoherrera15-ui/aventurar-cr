@@ -124,6 +124,22 @@ export default async function Home({
   ]);
   const rubro = rubroDeParametro(params.rubro, params.sub);
 
+  /**
+   * ── LA BÚSQUEDA DEL HÉROE (`?q=` y `?lugar=`) ────────────────────
+   * El buscador grande ya no manda a /citas ni /eventos — esos
+   * directorios se borraron y sus redirects traen a la gente ACÁ con
+   * el query intacto — así que la portada es quien filtra.
+   * `?provincia=` se acepta como sinónimo de `?lugar=`: es el nombre
+   * que llevaban los enlaces de los directorios viejos, y esos siguen
+   * vivos en historiales y chats compartidos.
+   */
+  const uno = (v: string | string[] | undefined) =>
+    (Array.isArray(v) ? v[0] : v) ?? "";
+  const busqueda = {
+    q: uno(params.q),
+    lugar: uno(params.lugar) || uno(params.provincia),
+  };
+
   return (
     <div className="flex min-h-screen flex-col overflow-x-clip bg-white">
       <script
@@ -197,7 +213,7 @@ export default async function Home({
             no hizo nada. El `scroll-mt` despeja el header flotante. */}
         <div id="catalogo" className="scroll-mt-24 px-5 pb-12 pt-2 sm:px-8">
           <div className="mx-auto w-full max-w-[1200px]">
-            <RielesCatalogo {...catalogo} rubro={rubro} />
+            <RielesCatalogo {...catalogo} rubro={rubro} busqueda={busqueda} />
           </div>
         </div>
       </main>

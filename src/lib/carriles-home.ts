@@ -516,6 +516,91 @@ export function filtrarPorRubro(
   });
 }
 
+/**
+ * ════════════════════════════════════════════════════════════════════
+ * LA BÚSQUEDA LIBRE DE LA PORTADA (`?q=` y `?lugar=`)
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * El buscador del héroe manda dos textos libres: qué (`q`) y dónde
+ * (`lugar`). El «dónde» dejó de ser un `<select>` de 7 provincias
+ * (pedido del dueño, 27 ago 2026: «que sea una barra de búsqueda, para
+ * poder ser universal — daremos servicios en toda Latinoamérica»): una
+ * lista cerrada de provincias de Costa Rica era exactamente lo
+ * contrario de universal. Acá no hay NINGUNA lista de regiones — el día
+ * que haya negocios en Panamá o México, sus provincias entran solas.
+ *
+ * ── POR QUÉ SE COMPARA SIN TILDES ───────────────────────────────────
+ * «san jose» tiene que encontrar «San José» y «unas» a «Uñas»: en un
+ * teléfono nadie escribe tildes, y castigar eso con cero resultados es
+ * castigar a la mayoría. `NFD` separa la letra de su marca y el rango
+ * U+0300–U+036F borra la marca sola — la ñ pierde la virgulilla y cae
+ * en la n, que es justo lo que hace que «unas» case con «uñas».
+ *
+ * ── TODAS LAS PALABRAS DEL CAMPO, EN CUALQUIER ORDEN ────────────────
+ * Dentro de cada campo, cada palabra tiene que aparecer, pero no
+ * seguidas: un `includes` del texto entero exigiría que «uñas gel»
+ * salga literal y en ese orden en la ficha, que es una lotería de
+ * redacción. Los DOS campos son un Y: «uñas» + «Cartago» son dos
+ * preguntas y las dos se contestan.
+ *
+ * ── QUÉ MIRA CADA CAMPO ─────────────────────────────────────────────
+ * `q`     → nombre, descripción, categoría y subcategoría.
+ * `lugar` → provincia y cantón — lo que COLUMNAS_CARD ya trae, así
+ *           que el filtro no le pide ni una columna nueva a la base
+ *           (y no pisa la trampa del GRANT por columna).
+ */
+export type BusquedaPortada = { q?: string; lugar?: string };
+
+function sinTildes(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function palabrasDe(texto: string | undefined): string[] {
+  return sinTildes((texto ?? "").trim()).split(/\s+/).filter(Boolean);
+}
+
+/** ¿Hay algo escrito en el buscador? (Espacios solos no cuentan.) */
+export function hayBusqueda(b?: BusquedaPortada | null): boolean {
+  return !!b && (palabrasDe(b.q).length > 0 || palabrasDe(b.lugar).length > 0);
+}
+
+export function filtrarPorBusqueda(
+  todos: Rancho[],
+  b?: BusquedaPortada | null,
+): Rancho[] {
+  if (!b) return todos;
+  const que = palabrasDe(b.q);
+  const donde = palabrasDe(b.lugar);
+  if (que.length === 0 && donde.length === 0) return todos;
+
+  return todos.filter((r) => {
+    // El cast acotado, igual que en filtrarPorRubro: `Rancho` es el
+    // tipo ancho de la ficha y acá solo se miran seis campos.
+    const f = r as {
+      nombre?: string | null;
+      descripcion?: string | null;
+      categoria?: string | null;
+      subcategoria?: string | null;
+      provincia?: string | null;
+      canton?: string | null;
+    };
+    if (que.length > 0) {
+      const pajar = sinTildes(
+        `${f.nombre ?? ""} ${f.descripcion ?? ""} ${f.categoria ?? ""} ${f.subcategoria ?? ""}`,
+      );
+      if (!que.every((p) => pajar.includes(p))) return false;
+    }
+    if (donde.length > 0) {
+      const zona = sinTildes(`${f.provincia ?? ""} ${f.canton ?? ""}`);
+      if (!donde.every((p) => zona.includes(p))) return false;
+    }
+    return true;
+  });
+}
+
 export function agruparPorVertical(
   todos: Rancho[],
   superIds: string[] = [],

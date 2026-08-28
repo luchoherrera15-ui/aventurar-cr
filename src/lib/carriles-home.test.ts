@@ -7,6 +7,8 @@ import {
   agruparEnCarriles,
   agruparPorRubro,
   agruparPorVertical,
+  filtrarPorBusqueda,
+  hayBusqueda,
   hayFondoParaRecienPublicados,
 } from "./carriles-home";
 import type { Rancho } from "@/app/mi-negocio/types";
@@ -639,3 +641,52 @@ describe("cada fila tiene su propia key", () => {
     expect(new Set(keys).size, "hay keys repetidas").toBe(keys.length);
   });
 });
+
+describe("la búsqueda libre de la portada (q y lugar)", () => {
+  /** Filas con lo que mira filtrarPorBusqueda; cast acotado como el de negocio(). */
+  const fila = (campos: {
+    nombre: string;
+    descripcion?: string;
+    categoria?: string;
+    provincia?: string;
+    canton?: string;
+  }): Rancho =>
+    ({
+      id: campos.nombre,
+      subcategoria: null,
+      ...campos,
+    }) as unknown as Rancho;
+
+  const catalogo = [
+    fila({ nombre: "Uñas Deluxe", categoria: "unas", provincia: "San José", canton: "Escazú" }),
+    fila({ nombre: "Barber Bros", categoria: "barberia", provincia: "Cartago", canton: "La Unión" }),
+    fila({ nombre: "Spa Serena", descripcion: "Masajes y faciales", categoria: "spa", provincia: "Heredia", canton: "Belén" }),
+  ];
+
+  it("sin tildes en ninguno de los dos lados: «unas» encuentra «Uñas» y «san jose» a «San José»", () => {
+    expect(filtrarPorBusqueda(catalogo, { q: "unas" }).map((r) => r.id)).toEqual(["Uñas Deluxe"]);
+    expect(filtrarPorBusqueda(catalogo, { lugar: "san jose" }).map((r) => r.id)).toEqual(["Uñas Deluxe"]);
+  });
+
+  it("el lugar también casa por cantón — sin ninguna lista de regiones", () => {
+    expect(filtrarPorBusqueda(catalogo, { lugar: "belen" }).map((r) => r.id)).toEqual(["Spa Serena"]);
+  });
+
+  it("los dos campos son un Y: qué y dónde se contestan juntos", () => {
+    expect(filtrarPorBusqueda(catalogo, { q: "masajes", lugar: "heredia" })).toHaveLength(1);
+    expect(filtrarPorBusqueda(catalogo, { q: "masajes", lugar: "cartago" })).toHaveLength(0);
+  });
+
+  it("cada palabra del campo debe aparecer, pero en cualquier orden", () => {
+    expect(filtrarPorBusqueda(catalogo, { q: "serena spa" })).toHaveLength(1);
+    expect(filtrarPorBusqueda(catalogo, { q: "spa inexistente" })).toHaveLength(0);
+  });
+
+  it("vacío o puros espacios no filtran nada, y hayBusqueda lo dice", () => {
+    expect(filtrarPorBusqueda(catalogo, { q: "  ", lugar: "" })).toHaveLength(3);
+    expect(filtrarPorBusqueda(catalogo, null)).toHaveLength(3);
+    expect(hayBusqueda({ q: "  " })).toBe(false);
+    expect(hayBusqueda({ lugar: "Cartago" })).toBe(true);
+  });
+});
+

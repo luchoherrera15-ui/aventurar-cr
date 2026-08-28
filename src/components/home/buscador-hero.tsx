@@ -2,13 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { IconSearch } from "@/components/icons";
+import { IconPin, IconSearch } from "@/components/icons";
 import {
   TEXTOS,
   urlBusqueda,
   type PestanaBuscador,
 } from "@/components/buscador-home-datos";
-import { PAISES } from "@/lib/paises";
 import LogoGooglePlay from "@/components/logo-google-play";
 
 /**
@@ -50,9 +49,6 @@ import LogoGooglePlay from "@/components/logo-google-play";
  * componente de esta pantalla. Por eso acá no hay una sola regla de
  * ruteo: se juntan los campos y se delega.
  */
-
-/** Las siete provincias, de la misma lista que valida `urlBusqueda`. */
-const PROVINCIAS = PAISES.find((p) => p.codigo === "cr")?.regiones ?? [];
 
 const TRAMO = "flex min-w-0 flex-1 flex-col justify-center px-5 py-2.5 text-left";
 const ROTULO = "text-[11.5px] font-bold uppercase tracking-[0.08em] text-aventurea-ink-soft";
@@ -108,13 +104,10 @@ function destinoDe(texto: string): PestanaBuscador {
   return SENAS_DE_EVENTO.some((s) => t.includes(` ${s} `)) ? "eventos" : "citas";
 }
 
-/** El valor centinela del `<option>` que pide la ubicación. */
-const MI_UBICACION = "__mi_ubicacion__";
-
 export default function BuscadorHero() {
   const router = useRouter();
   const [texto, setTexto] = useState("");
-  const [provincia, setProvincia] = useState("");
+  const [lugar, setLugar] = useState("");
   const [ubicando, setUbicando] = useState(false);
   const [avisoUbicacion, setAvisoUbicacion] = useState<string | null>(null);
 
@@ -126,7 +119,7 @@ export default function BuscadorHero() {
   /**
    * «MI UBICACIÓN» — de las coordenadas del navegador a una provincia.
    *
-   * El permiso se pide SOLO cuando la persona elige esa opción, nunca al
+   * El permiso se pide SOLO cuando la persona toca el pin, nunca al
    * cargar la página: un cartel del sistema pidiendo la ubicación antes
    * de que nadie sepa qué es este sitio se rechaza casi siempre, y
    * además quema el permiso para más adelante.
@@ -135,14 +128,15 @@ export default function BuscadorHero() {
    * las coordenadas de los negocios REALES, no contra una tabla de
    * centroides inventada. Ver ese archivo.
    *
-   * Los tres finales posibles son honestos: se resuelve y se selecciona
-   * la provincia; no hay negocios ubicados todavía y se dice; o el
-   * permiso se negó y se dice que se puede elegir a mano. En ninguno se
-   * inventa una región.
+   * Los tres finales posibles son honestos: se resuelve y se ESCRIBE la
+   * provincia en el campo —texto visible y editable, no un estado
+   * escondido—; no hay negocios ubicados todavía y se dice; o el
+   * permiso se negó y se dice que se puede escribir a mano. En ninguno
+   * se inventa una región.
    */
   function pedirUbicacion() {
     if (!("geolocation" in navigator)) {
-      setAvisoUbicacion("Tu navegador no comparte la ubicación. Elegí la provincia a mano.");
+      setAvisoUbicacion("Tu navegador no comparte la ubicación. Escribí el lugar a mano.");
       return;
     }
     setUbicando(true);
@@ -159,19 +153,19 @@ export default function BuscadorHero() {
             cerca?: { provincia: string } | null;
           };
           if (datos.ok && datos.cerca?.provincia) {
-            setProvincia(datos.cerca.provincia);
+            setLugar(datos.cerca.provincia);
           } else {
             setAvisoUbicacion("Todavía no hay negocios ubicados cerca tuyo.");
           }
         } catch {
-          setAvisoUbicacion("No se pudo resolver tu ubicación. Elegí la provincia a mano.");
+          setAvisoUbicacion("No se pudo resolver tu ubicación. Escribí el lugar a mano.");
         } finally {
           setUbicando(false);
         }
       },
       () => {
         setUbicando(false);
-        setAvisoUbicacion("No nos diste permiso. Podés elegir la provincia a mano.");
+        setAvisoUbicacion("No nos diste permiso. Podés escribir el lugar a mano.");
       },
       // 8s de tope: un GPS que no engancha adentro de un local no puede
       // dejar el buscador colgado. `maximumAge` acepta una lectura de
@@ -183,7 +177,10 @@ export default function BuscadorHero() {
 
   function buscar(e: React.FormEvent) {
     e.preventDefault();
-    router.push(urlBusqueda(pestana, { q: texto, provincia, pais: "cr" }));
+    // `#catalogo` — buscar sin aterrizar en el resultado deja a la
+    // persona mirando el mismo héroe, convencida de que no pasó nada.
+    // Es la misma ancla que ya usan los íconos de rubro.
+    router.push(`${urlBusqueda(pestana, { q: texto, lugar })}#catalogo`);
   }
 
   return (
@@ -220,36 +217,43 @@ export default function BuscadorHero() {
         <span aria-hidden className="mx-2 hidden h-8 w-px bg-aventurea-line sm:block" />
         <span aria-hidden className="mx-5 h-px bg-aventurea-line sm:hidden" />
 
-        <label className={TRAMO}>
-          <span className={ROTULO}>Dónde</span>
-          {/* `<select>` nativo y no un desplegable propio: accesible de
-              fábrica, con la rueda nativa en el teléfono, y no suma un
-              panel más que cerrar y que le pelee el foco al mega menú. */}
-          <select
-            value={provincia}
-            onChange={(e) => {
-              if (e.target.value === MI_UBICACION) {
-                pedirUbicacion();
-                return;
-              }
-              setAvisoUbicacion(null);
-              setProvincia(e.target.value);
-            }}
-            className={`${CONTROL} cursor-pointer`}
+        <div className="flex min-w-0 flex-1 items-center gap-1 px-5 py-2.5">
+          {/* Texto LIBRE y no un `<select>` de provincias (pedido del
+              dueño, 27 ago 2026): «que sea una barra de búsqueda, para
+              poder ser universal — daremos servicios en toda
+              Latinoamérica». Una lista cerrada de 7 provincias era
+              exactamente lo contrario. Lo escrito viaja como `?lugar=`
+              y la portada lo compara contra provincia y cantón, sin
+              tildes (`filtrarPorBusqueda`, carriles-home.ts). */}
+          <label className="flex min-w-0 flex-1 flex-col justify-center text-left">
+            <span className={ROTULO}>Dónde</span>
+            <input
+              type="search"
+              value={lugar}
+              onChange={(e) => {
+                setAvisoUbicacion(null);
+                setLugar(e.target.value);
+              }}
+              maxLength={80}
+              placeholder="Ciudad o provincia"
+              className={CONTROL}
+            />
+          </label>
+          {/* El atajo del GPS sobrevive al selector: sigue siendo la
+              forma más rápida de contestar «dónde» desde un teléfono.
+              Es hermano del label y no hijo — un botón ADENTRO de un
+              label pelea con el clic que enfoca el campo. */}
+          <button
+            type="button"
+            onClick={pedirUbicacion}
+            disabled={ubicando}
+            title="Usar mi ubicación"
+            aria-label="Usar mi ubicación"
+            className="presionable shrink-0 rounded-full p-2 text-aventurea-ink-soft transition-colors hover:bg-aventurea-cream-2 hover:text-[color:var(--navy)] disabled:animate-pulse"
           >
-            <option value="">Todo el país</option>
-            {/* Primero, porque es el atajo: quien entra desde el
-                teléfono no quiere buscar su provincia en una lista. */}
-            <option value={MI_UBICACION}>
-              {ubicando ? "Buscando tu ubicación…" : "📍 Mi ubicación"}
-            </option>
-            {PROVINCIAS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </label>
+            <IconPin aria-hidden className="h-4 w-4" />
+          </button>
+        </div>
 
         <span aria-hidden className="mx-2 hidden h-8 w-px bg-aventurea-line sm:block" />
         <span aria-hidden className="mx-5 h-px bg-aventurea-line sm:hidden" />

@@ -15,15 +15,15 @@
  *
  * ── EL BUSCADOR COMPONE, NO REIMPLEMENTA ───────────────────────────
  * Acá no hay ni un filtro. Lo único que se hace es armar una URL que
- * los directorios YA saben leer:
+ * el destino YA sabe leer. Y el destino cambió (ago 2026): los
+ * directorios /citas y /eventos se borraron —sus redirects traen todo
+ * a la portada—, así que la URL que se arma es
  *
- *   /citas?q=…&categoria=…&provincia=…
- *   /eventos?q=…&categoria=…&subcategoria=…&provincia=…
+ *   /?q=…&lugar=…
  *
- * Quien interpreta el texto ("3 de agosto", "este viernes") es
- * `interpretarBusqueda` DENTRO del directorio de destino, que ya lo
- * hace. Si acá se agregara un parámetro que nadie lee, el buscador
- * mentiría: se vería filtrar sin filtrar nada.
+ * y quien filtra es la portada (`filtrarPorBusqueda` en
+ * carriles-home.ts). Si acá se agregara un parámetro que nadie lee, el
+ * buscador mentiría: se vería filtrar sin filtrar nada.
  *
  * ── LO QUE NO ESTÁ, Y POR QUÉ ──────────────────────────────────────
  * No hay campo de FECHA. En Citas no existe ninguna consulta que
@@ -90,6 +90,14 @@ export type ParametrosBusqueda = {
    * gente compartió — renombrarlo no arregla nada y rompe URLs vivas.
    */
   provincia?: string;
+  /**
+   * El «dónde» escrito a mano libre (pedido del dueño, 27 ago 2026:
+   * «que sea una barra de búsqueda, para poder ser universal»). No se
+   * valida contra ninguna lista de regiones — validar era el `<select>`
+   * del que este campo acaba de salirse. `provincia` (arriba) queda
+   * para los enlaces viejos que ya andan compartidos.
+   */
+  lugar?: string;
   categoria?: string;
   subcategoria?: string;
 };
@@ -201,9 +209,18 @@ export function esRegionValida(pais: string, valor: string): boolean {
   return esRegionDe(pais, valor);
 }
 
-/** El directorio de destino de cada pestaña. */
-export function rutaDirectorio(pestana: PestanaBuscador): string {
-  return TEXTOS[pestana].ruta;
+/**
+ * El destino del buscador. Era `TEXTOS[pestana].ruta` (/citas o
+ * /eventos), pero esos DIRECTORIOS se borraron (ago 2026): sus
+ * redirects de next.config traen todo a la portada con el query
+ * intacto, y hoy es la portada quien filtra (`?q=` y `?lugar=`).
+ * Apuntar directo ahorra el 308 y conserva el `#catalogo`, que un
+ * redirect perdería. La pestaña se queda en la firma: sigue decidiendo
+ * los textos del buscador, y si los directorios vuelven, su ruta
+ * vuelve acá.
+ */
+export function rutaDirectorio(_pestana: PestanaBuscador): string {
+  return "/";
 }
 
 /**
@@ -250,6 +267,13 @@ export function urlBusqueda(
 
   const q = (parametros.q ?? "").trim();
   if (q) p.set("q", q);
+
+  // El «dónde» libre viaja tal cual (recortado): la portada lo compara
+  // contra provincia y cantón sin tildes, y lo que no case da su vacío
+  // honesto con la salida puesta. Validarlo acá contra una lista sería
+  // resucitar el selector.
+  const lugar = (parametros.lugar ?? "").trim();
+  if (lugar) p.set("lugar", lugar);
 
   const categoria = parametros.categoria ?? "";
   if (RUBROS[pestana].some((r) => r.id === categoria)) p.set("categoria", categoria);

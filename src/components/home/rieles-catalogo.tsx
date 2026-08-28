@@ -6,8 +6,11 @@ import {
   TOPE_CARRIL,
   agruparPorRubro,
   etiquetaDeCategoria,
+  filtrarPorBusqueda,
   filtrarPorRubro,
+  hayBusqueda,
   hayFondoParaRecienPublicados,
+  type BusquedaPortada,
 } from "@/lib/carriles-home";
 import type { CatalogoPortada } from "@/app/home-datos";
 
@@ -108,9 +111,12 @@ export default function RielesCatalogo({
   favoritosIds,
   sesionActiva,
   rubro = null,
+  busqueda = null,
 }: CatalogoPortada & {
   /** El rubro que pidió la URL (`?rubro=`), o null si no hay filtro. */
   rubro?: RubroPortada | null;
+  /** Lo escrito en el buscador del héroe (`?q=` y `?lugar=`). */
+  busqueda?: BusquedaPortada | null;
 }) {
   /**
    * ── EL FILTRO DE LOS ÍCONOS DEL HÉROE ─────────────────────────────
@@ -134,7 +140,13 @@ export default function RielesCatalogo({
     (calificaciones ?? []).map((c) => [c.rancho_id, c]),
   );
 
-  const enFoco = rubro ? filtrarPorRubro(pintables, rubro) : pintables;
+  const conRubro = rubro ? filtrarPorRubro(pintables, rubro) : pintables;
+  // La búsqueda del héroe recorta ENCIMA del rubro: «uñas» en el ícono
+  // y «Cartago» en el buscador son dos preguntas, y se contestan las
+  // dos. El filtro vive en carriles-home.ts, al lado del de rubro,
+  // por la misma razón que aquel: un criterio, un solo dueño.
+  const busquedaActiva = hayBusqueda(busqueda);
+  const enFoco = busquedaActiva ? filtrarPorBusqueda(conRubro, busqueda) : conRubro;
 
   // ⚠️ POR RUBRO Y NO POR VERTICAL (pedido del dueño, 26 ago 2026):
   // «separá los carriles: Uñas un riel, Barbería un riel».
@@ -154,22 +166,23 @@ export default function RielesCatalogo({
    * bien, si algo falló, o si el sitio está vacío. Con dos negocios en
    * todo el marketplace, este es el camino MÁS probable, no el borde.
    */
-  if (rubro && rieles.length === 0) {
+  if ((rubro || busquedaActiva) && rieles.length === 0) {
+    // El nombre del rubro sale del catálogo real (`etiquetaDeCategoria`)
+    // y no de la URL: `?rubro=citas-belleza` diría «belleza», pero la
+    // fila se llama «Salones de belleza». Los nueve del héroe traen su
+    // propia etiqueta corta — para el resto manda el nombre de la fila.
+    const mensaje = busquedaActiva
+      ? "No encontramos negocios que coincidan con tu búsqueda."
+      : rubro
+        ? `Todavía no hay negocios de ${(rubro.label ?? etiquetaDeCategoria(rubro.vertical, rubro.categoria)).toLowerCase()} publicados.`
+        : "";
     return (
       <div className="rounded-3xl border border-aventurea-line bg-aventurea-cream-2 px-6 py-12 text-center">
-        <p className="text-[15px] font-bold text-aventurea-ink">
-          {/* El nombre sale del catálogo real (`etiquetaDeCategoria`) y
-              no de la URL: `?rubro=citas-belleza` diría «belleza», pero
-              la fila se llama «Salones de belleza». Los nueve del héroe
-              traen su propia etiqueta corta, que es la que se ve en el
-              ícono — para el resto manda el nombre de la fila. */}
-          Todavía no hay negocios de{" "}
-          {(rubro.label ?? etiquetaDeCategoria(rubro.vertical, rubro.categoria)).toLowerCase()}{" "}
-          publicados.
-        </p>
+        <p className="text-[15px] font-bold text-aventurea-ink">{mensaje}</p>
         <p className="mx-auto mt-2 max-w-[44ch] text-[13.5px] leading-relaxed text-aventurea-ink-soft">
-          Estamos sumando negocios cada semana. Mientras tanto podés ver todo lo
-          que sí hay publicado.
+          {busquedaActiva
+            ? "Probá con otra palabra o con otro lugar — o mirá todo lo que sí hay publicado."
+            : "Estamos sumando negocios cada semana. Mientras tanto podés ver todo lo que sí hay publicado."}
         </p>
         <Link
           href="/#catalogo"
@@ -193,16 +206,36 @@ export default function RielesCatalogo({
   // El riel transversal solo se dibuja cuando aporta algo que las filas
   // de abajo no muestran ya — el porqué completo está en
   // `hayFondoParaRecienPublicados`.
-  const conRecientes = hayFondoParaRecienPublicados(
-    pintables.length,
-    rieles.length,
-  );
+  // «Recién publicados» enseña `pintables` SIN filtrar: con una
+  // búsqueda puesta sería mostrar justo lo que NO coincide, así que
+  // con búsqueda activa el riel no sale.
+  const conRecientes =
+    !busquedaActiva &&
+    hayFondoParaRecienPublicados(pintables.length, rieles.length);
   // `pintables` ya viene ordenado por `created_at` descendente desde la
   // consulta: «lo más nuevo» es literalmente el principio de la lista.
   const recientes = conRecientes ? pintables.slice(0, TOPE_CARRIL) : [];
 
   return (
     <div className="flex flex-col gap-5 sm:gap-7">
+      {/* Con búsqueda activa se dice CUÁNTO quedó y se da la salida.
+          Sin esta línea, buscar solo re-acomoda los rieles en silencio
+          y nadie sabe si el filtro aplicó o no. */}
+      {busquedaActiva && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[13.5px] font-bold text-aventurea-ink-soft">
+            {enFoco.length === 1
+              ? "1 negocio coincide con tu búsqueda."
+              : `${enFoco.length} negocios coinciden con tu búsqueda.`}
+          </p>
+          <Link
+            href="/#catalogo"
+            className="text-[13px] font-extrabold text-[color:var(--navy)] underline underline-offset-2"
+          >
+            Quitar búsqueda
+          </Link>
+        </div>
+      )}
       {conRecientes && (
         <RielProveedores
           titulo="Recién publicados"
