@@ -778,6 +778,15 @@ export default async function PanelNegocioLealtad({
         eyebrow="En el mostrador"
         titulo="Atender a un cliente"
         bajada="Activá la cámara o buscá al cliente por nombre, correo o teléfono. Si ya completó su tarjeta, acá mismo le entregás el premio y la tarjeta arranca de cero."
+        accion={
+          /* La puerta al tutorial (pedido del dueño, 28 ago 2026). En
+             pestaña nueva a propósito: quien está atendiendo en el
+             mostrador no puede perder lo que tiene a medias por ir a
+             leer cómo se hace. */
+          <a href="/lealtad/ayuda" target="_blank" rel="noreferrer" className={BOTON_LEALTAD}>
+            Tutorial de ayuda
+          </a>
+        }
       >
         <ModoMostrador
           ranchoId={id}
