@@ -22,6 +22,8 @@ const VERTICALES: { href: string; label: string }[] = [
 ];
 
 const NEGOCIOS: { href: string; label: string }[] = [
+  // La landing B2B primero: es la que explica; /publicar es la que ejecuta.
+  { href: "/negocios", label: "Bookea para negocios" },
   { href: "/publicar", label: "Publicá tu negocio" },
   { href: "/lealtad", label: "Programa de lealtad" },
   { href: "/mi-negocio", label: "Panel de anfitriones" },

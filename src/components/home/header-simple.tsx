@@ -65,7 +65,19 @@ export default async function HeaderSimple() {
           Bookea
         </Link>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+        {/* La puerta al lado B2B (pedido del dueño, 28 ago 2026: «en la
+            parte superior diga BOOKEA PARA NEGOCIOS un botón»). En
+            teléfono se acorta a «Para negocios»: el texto completo no
+            cabe junto a Entrar sin empujar el logo. */}
+        <Link
+          href="/negocios"
+          className="ml-auto whitespace-nowrap rounded-full border border-aventurea-line bg-white/70 px-3.5 py-2 text-[12.5px] font-extrabold text-[color:var(--navy)] transition-colors hover:border-[color:var(--navy)] sm:px-4 sm:text-[13px]"
+        >
+          <span className="sm:hidden">Para negocios</span>
+          <span className="hidden sm:inline">Bookea para negocios</span>
+        </Link>
+
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           {/* ⚠️ ACÁ ESTABA EL MENÚ «MÁS SERVICIOS», con Lealtad e
               Invitaciones adentro. Se fue (pedido del dueño, ago 2026):
               escondidos detrás de un desplegable casi nadie los abría, y

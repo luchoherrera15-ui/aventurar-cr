@@ -22,6 +22,10 @@ export const RESERVED_SLUGS = new Set([
   "experiencias",
   "servicios",
   "food",
+  // La landing B2B y la portada de demostración: carpetas reales en
+  // src/app — un negocio con ese slug quedaría inalcanzable.
+  "negocios",
+  "demo-bookea",
   "invitaciones",
   "invitacion",
   "cuenta",
