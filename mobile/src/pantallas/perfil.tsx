@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
+import { desregistrarPush } from "@/lib/push";
 import { TAB_BAR_ESPACIO } from "@/components/tab-bar";
 import { useAuth, type Perfil } from "@/lib/auth-context";
 import { Colors, Fonts, Spacing } from "@/constants/theme";
@@ -537,6 +538,19 @@ function PerfilVista({
   activa: boolean;
 }) {
   const router = useRouter();
+
+  /**
+   * «Cerrar sesión» directo en Perfil (pedido del dueño, 27 ago 2026).
+   * Es el MISMO cierre que el de Ajustes: soltar el token push ANTES
+   * (la RLS solo deja borrarlo con la sesión viva) y `scope: "local"`
+   * — el default de Supabase es global y deslogueaba TODOS los
+   * aparatos (la historia completa está en ajustes.tsx).
+   */
+  async function cerrarSesion() {
+    await desregistrarPush();
+    await supabase.auth.signOut({ scope: "local" });
+    router.replace("/?tab=perfil" as never);
+  }
   const insets = useSafeAreaInsets();
   const { refrescarPerfil } = useAuth();
   const inicial = (perfil?.nombre || correo || "?").trim().charAt(0).toUpperCase();
@@ -847,6 +861,15 @@ function PerfilVista({
             onPress={() => WebBrowser.openBrowserAsync(`${SITIO_URL}/ayuda`)}
             ultima
           />
+        </Grupo>
+
+        {/* ── GRUPO 4: cerrar sesión ────────────────────────────────
+            A la vista en Perfil y no solo adentro de Ajustes (pedido
+            del dueño): es la acción que la gente viene a buscar acá.
+            Sigue estando también en Ajustes — dos puertas, un mismo
+            cierre. */}
+        <Grupo>
+          <FilaMenu icono="log-out-outline" texto="Cerrar sesión" onPress={cerrarSesion} ultima />
         </Grupo>
 
         {/* «MODO NEGOCIO» entra de verdad al panel de administración,
