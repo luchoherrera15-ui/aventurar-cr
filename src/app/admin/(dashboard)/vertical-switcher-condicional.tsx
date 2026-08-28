@@ -27,6 +27,10 @@ export default function VerticalSwitcherCondicional({
   variante?: "barra" | "rail";
 }) {
   const pathname = usePathname();
-  if (pathname?.startsWith("/admin/complementos")) return null;
+  // ⚠️ `/admin/lealtad` y no `/admin/complementos`: la pantalla se mudó
+  // el 27 ago 2026 (era el panel de Lealtad con el nombre equivocado).
+  // El filtro por vertical del marketplace no aplica a un negocio de
+  // lealtad, que no está en ninguna vertical.
+  if (pathname?.startsWith("/admin/lealtad")) return null;
   return <VerticalSwitcher actual={actual} variante={variante} />;
 }

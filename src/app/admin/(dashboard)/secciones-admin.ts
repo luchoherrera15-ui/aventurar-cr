@@ -73,6 +73,30 @@ export const GRUPOS_ADMIN: GrupoAdmin[] = [
       },
     ],
   },
+  /**
+   * ⚠️ LEALTAD TIENE GRUPO PROPIO (27 ago 2026).
+   *
+   * Pedido del dueño: «sacá lealtad y todo lo que tenga que ver con
+   * lealtad de esos complementos, hacé un menú a la izquierda dedicado
+   * para LEALTAD».
+   *
+   * Vivía escondido adentro de «Complementos», y al mirarlo resultó ser
+   * al revés de lo que parecía: esa pantalla ERA el panel de Lealtad —
+   * 7 de sus 12 columnas (Paquete, Clientes, Tarjetas, Vence, Cliente
+   * desde, Pase, Auditoría) son de lealtad y solo UNA era de
+   * complementos. El nombre del menú estaba describiendo la columna
+   * chica en vez de la pantalla.
+   *
+   * Ahora son dos: Lealtad se lleva lo suyo y Complementos queda con lo
+   * que de verdad es un complemento — Asistente IA, Agenda con IA — que
+   * NO son de lealtad: los puede tener cualquier negocio.
+   */
+  {
+    titulo: "Lealtad",
+    items: [
+      { href: "/admin/lealtad", etiqueta: "Negocios de lealtad", icono: "complemento" },
+    ],
+  },
   {
     titulo: "Productos de Bookea",
     items: [
