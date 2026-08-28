@@ -188,23 +188,26 @@ export default function NegociosPage() {
         <HeaderSimple />
 
         {/* ── EL HÉROE ─────────────────────────────────────────────── */}
-        <section className="mx-auto w-full max-w-[1180px] px-5 pb-16 pt-10 sm:pt-14">
-          <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_1fr]">
+        {/* CENTRADO y en columna (pedido del dueño, 28 ago 2026: «el
+            primer header más centrado y abajo el mockup»). El grid de
+            dos columnas se fue: titular, bajada y botones al centro, y
+            el teléfono del antes/después debajo, también centrado. */}
+        <section className="mx-auto w-full max-w-[880px] px-5 pb-16 pt-10 text-center sm:pt-14">
             <div>
-              <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-bookea-naranja-fuerte">
+              <p className="flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-bookea-naranja-fuerte">
                 <span aria-hidden className="block h-[1.5px] w-[18px] bg-bookea-naranja-fuerte" />
                 Bookea para negocios
               </p>
               <h1 className="titulo mt-3 text-[clamp(32px,4.8vw,54px)] leading-[1.05] text-[color:var(--navy)]">
                 El software de reservas para salones, spas y consultorios
               </h1>
-              <p className="mt-4 max-w-[52ch] text-[16px] leading-relaxed text-aventurea-ink-soft sm:text-[17.5px]">
+              <p className="mx-auto mt-4 max-w-[52ch] text-[16px] leading-relaxed text-aventurea-ink-soft sm:text-[17.5px]">
                 Tu agenda en línea, reservas que entran solas, recordatorios
                 automáticos y una tarjeta de lealtad que vive en el teléfono de
                 tus clientes. Todo en un solo lugar.
               </p>
 
-              <div className="mt-7 flex flex-wrap items-center gap-3">
+              <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
                 <Link
                   href="/publicar"
                   className="presionable inline-flex items-center gap-2 rounded-xl px-7 py-4 text-[15.5px] font-extrabold text-white"
@@ -236,7 +239,7 @@ export default function NegociosPage() {
                 no usa el logo de WhatsApp, solo su realidad: avisos
                 que se apilan y un contador de «sin responder». Con
                 prefers-reduced-motion queda SOLO el después. */}
-            <div aria-hidden className="mx-auto w-full max-w-[300px]">
+            <div aria-hidden className="mx-auto mt-12 w-full max-w-[300px]">
               <div className="mock-pila">
                 {/* Teléfono A · el caos */}
                 <div className="mock-tel-caos opacity-0">
@@ -327,7 +330,6 @@ export default function NegociosPage() {
                 </p>
               </div>
             </div>
-          </div>
         </section>
       </div>
 

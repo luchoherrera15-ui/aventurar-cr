@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import NavLealtad from "../nav-lealtad";
+import CarruselPasos from "./carrusel-pasos";
 import MockupCreacion from "../mockup-creacion";
 import MockupPoster from "../mockup-poster";
 import MockupEscaneo from "../mockup-escaneo";
@@ -42,67 +43,6 @@ export const metadata: Metadata = {
     "Cómo funciona tu programa de lealtad en Bookea, paso a paso: creá tu tarjeta, imprimí tu póster con QR, invitá a tus clientes y empezá a dar beneficios.",
 };
 
-/** Un paso: número, título, texto y su mockup, alternando lados. */
-function Paso({
-  numero,
-  titulo,
-  invertido = false,
-  apilado = false,
-  mockup,
-  children,
-}: {
-  numero: number;
-  titulo: string;
-  /** En pantallas anchas los pasos alternan texto|mockup. */
-  invertido?: boolean;
-  /**
-   * Texto arriba y mockup a lo ANCHO abajo. Existe por el paso 3:
-   * `MockupEscaneo` es una composición de dos piezas lado a lado
-   * (teléfono + tarjeta del mostrador) pensada para la franja completa
-   * de la landing — metida en media columna, la tarjeta del escáner
-   * quedaba aplastada a un tercio de su ancho (lo cazó el dueño en la
-   * primera revisión). A una composición ancha se le da la fila entera.
-   */
-  apilado?: boolean;
-  mockup: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  if (apilado) {
-    return (
-      <section className="mx-auto w-full max-w-[1080px] px-5 py-12">
-        <div className="mx-auto max-w-[720px] text-center">
-          <p className="inline-flex items-center gap-2 rounded-full bg-aventurea-navy px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white">
-            Paso {numero}
-          </p>
-          <h2 className="titulo mt-4 text-[clamp(22px,3vw,32px)] leading-[1.12] text-aventurea-navy">
-            {titulo}
-          </h2>
-          <div className="mx-auto mt-3 flex max-w-[56ch] flex-col gap-3 text-left text-[15px] leading-relaxed text-aventurea-ink-soft">
-            {children}
-          </div>
-        </div>
-        <div className="mt-10">{mockup}</div>
-      </section>
-    );
-  }
-  return (
-    <section className="mx-auto grid w-full max-w-[1080px] items-center gap-8 px-5 py-12 lg:grid-cols-2 lg:gap-14">
-      <div className={invertido ? "lg:order-2" : ""}>
-        <p className="inline-flex items-center gap-2 rounded-full bg-aventurea-navy px-3.5 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white">
-          Paso {numero}
-        </p>
-        <h2 className="titulo mt-4 text-[clamp(22px,3vw,32px)] leading-[1.12] text-aventurea-navy">
-          {titulo}
-        </h2>
-        <div className="mt-3 flex max-w-[52ch] flex-col gap-3 text-[15px] leading-relaxed text-aventurea-ink-soft">
-          {children}
-        </div>
-      </div>
-      <div className={invertido ? "lg:order-1" : ""}>{mockup}</div>
-    </section>
-  );
-}
-
 export default function AyudaLealtadPage() {
   return (
     <div className="flex min-h-screen flex-col bg-white">
@@ -124,66 +64,98 @@ export default function AyudaLealtadPage() {
           </p>
         </header>
 
-        <Paso numero={1} titulo="Creá tu programa de lealtad" mockup={<MockupCreacion />}>
-          <p>
-            Elegís el tipo de tarjeta (sellos, puntos, lo que le calce a tu
-            negocio), tus colores, tu logo y el premio de la meta. La tarjeta
-            queda lista en Apple Wallet y Google Wallet al instante.
-          </p>
-          <p>
-            <Link href="/lealtad/nuevo" className="font-extrabold text-aventurea-navy underline underline-offset-2">
-              Crear mi programa →
-            </Link>
-          </p>
-        </Paso>
-
-        <Paso numero={2} titulo="Imprimí tu póster con QR" invertido mockup={<MockupPoster />}>
-          <p>
-            En tu panel, entrá a <strong className="font-extrabold text-aventurea-ink">«Póster y QR»</strong>:
-            elegís uno de los seis diseños, lo ves entero en pantalla y lo
-            imprimís desde el navegador. Ese QR es la puerta de entrada de tus
-            clientes — pegalo en la caja, en el espejo, donde se vea.
-          </p>
-        </Paso>
-
-        <Paso numero={3} titulo="Invitá a tus clientes" apilado mockup={<MockupEscaneo />}>
-          <p>
-            En el local, tu cliente escanea el código del póster y su tarjeta
-            queda guardada en el teléfono — de una, sin descargar nada.
-          </p>
-          {/* La otra mitad del paso: la venta EN LÍNEA. El mockup de al
-              lado enseña el mostrador; esta tarjetita enseña el chat. */}
-          <div className="mt-1 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
-            <p className="text-[12px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft">
-              ¿La compra fue en línea?
-            </p>
-            <p className="mt-1 text-[14px]">
-              Mandale el link de tu tarjeta por WhatsApp y llega igual:
-            </p>
-            <div className="mt-3 flex justify-end">
-              <div className="max-w-[280px] rounded-2xl rounded-br-md bg-[#d9fdd3] px-3 py-2 text-left shadow-sm">
-                <p className="text-[13px] leading-snug text-[#111b21]">
-                  ¡Gracias por tu compra! 💛 Sumá tu sello acá:{" "}
-                  <span className="font-bold text-[#027eb5]">bookea.lat/tarjeta/tu-negocio</span>
+        {/* Los cuatro pasos, en diapositivas con puntos (pedido del
+            dueño: «tipo diapositivas, slideable hacia la derecha»).
+            El contenido es EL MISMO que tenían las secciones apiladas;
+            solo cambió el marco. */}
+        <CarruselPasos
+          pasos={[
+            {
+              titulo: "Creá tu programa de lealtad",
+              mockup: <MockupCreacion />,
+              contenido: (
+                <>
+                  <p>
+                    Elegís el tipo de tarjeta (sellos, puntos, lo que le calce a
+                    tu negocio), tus colores, tu logo y el premio de la meta. La
+                    tarjeta queda lista en Apple Wallet y Google Wallet al
+                    instante.
+                  </p>
+                  <p>
+                    <Link
+                      href="/lealtad/nuevo"
+                      className="font-extrabold text-aventurea-navy underline underline-offset-2"
+                    >
+                      Crear mi programa →
+                    </Link>
+                  </p>
+                </>
+              ),
+            },
+            {
+              titulo: "Imprimí tu póster con QR",
+              mockup: <MockupPoster />,
+              contenido: (
+                <p>
+                  En tu panel, entrá a{" "}
+                  <strong className="font-extrabold text-aventurea-ink">«Póster y QR»</strong>:
+                  elegís uno de los seis diseños, lo ves entero en pantalla y lo
+                  imprimís desde el navegador. Ese QR es la puerta de entrada de
+                  tus clientes — pegalo en la caja, en el espejo, donde se vea.
                 </p>
-                <p className="mt-1 text-right text-[10px] font-semibold text-[#667781]">
-                  2:41 p. m. <span className="text-[#53bdeb]">✓✓</span>
+              ),
+            },
+            {
+              titulo: "Invitá a tus clientes",
+              ancho: true,
+              mockup: <MockupEscaneo />,
+              contenido: (
+                <>
+                  <p>
+                    En el local, tu cliente escanea el código del póster y su
+                    tarjeta queda guardada en el teléfono — de una, sin
+                    descargar nada.
+                  </p>
+                  <div className="mt-1 rounded-2xl border border-aventurea-line bg-aventurea-surface p-4">
+                    <p className="text-[12px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft">
+                      ¿La compra fue en línea?
+                    </p>
+                    <p className="mt-1 text-[14px]">
+                      Mandale el link de tu tarjeta por WhatsApp y llega igual:
+                    </p>
+                    <div className="mt-3 flex justify-end">
+                      <div className="max-w-[280px] rounded-2xl rounded-br-md bg-[#d9fdd3] px-3 py-2 text-left shadow-sm">
+                        <p className="text-[13px] leading-snug text-[#111b21]">
+                          ¡Gracias por tu compra! 💛 Sumá tu sello acá:{" "}
+                          <span className="font-bold text-[#027eb5]">
+                            bookea.lat/tarjeta/tu-negocio
+                          </span>
+                        </p>
+                        <p className="mt-1 text-right text-[10px] font-semibold text-[#667781]">
+                          2:41 p. m. <span className="text-[#53bdeb]">✓✓</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ),
+            },
+            {
+              titulo: "Empezá a brindar beneficios",
+              mockup: <MockupFidelidad />,
+              contenido: (
+                <p>
+                  Cada visita suma sellos o puntos desde tu mostrador — lo hacés
+                  vos o cualquiera de tu equipo. Al llegar a la meta, ahí mismo
+                  entregás el premio y la tarjeta arranca de cero, lista para la
+                  próxima vuelta.
                 </p>
-              </div>
-            </div>
-          </div>
-        </Paso>
+              ),
+            },
+          ]}
+        />
 
-        <Paso numero={4} titulo="Empezá a brindar beneficios" invertido mockup={<MockupFidelidad />}>
-          <p>
-            Cada visita suma sellos o puntos desde tu mostrador — lo hacés vos
-            o cualquiera de tu equipo. Al llegar a la meta, ahí mismo entregás
-            el premio y la tarjeta arranca de cero, lista para la próxima
-            vuelta.
-          </p>
-        </Paso>
-
-        {/* ── EL RECORDATORIO IMPORTANTE ─────────────────────────────── */}
+        {/* ── EL RECORDATORIO IMPORTANTE ─────────────────────────────── */}        {/* ── EL RECORDATORIO IMPORTANTE ─────────────────────────────── */}
         <section className="bg-aventurea-navy py-14">
           <div className="mx-auto grid w-full max-w-[1080px] items-center gap-8 px-5 lg:grid-cols-2 lg:gap-14">
             <div>
