@@ -117,10 +117,103 @@ const AGENDA_MOCK: {
   },
 ];
 
+/**
+ * La agenda grande, por colaborador. Misma filosofía que AGENDA_MOCK:
+ * dibujada, no capturada. Los nombres son de utilería y los huecos
+ * «Libre» van a propósito — un día de mentira lleno al 100 % se ve de
+ * mentira.
+ */
+const AGENDA_EQUIPO: {
+  nombre: string;
+  rol: string;
+  iniciales: string;
+  color: string;
+  citas: { hora: string; titulo?: string; tono?: string; libre?: boolean }[];
+}[] = [
+  {
+    nombre: "Valeria",
+    rol: "Estilista",
+    iniciales: "VA",
+    color: "#5b7cc9",
+    citas: [
+      { hora: "9:00", titulo: "Color y peinado", tono: "#dbeafe" },
+      { hora: "11:30", titulo: "Corte y cepillado", tono: "#fce7f3" },
+      { hora: "14:00", libre: true },
+      { hora: "15:30", titulo: "Peinado de evento", tono: "#e0e7ff" },
+    ],
+  },
+  {
+    nombre: "Marco",
+    rol: "Barbero",
+    iniciales: "MA",
+    color: "#b06428",
+    citas: [
+      { hora: "9:30", titulo: "Fade clásico", tono: "#ffedd5" },
+      { hora: "10:30", titulo: "Corte y barba", tono: "#fef9c3" },
+      { hora: "12:00", titulo: "Afeitado clásico", tono: "#ffedd5" },
+      { hora: "15:30", libre: true },
+    ],
+  },
+  {
+    nombre: "Sofía",
+    rol: "Uñas",
+    iniciales: "SO",
+    color: "#c05299",
+    citas: [
+      { hora: "9:00", titulo: "Gel X — set completo", tono: "#fce7f3" },
+      { hora: "11:00", titulo: "Manicura semipermanente", tono: "#dbeafe" },
+      { hora: "13:30", titulo: "Pedicura spa", tono: "#dcfce7" },
+      { hora: "16:00", titulo: "Retiro y esmaltado", tono: "#fef9c3" },
+    ],
+  },
+  {
+    nombre: "Daniela",
+    rol: "Masajista",
+    iniciales: "DA",
+    color: "#3f8f6b",
+    citas: [
+      { hora: "10:00", titulo: "Masaje relajante", tono: "#dcfce7" },
+      { hora: "12:30", libre: true },
+      { hora: "14:00", titulo: "Piedras calientes", tono: "#ffedd5" },
+      { hora: "16:30", titulo: "Masaje deportivo", tono: "#dbeafe" },
+    ],
+  },
+];
+
 export default function NegociosPage() {
   return (
-    <div className="flex min-h-screen flex-col overflow-x-clip bg-white">
-      <div className="bg-[#fff4e6]">
+    /* `isolate` + fondo propio: la aurora va en un hijo con z negativo,
+       y sin el contexto de apilado ese z se escaparía del div y la
+       aurora quedaría pintada DETRÁS de este mismo fondo — invisible.
+       Es el mismo tropiezo que ya tuvo /lealtad/ingresar. */
+    /* BLANCA, no crema (pedido del dueño, 28 ago 2026: «el anaranjado
+       está demasiado empachoso — la página blanca y solo un poco de
+       naranja que se mueva»). El único naranja fijo que queda es el de
+       los acentos; el resto lo ponen las tres manchas de la aurora,
+       moviéndose despacio sobre blanco. */
+    <div className="relative isolate flex min-h-screen flex-col overflow-x-clip bg-white">
+      {/* ── LA AURORA, EN TODA LA PÁGINA (pedido del dueño, 28 ago 2026:
+          «el efecto blur naranja que anda moviéndose por la pantalla,
+          a toda la página completa») ──────────────────────────────────
+          Capa FIJA al viewport y no absoluta a la página: en una página
+          de 5000 px las manchas quedarían ancladas arriba y el resto
+          del scroll iría en seco. Fija, las tres manchas acompañan
+          TODO el recorrido. Clases `aurora-lenta-*` (48-67 s, viajes
+          largos) y no las del héroe: acá se lee, y el movimiento corto
+          y frecuente se vuelve un tic. `aurora-lienzo` no lleva
+          máscara — el efecto es el fondo entero, no un remate. */}
+      <div aria-hidden className="fixed inset-0 -z-10">
+        <div className="aurora-lienzo">
+          <div className="aurora-mancha-lenta aurora-lenta-1" />
+          <div className="aurora-mancha-lenta aurora-lenta-2" />
+          <div className="aurora-mancha-lenta aurora-lenta-3" />
+        </div>
+      </div>
+
+      {/* El envoltorio del héroe ya no pinta su crema sólida: taparía a
+          la aurora justo donde más se luce. El tono lo da el fondo del
+          root, que es de la misma familia. */}
+      <div>
         <HeaderSimple />
 
         {/* ── EL HÉROE ─────────────────────────────────────────────── */}
@@ -162,7 +255,7 @@ export default function NegociosPage() {
             {/* La agenda, dibujada. Una captura envejece; esto no. */}
             <div
               aria-hidden
-              className="rounded-3xl border border-aventurea-line bg-white p-4 shadow-[0_30px_70px_-30px_rgba(16,47,82,0.4)] sm:p-5"
+              className="mock-flotar rounded-3xl border border-aventurea-line bg-white p-4 shadow-[0_30px_70px_-30px_rgba(16,47,82,0.4)] sm:p-5"
             >
               <div className="mb-3 flex items-center justify-between px-1">
                 <p className="text-[13px] font-extrabold text-aventurea-ink">Tu agenda</p>
@@ -205,7 +298,9 @@ export default function NegociosPage() {
           Fresha), acá van afirmaciones del producto: ciertas con 3
           negocios o con 3.000. El home no inventa cifras; esta página
           tampoco. */}
-      <section className="border-b border-aventurea-line bg-white">
+      {/* Translúcida y no blanca sólida: una banda opaca cruzando la
+          página cortaría la aurora en dos. */}
+      <section className="border-b border-aventurea-line bg-white/60">
         <div className="mx-auto grid w-full max-w-[1180px] grid-cols-2 gap-6 px-5 py-8 text-center sm:grid-cols-4">
           {[
             ["Reserva instantánea", "sin llamadas ni mensajes de ida y vuelta"],
@@ -222,6 +317,244 @@ export default function NegociosPage() {
       </section>
 
       <main className="flex-1">
+        {/* ── LA AGENDA GRANDE, POR COLABORADOR ────────────────────────
+            (pedido del dueño, 28 ago 2026: «una agenda grande, tipo una
+            sección, organizada por estilista o colaborador — qué le
+            toca a cada uno»). Dibujada como la del héroe: una captura
+            envejece con el primer cambio de interfaz; esto no. Los
+            huecos LIBRES van a propósito — una agenda de mentira llena
+            al 100 % se ve de mentira. */}
+        <section className="mx-auto w-full max-w-[1180px] px-5 pb-8 pt-16">
+          <h2 className="titulo text-center text-[clamp(24px,3.4vw,36px)] text-[color:var(--navy)]">
+            La agenda, ordenada por colaborador
+          </h2>
+          <p className="mx-auto mt-3 max-w-[58ch] text-center text-[15px] leading-relaxed text-aventurea-ink-soft">
+            Cada quien ve lo suyo — sus citas, sus huecos, su día completo — y
+            vos ves el negocio entero de un vistazo.
+          </p>
+
+          <div
+            aria-hidden
+            className="mt-9 rounded-3xl border border-aventurea-line bg-white p-4 shadow-[0_30px_70px_-35px_rgba(16,47,82,0.35)] sm:p-6"
+          >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-1">
+              <p className="text-[14px] font-extrabold text-aventurea-ink">
+                Viernes 4 de setiembre
+              </p>
+              <span className="rounded-full bg-aventurea-cream-2 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft">
+                13 citas · 3 espacios libres
+              </span>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {AGENDA_EQUIPO.map((col) => (
+                <div key={col.nombre} className="rounded-2xl bg-aventurea-cream-2/60 p-3">
+                  <div className="mb-3 flex items-center gap-2.5">
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold text-white"
+                      style={{ background: col.color }}
+                    >
+                      {col.iniciales}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13.5px] font-extrabold text-aventurea-ink">
+                        {col.nombre}
+                      </span>
+                      <span className="block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                        {col.rol}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {col.citas.map((c) =>
+                      c.libre ? (
+                        <div
+                          key={c.hora}
+                          className="rounded-lg border border-dashed border-aventurea-line px-2.5 py-2"
+                        >
+                          <p className="text-[10.5px] font-bold tabular-nums text-aventurea-ink-soft">
+                            {c.hora}
+                          </p>
+                          <p className="text-[12px] font-bold text-aventurea-ink-soft">
+                            Libre — se puede reservar
+                          </p>
+                        </div>
+                      ) : (
+                        <div
+                          key={c.hora}
+                          className="rounded-lg px-2.5 py-2"
+                          style={{ background: c.tono }}
+                        >
+                          <p className="text-[10.5px] font-bold tabular-nums text-aventurea-ink-soft">
+                            {c.hora}
+                          </p>
+                          <p className="truncate text-[12.5px] font-bold leading-tight text-aventurea-ink">
+                            {c.titulo}
+                          </p>
+                        </div>
+                      ),
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── «STARTUP COMPLETO Y GRATIS» — el panel, con sus aparatos ──
+            Titular con las palabras del dueño. El teléfono y el iPad
+            están DIBUJADOS (CSS), no son fotos de stock de un aparato
+            ajeno: cuentan una sola historia entre los dos — al teléfono
+            le entra la reserva nueva y el iPad ya la muestra en el
+            resumen. Los números de adentro son datos de MUESTRA de un
+            panel (como las citas de la agenda del héroe), no cifras de
+            la plataforma: la regla de «no inventar cifras» aplica a
+            Bookea, no al lorem de un mockup. */}
+        <section className="mx-auto w-full max-w-[1180px] px-5 py-16">
+          <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.1fr]">
+            <div>
+              <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-bookea-naranja-fuerte">
+                <span aria-hidden className="block h-[1.5px] w-[18px] bg-bookea-naranja-fuerte" />
+                Panel de administración
+              </p>
+              <h2 className="titulo mt-3 text-[clamp(26px,3.6vw,40px)] leading-[1.08] text-[color:var(--navy)]">
+                Startup completo y gratis para administrar tu negocio
+              </h2>
+              <p className="mt-4 max-w-[52ch] text-[15.5px] leading-relaxed text-aventurea-ink-soft">
+                Todo lo que un local necesita para operar el día a día, sin
+                pagar licencias ni instalar nada:
+              </p>
+              <ul className="mt-5 flex flex-col gap-2.5">
+                {[
+                  ["Agenda automática", "las reservas entran solas y caen en el calendario de quien corresponde"],
+                  ["Control de clientes", "quién vino, cuándo volvió y qué se hizo, sin cuadernos"],
+                  ["Estadísticas diarias y semanales", "citas, ocupación y plata, al día y por semana"],
+                  ["Mapeo de tu clientela", "de dónde llegan, quiénes repiten y quiénes son nuevos"],
+                  ["Recordatorios automáticos", "menos citas perdidas sin perseguir a nadie"],
+                ].map(([tt, ss]) => (
+                  <li key={tt} className="flex items-start gap-2.5 text-[14.5px] leading-relaxed text-aventurea-ink">
+                    <span aria-hidden className="mt-[7px] block h-1.5 w-1.5 shrink-0 rounded-full bg-bookea-naranja-fuerte" />
+                    <span>
+                      <strong className="font-extrabold">{tt}</strong> — {ss}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-7">
+                <Link
+                  href="/publicar"
+                  className="presionable inline-flex items-center gap-2 rounded-xl px-7 py-3.5 text-[15px] font-extrabold text-white"
+                  style={{ background: "var(--navy)" }}
+                >
+                  Empezá gratis <span aria-hidden>→</span>
+                </Link>
+              </div>
+            </div>
+
+            {/* El iPad con el resumen, y el teléfono encima recibiendo
+                la reserva que el resumen ya cuenta. */}
+            <div aria-hidden className="relative mx-auto w-full max-w-[560px] pb-12 pl-6">
+              <div className="mock-flotar overflow-hidden rounded-[26px] border-[10px] border-[#0a1226] bg-white shadow-[0_40px_90px_-40px_rgba(10,18,38,0.55)]">
+                <div className="bg-[#fbfcff] p-4 sm:p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[13px] font-extrabold text-aventurea-ink">Resumen de la semana</p>
+                    <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-emerald-700">
+                      <span aria-hidden className="mock-punto-vivo block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      En vivo
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      ["Reservas", "24"],
+                      ["Clientes nuevos", "6"],
+                      ["Ocupación", "82%"],
+                    ].map(([kk, vv]) => (
+                      <div key={kk} className="rounded-xl bg-white p-2.5 shadow-[0_6px_18px_-10px_rgba(16,47,82,0.3)]">
+                        <p className="text-[9.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft">{kk}</p>
+                        <p className="mt-0.5 text-[19px] font-extrabold tabular-nums text-[color:var(--navy)]">
+                          {kk === "Reservas" ? (
+                            /* 23 → 24 en el reloj de la demo: es la
+                               reserva que el teléfono acaba de anunciar. */
+                            <span className="mock-cifra">
+                              <span className="mock-cifra-vieja">23</span>
+                              <span className="mock-cifra-nueva">24</span>
+                            </span>
+                          ) : (
+                            vv
+                          )}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 rounded-xl bg-white p-3 shadow-[0_6px_18px_-10px_rgba(16,47,82,0.3)]">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
+                      Citas por día
+                    </p>
+                    <div className="flex items-end gap-1.5">
+                      {[
+                        ["L", 45], ["K", 60], ["M", 38], ["J", 72], ["V", 100], ["S", 88], ["D", 20],
+                      ].map(([dia, alto], i) => (
+                        <div key={dia as string} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                          {/* La caja de altura FIJA es la que hace real el
+                              height porcentual de la barra: contra la columna
+                              (auto) el 45% era 45% de nada — barras de 0px,
+                              cazadas mirando el computed style en vivo. */}
+                          <div className="flex h-20 w-full items-end">
+                            <div
+                              className="mock-barra w-full rounded-t-md"
+                              style={{
+                                height: `${alto}%`,
+                                background: dia === "V" ? "var(--navy)" : "#dbe3f2",
+                                animationDelay: `${i * 90}ms`,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[8.5px] font-bold text-aventurea-ink-soft">{dia}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mock-fila-nueva mt-3 flex items-center justify-between rounded-xl bg-[#eef4ff] px-3 py-2">
+                    <p className="text-[11px] font-bold text-aventurea-ink">
+                      15:00 · Gel X — set completo · Sofía
+                    </p>
+                    <span className="rounded-full bg-[color:var(--navy)] px-2 py-0.5 text-[9px] font-extrabold uppercase text-white">
+                      Nueva
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mock-flotar-tel absolute -bottom-2 -left-1 w-[150px] overflow-hidden rounded-[26px] border-[7px] border-[#0a1226] bg-white shadow-[0_30px_60px_-25px_rgba(10,18,38,0.6)] sm:w-[180px]">
+                <div className="bg-white p-2.5 pt-1.5">
+                  <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#0a1226]/80" />
+                  <div className="mock-toast mb-2 rounded-lg bg-[#eef4ff] px-2 py-1.5">
+                    <p className="text-[8px] font-extrabold uppercase tracking-wide text-[color:var(--navy)]">
+                      Nueva reserva
+                    </p>
+                    <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
+                      Gel X — hoy 15:00, con Sofía
+                    </p>
+                  </div>
+                  <p className="mb-1.5 px-0.5 text-[10px] font-extrabold text-aventurea-ink">Hoy</p>
+                  <div className="flex flex-col gap-1">
+                    {[
+                      ["9:00", "Manicura", "#dbeafe"],
+                      ["11:00", "Pedicura spa", "#dcfce7"],
+                      ["13:30", "Uñas acrílicas", "#ffedd5"],
+                      ["15:00", "Gel X", "#fce7f3"],
+                    ].map(([hh, tt2, tono]) => (
+                      <div key={hh} className="rounded-md px-1.5 py-1" style={{ background: tono }}>
+                        <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">{hh}</p>
+                        <p className="truncate text-[8.5px] font-bold text-aventurea-ink">{tt2}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ── LOS RUBROS, CON FOTO ─────────────────────────────────── */}
         <section className="mx-auto w-full max-w-[1180px] px-5 py-16">
           <h2 className="titulo text-center text-[clamp(24px,3.4vw,36px)] text-[color:var(--navy)]">
@@ -259,7 +592,7 @@ export default function NegociosPage() {
         </section>
 
         {/* ── QUÉ HACE POR VOS, EN TRES ────────────────────────────── */}
-        <section className="bg-aventurea-cream-2/50">
+        <section>
           <div className="mx-auto w-full max-w-[1180px] px-5 py-16">
             <h2 className="titulo text-center text-[clamp(24px,3.4vw,36px)] text-[color:var(--navy)]">
               Todo lo que necesitás para operar
