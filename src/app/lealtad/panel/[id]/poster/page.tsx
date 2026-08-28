@@ -235,8 +235,16 @@ export default async function PosterPage({
       )}
 
       {url && svgQr && (
-        <>
-          <SelectorTarjeta
+        /* ── LA HOJA SIEMPRE A LA VISTA (pedido del dueño, 28 ago 2026:
+           «ver el póster en tamaño completo y no tener que scrollear —
+           menor tamaño al póster para poder modificar cosas y poder
+           verlo»). En pantalla ancha: selectores a la izquierda, hoja a
+           la derecha, y la hoja capada al alto de la ventana (el cómo
+           está en poster.css, junto al porqué del 0.7071). Al imprimir
+           nada de esto existe: manda el @media print de siempre. */
+        <div className="poster-tablero">
+          <div className="poster-lado no-imprimir">
+            <SelectorTarjeta
             ruta={`/lealtad/panel/${id}/poster`}
             estilo={estilo}
             actualId={(programa?.id as string | undefined) ?? null}
@@ -256,14 +264,16 @@ export default async function PosterPage({
             })}
           />
 
-          <SelectorEstilo
-            ruta={`/lealtad/panel/${id}/poster`}
-            programaId={pedida ? (pedida.id as string) : null}
-            actual={estilo}
-            marca={colores.fondo}
-            acento={colores.sello}
-          />
+            <SelectorEstilo
+              ruta={`/lealtad/panel/${id}/poster`}
+              programaId={pedida ? (pedida.id as string) : null}
+              actual={estilo}
+              marca={colores.fondo}
+              acento={colores.sello}
+            />
+          </div>
 
+          <div className="poster-vista">
           {estilo === "personalizado" ? (
             <Personalizador
               ranchoId={id}
@@ -290,7 +300,8 @@ export default async function PosterPage({
               datos={datos}
             />
           )}
-        </>
+          </div>
+        </div>
       )}
     </main>
   );

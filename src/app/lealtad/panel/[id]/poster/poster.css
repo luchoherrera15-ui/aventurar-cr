@@ -1330,3 +1330,86 @@
     box-shadow: none;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LA HOJA ENTERA A LA VISTA (28 ago 2026)
+   ═══════════════════════════════════════════════════════════════════
+
+   Pedido del dueño: al elegir el diseño o editarlo, el póster se veía a
+   210mm reales y había que scrollear para verlo completo. La hoja ya
+   escala TODO su contenido con el ancho (aspect-ratio 210/297 +
+   container-type arriba), así que basta con goberarle el ancho para
+   que el ALTO quepa en la ventana: 0.7071 es 210/297, o sea
+   «el ancho que produce exactamente este alto». Los 150px son la barra
+   de arriba más un respiro.
+
+   SOLO EN PANTALLA: al imprimir manda el @media print, que quiere los
+   210mm de verdad. */
+@media screen {
+  .poster-hoja {
+    width: min(210mm, 100%, calc((100svh - 150px) * 0.7071));
+  }
+}
+
+/* El tablero: elegir y editar a la IZQUIERDA, la hoja a la DERECHA,
+   pegajosa — modificar mirando el resultado, sin scrollear entre uno y
+   otro. Debajo de 1080px vuelve a la columna de siempre (la hoja capada
+   igual queda entera en una pantalla). */
+@media screen and (max-width: 1079.9px) {
+  .poster-tablero,
+  .poster-lado {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    width: 100%;
+  }
+}
+@media screen and (min-width: 1080px) {
+  .poster-tablero {
+    display: flex;
+    /* flex-start y no el stretch por defecto: un hijo estirado mide lo
+       mismo que su padre y position:sticky no tiene dónde deslizarse. */
+    align-items: flex-start;
+    justify-content: center;
+    gap: 24px;
+    width: 100%;
+    max-width: 1400px;
+  }
+  .poster-lado {
+    position: sticky;
+    top: 14px;
+    flex: 0 1 400px;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .poster-vista {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+  }
+}
+
+/* Con más ancho todavía, el taller del PERSONALIZADO también se parte:
+   el formulario a un lado y la hoja al otro, quieta mientras se tocan
+   tipografías y colores. */
+@media screen and (min-width: 1360px) {
+  .poster-taller {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    width: 100%;
+  }
+  .poster-taller > .poster-editor {
+    flex: 1 1 380px;
+    min-width: 0;
+    max-width: 520px;
+  }
+  .poster-taller .poster-hoja {
+    position: sticky;
+    top: 14px;
+  }
+}
