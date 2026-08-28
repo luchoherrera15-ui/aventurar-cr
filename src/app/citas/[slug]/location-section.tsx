@@ -1,22 +1,25 @@
 import { IconPin } from "@/components/icons";
+import MapaPunto from "@/components/mapa-punto";
 
 const TITULO = "titulo text-[18px] text-aventurea-navy";
 
 /**
  * La sección de ubicación del perfil público.
  *
- * SIN MAPA REAL A PROPÓSITO: `package.json` no trae ninguna librería de
- * mapas (Leaflet, Mapbox, Google Maps JS...) y en el repo no hay
- * ninguna llave de Google Maps configurada — se buscó "GOOGLE_MAPS" y
- * "maps.googleapis" en el código y en .env.example / .env.local.example,
- * sin resultado. Instalar una dependencia nueva solo para esto no es el
- * pedido, así que acá va un bloque visual con el pin y la dirección en
- * vez de un mapa embebido.
+ * CON MAPA REAL desde el 28 ago 2026 («arreglar esto urgente, el tema
+ * del mapa», dijo el dueño frente al cuadriculado de mentira). El
+ * comentario que vivía acá («package.json no trae ninguna librería de
+ * mapas») dejó de ser cierto en cuanto entró Leaflet para el selector
+ * de ubicación — este bloque quedó de placeholder por inercia, no por
+ * decisión.
  *
- * CUANDO EXISTA una API key (Google Static Maps o similar), el
- * rectángulo de acá abajo es justo donde iría la imagen del mapa real,
- * usando `latitud`/`longitud` — el resto del bloque (dirección, botón
- * "Cómo llegar") queda igual.
+ * · CON COORDENADAS (las marca el dueño con el pin en el editar de
+ *   mi-negocio): `MapaPunto` — Leaflet + OpenStreetMap, gratis y sin
+ *   llave, con su botón de Satélite. El porqué de no usar Google Maps
+ *   está en la cabecera de ese componente.
+ * · SIN COORDENADAS: el bloque visual de siempre, con su leyenda
+ *   honesta de «zona aproximada» — un mapa centrado en «Desamparados»
+ *   a secas fingiría una precisión que el dato no tiene.
  */
 export default function LocationSection({
   direccion,
@@ -39,21 +42,31 @@ export default function LocationSection({
     <div className="mt-9">
       <h2 className={TITULO}>Ubicación</h2>
       <div className="mt-3 overflow-hidden rounded-3xl border border-aventurea-line bg-aventurea-surface shadow-[0_14px_44px_-24px_rgba(22,41,94,0.35)]">
-        {/* Placeholder del mapa — ver comentario del componente. */}
-        <div
-          className="relative flex h-[160px] items-center justify-center bg-[linear-gradient(160deg,#eef3fb_0%,#e2ecfa_100%)] sm:h-[190px]"
-          aria-hidden="true"
-        >
-          <span
-            className="absolute inset-0 opacity-40"
-            style={{
-              backgroundImage:
-                "linear-gradient(#c8d6ef 1px, transparent 1px), linear-gradient(90deg, #c8d6ef 1px, transparent 1px)",
-              backgroundSize: "28px 28px",
-            }}
+        {/* La comparación va INLINE y no vía `tieneCoordenadas`: es lo
+            que le permite a TypeScript estrechar latitud/longitud a
+            number dentro de la rama. */}
+        {latitud !== null && longitud !== null ? (
+          <MapaPunto
+            latitud={latitud}
+            longitud={longitud}
+            altoClase="h-[200px] sm:h-[240px]"
           />
-          <IconPin className="relative h-11 w-11 text-aventurea-navy" />
-        </div>
+        ) : (
+          <div
+            className="relative flex h-[160px] items-center justify-center bg-[linear-gradient(160deg,#eef3fb_0%,#e2ecfa_100%)] sm:h-[190px]"
+            aria-hidden="true"
+          >
+            <span
+              className="absolute inset-0 opacity-40"
+              style={{
+                backgroundImage:
+                  "linear-gradient(#c8d6ef 1px, transparent 1px), linear-gradient(90deg, #c8d6ef 1px, transparent 1px)",
+                backgroundSize: "28px 28px",
+              }}
+            />
+            <IconPin className="relative h-11 w-11 text-aventurea-navy" />
+          </div>
+        )}
 
         <div className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
