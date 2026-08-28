@@ -528,27 +528,66 @@ export default function NegociosPage() {
               <div className="mock-flotar-tel absolute -bottom-2 -left-1 w-[150px] overflow-hidden rounded-[26px] border-[7px] border-[#0a1226] bg-white shadow-[0_30px_60px_-25px_rgba(10,18,38,0.6)] sm:w-[180px]">
                 <div className="bg-white p-2.5 pt-1.5">
                   <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#0a1226]/80" />
-                  <div className="mock-toast mb-2 rounded-lg bg-[#eef4ff] px-2 py-1.5">
-                    <p className="text-[8px] font-extrabold uppercase tracking-wide text-[color:var(--navy)]">
-                      Nueva reserva
-                    </p>
-                    <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
-                      Gel X — hoy 15:00, con Sofía
-                    </p>
+                  {/* Los TRES avisos del reloj, apilados en una celda:
+                      reserva nueva (azul), cancelación (ámbar) y el
+                      reemplazo (verde). Los actos 2 y 3 llevan
+                      opacity-0 de base — ver el bloque mock-* en
+                      globals.css para el porqué. */}
+                  <div className="mock-pila mb-2">
+                    <div className="mock-toast-1 rounded-lg bg-[#eef4ff] px-2 py-1.5">
+                      <p className="text-[8px] font-extrabold uppercase tracking-wide text-[color:var(--navy)]">
+                        Nueva reserva
+                      </p>
+                      <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
+                        Gel X — hoy 15:00, con Sofía
+                      </p>
+                    </div>
+                    <div className="mock-toast-2 rounded-lg bg-[#fff1de] px-2 py-1.5 opacity-0">
+                      <p className="text-[8px] font-extrabold uppercase tracking-wide text-[#9a4b00]">
+                        Cancelación
+                      </p>
+                      <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
+                        Uñas acrílicas — hoy 13:30
+                      </p>
+                    </div>
+                    <div className="mock-toast-3 rounded-lg bg-[#e3f6ec] px-2 py-1.5 opacity-0">
+                      <p className="text-[8px] font-extrabold uppercase tracking-wide text-[#146c43]">
+                        Nueva reserva
+                      </p>
+                      <p className="text-[9.5px] font-bold leading-tight text-aventurea-ink">
+                        Manicura francesa — hoy 13:30
+                      </p>
+                    </div>
                   </div>
                   <p className="mb-1.5 px-0.5 text-[10px] font-extrabold text-aventurea-ink">Hoy</p>
                   <div className="flex flex-col gap-1">
-                    {[
-                      ["9:00", "Manicura", "#dbeafe"],
-                      ["11:00", "Pedicura spa", "#dcfce7"],
-                      ["13:30", "Uñas acrílicas", "#ffedd5"],
-                      ["15:00", "Gel X", "#fce7f3"],
-                    ].map(([hh, tt2, tono]) => (
-                      <div key={hh} className="rounded-md px-1.5 py-1" style={{ background: tono }}>
-                        <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">{hh}</p>
-                        <p className="truncate text-[8.5px] font-bold text-aventurea-ink">{tt2}</p>
+                    {/* Las quietas. */}
+                    <div className="rounded-md px-1.5 py-1" style={{ background: "#dbeafe" }}>
+                      <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">9:00</p>
+                      <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Manicura</p>
+                    </div>
+                    <div className="rounded-md px-1.5 py-1" style={{ background: "#dcfce7" }}>
+                      <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">11:00</p>
+                      <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Pedicura spa</p>
+                    </div>
+                    {/* El hueco de las 13:30: la que se CANCELA y la que
+                        lo vuelve a llenar, apiladas — mismo tamaño, cero
+                        saltos de layout. */}
+                    <div className="mock-pila">
+                      <div className="mock-cita-sale rounded-md px-1.5 py-1" style={{ background: "#ffedd5" }}>
+                        <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">13:30</p>
+                        <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Uñas acrílicas</p>
                       </div>
-                    ))}
+                      <div className="mock-cita-reemplazo rounded-md px-1.5 py-1 opacity-0" style={{ background: "#e3f6ec" }}>
+                        <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">13:30</p>
+                        <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Manicura francesa</p>
+                      </div>
+                    </div>
+                    {/* La que ENTRA con el primer aviso. */}
+                    <div className="mock-cita-entra rounded-md px-1.5 py-1" style={{ background: "#fce7f3" }}>
+                      <p className="text-[7.5px] font-bold tabular-nums text-aventurea-ink-soft">15:00</p>
+                      <p className="truncate text-[8.5px] font-bold text-aventurea-ink">Gel X</p>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -2220,19 +2220,39 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   LOS MOCKUPS ANIMADOS DE /negocios
+   LOS MOCKUPS ANIMADOS DE /negocios — el reloj de 24 segundos
    ═══════════════════════════════════════════════════════════════════
 
-   Pedido del dueño (28 ago 2026): «mockups animados, interactivos, con
-   fluidez y movimiento, notificaciones». Todo CSS puro sobre
-   componentes de SERVIDOR — cero JavaScript en el cliente, igual que
-   la aurora.
+   Pedido del dueño (28 ago 2026, segunda vuelta): «que se vean
+   interactivos, que aparezcan notificaciones, que se vea tipo entrando
+   y saliendo citas». Todo CSS puro sobre componentes de SERVIDOR —
+   cero JavaScript, igual que la aurora.
 
-   Un solo RELOJ de 12 s (toast, fila «Nueva» y el flip del contador
-   comparten duración) cuenta UNA historia sincronizada: al teléfono le
-   entra la notificación de la reserva, el resumen del iPad la marca
-   «Nueva» y el contador pasa de 23 a 24. Tres animaciones sueltas
-   serían ruido; la MISMA en tres pantallas es una demo. */
+   UN SOLO RELOJ DE 24 s con TRES ACTOS, sincronizado entre el teléfono
+   y el iPad (todas estas animaciones comparten duración; los momentos
+   son porcentajes del mismo ciclo — 1% ≈ 0,24 s):
+
+     · ~1-5 s   ENTRA una cita: aviso azul en el teléfono, la fila de
+                Gel X aparece en la lista, la fila «Nueva» destella en
+                el iPad y el contador pasa de 23 a 24.
+     · ~9-13 s  SALE una cita: aviso ámbar de cancelación, la fila de
+                Uñas acrílicas se desvanece y el contador vuelve a 23.
+     · ~15-19 s ENTRA su reemplazo: aviso verde, una Manicura francesa
+                ocupa el mismo hueco de las 13:30 y el contador vuelve
+                a 24.
+
+   El ciclo cierra con una cola quieta y se reinicia. El salto de
+   costura (todo vuelve al estado inicial) es el de cualquier demo en
+   bucle; la cola lo aleja de los ojos.
+
+   Los avisos y las dos citas de las 13:30 van APILADOS en una misma
+   celda (`mock-pila`, el mismo truco del contador): así nada cambia de
+   tamaño y la lista no pega saltos de layout.
+
+   ⚠️ Los elementos de los actos 2 y 3 llevan `opacity-0` de BASE en el
+   JSX: con la animación andando, los keyframes mandan; sin animación
+   (prefers-reduced-motion) la base deja UNA sola versión visible de
+   cada pila — el cuadro final del acto 1, quieto y coherente. */
 
 @keyframes mock-flotar {
   0%, 100% { transform: translate3d(0, 0, 0); }
@@ -2247,42 +2267,83 @@ body {
 .mock-flotar { animation: mock-flotar 7s ease-in-out infinite; will-change: transform; }
 .mock-flotar-tel { animation: mock-flotar-tel 9s ease-in-out infinite; will-change: transform; }
 
-/* La notificación del teléfono: entra, se queda lo que tarda en
-   leerse, se va — y vuelve, porque esto es un loop de demo. */
-@keyframes mock-toast {
-  0%, 4% { opacity: 0; transform: translateY(-10px) scale(0.96); }
-  9%, 55% { opacity: 1; transform: translateY(0) scale(1); }
-  62%, 100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
-}
-.mock-toast { animation: mock-toast 12s ease-in-out infinite; }
+/* La pila: N hermanos en la misma celda; solo cambia cuál se ve. */
+.mock-pila { display: grid; }
+.mock-pila > * { grid-area: 1 / 1; }
 
-/* La fila «Nueva» del iPad aparece JUSTO después del toast y destella
-   una vez al llegar: la reserva viajó del teléfono al resumen. */
+/* ── Acto 1 · ~1-5 s: la reserva nueva ─────────────────────────────── */
+@keyframes mock-toast-1 {
+  0%, 3% { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  7%, 19% { opacity: 1; transform: translateY(0) scale(1); }
+  23%, 100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+.mock-toast-1 { animation: mock-toast-1 24s ease-in-out infinite; }
+
+/* La cita que ENTRA (Gel X en el teléfono). */
+@keyframes mock-cita-entra {
+  0%, 7% { opacity: 0; transform: translateY(6px); }
+  11%, 100% { opacity: 1; transform: translateY(0); }
+}
+.mock-cita-entra { animation: mock-cita-entra 24s ease-in-out infinite; }
+
+/* La fila «Nueva» del iPad: llega con la reserva y destella una vez. */
 @keyframes mock-fila-nueva {
-  0%, 10% { opacity: 0; transform: translateY(6px); }
-  16% { opacity: 1; transform: translateY(0); background-color: #d7e5ff; }
-  24%, 100% { opacity: 1; transform: translateY(0); background-color: #eef4ff; }
+  0%, 7% { opacity: 0; transform: translateY(6px); }
+  11% { opacity: 1; transform: translateY(0); background-color: #d7e5ff; }
+  16%, 100% { opacity: 1; transform: translateY(0); background-color: #eef4ff; }
 }
-.mock-fila-nueva { animation: mock-fila-nueva 12s ease-in-out infinite; }
+.mock-fila-nueva { animation: mock-fila-nueva 24s ease-in-out infinite; }
 
-/* El contador de reservas: 23 → 24 en el mismo reloj. Dos spans
-   apilados en la misma celda; solo cambia cuál se ve. */
+/* ── Acto 2 · ~9-13 s: la cancelación ──────────────────────────────── */
+@keyframes mock-toast-2 {
+  0%, 36% { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  40%, 52% { opacity: 1; transform: translateY(0) scale(1); }
+  56%, 100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+.mock-toast-2 { animation: mock-toast-2 24s ease-in-out infinite; }
+
+/* La cita que SALE (Uñas acrílicas): se desliza y se apaga. */
+@keyframes mock-cita-sale {
+  0%, 41% { opacity: 1; transform: translateX(0); }
+  47%, 100% { opacity: 0; transform: translateX(12px); }
+}
+.mock-cita-sale { animation: mock-cita-sale 24s ease-in-out infinite; }
+
+/* ── Acto 3 · ~15-19 s: el hueco se vuelve a llenar ────────────────── */
+@keyframes mock-toast-3 {
+  0%, 61% { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  65%, 77% { opacity: 1; transform: translateY(0) scale(1); }
+  81%, 100% { opacity: 0; transform: translateY(-6px) scale(0.98); }
+}
+.mock-toast-3 { animation: mock-toast-3 24s ease-in-out infinite; }
+
+@keyframes mock-cita-reemplazo {
+  0%, 66% { opacity: 0; transform: translateY(6px); }
+  70%, 100% { opacity: 1; transform: translateY(0); }
+}
+.mock-cita-reemplazo { animation: mock-cita-reemplazo 24s ease-in-out infinite; }
+
+/* ── El contador respira con los tres actos: 23 → 24 → 23 → 24 ────── */
 @keyframes mock-cifra-vieja {
-  0%, 12% { opacity: 1; transform: translateY(0); }
-  17%, 100% { opacity: 0; transform: translateY(-9px); }
+  0%, 8% { opacity: 1; transform: translateY(0); }
+  12%, 43% { opacity: 0; transform: translateY(-9px); }
+  47%, 66% { opacity: 1; transform: translateY(0); }
+  70%, 100% { opacity: 0; transform: translateY(-9px); }
 }
 @keyframes mock-cifra-nueva {
-  0%, 12% { opacity: 0; transform: translateY(9px); }
-  17%, 100% { opacity: 1; transform: translateY(0); }
+  0%, 8% { opacity: 0; transform: translateY(9px); }
+  12%, 43% { opacity: 1; transform: translateY(0); }
+  47%, 66% { opacity: 0; transform: translateY(9px); }
+  70%, 100% { opacity: 1; transform: translateY(0); }
 }
 .mock-cifra { display: inline-grid; }
 .mock-cifra > span { grid-area: 1 / 1; }
-.mock-cifra-vieja { animation: mock-cifra-vieja 12s ease-in-out infinite; }
-.mock-cifra-nueva { animation: mock-cifra-nueva 12s ease-in-out infinite; }
+.mock-cifra-vieja { animation: mock-cifra-vieja 24s ease-in-out infinite; }
+.mock-cifra-nueva { animation: mock-cifra-nueva 24s ease-in-out infinite; }
 
 /* Las barras del gráfico crecen UNA vez al cargar, escalonadas desde
-   abajo (el retraso por barra va inline, por índice). `backwards`
-   las mantiene en cero durante su retraso. */
+   abajo (el retraso por barra va inline, por índice). `backwards` las
+   mantiene en cero durante su retraso. */
 @keyframes mock-barra {
   from { transform: scaleY(0); }
   to { transform: scaleY(1); }
@@ -2299,13 +2360,19 @@ body {
 }
 .mock-punto-vivo { animation: mock-punto-vivo 2.2s ease-in-out infinite; }
 
-/* Sin movimiento: la historia queda contada en su cuadro FINAL — el
-   toast visible, la fila «Nueva» puesta, el 24 puesto, las barras
-   crecidas. Nada desaparece ni queda a mitad de camino. */
+/* Sin movimiento: queda el cuadro del acto 1 — el aviso azul puesto,
+   Gel X en la lista, la fila «Nueva» en el iPad, el 24 en el contador,
+   las barras crecidas y las acrílicas en su lugar. Los actos 2 y 3 no
+   existen (sus piezas traen `opacity-0` de base). */
 @media (prefers-reduced-motion: reduce) {
   .mock-flotar,
   .mock-flotar-tel,
-  .mock-toast,
+  .mock-toast-1,
+  .mock-toast-2,
+  .mock-toast-3,
+  .mock-cita-entra,
+  .mock-cita-sale,
+  .mock-cita-reemplazo,
   .mock-fila-nueva,
   .mock-cifra-vieja,
   .mock-cifra-nueva,
