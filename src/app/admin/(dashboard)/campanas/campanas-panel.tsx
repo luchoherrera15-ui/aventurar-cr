@@ -5,24 +5,49 @@ import { enviarCampana, type ResultadoCampana } from "./actions";
 import CompositorPlantilla from "./compositor-plantilla";
 
 export type PerfilCampana = {
+  /** El id del perfil, o `correo:<email>` para un contacto de lealtad
+   *  sin cuenta — esos existen solo en `clientes_negocio`. */
   id: string;
   email: string;
   nombre: string | null;
   rol: "admin" | "dueno_rancho" | "cliente";
+  /**
+   * De dónde viene la cuenta. Lo calcula el servidor (page.tsx) contra
+   * ranchos y clientes_negocio — acá solo se filtra y se pinta.
+   */
+  origen: "marketplace" | "lealtad" | "cliente_lealtad" | "cliente" | "demo";
+  /** El negocio que explica el origen: el que posee, o del que es cliente. */
+  negocio: string | null;
 };
 
-const ROLES = [
+/**
+ * ⚠️ ANTES ACÁ HABÍA UN FILTRO POR ROL (Clientes/Proveedores) y era
+ * inservible para lo que esta pantalla se usa: el rol no distingue a un
+ * dueño del marketplace de un negocio de Lealtad, ni a un cliente real
+ * de una cuenta de utilería del demo. El dueño lo pidió con todas las
+ * letras: «filtrar por cuentas demos, cuentas de Pura Matcha».
+ *
+ * El segmento viene calculado del servidor; el orden de esta lista es
+ * el orden de los botones: primero lo que se usa para vender, al final
+ * lo que se usa para excluir.
+ */
+const SEGMENTOS = [
   { key: "todos", label: "Todos" },
+  { key: "marketplace", label: "Marketplace" },
+  { key: "lealtad", label: "Negocios de lealtad" },
+  { key: "cliente_lealtad", label: "Clientes de lealtad" },
   { key: "cliente", label: "Clientes" },
-  { key: "dueno_rancho", label: "Proveedores" },
+  { key: "demo", label: "Demo" },
 ] as const;
 
-type RolFiltro = (typeof ROLES)[number]["key"];
+type RolFiltro = (typeof SEGMENTOS)[number]["key"];
 
-const ROL_LABEL: Record<PerfilCampana["rol"], string> = {
-  admin: "Admin",
-  dueno_rancho: "Proveedor",
+const ORIGEN_LABEL: Record<PerfilCampana["origen"], string> = {
+  marketplace: "Marketplace",
+  lealtad: "Negocio de lealtad",
+  cliente_lealtad: "Cliente de lealtad",
   cliente: "Cliente",
+  demo: "Demo",
 };
 
 const inputCls =
@@ -37,6 +62,8 @@ export default function CampanasPanel({
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [rolFiltro, setRolFiltro] = useState<RolFiltro>("todos");
+  /** El sub-filtro «de qué negocio», para los clientes de lealtad. */
+  const [negocioFiltro, setNegocioFiltro] = useState<string>("todos");
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   /** Qué compositor se está usando. Arranca en el nuevo. */
   const [modo, setModo] = useState<"plantilla" | "libre">("plantilla");
@@ -51,17 +78,36 @@ export default function CampanasPanel({
   const [resultado, setResultado] = useState<ResultadoCampana | null>(null);
   const [enviando, startTransition] = useTransition();
 
+  /** Los negocios de lealtad con clientes, para el sub-filtro. */
+  const negociosLealtad = useMemo(
+    () =>
+      [...new Set(
+        perfiles
+          .filter((p) => p.origen === "cliente_lealtad" && p.negocio)
+          .map((p) => p.negocio as string),
+      )].sort(),
+    [perfiles],
+  );
+
   const filtrados = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
     return perfiles.filter((p) => {
-      if (rolFiltro !== "todos" && p.rol !== rolFiltro) return false;
+      if (rolFiltro !== "todos" && p.origen !== rolFiltro) return false;
+      if (
+        rolFiltro === "cliente_lealtad" &&
+        negocioFiltro !== "todos" &&
+        p.negocio !== negocioFiltro
+      ) {
+        return false;
+      }
       if (!texto) return true;
       return (
         (p.nombre ?? "").toLowerCase().includes(texto) ||
-        p.email.toLowerCase().includes(texto)
+        p.email.toLowerCase().includes(texto) ||
+        (p.negocio ?? "").toLowerCase().includes(texto)
       );
     });
-  }, [perfiles, busqueda, rolFiltro]);
+  }, [perfiles, busqueda, rolFiltro, negocioFiltro]);
 
   const todosFiltradosMarcados =
     filtrados.length > 0 && filtrados.every((p) => seleccionados.has(p.id));
@@ -147,11 +193,17 @@ export default function CampanasPanel({
           <div>
             <label className={labelCls}>Rol</label>
             <div className="flex flex-wrap gap-1.5">
-              {ROLES.map((r) => (
+              {SEGMENTOS.map((r) => (
                 <button
                   key={r.key}
                   type="button"
-                  onClick={() => setRolFiltro(r.key)}
+                  onClick={() => {
+                    setRolFiltro(r.key);
+                    // Cambiar de segmento resetea el sub-filtro: un
+                    // negocio elegido en «Clientes de lealtad» no
+                    // significa nada en «Demo».
+                    setNegocioFiltro("todos");
+                  }}
                   className={`rounded-lg px-3.5 py-2 text-[12.5px] font-bold transition-colors ${
                     rolFiltro === r.key
                       ? "bg-aventurea-ink text-white"
@@ -161,6 +213,20 @@ export default function CampanasPanel({
                   {r.label}
                 </button>
               ))}
+              {rolFiltro === "cliente_lealtad" && negociosLealtad.length > 0 && (
+                <select
+                  value={negocioFiltro}
+                  onChange={(e) => setNegocioFiltro(e.target.value)}
+                  className="rounded-lg border border-aventurea-line bg-white px-3 py-2 text-[12.5px] font-bold text-aventurea-ink"
+                >
+                  <option value="todos">Todos los negocios</option>
+                  {negociosLealtad.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         </div>
@@ -234,9 +300,25 @@ export default function CampanasPanel({
                     {p.email}
                   </td>
                   <td className="px-4 py-3">
-                    <span className="inline-block rounded-lg bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-aventurea-ink-soft">
-                      {ROL_LABEL[p.rol] ?? p.rol}
+                    <span
+                      className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-bold ${
+                        p.origen === "demo"
+                          ? "bg-amber-50 text-amber-800"
+                          : p.origen === "lealtad" || p.origen === "cliente_lealtad"
+                            ? "bg-aventurea-orange-light text-bookea-naranja-fuerte"
+                            : "bg-aventurea-cream-2 text-aventurea-ink-soft"
+                      }`}
+                    >
+                      {ORIGEN_LABEL[p.origen]}
                     </span>
+                    {/* El negocio que lo explica: es la diferencia entre
+                        «cliente de lealtad» a secas y «cliente de Pura
+                        Matcha», que es lo que se pidió poder filtrar. */}
+                    {p.negocio && (
+                      <span className="ml-2 text-[11.5px] text-aventurea-ink-soft">
+                        {p.negocio}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
