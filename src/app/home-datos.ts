@@ -404,6 +404,14 @@ export type CatalogoPortada = {
    */
   pintables: Rancho[];
   /**
+   * La nota real de cada negocio (la vista `calificaciones_rancho`
+   * sobre `resenas`). Array y no Map a propósito: esto atraviesa
+   * `unstable_cache`, que serializa a JSON — un Map saldría de la caché
+   * convertido en `{}` sin ningún error. El Map se arma en el
+   * componente.
+   */
+  calificaciones: { rancho_id: string; promedio: number; total: number }[];
+  /**
    * CUÁNTOS NEGOCIOS VA A CONTAR EL VISITANTE DEL OTRO LADO DEL «VER
    * TODOS», por vertical. Es el número que se pinta al lado del título
    * del riel.
@@ -483,8 +491,12 @@ export type CatalogoPortada = {
  * marketplace donde entra un negocio por semana, es nada; y las
  * acciones del admin revalidan el tag para no esperar ni eso.
  */
+type CalificacionFila = { rancho_id: string; promedio: number; total: number };
+
 const leerAprobadosCacheado = unstable_cache(
-  async (demo: boolean): Promise<Rancho[]> => {
+  async (
+    demo: boolean,
+  ): Promise<{ ranchos: Rancho[]; calificaciones: CalificacionFila[] }> => {
     const supabase = createAnonClient();
     const consulta = supabase
       .from("ranchos")
@@ -516,10 +528,25 @@ const leerAprobadosCacheado = unstable_cache(
       // de abajo. Una sola columna, dos catálogos, cero código repetido.
       .order("created_at", { ascending: false });
 
-    const { data } = demo
-      ? await consulta.eq("en_marketplace", false)
-      : await consulta.neq("en_marketplace", false);
-    return (data ?? []) as unknown as Rancho[];
+    // Las notas viajan en la misma tanda cacheada: son la nota REAL de
+    // `calificaciones_rancho` (la vista que agrega `resenas`), no un
+    // adorno. La tarjeta solo pinta estrellas si le llega una — un
+    // negocio sin reseñas sigue saliendo sin estrellas, que es la
+    // verdad.
+    const [{ data }, { data: califs }] = await Promise.all([
+      demo
+        ? consulta.eq("en_marketplace", false)
+        : consulta.neq("en_marketplace", false),
+      supabase.from("calificaciones_rancho").select("rancho_id, promedio, total"),
+    ]);
+    return {
+      ranchos: (data ?? []) as unknown as Rancho[],
+      calificaciones: ((califs ?? []) as CalificacionFila[]).map((c) => ({
+        rancho_id: c.rancho_id,
+        promedio: Number(c.promedio),
+        total: Number(c.total),
+      })),
+    };
   },
   // ⚠️ EL MODO VA EN LA CLAVE. `unstable_cache` cachea por la clave que
   // se le da MÁS los argumentos de la función, así que con `demo` como
@@ -527,7 +554,13 @@ const leerAprobadosCacheado = unstable_cache(
   // hubiera leído de una variable de módulo en vez de recibirse por
   // argumento, la primera visita habría dejado su catálogo cacheado
   // para las dos portadas.
-  ["catalogo-portada"],
+  //
+  // El sufijo -v2 existe porque la FORMA del valor cambió (de un array
+  // a {ranchos, calificaciones}): con la clave vieja, durante el primer
+  // minuto tras el deploy la caché serviría el array viejo a un código
+  // que espera el objeto nuevo, y la portada se caería justo después de
+  // publicar. El tag de invalidación sigue siendo el mismo.
+  ["catalogo-portada-v2"],
   { revalidate: 60, tags: ["catalogo-portada"] },
 );
 
@@ -536,11 +569,11 @@ export async function leerCatalogoPortada(demo = false): Promise<CatalogoPortada
   // cacheada) en paralelo. `usuarioActual` es el helper deduplicado:
   // si otro componente de la misma página ya preguntó quién mira, esta
   // llamada no repite el viaje a /auth/v1/user.
-  const [aprobadosCrudos, user] = await Promise.all([
+  const [catalogoCrudo, user] = await Promise.all([
     leerAprobadosCacheado(demo),
     usuarioActual(),
   ]);
-  const data = aprobadosCrudos;
+  const data = catalogoCrudo.ranchos;
 
   const aprobados = data;
   const pintables = aprobados.filter((r) => !enConfiguracion(r.detalles));
@@ -568,5 +601,11 @@ export async function leerCatalogoPortada(demo = false): Promise<CatalogoPortada
     favoritosIds = (favData ?? []).map((f) => f.rancho_id as string);
   }
 
-  return { pintables, totalPorVertical, favoritosIds, sesionActiva: !!user };
+  return {
+    pintables,
+    totalPorVertical,
+    calificaciones: catalogoCrudo.calificaciones,
+    favoritosIds,
+    sesionActiva: !!user,
+  };
 }

@@ -44,9 +44,12 @@ import type { CatalogoPortada } from "@/app/home-datos";
  *      hay ubicación del visitante. Los dos mapas que `RielProveedores`
  *      pide van VACÍOS a propósito:
  *
- *        · `calificaciones` — la tarjeta solo pinta estrellas si le
- *          llega una calificación. Un mapa vacío es exactamente
- *          «todavía nadie reseñó», que es la verdad.
+ *        · `calificaciones` — DEJÓ DE IR VACÍO (27 ago 2026). Cuando
+ *          se escribió esto, `resenas` tenía cero filas y un mapa vacío
+ *          era la verdad. Hoy hay reseñas reales y la nota que se pinta
+ *          sale de `calificaciones_rancho`, que las agrega — sigue
+ *          siendo verdad, solo que ahora existe. Un negocio sin reseñas
+ *          sigue saliendo sin estrellas.
  *        · `proximasLibres` — saber qué fecha tiene libre un Lugar
  *          cuesta una consulta a `disponibilidad_rancho`, y la portada
  *          no la hace. Con el mapa vacío la tarjeta omite el chip, en
@@ -68,7 +71,6 @@ import type { CatalogoPortada } from "@/app/home-datos";
  * `new Map()` por request sería tirar basura al recolector en la URL
  * más visitada del sitio.
  */
-const SIN_CALIFICACIONES = new Map<string, Calificacion>();
 const SIN_DISPONIBILIDAD = new Map<string, string | null>();
 
 // Tarjetas "un poco más pequeñas" que las del directorio (pedido del
@@ -102,6 +104,7 @@ const SIZES_TARJETA_PORTADA = "(max-width: 471px) 72vw, 360px";
 export default function RielesCatalogo({
   pintables,
   totalPorVertical,
+  calificaciones,
   favoritosIds,
   sesionActiva,
   rubro = null,
@@ -125,6 +128,12 @@ export default function RielesCatalogo({
    * guardado con un alias aparecería en la fila de «Lugares» y
    * desaparecería al tocar el ícono de Lugares.
    */
+  // El Map que piden las tarjetas, armado del array serializable que
+  // baja del catálogo (ver el porqué del array en home-datos.ts).
+  const mapaCalificaciones = new Map<string, Calificacion>(
+    (calificaciones ?? []).map((c) => [c.rancho_id, c]),
+  );
+
   const enFoco = rubro ? filtrarPorRubro(pintables, rubro) : pintables;
 
   // ⚠️ POR RUBRO Y NO POR VERTICAL (pedido del dueño, 26 ago 2026):
@@ -204,7 +213,7 @@ export default function RielesCatalogo({
           // mezcla barberías con salones sería un enlace que promete una
           // lista y entrega otra. Todo lo que hay acá vuelve a aparecer,
           // ordenado, en la fila de su vertical.
-          calificaciones={SIN_CALIFICACIONES}
+          calificaciones={mapaCalificaciones}
           proximasLibres={SIN_DISPONIBILIDAD}
           favoritosIds={favoritos}
           sesionActiva={sesionActiva}
@@ -235,7 +244,7 @@ export default function RielesCatalogo({
           items={riel.items}
           verTodoHref={riel.verTodoHref}
           verTodoTexto="Ver todos →"
-          calificaciones={SIN_CALIFICACIONES}
+          calificaciones={mapaCalificaciones}
           proximasLibres={SIN_DISPONIBILIDAD}
           favoritosIds={favoritos}
           sesionActiva={sesionActiva}

@@ -112,6 +112,35 @@ const foto = (categoria, i) => {
   return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=1200&q=70`;
 };
 
+/**
+ * Retratos para el equipo (pedido del dueño, 27 ago 2026: «los
+ * estilistas también tengan su foto»).
+ *
+ * ⚠️ MIRADOS EN UNA HOJA DE CONTACTOS antes de entrar acá — la lección
+ * ya está pagada: verificar que un id cargue NO dice qué muestra (así
+ * apareció un masaje en el carril de Uñas). Los diez son retratos de
+ * frente, sin excepción.
+ *
+ * Se reparten por índice GLOBAL, no por negocio: con un contador que
+ * nunca se reinicia, dos miembros seguidos del mismo negocio jamás
+ * comparten cara, y la repetición queda esparcida entre negocios donde
+ * nadie compara.
+ */
+const RETRATOS = [
+  "photo-1544005313-94ddf0286df2",
+  "photo-1500648767791-00dcc994a43e",
+  "photo-1507003211169-0a1dd7228f2d",
+  "photo-1531123897727-8f129e1688ce",
+  "photo-1534528741775-53994a69daeb",
+  "photo-1573497019940-1c28c88b4f3e",
+  "photo-1438761681033-6461ffad8d80",
+  "photo-1472099645785-5658abf4ff4e",
+  "photo-1494790108377-be9c29b29330",
+  "photo-1552058544-f2b08422138a",
+];
+const retrato = (i) =>
+  `https://images.unsplash.com/${RETRATOS[i % RETRATOS.length]}?auto=format&fit=crop&w=400&q=70`;
+
 const NEGOCIOS = JSON.parse(
   readFileSync(path.join(raiz, "scripts", "datos-demo-100.json"), "utf8"),
 );
@@ -285,7 +314,40 @@ async function main() {
   console.log("  cuentas de entrada listas\n");
 
   // ── 3. Los negocios ──
+  /**
+   * ⚠️ EL ORDEN DE 'LO MÁS NUEVO' NO PUEDE QUEDAR AL AZAR — Y QUEDABA.
+   *
+   * Los 99 se insertan en una tanda y Postgres les pone EL MISMO
+   * created_at (now() es por sentencia, no por fila). El riel «Recién
+   * publicados» ordena por esa columna, así que el desempate era el
+   * orden físico de la tabla: salieron consultorios arriba de la demo,
+   * y el dueño pidió «que en la parte superior solo se vean cosas de
+   * belleza».
+   *
+   * La cura es fechar cada ficha a mano, escalonada hacia atrás, con
+   * los rubros de belleza (uñas, belleza, barbería, spa) como los MÁS
+   * RECIENTES: así el riel de arriba es de belleza por dato, no por
+   * suerte, y sobrevive a cualquier re-siembra.
+   */
+  const DE_BELLEZA = new Set(["unas", "belleza", "barberia", "spa"]);
+  const ordenados = [
+    // primero los viejos (consultorios, otros)…
+    ...NEGOCIOS.map((n, i) => ({ n, i })).filter((x) => !DE_BELLEZA.has(x.n.categoria)),
+    // …después los nuevos (belleza), que ganan el riel de arriba
+    ...NEGOCIOS.map((n, i) => ({ n, i })).filter((x) => DE_BELLEZA.has(x.n.categoria)),
+  ];
+  const base = Date.now();
+  const fechaDe = new Map(
+    ordenados.map((x, pos) => [
+      x.i,
+      // 45 min entre fichas: 99 fichas ≈ 3 días de 'historia' hacia
+      // atrás, suficiente para que ningún par empate.
+      new Date(base - (ordenados.length - pos) * 45 * 60_000).toISOString(),
+    ]),
+  );
+
   const filasNegocio = NEGOCIOS.map((n, i) => ({
+    created_at: fechaDe.get(i),
     // El PRIMERO es del que entra al panel: así «entrar como negocio»
     // muestra UN panel limpio y no una lista de 99.
     owner_id: i === 0 ? duenoPanel : duenoResto,
@@ -305,6 +367,13 @@ async function main() {
     // identificar y borrar exactamente estas 99 filas.
     detalles: { lote: "demo100" },
     foto_url: foto(n.categoria, i),
+    // ⚠️ TRES fotos por negocio (pedido del dueño: «cada negocio creado
+    // tenga al menos 3 fotos para enseñar todo funcionando»). Índices
+    // consecutivos sobre el pool de su categoría: con pools de 4-6,
+    // i/i+1/i+2 dan siempre tres DISTINTAS. La portada repite la
+    // primera a propósito — así la galería de la ficha abre con la
+    // misma imagen que la tarjeta que la trajo.
+    fotos: [foto(n.categoria, i), foto(n.categoria, i + 1), foto(n.categoria, i + 2)],
   }));
   console.log("  negocios…");
   await enTandas("ranchos", filasNegocio, 100);
@@ -338,7 +407,16 @@ async function main() {
       });
     });
     n.equipo.forEach((m, k) => {
-      equipo.push({ rancho_id: rid, nombre: m.nombre, rol: m.rol, activo: true, orden: k });
+      equipo.push({
+        rancho_id: rid,
+        nombre: m.nombre,
+        rol: m.rol,
+        activo: true,
+        orden: k,
+        // El contador es `equipo.length` — global, no por negocio: ver
+        // el comentario de RETRATOS.
+        foto_url: retrato(equipo.length),
+      });
     });
   });
   console.log("  servicios…");
