@@ -131,6 +131,8 @@ type EstadoWizard = {
   diseno: ConfigTira;
   telefono: string;
   descripcion: string;
+  /** El código del agente de ventas que atendió el alta (opcional). */
+  codigoReferido: string;
 };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -166,6 +168,7 @@ function estadoInicial(): EstadoWizard {
     diseno: CONFIG_CLASICA,
     telefono: "",
     descripcion: "",
+    codigoReferido: "",
   };
 }
 
@@ -190,6 +193,7 @@ function sanearGuardado(crudo: unknown, plan: string | null, topePasos: number):
   limpio.nombreNegocio = texto(c.nombreNegocio ?? c.nombre, 80);
   limpio.detalleOtro = texto(c.detalleOtro, 80);
   limpio.telefono = texto(c.telefono, 30);
+  limpio.codigoReferido = texto(c.codigoReferido, 24);
   limpio.descripcion = texto(c.descripcion, 500);
   if (c.camino === "personalizado") limpio.camino = "personalizado";
   if (c.camino === "prellenado") limpio.camino = "prellenado";
@@ -499,6 +503,7 @@ export default function WizardAlta({
       metodoPago: metodo,
       comprobanteUrl,
       telefono: estado.telefono,
+      codigoReferido: estado.codigoReferido,
       personalizado: esPersonalizado,
       descripcion: estado.descripcion,
       paseColor: estado.colorFondo,
@@ -1061,6 +1066,37 @@ export default function WizardAlta({
                       maxLength={30}
                       className={campo}
                     />
+                  </div>
+                )}
+
+                {/* ── EL CÓDIGO DE REFERIDO (pedido del dueño, 28 ago
+                    2026: «al final del alta, un espacio que diga código
+                    referido, asociado a los agentes de ventas»). Va en
+                    «Revisar» porque es la última pantalla del alta
+                    completo, y solo ahí: la segunda tarjeta de un
+                    negocio ya afiliado no tiene agente que acreditar.
+                    La acción lo valida contra agentes_lealtad — un
+                    typo avisa en vez de guardarse mudo. */}
+                {!soloTarjeta && (
+                  <div>
+                    <label className={etiqueta} htmlFor="w-referido">
+                      Código de referido (opcional)
+                    </label>
+                    <input
+                      id="w-referido"
+                      value={estado.codigoReferido}
+                      onChange={(e) =>
+                        patch({ codigoReferido: e.target.value.toUpperCase() })
+                      }
+                      placeholder="El código de tu agente"
+                      maxLength={24}
+                      autoCapitalize="characters"
+                      className={campo}
+                    />
+                    <p className="mt-1.5 text-[12px] leading-snug text-aventurea-ink-soft">
+                      ¿Te atendió un agente de Bookea? Poné su código y tu alta
+                      queda asociada a esa persona.
+                    </p>
                   </div>
                 )}
 

@@ -53,6 +53,13 @@ export async function solicitarAltaConPlan(datos: {
   metodoPago: string;
   comprobanteUrl: string;
   telefono: string;
+  /**
+   * El código del agente de ventas que trajo este negocio (opcional).
+   * Se valida contra `agentes_lealtad` (0219): escrito mal, se avisa
+   * en vez de tragarse el typo — el agente cobra por sus altas y un
+   * código mudo es una venta que no se le acredita a nadie.
+   */
+  codigoReferido?: string;
   /** true = «Crear personalizado»: queda en espera, el equipo diseña. */
   personalizado: boolean;
   /** La descripción del diseño soñado (solo personalizado). */
@@ -159,6 +166,10 @@ export async function solicitarAltaConPlan(datos: {
   // (abajo): la confirmación del depósito es humana a propósito.
   // El personalizado también es humano aunque sea gratis: lo diseña el
   // equipo, no una plantilla.
+  // ── EL CÓDIGO DE REFERIDO (28 ago 2026) ──────────────────────────
+  const referido = await resolverCodigoReferido(datos.codigoReferido);
+  if ("error" in referido) return { ok: false, motivo: referido.error };
+
   if (gratis && !datos.personalizado) {
     return crearGratisAlInstante({
       userId: user.id,
@@ -172,6 +183,8 @@ export async function solicitarAltaConPlan(datos: {
       metaSellos: datos.metaSellos,
       telefono: datos.telefono.trim().slice(0, 30) || null,
       correo: user.email ?? "(sin correo)",
+      codigoReferido: referido.codigo,
+      agenteId: referido.agenteId,
       tarjeta,
     });
   }
@@ -186,6 +199,8 @@ export async function solicitarAltaConPlan(datos: {
     metodo_pago: gratis ? null : datos.metodoPago,
     comprobante_url: gratis ? null : datos.comprobanteUrl,
     telefono: datos.telefono.trim().slice(0, 30) || null,
+    codigo_referido: referido.codigo,
+    agente_id: referido.agenteId,
     personalizado: datos.personalizado,
     // El personalizado viaja como texto libre; el creador, como datos
     // que la aprobación convierte en programa funcionando.
@@ -292,6 +307,8 @@ async function crearGratisAlInstante(d: {
   metaSellos: number;
   telefono: string | null;
   correo: string;
+  codigoReferido: string | null;
+  agenteId: string | null;
   /**
    * La tarjeta del wizard nuevo, YA VALIDADA por `validarTarjetaDeAlta`
    * (tipo contra el paquete incluido). null = payload viejo: todo sigue
@@ -488,6 +505,8 @@ async function crearGratisAlInstante(d: {
     negocio_detalle: d.detalle || null,
     plan: d.plan,
     telefono: d.telefono,
+    codigo_referido: d.codigoReferido,
+    agente_id: d.agenteId,
     personalizado: false,
     pase_color: t ? (t.colorFondo ?? (d.paseColor || null)) : d.paseColor,
     pase_logo_url: t ? t.logoUrl : d.paseLogoUrl,
@@ -532,4 +551,44 @@ function escapar(texto: string): string {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+/**
+ * ¿De quién es este código de referido?
+ *
+ * Los agentes de ventas viven en `agentes_lealtad` (0219) y sus
+ * códigos se guardan en MAYÚSCULA; acá se normaliza igual antes de
+ * comparar. Se consulta con el cliente admin: la tabla no tiene
+ * políticas públicas a propósito — los códigos de los agentes no son
+ * un directorio que un anónimo pueda enumerar probando.
+ *
+ * Vacío = sin referido, y no es error: el campo es opcional. Pero un
+ * código ESCRITO que no existe (o de un agente dado de baja) sí frena
+ * con aviso: tragarse el typo en silencio es una venta que no se le
+ * acredita a nadie.
+ */
+async function resolverCodigoReferido(
+  crudo: string | undefined,
+): Promise<{ codigo: string | null; agenteId: string | null } | { error: string }> {
+  const codigo = (crudo ?? "").trim().toUpperCase();
+  if (!codigo) return { codigo: null, agenteId: null };
+
+  const admin = createAdminClient();
+  // Sin service key (entorno a medio configurar) no hay contra qué
+  // validar: el código viaja igual — el rastro vale más que rechazar
+  // el alta — y el agente se amarra después a mano.
+  if (!admin) return { codigo, agenteId: null };
+  const { data } = await admin
+    .from("agentes_lealtad")
+    .select("id, activo")
+    .eq("codigo", codigo)
+    .maybeSingle();
+
+  if (!data || data.activo === false) {
+    return {
+      error:
+        "Ese código de referido no existe o ya no está activo. Revisalo — o dejá el campo vacío y seguí.",
+    };
+  }
+  return { codigo, agenteId: data.id as string };
 }
