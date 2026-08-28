@@ -20,6 +20,7 @@ import {
   BOTON_LEALTAD,
 } from "../sistema-lealtad";
 import Medidor from "./medidor";
+import SelectorUbicacion from "@/components/selector-ubicacion";
 import {
   agregarUbicacion,
   eliminarUbicacion,
@@ -329,6 +330,32 @@ export default function SeccionUbicaciones({
               />
             </div>
 
+            {/* ── EL MAPA (pedido del dueño, 28 ago 2026: «que haya un
+                mapa y uno pueda buscar y colocar un PIN») ─────────────
+                El MISMO selector del editar de mi-negocio, ahora con
+                buscador. El pin llena los campos de abajo; pegar las
+                coordenadas a mano sigue funcionando como atajo. */}
+            <div>
+              <span className={ROTULO_CAMPO}>Buscá tu local y poné el pin</span>
+              <div className="mt-1">
+                <SelectorUbicacion
+                  latitudInicial={null}
+                  longitudInicial={null}
+                  claseCampo={CAMPO_PANEL}
+                  claseBoton={`${BOTON_LEALTAD} shrink-0`}
+                  alCambiar={(p) => {
+                    if (p) {
+                      setLatitud(p.lat.toFixed(6));
+                      setLongitud(p.lng.toFixed(6));
+                    } else {
+                      setLatitud("");
+                      setLongitud("");
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <label htmlFor="ubic-lat" className={ROTULO_CAMPO}>
@@ -366,8 +393,9 @@ export default function SeccionUbicaciones({
             <p className={`${RADIO_TILE} border px-3 py-2.5 text-[12px] leading-snug text-aventurea-ink`}
               style={{ background: ACCION_TINTE, borderColor: ACCION_BORDE }}
             >
-              En Google Maps: clic derecho sobre tu local → tocá las coordenadas para copiarlas.
-              Después pegalas en «Latitud» y se acomodan solas.
+              El mapa llena estos campos solo. ¿Preferís Google Maps? Clic
+              derecho sobre tu local → tocá las coordenadas para copiarlas y
+              pegalas en «Latitud»: se acomodan solas.
             </p>
 
             <div>
