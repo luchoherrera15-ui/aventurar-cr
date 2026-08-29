@@ -167,7 +167,19 @@ export default async function proxy(request: NextRequest) {
       .select("rol")
       .eq("id", user.id)
       .single();
-    if (perfil?.rol !== "admin") return redirigir("/admin/login");
+
+    // El admin entra a todo /admin. El MODERADOR (vendedor de referidos)
+    // entra SOLO a su panel: si intenta cualquier otra ruta de /admin se
+    // lo manda a /admin/moderacion. Cualquier otro rol, al login.
+    const rutaModeracion =
+      path === "/admin/moderacion" || path.startsWith("/admin/moderacion/");
+    if (perfil?.rol === "admin") {
+      // acceso total
+    } else if (perfil?.rol === "moderador") {
+      if (!rutaModeracion) return redirigir("/admin/moderacion");
+    } else {
+      return redirigir("/admin/login");
+    }
   }
 
   if (isMiRanchoRoute && !user) {

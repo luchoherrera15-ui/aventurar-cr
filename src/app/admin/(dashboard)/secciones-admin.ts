@@ -95,6 +95,7 @@ export const GRUPOS_ADMIN: GrupoAdmin[] = [
     titulo: "Lealtad",
     items: [
       { href: "/admin/lealtad", etiqueta: "Negocios de lealtad", icono: "complemento" },
+      { href: "/admin/moderadores", etiqueta: "Moderadores", icono: "users" },
     ],
   },
   {

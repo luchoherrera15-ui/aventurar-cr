@@ -197,7 +197,9 @@ export default function FormularioCodigoAcceso({
         .select("rol")
         .eq("id", data.user.id)
         .single();
-      if (perfil?.rol !== "admin") {
+      // Admin entra a todo; el MODERADOR entra a su panel (el proxy lo
+      // enruta a /admin/moderacion). Cualquier otro rol, afuera.
+      if (perfil?.rol !== "admin" && perfil?.rol !== "moderador") {
         // `scope: "local"` — cierra ESTA sesión y nada más.
         //
         // ⚠️ EL DEFAULT DE SUPABASE ES GLOBAL. `signOut()` a secas es
