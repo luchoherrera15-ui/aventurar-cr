@@ -1,328 +1,201 @@
 /* ═══════════════════════════════════════════════════════════════════
-   BOOKEA LEALTAD — LA EXPERIENCIA CINEMATOGRÁFICA (29 ago 2026)
+   BOOKEA LEALTAD — LA EXPERIENCIA (rediseño total, 29 ago 2026)
    ═══════════════════════════════════════════════════════════════════
 
-   El encargo del dueño: una landing tipo marca premium (McLaren de
-   referencia), no una landing de SaaS. Negro profundo, mucho espacio
-   negativo, tipografía enorme, el azul de Bookea como único acento, y
-   una historia que se recorre con el scroll: PROBLEMA → CREAR → QR →
-   VISITA → SELLOS → RECOMPENSA → DATOS → RETENCIÓN → BOOKEA.
+   El encargo: una experiencia web CINEMATOGRÁFICA, editorial e
+   inmersiva — NO una landing de SaaS, NO una colección de cards, NO el
+   mismo teléfono repetido diez veces. UN solo teléfono protagonista
+   que se queda FIJO y EVOLUCIONA con el scroll, contando la historia:
+   descubrir → escanear el QR → registrarse → guardar el pase → visitar
+   → acumular sellos → desbloquear la recompensa → el negocio aprende →
+   el cliente vuelve.
 
-   CÓMO SE MUEVE (experiencia-cinematografica.tsx):
-   · La escena central es alta y tiene el teléfono en una columna
-     sticky. El JS, por scroll, escribe SOLO dos cosas: `data-cine`
-     (0-3, qué capítulo) en la escena y el `transform` del teléfono
-     (interpolado entre poses). Cero estado de React en el camino
-     caliente; transform y opacity solamente → 60 fps.
-   · TODO lo demás lo decide este CSS con selectores por `[data-cine]`:
-     qué pantalla del teléfono se ve, qué texto se enciende, qué punto
-     del riel manda.
-   · Las secciones de abajo (dashboard, base de clientes, wallet,
-     galería, comparación) se revelan con IntersectionObserver
-     (.cine-vis) — no hay motor pesado corriendo todo el tiempo.
+   EL MOTOR (experiencia-cinematografica.tsx):
+   · La pieza central es una ESCENA FIJA: una sección alta (varias
+     pantallas de scroll) con el teléfono en `position: sticky`. El JS,
+     por scroll, escribe TRES cosas sobre la escena: `data-fase` (0-3,
+     qué capítulo), el `transform` del teléfono (viaja, escala) y la
+     variable `--sellos` (0-10, cuántos sellos llenos). Cero re-render
+     de React en el camino caliente; solo transform y opacity → 60fps,
+     sin GSAP ni WebGL.
+   · El CSS decide TODO lo demás por `[data-fase]`: qué pantalla del
+     teléfono se ve, qué bloque de texto se enciende. Los sellos se
+     llenan solos leyendo `--sellos` (cada sello sabe su índice).
 
-   Con prefers-reduced-motion: el teléfono no se transforma, los bucles
-   se apagan, y todo lo que un reveal escondía queda puesto — la
-   historia se LEE completa, quieta.
-
-   TODO vive bajo `.cine` (el wrapper de la página). Así el negro y los
-   tokens no se escapan al resto del sitio, que es claro, y la página
-   se ve igual sin depender del tema del visitante. */
+   Con prefers-reduced-motion el teléfono no viaja ni flota, pero la
+   historia se sigue leyendo: las pantallas cambian por opacidad y los
+   sellos por su variable. */
 
 .cine {
-  --neg: #05070e;        /* negro profundo, el fondo */
-  --neg-2: #090d17;      /* panel un punto más claro */
-  --grafito: #121826;    /* superficie de tarjetas */
-  --linea: rgba(255, 255, 255, 0.08);
-  --humo: #8b95ab;       /* gris de texto secundario */
-  --humo-2: #5c6577;     /* gris aún más callado */
-  --blanco: #eef2fb;
-  --azul: #2f6bff;       /* el azul Bookea, el único acento */
-  --azul-claro: #6f9bff;
-  --azul-tenue: rgba(47, 107, 255, 0.14);
+  --neg: #05070b;        /* el negro base, casi azulado */
+  --neg-2: #0a0d12;      /* un tono para separar secciones */
+  --neg-3: #11151c;      /* superficies y tarjetas */
+  --linea: rgba(255, 255, 255, 0.09);
+  --humo: #9aa3b4;       /* texto secundario */
+  --humo-2: #5a6474;     /* texto terciario */
+  --blanco: #ffffff;
+  --azul: #2f6bff;       /* Bookea Blue, el único acento */
+  --azul-claro: #7aa2ff;
 
   background: var(--neg);
   color: var(--blanco);
-  /* Montserrat no está cargada; Figtree (ya en el layout, hasta 800)
-     hace de sans premium sin pedir un archivo nuevo — la página exige
-     rendimiento. La pila cae a system-ui si algo falla. */
   font-family: var(--font-figtree), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: clip;
 }
 
-/* Un fondo de la página entera: negro con dos auroras azules MUY
-   sutiles, fijas, que dan profundidad sin robar protagonismo. */
-.cine-fondo {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(60% 45% at 78% 8%, rgba(47, 107, 255, 0.16), transparent 70%),
-    radial-gradient(55% 40% at 12% 88%, rgba(47, 107, 255, 0.10), transparent 72%),
-    var(--neg);
-}
-.cine > * { position: relative; z-index: 1; }
-
-/* ── Tipografía cinematográfica ──────────────────────────────────── */
+/* Tipografía editorial. */
 .cine-kicker {
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 800;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--azul-claro);
 }
 .cine-display {
   font-weight: 800;
-  letter-spacing: -0.035em;
-  line-height: 0.94;
+  letter-spacing: -0.05em;
+  line-height: 0.92;
   color: var(--blanco);
   text-wrap: balance;
 }
-.cine-num-gigante {
+.cine-ghost {
   font-weight: 800;
   letter-spacing: -0.04em;
-  line-height: 0.8;
-  /* El número de capítulo, delineado, tamaño de portada. */
+  line-height: 0.78;
   color: transparent;
-  -webkit-text-stroke: 1.5px rgba(255, 255, 255, 0.16);
+  -webkit-text-stroke: 1.4px rgba(255, 255, 255, 0.14);
 }
 
-/* ── Botones ─────────────────────────────────────────────────────── */
+/* Botones — solo en el héroe y el cierre. */
 .cine-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  border-radius: 999px;
-  padding: 1rem 2rem;
-  font-weight: 800;
-  font-size: 15px;
-  background: var(--azul);
-  color: #fff;
-  box-shadow: 0 20px 50px -18px rgba(47, 107, 255, 0.7);
+  display: inline-flex; align-items: center; gap: 0.55rem;
+  border-radius: 999px; padding: 1.05rem 2.1rem;
+  font-weight: 800; font-size: 15px;
+  background: var(--azul); color: #fff;
+  box-shadow: 0 22px 55px -20px rgba(47, 107, 255, 0.75);
   transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
 }
-.cine-cta:hover {
-  transform: translateY(-2px);
-  background: #3f78ff;
-  box-shadow: 0 26px 60px -18px rgba(47, 107, 255, 0.85);
-}
+.cine-cta:hover { transform: translateY(-2px); background: #3f78ff; }
 .cine-cta-fantasma {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  border-radius: 999px;
-  padding: 0.95rem 1.8rem;
-  font-weight: 800;
-  font-size: 15px;
-  color: var(--blanco);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.03);
-  transition: border-color 0.25s ease, background 0.25s ease;
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-weight: 800; font-size: 14.5px; color: var(--humo);
+  padding: 1.05rem 0.5rem;
+  transition: color 0.25s ease;
 }
-.cine-cta-fantasma:hover {
-  border-color: rgba(255, 255, 255, 0.5);
-  background: rgba(255, 255, 255, 0.07);
-}
+.cine-cta-fantasma:hover { color: var(--blanco); }
 
-/* ── Reveal al entrar en vista (.cine-vis lo pone el observer) ────── */
-.cine-reveal {
-  opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.cine-vis .cine-reveal,
-.cine-reveal.cine-vis { opacity: 1; transform: none; }
-.cine-vis .cine-reveal:nth-child(2) { transition-delay: 0.08s; }
-.cine-vis .cine-reveal:nth-child(3) { transition-delay: 0.16s; }
-.cine-vis .cine-reveal:nth-child(4) { transition-delay: 0.24s; }
-.cine-vis .cine-reveal:nth-child(5) { transition-delay: 0.32s; }
+/* ═══ Reveals editoriales (una sola pasada, .cine-vis lo pone el IO) ═══ */
+.cine-reveal { opacity: 0; transform: translateY(34px); transition: opacity 0.9s cubic-bezier(0.22,1,0.36,1), transform 0.9s cubic-bezier(0.22,1,0.36,1); }
+.cine-vis .cine-reveal, .cine-reveal.cine-vis { opacity: 1; transform: none; }
+.cine-vis .cine-reveal:nth-child(2){transition-delay:.08s}
+.cine-vis .cine-reveal:nth-child(3){transition-delay:.16s}
+.cine-vis .cine-reveal:nth-child(4){transition-delay:.24s}
+.cine-vis .cine-reveal:nth-child(5){transition-delay:.32s}
 
-/* ═══ EL HÉROE ═══════════════════════════════════════════════════════ */
-@keyframes cine-flotar {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(0, -14px, 0); }
-}
-.cine-flotar { animation: cine-flotar 8s ease-in-out infinite; will-change: transform; }
+/* Text-reveal por clip-path (líneas que suben tras una máscara). */
+.cine-clip { clip-path: inset(0 0 100% 0); transform: translateY(0.3em); opacity: 0; transition: clip-path 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1), opacity 1s ease; }
+.cine-vis .cine-clip { clip-path: inset(-10% 0 -10% 0); transform: none; opacity: 1; }
+.cine-vis .cine-clip:nth-child(2){transition-delay:.1s}
+.cine-vis .cine-clip:nth-child(3){transition-delay:.2s}
 
-@keyframes cine-scroll-hint {
-  0%, 100% { transform: translateY(0); opacity: 0.5; }
-  50% { transform: translateY(6px); opacity: 1; }
-}
-.cine-scroll-hint { animation: cine-scroll-hint 1.8s ease-in-out infinite; }
+/* ═══ HÉROE — flote sutil del teléfono ═══ */
+@keyframes cine-flotar { 0%,100%{transform:translate3d(0,0,0)} 50%{transform:translate3d(0,-16px,0)} }
+.cine-flotar { animation: cine-flotar 9s ease-in-out infinite; will-change: transform; }
+@keyframes cine-entrada { from{opacity:0;transform:translateY(42px);filter:blur(8px)} to{opacity:1;transform:none;filter:blur(0)} }
+.cine-e1{animation:cine-entrada 1s cubic-bezier(.22,1,.36,1) both}
+.cine-e2{animation:cine-entrada 1s cubic-bezier(.22,1,.36,1) .12s both}
+.cine-e3{animation:cine-entrada 1s cubic-bezier(.22,1,.36,1) .24s both}
+.cine-e4{animation:cine-entrada 1s cubic-bezier(.22,1,.36,1) .36s both}
+@keyframes cine-hint { 0%,100%{transform:translateY(0);opacity:.5} 50%{transform:translateY(7px);opacity:1} }
+.cine-hint{animation:cine-hint 1.9s ease-in-out infinite}
 
-@keyframes cine-entrada-titulo {
-  from { opacity: 0; transform: translateY(40px); filter: blur(6px); }
-  to { opacity: 1; transform: none; filter: blur(0); }
-}
-.cine-entrada { animation: cine-entrada-titulo 1s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.cine-entrada-2 { animation: cine-entrada-titulo 1s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both; }
-.cine-entrada-3 { animation: cine-entrada-titulo 1s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both; }
+/* ═══ LA ESCENA FIJA (el teléfono que evoluciona) ═══ */
+.escena-sticky { position: sticky; top: 0; height: 100svh; overflow: hidden; }
 
-/* ═══ LA ESCENA STICKY (héroe del capítulo → teléfono viajero) ═══════ */
+/* Los bloques de texto de cada fase, apilados, crossfade por data-fase. */
+.fase-txt { opacity: 0; transform: translateY(24px); transition: opacity .6s ease, transform .6s ease; pointer-events: none; }
+.escena-fija[data-fase="0"] .fase-txt[data-f="0"],
+.escena-fija[data-fase="1"] .fase-txt[data-f="1"],
+.escena-fija[data-fase="2"] .fase-txt[data-f="2"],
+.escena-fija[data-fase="3"] .fase-txt[data-f="3"] { opacity: 1; transform: none; }
 
-/* Las pantallas del teléfono: pila, se ve la de la fase. */
-.cine-escena .cine-pantalla {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 0.55s ease;
-  pointer-events: none;
-}
-.cine-escena[data-cine="0"] .cine-pantalla[data-p="0"],
-.cine-escena[data-cine="1"] .cine-pantalla[data-p="1"],
-.cine-escena[data-cine="2"] .cine-pantalla[data-p="2"],
-.cine-escena[data-cine="3"] .cine-pantalla[data-p="3"] {
-  opacity: 1;
-}
+/* El número fantasma gigante detrás. */
+.fase-ghost { opacity: 0; transition: opacity .6s ease; }
+.escena-fija[data-fase="0"] .fase-ghost[data-f="0"],
+.escena-fija[data-fase="1"] .fase-ghost[data-f="1"],
+.escena-fija[data-fase="2"] .fase-ghost[data-f="2"],
+.escena-fija[data-fase="3"] .fase-ghost[data-f="3"] { opacity: 1; }
 
-/* Los capítulos de texto: el activo brilla, el resto en penumbra
-   (solo escritorio; en móvil cada uno trae su propio teléfono). */
-@media (min-width: 1024px) {
-  .cine-escena .cine-cap {
-    opacity: 0.12;
-    transform: translateY(14px);
-    transition: opacity 0.6s ease, transform 0.6s ease;
-  }
-  .cine-escena[data-cine="0"] .cine-cap[data-p="0"],
-  .cine-escena[data-cine="1"] .cine-cap[data-p="1"],
-  .cine-escena[data-cine="2"] .cine-cap[data-p="2"],
-  .cine-escena[data-cine="3"] .cine-cap[data-p="3"] {
-    opacity: 1;
-    transform: none;
-  }
-}
+/* Las pantallas del teléfono, apiladas, crossfade por data-fase. */
+.tel-pantalla { position: absolute; inset: 0; opacity: 0; transition: opacity .5s ease; pointer-events: none; }
+.escena-fija[data-fase="0"] .tel-pantalla[data-f="0"],
+.escena-fija[data-fase="1"] .tel-pantalla[data-f="1"],
+.escena-fija[data-fase="2"] .tel-pantalla[data-f="2"],
+.escena-fija[data-fase="3"] .tel-pantalla[data-f="3"] { opacity: 1; }
 
-/* El riel de progreso del capítulo (01 CREA … 04 REGRESA). */
-.cine-riel-item { opacity: 0.3; transition: opacity 0.35s ease; }
-.cine-riel-item .cine-riel-barra {
-  height: 2px; width: 22px;
-  background: var(--humo-2);
-  transition: width 0.35s ease, background 0.35s ease;
-}
-.cine-escena[data-cine="0"] .cine-riel-item[data-p="0"],
-.cine-escena[data-cine="1"] .cine-riel-item[data-p="1"],
-.cine-escena[data-cine="2"] .cine-riel-item[data-p="2"],
-.cine-escena[data-cine="3"] .cine-riel-item[data-p="3"] { opacity: 1; }
-.cine-escena[data-cine="0"] .cine-riel-item[data-p="0"] .cine-riel-barra,
-.cine-escena[data-cine="1"] .cine-riel-item[data-p="1"] .cine-riel-barra,
-.cine-escena[data-cine="2"] .cine-riel-item[data-p="2"] .cine-riel-barra,
-.cine-escena[data-cine="3"] .cine-riel-item[data-p="3"] .cine-riel-barra {
-  width: 46px; background: var(--azul);
-}
+/* El riel de progreso lateral (01–04). */
+.cine-riel-item .cine-riel-barra { height: 2px; width: 20px; background: var(--humo-2); transition: width .35s ease, background .35s ease; }
+.cine-riel-item { opacity: .3; transition: opacity .35s ease; }
+.escena-fija[data-fase="0"] .cine-riel-item[data-f="0"],
+.escena-fija[data-fase="1"] .cine-riel-item[data-f="1"],
+.escena-fija[data-fase="2"] .cine-riel-item[data-f="2"],
+.escena-fija[data-fase="3"] .cine-riel-item[data-f="3"] { opacity: 1; }
+.escena-fija[data-fase="0"] .cine-riel-item[data-f="0"] .cine-riel-barra,
+.escena-fija[data-fase="1"] .cine-riel-item[data-f="1"] .cine-riel-barra,
+.escena-fija[data-fase="2"] .cine-riel-item[data-f="2"] .cine-riel-barra,
+.escena-fija[data-fase="3"] .cine-riel-item[data-f="3"] .cine-riel-barra { width: 44px; background: var(--azul); }
 
-/* ═══ 03 · SELLOS QUE SE COMPLETAN ═══════════════════════════════════ */
-.cine-sello {
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  border: 1.5px solid rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.25);
-  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
-    background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
-}
-.cine-vis .cine-sello.cine-sello-on {
-  background: var(--azul);
-  border-color: var(--azul);
-  color: #fff;
-  transform: scale(1.08);
-}
-.cine-vis .cine-sello.cine-sello-on:nth-child(1) { transition-delay: 0.0s; }
-.cine-vis .cine-sello.cine-sello-on:nth-child(2) { transition-delay: 0.12s; }
-.cine-vis .cine-sello.cine-sello-on:nth-child(3) { transition-delay: 0.24s; }
-.cine-vis .cine-sello.cine-sello-on:nth-child(4) { transition-delay: 0.36s; }
-.cine-vis .cine-sello.cine-sello-on:nth-child(5) { transition-delay: 0.48s; }
-.cine-vis .cine-sello.cine-sello-on:nth-child(6) { transition-delay: 0.60s; }
-.cine-vis .cine-sello.cine-sello-meta {
-  background: #fff; border-color: #fff; color: var(--azul);
-  transition-delay: 0.78s;
-  animation: cine-meta-late 0.9s ease-in-out 0.9s;
-}
-@keyframes cine-meta-late {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); }
-  50% { box-shadow: 0 0 0 12px rgba(255, 255, 255, 0); }
-}
-/* El cartel de recompensa, que aparece cuando cae el último sello. */
-.cine-recompensa {
-  opacity: 0;
-  transform: translateY(16px) scale(0.96);
-  transition: opacity 0.7s ease 1.0s, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) 1.0s;
-}
-.cine-vis .cine-recompensa { opacity: 1; transform: none; }
+/* Los campos del configurador entran en cascada al activarse la fase 0. */
+@keyframes campo-entra { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+.escena-fija[data-fase="0"] .cfg-campo { animation: campo-entra .5s ease both; }
+.escena-fija[data-fase="0"] .cfg-campo:nth-child(1){animation-delay:.05s}
+.escena-fija[data-fase="0"] .cfg-campo:nth-child(2){animation-delay:.18s}
+.escena-fija[data-fase="0"] .cfg-campo:nth-child(3){animation-delay:.31s}
+.escena-fija[data-fase="0"] .cfg-campo:nth-child(4){animation-delay:.44s}
+.escena-fija[data-fase="0"] .cfg-campo:nth-child(5){animation-delay:.57s}
 
-/* ═══ 06 · WALLET — el pase entrando al teléfono ═════════════════════ */
-@keyframes cine-pase-entra {
-  0% { opacity: 0; transform: translateY(-40px) scale(0.9) rotateX(20deg); }
-  60% { opacity: 1; }
-  100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0); }
-}
-.cine-vis .cine-pase { animation: cine-pase-entra 1.1s cubic-bezier(0.22, 1, 0.36, 1) both; }
-.cine-vis .cine-pase-2 { animation: cine-pase-entra 1.1s cubic-bezier(0.22, 1, 0.36, 1) 0.25s both; }
+/* La línea de escaneo del QR (fase 1). */
+@keyframes qr-scan { 0%,8%{top:6%;opacity:0} 14%{opacity:1} 48%{top:88%;opacity:1} 56%,100%{top:88%;opacity:0} }
+.escena-fija[data-fase="1"] .qr-scan { animation: qr-scan 3.2s ease-in-out infinite; }
 
-/* ═══ 08 · COMPARACIÓN ═══════════════════════════════════════════════ */
-.cine-comp-sin,
-.cine-comp-con {
-  opacity: 0;
-  transition: opacity 0.7s ease, transform 0.7s ease;
+/* ═══ LOS SELLOS que se llenan con el scroll (--sellos: 0..10) ═══
+   Cada sello sabe su índice (--i). El disco lleno aparece cuando
+   --sellos cruza su índice — sin re-render, solo una variable. */
+.sello { position: relative; display: grid; place-items: center; border-radius: 999px; border: 1.5px solid rgba(255,255,255,0.22); }
+.sello .lleno {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  border-radius: 999px; background: var(--azul); color: #fff;
+  --fill: clamp(0, calc(var(--sellos, 0) - var(--i)), 1);
+  opacity: var(--fill);
+  transform: scale(var(--fill));
+  transition: opacity .35s ease, transform .35s cubic-bezier(0.34,1.56,0.64,1);
 }
-.cine-comp-sin { transform: translateX(-24px); }
-.cine-comp-con { transform: translateX(24px); }
-.cine-vis .cine-comp-sin,
-.cine-vis .cine-comp-con { opacity: 1; transform: none; }
-.cine-vis .cine-comp-con { transition-delay: 0.18s; }
+/* La recompensa: cuando data-reward=1, el pase muta. */
+.pase-reward { opacity: 0; transform: translateY(10px) scale(.96); transition: opacity .6s ease, transform .6s cubic-bezier(.22,1,.36,1); pointer-events: none; }
+.escena-fija[data-reward="1"] .pase-reward { opacity: 1; transform: none; }
+.escena-fija[data-reward="1"] .pase-normal { opacity: 0; transition: opacity .5s ease; }
 
-/* ═══ Barras del dashboard (crecen al entrar) ════════════════════════ */
+/* ═══ Dashboard — barras y perfiles ═══ */
 .cine-barra { transform: scaleY(0); transform-origin: bottom; }
-.cine-vis .cine-barra { animation: cine-barra-crece 1s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
-@keyframes cine-barra-crece { to { transform: scaleY(1); } }
-.cine-vis .cine-barra:nth-child(2) { animation-delay: 0.06s; }
-.cine-vis .cine-barra:nth-child(3) { animation-delay: 0.12s; }
-.cine-vis .cine-barra:nth-child(4) { animation-delay: 0.18s; }
-.cine-vis .cine-barra:nth-child(5) { animation-delay: 0.24s; }
-.cine-vis .cine-barra:nth-child(6) { animation-delay: 0.30s; }
-.cine-vis .cine-barra:nth-child(7) { animation-delay: 0.36s; }
+.cine-vis .cine-barra { animation: barra-crece 1s cubic-bezier(.22,1,.36,1) forwards; }
+@keyframes barra-crece { to { transform: scaleY(1); } }
+.cine-vis .cine-barra:nth-child(2){animation-delay:.06s}
+.cine-vis .cine-barra:nth-child(3){animation-delay:.12s}
+.cine-vis .cine-barra:nth-child(4){animation-delay:.18s}
+.cine-vis .cine-barra:nth-child(5){animation-delay:.24s}
+.cine-vis .cine-barra:nth-child(6){animation-delay:.30s}
+.cine-vis .cine-barra:nth-child(7){animation-delay:.36s}
 
-/* La rejilla de perfiles (05) que se ordena al entrar. */
-.cine-perfil {
-  opacity: 0;
-  transform: translateY(18px) scale(0.94);
-  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.cine-vis .cine-perfil { opacity: 1; transform: none; }
-.cine-vis .cine-perfil:nth-child(2) { transition-delay: 0.05s; }
-.cine-vis .cine-perfil:nth-child(3) { transition-delay: 0.1s; }
-.cine-vis .cine-perfil:nth-child(4) { transition-delay: 0.15s; }
-.cine-vis .cine-perfil:nth-child(5) { transition-delay: 0.2s; }
-.cine-vis .cine-perfil:nth-child(6) { transition-delay: 0.25s; }
-.cine-vis .cine-perfil:nth-child(7) { transition-delay: 0.3s; }
-.cine-vis .cine-perfil:nth-child(8) { transition-delay: 0.35s; }
-
-/* ═══ 07 · GALERÍA HORIZONTAL ════════════════════════════════════════ */
-.cine-galeria {
-  display: flex;
-  gap: 1rem;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding-bottom: 4px;
-}
+/* ═══ Galería horizontal ═══ */
+.cine-galeria { display: flex; gap: 1.25rem; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .cine-galeria::-webkit-scrollbar { display: none; }
-.cine-galeria-item {
-  scroll-snap-align: center;
-  flex: 0 0 auto;
-}
+.cine-galeria-item { scroll-snap-align: center; flex: 0 0 auto; }
 
-/* ── Sin movimiento: la historia entera, quieta y completa ────────── */
+/* ═══ Sin movimiento ═══ */
 @media (prefers-reduced-motion: reduce) {
-  .cine-flotar, .cine-scroll-hint, .cine-entrada, .cine-entrada-2, .cine-entrada-3 { animation: none; }
-  .cine-reveal, .cine-comp-sin, .cine-comp-con, .cine-recompensa, .cine-perfil {
-    opacity: 1 !important; transform: none !important; transition: none !important;
-  }
-  .cine-barra, .cine-vis .cine-barra { transform: scaleY(1); animation: none; }
-  .cine-pase, .cine-pase-2 { animation: none; opacity: 1; }
-  .cine-sello.cine-sello-on { background: var(--azul); border-color: var(--azul); color: #fff; }
-  .cine-sello.cine-sello-meta { background: #fff; border-color: #fff; color: var(--azul); animation: none; }
+  .cine-flotar,.cine-e1,.cine-e2,.cine-e3,.cine-e4,.cine-hint,.qr-scan { animation: none; }
+  .cine-reveal,.cine-clip { opacity: 1 !important; transform: none !important; clip-path: none !important; transition: none !important; }
+  .cine-barra,.cine-vis .cine-barra { transform: scaleY(1); animation: none; }
+  .escena-fija[data-fase="0"] .cfg-campo { animation: none; }
 }
