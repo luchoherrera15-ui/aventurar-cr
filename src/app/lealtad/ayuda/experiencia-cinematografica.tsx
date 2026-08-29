@@ -247,12 +247,12 @@ function ScreenPase({ conSellos = false }: { conSellos?: boolean }) {
 const RUBROS = [
   { label: "Barbería", foto: "photo-1585747860715-2ba37e788b70", premio: "Cada 8 cortes, uno gratis" },
   { label: "Cafetería", foto: "photo-1521017432531-fbd92d768814", premio: "9 cafés, el 10.º va" },
-  { label: "Restaurante", foto: "photo-1517248135467-4c7edcad34c4", premio: "Postre gratis a la 6.ª" },
+  { label: "Restaurante", foto: "photo-1414235077428-338989a2e8c0", premio: "Postre gratis a la 6.ª" },
   { label: "Salón", foto: "photo-1470259078422-826894b933aa", premio: "Tratamiento a la 7.ª" },
   { label: "Spa", foto: "photo-1540555700478-4be289fbecef", premio: "5 visitas, un masaje" },
   { label: "Uñas", foto: "photo-1604654894610-df63bc536371", premio: "10.º servicio con 50% off" },
 ];
-const fotoUrl = (id: string, w: number) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=70`;
+const fotoUrl = (id: string, w: number) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`;
 
 /* ═════════════ LA GALERÍA QUE FLUYE Y SE EMPUJA ═════════════
    Los cards corren solos hacia la derecha (marquee) y se pueden
@@ -344,10 +344,11 @@ function GaleriaFluida() {
             className="relative h-[440px] w-[320px] shrink-0 select-none overflow-hidden rounded-[28px] sm:h-[520px] sm:w-[360px]"
           >
             <Image
-              src={fotoUrl(r.foto, 720)}
+              src={fotoUrl(r.foto, 1400)}
               alt={r.label}
               fill
-              sizes="360px"
+              quality={82}
+              sizes="(max-width: 640px) 340px, 380px"
               draggable={false}
               className="pointer-events-none object-cover"
             />
