@@ -192,14 +192,33 @@ export default function NegociosPage() {
             primer header más centrado y abajo el mockup»). El grid de
             dos columnas se fue: titular, bajada y botones al centro, y
             el teléfono del antes/después debajo, también centrado. */}
-        <section className="mx-auto w-full max-w-[880px] px-5 pb-16 pt-10 text-center sm:pt-14">
-            <div>
-              <p className="flex items-center justify-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-bookea-naranja-fuerte">
-                <span aria-hidden className="block h-[1.5px] w-[18px] bg-bookea-naranja-fuerte" />
+        <section className="mx-auto w-full max-w-[1120px] px-5 pb-20 pt-10 text-center sm:pt-14">
+            <div className="mx-auto max-w-[840px]">
+              <p className="inline-flex items-center gap-2 rounded-full border border-bookea-naranja-fuerte/25 bg-white/80 px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.16em] text-bookea-naranja-fuerte shadow-sm backdrop-blur">
+                <span aria-hidden className="block h-1.5 w-1.5 rounded-full bg-bookea-naranja-fuerte" />
                 Bookea para negocios
               </p>
-              <h1 className="titulo mt-3 text-[clamp(32px,4.8vw,54px)] leading-[1.05] text-[color:var(--navy)]">
-                El software de reservas para salones, spas y consultorios
+              <h1 className="titulo mt-5 text-[clamp(34px,5.2vw,58px)] leading-[1.04] text-[color:var(--navy)]">
+                El software de{" "}
+                <span className="relative inline-block whitespace-nowrap">
+                  reservas
+                  <svg
+                    aria-hidden
+                    viewBox="0 0 200 14"
+                    preserveAspectRatio="none"
+                    className="absolute -bottom-1 left-0 h-[10px] w-full"
+                  >
+                    <path
+                      d="M5 10 Q 100 2 195 8"
+                      fill="none"
+                      stroke="#f97316"
+                      strokeWidth="5"
+                      strokeLinecap="round"
+                      opacity="0.85"
+                    />
+                  </svg>
+                </span>{" "}
+                para salones, spas y consultorios
               </h1>
               <p className="mx-auto mt-4 max-w-[52ch] text-[16px] leading-relaxed text-aventurea-ink-soft sm:text-[17.5px]">
                 Tu agenda en línea, reservas que entran solas, recordatorios
@@ -210,7 +229,7 @@ export default function NegociosPage() {
               <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
                 <Link
                   href="/publicar"
-                  className="presionable inline-flex items-center gap-2 rounded-xl px-7 py-4 text-[15.5px] font-extrabold text-white"
+                  className="presionable inline-flex items-center gap-2 rounded-xl px-7 py-4 text-[15.5px] font-extrabold text-white shadow-[0_22px_44px_-18px_rgba(10,18,38,0.6)]"
                   style={{ background: "var(--navy)" }}
                 >
                   Publicá tu negocio gratis <span aria-hidden>→</span>
@@ -219,115 +238,180 @@ export default function NegociosPage() {
                     de creerle a una promesa. */}
                 <Link
                   href="/demo-bookea"
-                  className="presionable inline-flex items-center gap-2 rounded-xl border-2 border-[color:var(--navy)] px-6 py-3.5 text-[15px] font-extrabold text-[color:var(--navy)]"
+                  className="presionable inline-flex items-center gap-2 rounded-xl border-2 border-[color:var(--navy)] bg-white/70 px-6 py-3.5 text-[15px] font-extrabold text-[color:var(--navy)] backdrop-blur"
                 >
                   Ver la plataforma llena
                 </Link>
               </div>
+
+              {/* Verdades del producto — ciertas con 3 negocios o con
+                  3.000; la regla de no inventar cifras sigue intacta. */}
+              <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+                {[
+                  "Gratis para empezar",
+                  "Sin tarjeta de crédito",
+                  "Todo desde el celular",
+                ].map((verdad) => (
+                  <span
+                    key={verdad}
+                    className="flex items-center gap-1.5 text-[13px] font-bold text-aventurea-ink-soft"
+                  >
+                    <span aria-hidden className="text-emerald-600">✓</span>
+                    {verdad}
+                  </span>
+                ))}
+              </div>
             </div>
 
-            {/* ── EL ANTES Y EL DESPUÉS, EN UN SOLO TELÉFONO ──────────
-                (pedido del dueño, 28 ago 2026: «un mockup de un
-                teléfono de WhatsApp recibiendo muchas notificaciones y
-                luego una transición hacia otro teléfono brindando las
-                soluciones de Bookea»). Dos teléfonos APILADOS en la
-                misma celda con fundido entre ellos (reloj de 16 s en
-                globals.css): primero la pantalla bloqueada ahogada en
-                avisos de WhatsApp — que es el día a día real de un
-                salón sin sistema — y después la agenda de Bookea con
-                las mismas citas entrando solas y confirmadas. El caos
-                no usa el logo de WhatsApp, solo su realidad: avisos
-                que se apilan y un contador de «sin responder». Con
-                prefers-reduced-motion queda SOLO el después. */}
-            <div aria-hidden className="mx-auto mt-12 w-full max-w-[300px]">
-              <div className="mock-pila">
-                {/* Teléfono A · el caos */}
-                <div className="mock-tel-caos opacity-0">
-                  <div className="overflow-hidden rounded-[30px] border-[8px] border-[#0a1226] bg-[#eef1f6] shadow-[0_36px_80px_-36px_rgba(10,18,38,0.55)]">
-                    <div className="px-3 pb-4 pt-2">
-                      <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#0a1226]/80" />
-                      <p className="text-center text-[26px] font-extrabold tabular-nums text-aventurea-ink">9:41</p>
-                      <div className="mb-2 flex justify-center">
-                        <span className="mock-badge-caos rounded-full bg-red-500 px-2.5 py-0.5 text-[9.5px] font-extrabold text-white">
-                          14 sin responder
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        {[
-                          ["María", "Hola!! ¿Tienen campo mañana?", "mock-msj-1"],
-                          ["Camila", "¿Me pasás los precios? 🙏", "mock-msj-2"],
-                          ["José", "¿Puedo mover mi cita de hoy?", "mock-msj-3"],
-                          ["Daniela", "Llamada perdida (2)", "mock-msj-4"],
-                          ["Andrea", "Al final no llego 😞", "mock-msj-5"],
-                        ].map(([quien, texto, clase]) => (
-                          <div key={quien} className={`${clase} rounded-xl bg-white px-2.5 py-1.5 shadow-sm`}>
-                            <p className="flex items-center gap-1.5 text-[8px] font-extrabold uppercase tracking-wide text-[#128c4b]">
-                              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#25d366]" />
-                              {quien} · ahora
-                            </p>
-                            <p className="truncate text-[10px] font-bold leading-tight text-aventurea-ink">
-                              {texto}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            {/* ── EL ESCENARIO: EL ANTES Y EL DESPUÉS, LADO A LADO ────
+                Rediseño del 29 ago 2026 («eso se ve pésimo»): el
+                fundido de 16 s dejaba UN solo teléfono flaco flotando
+                en un mar blanco — y si el visitante caía en la mitad
+                del caos, la página parecía de WhatsApp. Ahora los dos
+                teléfonos conviven en un panel navy con profundidad: el
+                caos apagado y torcido a la izquierda, Bookea grande y
+                encendida a la derecha, chips flotantes alrededor. La
+                historia se entiende en la PRIMERA mirada; el reloj
+                (10 s, clases esc-* en globals.css) solo anima los
+                detalles internos, en paralelo. */}
+            <div aria-hidden className="relative mx-auto mt-14 w-full max-w-[1060px]">
+              <div className="relative overflow-hidden rounded-[28px] bg-[#0a1226] px-5 py-10 shadow-[0_70px_140px_-60px_rgba(10,18,38,0.75)] sm:rounded-[36px] sm:px-10 sm:py-14">
+                {/* Los dos resplandores que le dan aire al panel. */}
+                <div className="pointer-events-none absolute -left-28 -top-28 h-80 w-80 rounded-full bg-[#f97316]/25 blur-[100px]" />
+                <div className="pointer-events-none absolute -bottom-36 -right-24 h-96 w-96 rounded-full bg-[#2563eb]/25 blur-[110px]" />
 
-                {/* Teléfono B · Bookea, todo entrando solo */}
-                <div className="mock-tel-orden">
-                  <div className="overflow-hidden rounded-[30px] border-[8px] border-[#0a1226] bg-white shadow-[0_36px_80px_-36px_rgba(10,18,38,0.55)]">
-                    <div className="px-3 pb-4 pt-2">
-                      <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#0a1226]/80" />
-                      <div className="mb-2 flex items-center justify-between">
-                        <p className="text-[12px] font-extrabold text-aventurea-ink">Tu agenda</p>
-                        <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wide text-emerald-700">
-                          <span className="mock-punto-vivo block h-1 w-1 rounded-full bg-emerald-500" />
-                          En vivo
-                        </span>
-                      </div>
-                      <div className="mock-b-toast mb-1.5 rounded-xl bg-[#e3f6ec] px-2.5 py-1.5">
-                        <p className="text-[8px] font-extrabold uppercase tracking-wide text-[#146c43]">
-                          Reserva nueva
-                        </p>
-                        <p className="text-[10px] font-bold leading-tight text-aventurea-ink">
-                          Entró sola — sin un solo chat
-                        </p>
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        {[
-                          ["9:00", "Manicura — María", "#dbeafe", "mock-b-1"],
-                          ["11:00", "Corte y barba — José", "#ffedd5", "mock-b-2"],
-                          ["13:30", "Pedicura spa — Camila", "#dcfce7", "mock-b-3"],
-                          ["15:00", "Gel X — Andrea", "#fce7f3", "mock-b-4"],
-                        ].map(([hh, tt, tono, clase]) => (
-                          <div
-                            key={hh}
-                            className={`${clase} flex items-center justify-between rounded-xl px-2.5 py-1.5`}
-                            style={{ background: tono }}
-                          >
-                            <span className="min-w-0">
-                              <span className="block text-[8px] font-bold tabular-nums text-aventurea-ink-soft">{hh}</span>
-                              <span className="block truncate text-[10px] font-bold text-aventurea-ink">{tt}</span>
+                <div className="relative grid items-center justify-items-center gap-9 lg:grid-cols-[1fr_auto_1.12fr] lg:gap-5">
+                  {/* ── Columna A · el caos, en penumbra ─────────────── */}
+                  <div className="w-full max-w-[248px]">
+                    <p className="mb-4 text-center">
+                      <span className="inline-block rounded-full bg-white/10 px-3.5 py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-red-300 ring-1 ring-inset ring-white/15">
+                        Sin sistema
+                      </span>
+                    </p>
+                    <div className="-rotate-2 opacity-85 saturate-[0.9]">
+                      <div className="overflow-hidden rounded-[30px] border-[8px] border-[#1a2545] bg-[#eef1f6] shadow-[0_30px_60px_-24px_rgba(0,0,0,0.55)] ring-1 ring-white/10">
+                        <div className="px-3 pb-4 pt-2">
+                          <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#0a1226]/80" />
+                          <p className="text-center text-[26px] font-extrabold tabular-nums text-aventurea-ink">9:41</p>
+                          <div className="mb-2 flex justify-center">
+                            <span className="esc-badge rounded-full bg-red-500 px-2.5 py-0.5 text-[9.5px] font-extrabold text-white">
+                              14 sin responder
                             </span>
-                            <span className="shrink-0 text-[8.5px] font-extrabold text-emerald-700">✓ Confirmada</span>
                           </div>
-                        ))}
+                          <div className="flex flex-col gap-1.5">
+                            {[
+                              ["María", "Hola!! ¿Tienen campo mañana?", "esc-msj-1"],
+                              ["Camila", "¿Me pasás los precios? 🙏", "esc-msj-2"],
+                              ["José", "¿Puedo mover mi cita de hoy?", "esc-msj-3"],
+                              ["Daniela", "Llamada perdida (2)", "esc-msj-4"],
+                              ["Andrea", "Al final no llego 😞", "esc-msj-5"],
+                            ].map(([quien, texto, clase]) => (
+                              <div key={quien} className={clase + " rounded-xl bg-white px-2.5 py-1.5 shadow-sm"}>
+                                <p className="flex items-center gap-1.5 text-[8px] font-extrabold uppercase tracking-wide text-[#128c4b]">
+                                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#25d366]" />
+                                  {quien} · ahora
+                                </p>
+                                <p className="truncate text-[10px] font-bold leading-tight text-aventurea-ink">
+                                  {texto}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
+                    <p className="mt-4 text-center text-[12.5px] font-bold leading-snug text-white/55">
+                      Chats sin responder, llamadas perdidas, citas que se caen.
+                    </p>
+                  </div>
+
+                  {/* ── El puente: la flecha y lo que pasa SOLO ────────
+                      Los chips vivían flotando sobre el teléfono de
+                      Bookea y tapaban justo lo que había que leer (las
+                      «✓ Confirmada», el «EN VIVO», la flecha). Acá en
+                      el medio cuentan mejor la historia: esto es lo que
+                      ocurre automáticamente entre un teléfono y el
+                      otro. Y de paso se ven también en móvil. */}
+                  <div className="flex max-w-[200px] flex-col items-center gap-3">
+                    <span className="flex h-11 w-11 rotate-90 items-center justify-center rounded-full bg-white/10 text-[18px] font-extrabold text-white ring-1 ring-inset ring-white/20 lg:rotate-0">
+                      →
+                    </span>
+                    <div className="mock-flotar w-[184px] rounded-2xl bg-white p-3 text-left shadow-[0_24px_50px_-20px_rgba(0,0,0,0.5)]">
+                      <p className="text-[9px] font-extrabold uppercase tracking-wide text-emerald-600">
+                        Recordatorio enviado
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-bold leading-snug text-aventurea-ink">
+                        «Tu cita es mañana a las 9:00» — solo, sin escribirlo.
+                      </p>
+                    </div>
+                    <div
+                      className="mock-flotar w-[184px] rounded-2xl bg-white p-3 text-left shadow-[0_24px_50px_-20px_rgba(0,0,0,0.5)]"
+                      style={{ animationDelay: "2.2s" }}
+                    >
+                      <p className="text-[9px] font-extrabold uppercase tracking-wide text-bookea-naranja-fuerte">
+                        Lealtad
+                      </p>
+                      <p className="mt-0.5 text-[11px] font-bold leading-snug text-aventurea-ink">
+                        María llegó a 8/10 sellos — ya casi vuelve.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* ── Columna B · Bookea, la protagonista ──────────── */}
+                  <div className="relative w-full max-w-[292px]">
+                    <p className="mb-4 text-center">
+                      <span className="inline-block rounded-full bg-bookea-naranja-fuerte px-3.5 py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-white shadow-[0_12px_30px_-10px_rgba(249,115,22,0.8)]">
+                        Con Bookea
+                      </span>
+                    </p>
+                    <div className="mock-flotar">
+                      <div className="overflow-hidden rounded-[30px] border-[8px] border-[#16213f] bg-white shadow-[0_46px_100px_-36px_rgba(249,115,22,0.45)] ring-1 ring-white/10">
+                        <div className="px-3 pb-4 pt-2">
+                          <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-[#0a1226]/80" />
+                          <div className="mb-2 flex items-center justify-between">
+                            <p className="text-[12px] font-extrabold text-aventurea-ink">Tu agenda</p>
+                            <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[8.5px] font-extrabold uppercase tracking-wide text-emerald-700">
+                              <span className="mock-punto-vivo block h-1 w-1 rounded-full bg-emerald-500" />
+                              En vivo
+                            </span>
+                          </div>
+                          <div className="esc-toast mb-1.5 rounded-xl bg-[#e3f6ec] px-2.5 py-1.5">
+                            <p className="text-[8px] font-extrabold uppercase tracking-wide text-[#146c43]">
+                              Reserva nueva
+                            </p>
+                            <p className="text-[10px] font-bold leading-tight text-aventurea-ink">
+                              Entró sola — sin un solo chat
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-1.5">
+                            {[
+                              ["9:00", "Manicura — María", "#dbeafe", "esc-b-1"],
+                              ["11:00", "Corte y barba — José", "#ffedd5", "esc-b-2"],
+                              ["13:30", "Pedicura spa — Camila", "#dcfce7", "esc-b-3"],
+                              ["15:00", "Gel X — Andrea", "#fce7f3", "esc-b-4"],
+                            ].map(([hh, tt, tono, clase]) => (
+                              <div
+                                key={hh}
+                                className={clase + " flex items-center justify-between rounded-xl px-2.5 py-1.5"}
+                                style={{ background: tono }}
+                              >
+                                <span className="min-w-0">
+                                  <span className="block text-[8px] font-bold tabular-nums text-aventurea-ink-soft">{hh}</span>
+                                  <span className="block truncate text-[10px] font-bold text-aventurea-ink">{tt}</span>
+                                </span>
+                                <span className="shrink-0 text-[8.5px] font-extrabold text-emerald-700">✓ Confirmada</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <p className="mt-4 text-center text-[12.5px] font-bold leading-snug text-white/80">
+                      Las mismas clientas — y la agenda se llenó sola.
+                    </p>
                   </div>
                 </div>
-              </div>
-
-              {/* El rótulo de cada mitad, apilado con el mismo reloj. */}
-              <div className="mock-pila mt-3 text-center">
-                <p className="mock-cap-caos text-[12.5px] font-bold text-aventurea-ink-soft opacity-0">
-                  Así se ve organizar citas por WhatsApp…
-                </p>
-                <p className="mock-cap-orden text-[12.5px] font-bold text-aventurea-ink-soft">
-                  …y así se ve con Bookea: solas y confirmadas.
-                </p>
               </div>
             </div>
         </section>
