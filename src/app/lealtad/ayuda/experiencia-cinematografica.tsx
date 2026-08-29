@@ -92,19 +92,39 @@ function MarcoGrande({ children }: { children: React.ReactNode }) {
           este resplandor lo despega del fondo sin encender la página. */}
       <div
         aria-hidden
-        className="absolute -inset-8 -z-10 rounded-[60px]"
-        style={{ background: "radial-gradient(closest-side, rgba(47,107,255,0.22), rgba(255,255,255,0.05) 45%, transparent 72%)" }}
+        className="absolute -inset-10 -z-10 rounded-[64px]"
+        style={{ background: "radial-gradient(closest-side, rgba(47,107,255,0.28), rgba(255,255,255,0.06) 42%, transparent 72%)" }}
       />
-      {/* Bisel metálico: un degradado claro→oscuro con un aro de luz
-          arriba, así el borde del aparato se ve contra el negro. */}
+
+      {/* Botones laterales del aparato (sobresalen del bisel). */}
+      <span aria-hidden className="absolute left-[-3px] top-[24%] h-14 w-[3px] rounded-l bg-gradient-to-b from-[#4a5266] to-[#1a1f2b]" />
+      <span aria-hidden className="absolute left-[-3px] top-[38%] h-9 w-[3px] rounded-l bg-gradient-to-b from-[#4a5266] to-[#1a1f2b]" />
+      <span aria-hidden className="absolute right-[-3px] top-[30%] h-20 w-[3px] rounded-r bg-gradient-to-b from-[#4a5266] to-[#1a1f2b]" />
+
+      {/* Bisel de titanio: dos degradados (uno para el metal, un aro de
+          luz interno) + una sombra profunda. Más fino y realista que
+          el borde plano de antes. */}
       <div
-        className="rounded-[48px] p-[3px] shadow-[0_60px_140px_-40px_rgba(0,0,0,0.9)] ring-1 ring-white/15"
-        style={{ background: "linear-gradient(160deg,#3a4256 0%,#232a38 30%,#0d1017 100%)" }}
+        className="rounded-[52px] p-[10px] shadow-[0_70px_150px_-40px_rgba(0,0,0,0.95),0_10px_30px_-10px_rgba(0,0,0,0.7)]"
+        style={{ background: "linear-gradient(145deg,#4a5164 0%,#20262f 22%,#0c0f15 55%,#242a34 100%)" }}
       >
-        <div className="overflow-hidden rounded-[45px] border border-black/50 bg-[#f6f8fc]">
-          <div className="relative aspect-[9/19.2]">
-            <span aria-hidden className="absolute left-1/2 top-3 z-20 h-[22px] w-[96px] -translate-x-1/2 rounded-full bg-[#0b0f17]" />
-            {children}
+        {/* Aro interior brillante (el filo pulido del marco). */}
+        <div className="rounded-[44px] p-[2px]" style={{ background: "linear-gradient(160deg,rgba(255,255,255,0.35),rgba(255,255,255,0.02) 30%,rgba(0,0,0,0.4))" }}>
+          <div className="relative overflow-hidden rounded-[42px] bg-black">
+            <div className="relative aspect-[9/19.2] bg-[#f6f8fc]">
+              {/* Isla dinámica con la cámara. */}
+              <span aria-hidden className="absolute left-1/2 top-[10px] z-30 flex h-[26px] w-[98px] -translate-x-1/2 items-center justify-end rounded-full bg-black pr-2.5">
+                <span className="h-2 w-2 rounded-full" style={{ background: "radial-gradient(circle at 35% 35%,#3b5170,#0a0f18)" }} />
+              </span>
+              {children}
+              {/* Brillo de vidrio: un barrido diagonal muy sutil por
+                  encima de la pantalla, sin robar clics. */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 z-40"
+                style={{ background: "linear-gradient(125deg,rgba(255,255,255,0.16) 0%,rgba(255,255,255,0.04) 14%,transparent 34%,transparent 100%)" }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -233,6 +253,115 @@ const RUBROS = [
   { label: "Uñas", foto: "photo-1604654894610-df63bc536371", premio: "10.º servicio con 50% off" },
 ];
 const fotoUrl = (id: string, w: number) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=70`;
+
+/* ═════════════ LA GALERÍA QUE FLUYE Y SE EMPUJA ═════════════
+   Los cards corren solos hacia la derecha (marquee) y se pueden
+   AGARRAR y empujar a los lados con inercia: un flick los lanza rápido
+   y van frenando solos. Todo con un track y translate3d (GPU), un solo
+   rAF; los cards van DUPLICADOS para que el bucle no tenga costura. */
+function GaleriaFluida() {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const est = useRef({ pos: 0, setW: 0, vel: 0, arrastrando: false, ultimoX: 0, raf: 0, listo: false });
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    // `s` es el mismo objeto-ref durante toda la vida del efecto (nunca
+    // se reasigna), así que usarlo en el cleanup es seguro y calla la
+    // regla del exhaustive-deps sobre `est.current`.
+    const s = est.current;
+    const reducir = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const AUTO = 0.5; // velocidad del flujo automático (px/frame), hacia la derecha
+
+    const medir = () => {
+      s.setW = track.scrollWidth / 2; // hay dos copias
+      if (!s.listo && s.setW) { s.pos = -s.setW / 2; s.listo = true; }
+    };
+    medir();
+    window.addEventListener("resize", medir);
+
+    const envolver = () => {
+      if (!s.setW) return;
+      if (s.pos > 0) s.pos -= s.setW;
+      if (s.pos <= -s.setW) s.pos += s.setW;
+    };
+
+    const frame = () => {
+      if (!s.arrastrando) {
+        if (Math.abs(s.vel) > 0.08) {
+          s.pos += s.vel;      // inercia tras soltar
+          s.vel *= 0.95;       // fricción
+        } else if (!reducir) {
+          s.pos += AUTO;       // flujo automático hacia la derecha
+        }
+      }
+      envolver();
+      track.style.transform = `translate3d(${s.pos}px,0,0)`;
+      s.raf = requestAnimationFrame(frame);
+    };
+    s.raf = requestAnimationFrame(frame);
+
+    return () => {
+      cancelAnimationFrame(s.raf);
+      window.removeEventListener("resize", medir);
+    };
+  }, []);
+
+  const alBajar = (e: React.PointerEvent) => {
+    const s = est.current;
+    s.arrastrando = true;
+    s.ultimoX = e.clientX;
+    s.vel = 0;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  };
+  const alMover = (e: React.PointerEvent) => {
+    const s = est.current;
+    if (!s.arrastrando) return;
+    const dx = e.clientX - s.ultimoX;
+    s.ultimoX = e.clientX;
+    s.pos += dx;
+    s.vel = dx; // el último desplazamiento se vuelve el impulso
+  };
+  const alSoltar = () => { est.current.arrastrando = false; };
+
+  return (
+    <div
+      className="cursor-grab overflow-hidden active:cursor-grabbing"
+      onPointerDown={alBajar}
+      onPointerMove={alMover}
+      onPointerUp={alSoltar}
+      onPointerLeave={alSoltar}
+      onPointerCancel={alSoltar}
+    >
+      <div
+        ref={trackRef}
+        className="flex w-max gap-5 will-change-transform"
+        style={{ touchAction: "pan-y" }}
+      >
+        {[...RUBROS, ...RUBROS].map((r, i) => (
+          <div
+            key={r.label + i}
+            className="relative h-[440px] w-[320px] shrink-0 select-none overflow-hidden rounded-[28px] sm:h-[520px] sm:w-[360px]"
+          >
+            <Image
+              src={fotoUrl(r.foto, 720)}
+              alt={r.label}
+              fill
+              sizes="360px"
+              draggable={false}
+              className="pointer-events-none object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 p-6">
+              <p className="text-[24px] font-extrabold tracking-tight text-white">{r.label}</p>
+              <p className="mt-1 text-[13px] font-semibold text-[color:var(--azul-claro)]">{r.premio}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function ExperienciaCinematografica() {
   // Un solo elemento alto (460vh) que es a la vez el que se mide para el
@@ -463,19 +592,11 @@ export default function ExperienciaCinematografica() {
             PARA CUALQUIER NEGOCIO QUE QUIERA QUE VUELVAN.
           </h2>
         </div>
-        <div className="cine-reveal mt-14 pl-6">
-          <div className="cine-galeria pr-6">
-            {RUBROS.map((r) => (
-              <div key={r.label} className="cine-galeria-item group relative h-[520px] w-[360px] overflow-hidden rounded-[28px]">
-                <Image src={fotoUrl(r.foto, 720)} alt={r.label} fill sizes="360px" className="object-cover transition-transform duration-[900ms] group-hover:scale-105" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
-                <div className="absolute inset-x-0 bottom-0 p-6">
-                  <p className="text-[24px] font-extrabold tracking-tight text-white">{r.label}</p>
-                  <p className="mt-1 text-[13px] font-semibold text-[color:var(--azul-claro)]">{r.premio}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="cine-reveal mt-14">
+          <GaleriaFluida />
+          <p className="mt-6 px-6 text-[12px] font-semibold text-[color:var(--humo-2)]">
+            Fluyen solos — o agarralos y empujalos ↔
+          </p>
         </div>
       </SeccionViva>
 
