@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
+import PasosSlider from "./pasos-slider";
 import SiteFooter from "@/components/site-footer";
 import { PLANES_VIGENTES } from "@/lib/lealtad/planes";
 import { IMAGEN_OG } from "@/lib/sitio";
@@ -84,49 +85,6 @@ const DEGRADADO_TEXTO =
  * teléfonos y controles, y una cifra gigante translúcida detrás pelearía
  * con él. Arriba de un texto suelto funcionaba; arriba de esto, no.
  */
-function PasoFunciona({
-  numero,
-  eyebrow,
-  titulo,
-  bajada,
-  children,
-  ultimo = false,
-}: {
-  numero: number;
-  eyebrow: string;
-  titulo: string;
-  bajada: string;
-  children: React.ReactNode;
-  /** El último no lleva la línea de abajo: no separa de nada. */
-  ultimo?: boolean;
-}) {
-  return (
-    <div
-      data-reveal
-      className={`mt-16 ${ultimo ? "" : "border-b border-aventurea-line pb-16"}`}
-    >
-      <div className="mx-auto max-w-[56ch] text-center">
-        <span
-          aria-hidden
-          className="mx-auto grid h-9 w-9 place-items-center rounded-full text-[14px] font-extrabold"
-          style={{ background: "var(--accion-suave)", color: "var(--accion-fuerte)" }}
-        >
-          {numero}
-        </span>
-        <p className="mt-4 text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-          {eyebrow}
-        </p>
-        <h3 className="titulo mx-auto mt-3 max-w-[20ch] text-[clamp(22px,3.2vw,32px)] leading-tight text-aventurea-navy">
-          {titulo}
-        </h3>
-        <p className="mx-auto mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
-          {bajada}
-        </p>
-      </div>
-      <div className="mt-10">{children}</div>
-    </div>
-  );
-}
 
 function TextoDegradado({ children }: { children: React.ReactNode }) {
   return (
@@ -394,36 +352,38 @@ export default async function LealtadPage() {
             </p>
           </div>
 
-          {/* Cada paso va en su propio bloque numerado, separado por una
-              línea: son tres demos distintas, no una grilla de cards. El
-              `--reveal-delay` escalona la entrada al scrollear. */}
-          <PasoFunciona
-            numero={1}
-            eyebrow="Creá tu pase"
-            titulo="Armás la tarjeta y la ves al instante"
-            bajada="Elegí el tipo, el color y qué se gana. La vista previa de la derecha es el pase que va a llevar tu cliente en el teléfono."
-          >
-            <MockupCreacion />
-          </PasoFunciona>
-
-          <PasoFunciona
-            numero={2}
-            eyebrow="El escaneo"
-            titulo="Le sellás la visita en dos segundos"
-            bajada="Tu cliente muestra su pase, vos lo escaneás desde el panel, y el sello aparece solo en su teléfono. Tocá el botón para verlo."
-          >
-            <MockupEscaneo />
-          </PasoFunciona>
-
-          <PasoFunciona
-            numero={3}
-            eyebrow="La fidelidad"
-            titulo="Y por eso vuelve más seguido"
-            bajada="Una tarjeta a medio llenar es una razón para volver a tu negocio y no al de al lado. Cambiá el interruptor para ver la diferencia."
-            ultimo
-          >
-            <MockupFidelidad />
-          </PasoFunciona>
+          {/* Los tres pasos ya no van apilados: son UN slider (una sola
+              sección) que se pasa con flechas, puntos o deslizando, para
+              que no quede largo ni enredado. Los mockups siguen siendo
+              las mismas demos interactivas. */}
+          <PasosSlider
+            pasos={[
+              {
+                numero: 1,
+                eyebrow: "Creá tu pase",
+                titulo: "Armás la tarjeta y la ves al instante",
+                bajada:
+                  "Elegí el tipo, el color y qué se gana. La vista previa de la derecha es el pase que va a llevar tu cliente en el teléfono.",
+                mockup: <MockupCreacion />,
+              },
+              {
+                numero: 2,
+                eyebrow: "El escaneo",
+                titulo: "Le sellás la visita en dos segundos",
+                bajada:
+                  "Tu cliente muestra su pase, vos lo escaneás desde el panel, y el sello aparece solo en su teléfono. Tocá el botón para verlo.",
+                mockup: <MockupEscaneo />,
+              },
+              {
+                numero: 3,
+                eyebrow: "La fidelidad",
+                titulo: "Y por eso vuelve más seguido",
+                bajada:
+                  "Una tarjeta a medio llenar es una razón para volver a tu negocio y no al de al lado. Cambiá el interruptor para ver la diferencia.",
+                mockup: <MockupFidelidad />,
+              },
+            ]}
+          />
         </div>
       </section>
 
