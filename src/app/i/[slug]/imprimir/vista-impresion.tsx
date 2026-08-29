@@ -243,6 +243,9 @@ export default function VistaImpresion({
 
       {html ? (
         <div className="hoja">
+          {/* `html` viene YA SANEADO del servidor (imprimir/page.tsx →
+              sanearHtmlInvitacion): sin <script>, sin on*, sin
+              javascript:. El `estilos` de arriba es CSS propio y fijo. */}
           <div dangerouslySetInnerHTML={{ __html: html }} />
           {/* El puente entre el papel y lo digital: quien recibe la
               tarjeta impresa escanea y cae en la invitación en línea,

@@ -387,32 +387,26 @@ export const MARCA_CUENTA_REGRESIVA = "cuenta-regresiva";
  * El diseño a la medida (el HTML que salió del generador), con la
  * cuenta regresiva VIVA metida donde el diseño la haya pedido.
  *
- * El HTML se inyecta con innerHTML, y eso nunca ejecuta <script> — por
- * eso el generador los tiene prohibidos. La consecuencia es que una
- * cuenta regresiva dibujada por el modelo queda CONGELADA en los
- * números que le tocaron el día que se generó: al día siguiente miente.
+ * El HTML llega SANEADO desde el servidor (page.tsx →
+ * sanearHtmlInvitacion): sin <script>, sin on*, sin javascript:. Antes
+ * los <script> de las plantillas sembradas corrían por SSR y movían sus
+ * adornos (música, pétalos, sobre); al sacarlos por seguridad esos gestos
+ * dejan de correr. La cuenta regresiva NO dependía de eso: el diseño solo
+ * marca el lugar (<div data-bookea="cuenta-regresiva"></div>) y acá se le
+ * monta encima, con un portal, el mismo componente vivo que usa la
+ * plantilla clásica (si se partiera el HTML en pedazos se rompería el
+ * árbol, porque la marca puede venir anidada). Igual el RSVP, sobre el
+ * gancho data-bookea="abrir-rsvp".
  *
- * La salida es que el diseño solo marque el lugar
- * (<div data-bookea="cuenta-regresiva"></div>) y que acá se le monte
- * encima el mismo componente que usa la plantilla clásica. Se hace con
- * un portal y no partiendo el HTML en pedazos: la marca puede venir
- * anidada dentro de una sección, y cortar el texto ahí rompería el
- * árbol. Si el diseño no trae la marca, todo funciona como antes.
- *
- * memo(): OBLIGATORIO, no una optimización. Los <script> de las
- * plantillas sembradas (docs/plantillas-invitaciones) llegan por SSR y
- * corren al parsear el documento — mutan su propio DOM (countdown que
- * tictaquea, pétalos sembrados, el sobre en el top layer, listeners).
- * En React 19 + Next 16, CUALQUIER re-render del padre que alcance
- * este div vuelve a aplicar el dangerouslySetInnerHTML sobre el mismo
- * nodo aunque __html no cambió: el DOM mutado se reemplaza por HTML
- * fresco cuyos <script> ya no ejecutan — countdown congelado en "—",
- * música sin gesto, partículas vacías. Se reprodujo con dos disparos
- * reales: el flip post-hidratación que hacía el hook de movimiento
- * reducido (el bug que el dueño vio en producción; ese hook ya no se
- * usa acá) y setRsvpAbierto al tocar "Confirmá tu asistencia" —este
- * sigue vivo—. Con memo y props estables (strings), los re-renders del
- * padre nunca tocan este árbol.
+ * memo(): OBLIGATORIO, no una optimización — y sigue siéndolo aunque ya
+ * no haya <script>. En React 19 + Next 16, CUALQUIER re-render del padre
+ * que alcance este div vuelve a aplicar el dangerouslySetInnerHTML sobre
+ * el mismo nodo aunque __html no cambió: reemplaza el DOM y, con él, el
+ * nodo data-bookea donde el portal acababa de montar la cuenta regresiva
+ * (que queda tictaqueando en un nodo huérfano, invisible). El disparo
+ * real que sigue vivo es setRsvpAbierto al tocar "Confirmá tu asistencia".
+ * Con memo y props estables (strings), los re-renders del padre nunca
+ * tocan este árbol.
  */
 const DisenoPropio = memo(function DisenoPropio({
   html,
@@ -476,6 +470,12 @@ const HtmlDelEquipo = memo(function HtmlDelEquipo({
   html: string;
   contenedor: RefObject<HTMLDivElement | null>;
 }) {
+  // `html` llega YA SANEADO desde el servidor (page.tsx →
+  // sanearHtmlInvitacion): sin <script>, sin on*, sin javascript:. Los
+  // <script> de las plantillas sembradas se quitan ahí, así que sus
+  // adornos JS (música, pétalos, sobre) no corren; la cuenta regresiva y
+  // el RSVP siguen vivos porque los monta React sobre los ganchos
+  // data-bookea, no un <script>.
   return (
     <div
       ref={contenedor}

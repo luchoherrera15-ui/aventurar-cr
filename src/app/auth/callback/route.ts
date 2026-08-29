@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { rutaInternaSegura } from "@/lib/url-segura";
 
 /**
  * Aterrizaje del login con Google (OAuth de Supabase). Google devuelve
@@ -8,16 +9,16 @@ import { createClient } from "@/lib/supabase/server";
  * redirige a `?next`.
  *
  * `next` viene de la URL, así que no se le puede creer a ciegas: solo
- * se aceptan rutas relativas del propio sitio ("/algo"). Se rechaza
- * también "//..." porque el navegador lo trata como URL absoluta de
- * otro dominio (open redirect). Cualquier otra cosa cae a /cuenta.
+ * se aceptan rutas INTERNAS del propio sitio. `rutaInternaSegura` cierra
+ * el open redirect en todas sus formas —"//otro.com", "/\otro.com" (el
+ * parser vuelve "\" en "/"), tabs/saltos que colapsan la ruta— y ante
+ * cualquier duda devuelve null; acá eso cae a /cuenta.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const next = url.searchParams.get("next");
-  const destino =
-    next && next.startsWith("/") && !next.startsWith("//") ? next : "/cuenta";
+  const destino = rutaInternaSegura(next, url.origin) ?? "/cuenta";
 
   // Sin código no hay nada que canjear (llegaron acá a mano, o Google
   // devolvió un error): a /cuenta, donde el login vuelve a ofrecerse.

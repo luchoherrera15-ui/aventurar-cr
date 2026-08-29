@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { sanearHtmlInvitacion } from "@/lib/invitaciones/sanear-html";
 import VistaImpresion from "./vista-impresion";
 
 /**
@@ -128,7 +129,10 @@ export default async function ImprimirInvitacionPage({
       <VistaImpresion
         invitacionId={invitacion.id as string}
         slug={slug}
-        html={(invitacion.html_impresion as string | null) ?? null}
+        // Misma defensa que la vista digital: `html_impresion` lo compone
+        // la IA y se inyecta con dangerouslySetInnerHTML, así que se sanea
+        // en el servidor antes de bajar (quita <script>, on*, javascript:…).
+        html={sanearHtmlInvitacion(invitacion.html_impresion as string | null)}
         titulo={invitacion.titulo ?? "Tu invitación"}
       />
     </main>

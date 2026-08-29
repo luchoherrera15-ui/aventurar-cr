@@ -51,9 +51,13 @@ export default async function CuentaPage({
 }) {
   const { volver } = await searchParams;
   const destinoLealtad = volver === "lealtad" ? "/lealtad/entrar" : null;
-  const destinoFood = volver?.startsWith("food:")
-    ? `/food/restaurante/${volver.slice("food:".length)}`
-    : null;
+  // `volver=food:{slug}` arma una ruta interna de prefijo fijo, pero el
+  // slug lo pone el usuario: se valida el charset (letras, numeros,
+  // guiones) para que no se cuele un `..` ni caracteres que tuerzan el
+  // destino de la redireccion. Si no calza, se ignora y cae al tablero.
+  const slugFood = volver?.startsWith("food:") ? volver.slice("food:".length) : null;
+  const destinoFood =
+    slugFood && /^[a-z0-9-]+$/i.test(slugFood) ? `/food/restaurante/${slugFood}` : null;
   const destino = destinoLealtad ?? destinoFood;
 
   const supabase = await createClient();

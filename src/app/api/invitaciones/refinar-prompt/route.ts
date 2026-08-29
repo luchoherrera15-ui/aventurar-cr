@@ -3,6 +3,21 @@ import type { ModeloIA } from "@/lib/ia/modelos";
 import { ErrorRefinarIA, refinarPromptConIA } from "@/lib/ia/refiner-prompt";
 import { registrarDesdeUsage, registrarFalloIA } from "@/lib/ia/registrar-uso";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+/**
+ * Tope por usuario contra el denial-of-wallet: exigir sesión frena al
+ * anónimo, pero cualquier cuenta registrada podía martillar el endpoint
+ * y quemar el presupuesto de Anthropic sin límite. Cada llamada refina
+ * con Haiku (barato), pero sin techo el volumen igual factura.
+ *
+ * Se cuenta con `media_rate_limit_tomar` (0113), el mismo contador de
+ * ventana fija que ya usa `/ayuda`: genérico pese al nombre, y por
+ * `service_role`. Ventana de una hora; el freno global de gasto
+ * (`motivoParaNoGastar`) sigue siendo la última red para el total del
+ * mes.
+ */
+const LIMITE_REFINAR = { limite: 20, ventanaSegundos: 3600 } as const;
 
 /**
  * POST /api/invitaciones/refinar-prompt
@@ -79,6 +94,44 @@ export async function POST(request: Request) {
           error: "numero_variantes debe estar entre 1 y 5",
         },
         { status: 400 }
+      );
+    }
+
+    // Tope por usuario ANTES de gastar un token, y a prueba de fallos:
+    // si el contador no puede correr —sin service key o error de la
+    // base— se cierra la puerta, nunca se deja pasar. Un contador roto
+    // no puede volver opcional el freno de gasto (mismo criterio que el
+    // rate limit de `/ayuda` y el de `motivoParaNoGastar` de abajo).
+    const admin = createAdminClient();
+    let permitido = false;
+    if (admin) {
+      const { data, error } = await admin.rpc("media_rate_limit_tomar", {
+        p_clave: `ia-refinar:${user.id}`,
+        p_limite: LIMITE_REFINAR.limite,
+        p_ventana_segundos: LIMITE_REFINAR.ventanaSegundos,
+      });
+      if (error) {
+        console.error(
+          "[refinar-prompt] El contador de uso falló, se cierra la puerta:",
+          error.message
+        );
+      } else {
+        const fila = Array.isArray(data) ? data[0] : data;
+        permitido = (fila as { permitido?: boolean } | null)?.permitido === true;
+      }
+    } else {
+      console.error(
+        "[refinar-prompt] Sin service key: no se puede contar el uso, se cierra la puerta."
+      );
+    }
+    if (!permitido) {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "Estás pidiendo variantes muy seguido. Esperá unos minutos y volvé a intentar.",
+        },
+        { status: 429 }
       );
     }
 

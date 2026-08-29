@@ -23,6 +23,7 @@ import {
 } from "@/app/mi-negocio/types";
 import GaleriaHeroFotos from "@/components/galeria-hero";
 import AmenidadesLista from "./amenidades-tabs";
+import { urlSegura } from "@/lib/url-segura";
 
 /**
  * El texto de presentación (descripción larga). Antes iba encima de una
@@ -379,7 +380,15 @@ export function CierreSeccion({
     { href: facebook, icono: <IconFacebook />, label: "Facebook" },
     { href: tiktok, icono: <IconTiktok />, label: "TikTok" },
     { href: sitioWeb, icono: <IconGlobe />, label: "Sitio web" },
-  ].flatMap((r) => (r.href ? [{ ...r, href: r.href }] : []));
+  ].flatMap((r) => {
+    // Se sanea al PINTAR, no solo al guardar: la normalizacion de la
+    // server action se puede saltar escribiendo directo por la API, asi
+    // que un `javascript:` en instagram/facebook/tiktok/sitio_web podria
+    // llegar hasta aca. urlSegura deja pasar solo http(s)/mailto/tel; ante
+    // un esquema peligroso devuelve null y el enlace ni se pinta.
+    const href = urlSegura(r.href);
+    return href ? [{ ...r, href }] : [];
+  });
 
   // El relleno de la tarjeta OSCURECE en vez de aclarar. Con `bg-white/10`
   // el vidrio le subía el fondo justo donde el texto es blanco: en `md:`
@@ -673,7 +682,15 @@ export function ContactoSeccion({
     { href: facebook, icono: <IconFacebook />, label: "Facebook" },
     { href: tiktok, icono: <IconTiktok />, label: "TikTok" },
     { href: sitioWeb, icono: <IconGlobe />, label: "Sitio web" },
-  ].flatMap((r) => (r.href ? [{ ...r, href: r.href }] : []));
+  ].flatMap((r) => {
+    // Se sanea al PINTAR, no solo al guardar: la normalizacion de la
+    // server action se puede saltar escribiendo directo por la API, asi
+    // que un `javascript:` en instagram/facebook/tiktok/sitio_web podria
+    // llegar hasta aca. urlSegura deja pasar solo http(s)/mailto/tel; ante
+    // un esquema peligroso devuelve null y el enlace ni se pinta.
+    const href = urlSegura(r.href);
+    return href ? [{ ...r, href }] : [];
+  });
 
   return (
     <section
