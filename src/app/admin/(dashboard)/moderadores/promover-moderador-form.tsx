@@ -21,9 +21,10 @@ export default function PromoverModeradorForm() {
       </p>
       <p className="mt-1 text-[12.5px] text-aventurea-ink-soft">
         La persona tiene que estar registrada en Bookea. El código de 4 dígitos
-        se genera solo.
+        se genera solo. La comisión no se fija acá: sale sola del paquete de
+        cada negocio (Starter en grupos de 3 · Impulso $10).
       </p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-[2fr_1fr_auto] sm:items-end">
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <label className="block">
           <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
             Correo de la cuenta
@@ -34,19 +35,6 @@ export default function PromoverModeradorForm() {
             required
             placeholder="vendedor@correo.com"
             className="mt-1 w-full rounded-xl border border-aventurea-line bg-aventurea-surface px-3 py-2 text-[14px] text-aventurea-ink"
-          />
-        </label>
-        <label className="block">
-          <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-            Comisión ₡/negocio/mes
-          </span>
-          <input
-            type="number"
-            name="comision"
-            min={0}
-            step={500}
-            defaultValue={0}
-            className="mt-1 w-full rounded-xl border border-aventurea-line bg-aventurea-surface px-3 py-2 text-[14px] tabular-nums text-aventurea-ink"
           />
         </label>
         <button

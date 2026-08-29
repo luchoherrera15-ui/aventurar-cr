@@ -9,12 +9,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * Server actions del panel de moderadores. Un moderador es un usuario
  * YA registrado al que el admin le da el rol: se crea su fila en
  * `agentes_lealtad` (con un código de 4 dígitos generado) y se le pone
- * `perfiles.rol='moderador'`. Pausarlo le devuelve el rol a 'cliente'
- * (pierde el acceso al panel) pero NO borra su fila — sus negocios y
- * números quedan.
+ * `perfiles.rol='moderador'`. La comisión NO se fija a mano — sale de
+ * la regla por paquete (lib/lealtad/comision-moderador). Pausar le
+ * devuelve el rol a 'cliente' (pierde el acceso) pero NO borra su fila.
  */
 
-/** Un código de 4 dígitos que no exista todavía. */
 async function generarCodigo(admin: SupabaseClient): Promise<string | null> {
   for (let i = 0; i < 40; i++) {
     const c = String(1000 + Math.floor(Math.random() * 9000));
@@ -40,7 +39,6 @@ export async function promoverModerador(
   if (!admin) return { error: FALTA_SERVICE_KEY, aviso: null };
 
   const correo = String(formData.get("correo") ?? "").trim().toLowerCase();
-  const comision = Math.max(0, Math.round(Number(formData.get("comision") ?? 0) || 0));
   if (!correo) return { error: "Escribí el correo del usuario.", aviso: null };
 
   const { data: perfil } = await admin
@@ -72,7 +70,6 @@ export async function promoverModerador(
     usuario_id: perfil.id,
     nombre,
     codigo,
-    comision_mensual: comision,
     activo: true,
   });
   if (eIns) return { error: "No se pudo crear el moderador: " + eIns.message, aviso: null };
@@ -81,18 +78,6 @@ export async function promoverModerador(
 
   revalidatePath("/admin/moderadores");
   return { error: null, aviso: `Listo. ${nombre} ya es moderador con el código ${codigo}.` };
-}
-
-export async function actualizarComision(formData: FormData): Promise<void> {
-  const { ok } = await requireAdmin();
-  if (!ok) return;
-  const admin = createAdminClient();
-  if (!admin) return;
-  const id = String(formData.get("id") ?? "");
-  const comision = Math.max(0, Math.round(Number(formData.get("comision") ?? 0) || 0));
-  if (!id) return;
-  await admin.from("agentes_lealtad").update({ comision_mensual: comision }).eq("id", id);
-  revalidatePath("/admin/moderadores");
 }
 
 export async function alternarActivo(formData: FormData): Promise<void> {
@@ -109,7 +94,6 @@ export async function alternarActivo(formData: FormData): Promise<void> {
     .eq("id", id)
     .select("usuario_id")
     .maybeSingle();
-  // Pausar = quitarle el acceso (rol a 'cliente'); reactivar = devolvérselo.
   if (ag?.usuario_id) {
     await admin
       .from("perfiles")
