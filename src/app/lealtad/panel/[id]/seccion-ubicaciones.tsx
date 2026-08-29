@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type ComponentProps,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { Card, CardVacia } from "@/components/panel/piezas";
 import {
@@ -338,7 +345,7 @@ export default function SeccionUbicaciones({
             <div>
               <span className={ROTULO_CAMPO}>Buscá tu local y poné el pin</span>
               <div className="mt-1">
-                <SelectorUbicacion
+                <MapaCuandoSeVe
                   latitudInicial={null}
                   longitudInicial={null}
                   claseCampo={CAMPO_PANEL}
@@ -477,6 +484,76 @@ export default function SeccionUbicaciones({
         </Card>
       </div>
     </>
+  );
+}
+
+/**
+ * EL MAPA, SOLO CUANDO SE VE.
+ *
+ * `SelectorUbicacion` baja Leaflet (~145 KB + su CSS) y pide tiles de
+ * OpenStreetMap apenas se MONTA — el `import()` vive en su efecto de
+ * montaje. Y este panel monta TODO de entrada: el shell deja cada
+ * sección montada y escondida con `hidden` (shell-lealtad.tsx), y
+ * `TabsContenido` hace lo mismo con sus pestañas. Resultado: cada
+ * visita al panel descargaba un mapa que casi nadie abría — la
+ * sección vive en Configuración → Ubicación, a dos toques de
+ * distancia.
+ *
+ * El gate es un IntersectionObserver y no un prop de «sección activa»
+ * a propósito: el ocultamiento acá es DOBLE (la sección del shell Y la
+ * pestaña del tab), y `display: none` en cualquier ancestro hace que
+ * el observer reporte «no interseca». O sea que un solo observer cubre
+ * los dos niveles sin cablear el estado del shell y del tab hasta acá
+ * — y de yapa, montar el mapa recién cuando su caja tiene tamaño real
+ * evita el clásico mapa gris de Leaflet inicializado en un contenedor
+ * de 0×0.
+ *
+ * Una vez visible, se monta y NO se desmonta más: el pin puesto y la
+ * búsqueda escrita sobreviven a cambiar de pestaña, exactamente igual
+ * que antes de este gate. El formulario de lat/lng de al lado nunca
+ * dependió del mapa — pegar coordenadas a mano siguió funcionando
+ * incluso mientras el mapa no existía.
+ */
+function MapaCuandoSeVe(props: ComponentProps<typeof SelectorUbicacion>) {
+  const marco = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (visible) return;
+    const el = marco.current;
+    if (!el) return;
+    // Sin IntersectionObserver (navegador viejísimo) se monta igual,
+    // en el próximo tick: quedarse sin mapa sería peor que descargarlo
+    // de más. En un timeout y no en línea porque un setState sincrónico
+    // dentro del cuerpo del efecto encadena renders (lo marca el
+    // compilador de React).
+    if (typeof IntersectionObserver === "undefined") {
+      const idTimer = window.setTimeout(() => setVisible(true), 0);
+      return () => window.clearTimeout(idTimer);
+    }
+    const observador = new IntersectionObserver((entradas) => {
+      if (entradas.some((e) => e.isIntersecting)) setVisible(true);
+    });
+    observador.observe(el);
+    return () => observador.disconnect();
+  }, [visible]);
+
+  return (
+    <div ref={marco}>
+      {visible ? (
+        <SelectorUbicacion {...props} />
+      ) : (
+        /* El hueco del mapa, con su mismo fondo y su misma altura
+           aproximada (buscador + mapa + fila de abajo): el observer
+           dispara en el frame en que la pestaña se abre, así que esto
+           vive un parpadeo — pero si viviera más, que no salte nada. */
+        <div
+          aria-hidden
+          className="h-[340px] w-full rounded-xl border border-aventurea-line"
+          style={{ background: "#e8ecf6" }}
+        />
+      )}
+    </div>
   );
 }
 

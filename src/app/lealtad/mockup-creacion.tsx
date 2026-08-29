@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icono, type NombreIcono } from "./panel/[id]/iconos";
 import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
+import { useMockupVivo } from "./use-mockup-vivo";
 
 /**
  * LA COMPOSICIÓN ANIMADA DE «CREÁ TU PASE» (ago 2026) — la primera de
@@ -133,6 +134,15 @@ export default function MockupCreacion() {
    */
   const reducido = useMovimientoReducido();
 
+  /**
+   * `vivo` (de `useMockupVivo`) gatea SOLO el bucle automático:
+   * movimiento bienvenido Y mockup cerca del viewport. `reducido` se
+   * queda aparte porque acá también gobierna las transiciones de CSS y
+   * el modo manual — que funcionan igual con el bucle pausado por
+   * scroll.
+   */
+  const { ref, vivo } = useMockupVivo<HTMLDivElement>();
+
   const [paso, setPaso] = useState(0);
   const [tipoIdx, setTipoIdx] = useState(GUION[0].tipo);
   const [colorIdx, setColorIdx] = useState(GUION[0].color);
@@ -142,10 +152,11 @@ export default function MockupCreacion() {
   const [manual, setManual] = useState(false);
 
   useEffect(() => {
-    // Dos motivos para no armar el timer: la persona pidió menos
-    // movimiento, o está manejando ella. En los dos casos el mockup se
-    // queda EXACTAMENTE donde está — completo y legible, nunca vacío.
-    if (reducido || manual) return;
+    // Tres motivos para no armar el timer: la persona pidió menos
+    // movimiento, el mockup no está a la vista (`vivo` junta esos dos),
+    // o está manejando ella. En todos los casos el mockup se queda
+    // EXACTAMENTE donde está — completo y legible, nunca vacío.
+    if (!vivo || manual) return;
 
     const t = setTimeout(() => {
       const siguiente = (paso + 1) % GUION.length;
@@ -158,7 +169,7 @@ export default function MockupCreacion() {
     // Sin este clear, cada cambio de `paso` dejaría un timer huérfano y
     // la landing quedaría quemando CPU en segundo plano.
     return () => clearTimeout(t);
-  }, [reducido, manual, paso]);
+  }, [vivo, manual, paso]);
 
   const tipo = TIPOS[tipoIdx];
   const color = COLORES[colorIdx];
@@ -200,7 +211,7 @@ export default function MockupCreacion() {
         : "Un solo uso · vence el 30 de setiembre";
 
   return (
-    <div>
+    <div ref={ref}>
       {/* ⚠️ ESTE PÁRRAFO VA FUERA DE TODO `aria-hidden`, Y NO ES UN
           DETALLE. Un `aria-hidden` esconde el subárbol ENTERO: si la
           descripción queda adentro, quien no ve la pantalla se

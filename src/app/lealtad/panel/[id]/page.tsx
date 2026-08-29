@@ -34,7 +34,7 @@ import SeccionProgramas, { type ProgramaEnLista } from "./seccion-programas";
 import SelectorTarjetaActiva from "./selector-tarjeta-activa";
 import { estadoVisible, operaAhora } from "@/lib/lealtad/programas";
 import {
-  elegirPrograma,
+  elegirDeFilasCrudas,
   filasCrudasPorAntiguedad,
   resumenDeFila,
 } from "@/lib/wallet/programa-principal";
@@ -134,18 +134,136 @@ export default async function PanelNegocioLealtad({
   if (!acceso.ok) redirect("/lealtad/panel");
   const { permisos } = acceso;
 
-  // El negocio. `verificarAccesoLealtad` de arriba ya es el chequeo de
-  // seguridad real (dueño/colaborador/admin, con redirect si no pasa);
-  // esta lectura va con la llave de servicio solo para poder pedir `*`
-  // sin lista de columnas a mano — `authenticated` ya no tiene permiso
-  // de tabla completa sobre `ranchos` (0155), y `select *` es a
-  // propósito porque lealtad_aprobado_en (0129) puede no existir
-  // todavía en la base.
-  const { data: rancho } = await (createAdminClient() ?? acceso.supabase)
-    .from("ranchos")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+  // La llave de servicio, UNA vez para toda la página: con ella se lee
+  // lo que la RLS no le muestra a un colaborador (un programa pausado,
+  // el vencimiento del addon) y se pide `*` sin lista de columnas —
+  // `authenticated` ya no tiene permiso de tabla completa sobre
+  // `ranchos` (0155). El chequeo de seguridad real ya pasó arriba:
+  // `verificarAccesoLealtad`, con redirect si no.
+  const admin = createAdminClient();
+
+  // Quién puede qué. Sale del acceso ya verificado, sin una consulta
+  // más — y se resuelve acá arriba porque decide QUÉ entra en la
+  // primera tanda de consultas. «Negocio», «Recompensas», «Tarjeta
+  // digital» y «Plan» son del DUEÑO: colores, logo, regalías y paquete
+  // se tocan sin pedirle permiso a nadie. Los colaboradores no las ven
+  // — su checklist gobierna la operación diaria, no la identidad ni la
+  // plata de la marca. `puedeEquipo` es la misma expresión hoy, pero se
+  // mantienen separados por si algún día divergen.
+  const puedeEquipo = acceso.esDueno || acceso.esAdmin;
+  const puedeDisenar = acceso.esDueno || acceso.esAdmin;
+
+  // El "ahora" en hora de Costa Rica, resuelto UNA vez en el servidor.
+  // De acá salen los estados «programada» y «vencida»: si cada tarjeta
+  // leyera su propio reloj, una lista larga podría cruzar la medianoche
+  // a la mitad y mostrar dos verdades distintas en la misma pantalla.
+  //
+  // `minutoISOCR` y no un Intl armado acá: la página pública del QR y
+  // los dos generadores de pases usan ese mismo minuto para decidir qué
+  // tarjeta manda, y dos formas de escribir la misma hora es la manera
+  // de que un día no coincidan.
+  const ahoraCR = minutoISOCR();
+
+  /**
+   * ═══════════════════════════════════════════════════════════════
+   *  EL MAPA DE DEPENDENCIAS DE LAS CONSULTAS
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * Este render llegó a encadenar ~16 consultas EN FILA y el TTFB del
+   * panel las pagaba todas sumadas — casi ninguna necesitaba el
+   * resultado de la anterior: la fila era solo el orden en que estaban
+   * escritas. Ahora van en TRES tandas de `Promise.all` (después de
+   * `verificarAccesoLealtad`, que es el portón y va solo), y la regla
+   * para no romperlas es una: una consulta entra en la tanda N solo si
+   * TODO lo que necesita ya salió de la tanda N−1.
+   *
+   *   TANDA 1 — solo necesitan `id` y el acceso ya verificado:
+   *     rancho · tiene_addon(lealtad) · programa_lealtad (todas las
+   *     tarjetas) · tiene_addon(cercanía) · perfil de quien mira ·
+   *     colaboradores_del_rancho · lealtad_ubicaciones · catálogo
+   *     (0198) · productos de venta · addons_negocio.vence_en
+   *
+   *   TANDA 2 — necesitan las FILAS de programa_lealtad (la tarjeta
+   *   principal `p` y la mirada `pVista` se eligen EN MEMORIA entre
+   *   una tanda y otra, no con otra consulta):
+   *     miembros (conteo por tarjeta) · recompensas de `p` ·
+   *     recompensas de `pVista` (solo si es otra) · contextoDeCuenta
+   *     (plan y cuenta, 0134)
+   *
+   *   TANDA 3 — necesitan la META (recompensas) o el PLAN (cuenta):
+   *     cargarLealtad (ledger) · clientes auditados de `p` · clientes
+   *     auditados de `pVista` · suscripción con tarjeta (0143) · cupo
+   *     de notificaciones (0183)
+   *
+   * Los cortes tempranos (negocio en revisión, sin el complemento)
+   * siguen cortando después de la tanda 1: en esos casos —los raros—
+   * sobran unas lecturas que ya venían en paralelo, puro SELECT sin
+   * efectos. El camino que importa, el panel que un negocio abre cien
+   * veces por día, deja de pagar la fila entera.
+   */
+  const [
+    // `select *` a propósito: lealtad_aprobado_en (0129) puede no
+    // existir todavía en la base.
+    { data: rancho },
+    { data: tieneAddon },
+    // TODAS las tarjetas del negocio. Desde la 0134 puede haber varias
+    // (el `unique(rancho_id)` se liberó). `select *` porque las
+    // columnas de las 0134/0135/0136 pueden no existir todavía y una
+    // lista explícita fallaría entera.
+    { data: filasProgramas },
+    // El complemento de cercanía (0123): lo pide el editor de la
+    // tarjeta para saber si ofrece el aviso por ubicación.
+    { data: cercania },
+    // Quién está mirando: el nombre sale de `perfiles`, nunca de la
+    // metadata que el cliente puede escribir.
+    { data: perfil },
+    // El equipo (solo lo carga quien lo puede editar).
+    { data: equipoCrudo },
+    // Geo-Push (0196): las ubicaciones del negocio. Se guarda la
+    // respuesta ENTERA porque el error importa — ver el mapeo abajo.
+    respuestaUbicaciones,
+    // El catálogo de productos (0198), pantalla de CONFIGURACIÓN del
+    // dueño — el porqué de los dos lectores distintos está abajo,
+    // donde se usan.
+    catalogo,
+    // El desplegable de la CAJA: solo activos, y lo ve también un
+    // colaborador — por eso cuelga de `permisos.acreditar`.
+    productosDeVenta,
+    // El vencimiento de la prueba, para la cuenta regresiva del panel.
+    { data: filaAddonPlan },
+  ] = await Promise.all([
+    (admin ?? acceso.supabase).from("ranchos").select("*").eq("id", id).maybeSingle(),
+    acceso.supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "lealtad" }),
+    admin
+      ? admin.from("programa_lealtad").select("*").eq("rancho_id", id)
+      : Promise.resolve({ data: [] }),
+    acceso.supabase.rpc("tiene_addon", { p_rancho_id: id, p_addon: "pases_cercania" }),
+    acceso.supabase.from("perfiles").select("nombre").eq("id", acceso.user.id).maybeSingle(),
+    puedeEquipo
+      ? acceso.supabase.rpc("colaboradores_del_rancho", { p_rancho: id })
+      : Promise.resolve({ data: null }),
+    admin && puedeDisenar
+      ? admin
+          .from("lealtad_ubicaciones")
+          .select("id, nombre, latitud, longitud, mensaje")
+          .eq("rancho_id", id)
+          .order("created_at", { ascending: true })
+      : Promise.resolve(null),
+    admin && puedeDisenar
+      ? catalogoDelNegocio(admin, id)
+      : Promise.resolve<ProductoCatalogo[] | null>(null),
+    admin && permisos.acreditar
+      ? productosParaVender(admin, id)
+      : Promise.resolve<ProductoDeVenta[]>([]),
+    admin && puedeDisenar
+      ? admin
+          .from("addons_negocio")
+          .select("vence_en")
+          .eq("rancho_id", id)
+          .eq("addon", "lealtad")
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
   if (!rancho) redirect("/lealtad/panel");
 
   // ── En revisión (0129): creado pero sin aprobar por Bookea ──────────
@@ -166,37 +284,36 @@ export default async function PanelNegocioLealtad({
     );
   }
 
-  const { data: tieneAddon } = await acceso.supabase.rpc("tiene_addon", {
-    p_rancho_id: id,
-    p_addon: "lealtad",
-  });
-
   // ── Sin el complemento: acá se pide, no se configura ────────────────
   if (tieneAddon !== true) {
-    // ¿Ya hay una solicitud esperando? (0126; si no corrió, se ignora.)
-    const { data: solicitud } = await acceso.supabase
-      .from("solicitudes_lealtad")
-      .select("plan, created_at")
-      .eq("rancho_id", id)
-      .eq("estado", "pendiente")
-      .maybeSingle();
-
-    // ¿O es que se le TERMINÓ LA PRUEBA? No es lo mismo que «todavía no
-    // tiene el programa»: este negocio lo tuvo, lo armó, tiene clientes
-    // con sellos adentro, y lo que necesita leer es qué pasó y qué
-    // conserva — no un texto de bienvenida que lo deje pensando que
-    // perdió todo. La fila se lee con la llave de servicio porque la
-    // política de `addons_negocio` (0077) solo se la muestra al dueño, y
-    // a esta pantalla también entran los colaboradores.
-    const dbAddon = createAdminClient();
-    const { data: filaAddon } = dbAddon
-      ? await dbAddon
-          .from("addons_negocio")
-          .select("activo, vence_en")
-          .eq("rancho_id", id)
-          .eq("addon", "lealtad")
-          .maybeSingle()
-      : { data: null };
+    // Dos preguntas independientes, en UNA tanda:
+    //
+    //   · ¿Ya hay una solicitud esperando? (0126; si no corrió, se
+    //     ignora.)
+    //   · ¿O es que se le TERMINÓ LA PRUEBA? No es lo mismo que
+    //     «todavía no tiene el programa»: este negocio lo tuvo, lo
+    //     armó, tiene clientes con sellos adentro, y lo que necesita
+    //     leer es qué pasó y qué conserva — no un texto de bienvenida
+    //     que lo deje pensando que perdió todo. La fila se lee con la
+    //     llave de servicio porque la política de `addons_negocio`
+    //     (0077) solo se la muestra al dueño, y a esta pantalla
+    //     también entran los colaboradores.
+    const [{ data: solicitud }, { data: filaAddon }] = await Promise.all([
+      acceso.supabase
+        .from("solicitudes_lealtad")
+        .select("plan, created_at")
+        .eq("rancho_id", id)
+        .eq("estado", "pendiente")
+        .maybeSingle(),
+      admin
+        ? admin
+            .from("addons_negocio")
+            .select("activo, vence_en")
+            .eq("rancho_id", id)
+            .eq("addon", "lealtad")
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
     const prueba = estadoDePrueba({
       plan: (rancho.plan_lealtad as string | null) ?? null,
       venceEn: (filaAddon?.vence_en as string | null) ?? null,
@@ -263,36 +380,95 @@ export default async function PanelNegocioLealtad({
     );
   }
 
-  // ── Con el complemento: los datos del programa (llave de servicio,
-  //    porque un colaborador no puede leer un programa pausado por RLS) ─
-  const admin = createAdminClient();
-
-  // El "ahora" en hora de Costa Rica, resuelto UNA vez en el servidor.
-  // De acá salen los estados «programada» y «vencida»: si cada tarjeta
-  // leyera su propio reloj, una lista larga podría cruzar la medianoche
-  // a la mitad y mostrar dos verdades distintas en la misma pantalla.
-  //
-  // `minutoISOCR` y no un Intl armado acá: la página pública del QR y
-  // los dos generadores de pases usan ese mismo minuto para decidir qué
-  // tarjeta manda, y dos formas de escribir la misma hora es la manera
-  // de que un día no coincidan.
-  const ahoraCR = minutoISOCR();
-
-  // ── TODAS las tarjetas del negocio ─────────────────────────────
-  // Desde la 0134 puede haber varias (el `unique(rancho_id)` se
-  // liberó). `select *` porque las columnas de las 0134/0135/0136
-  // pueden no existir todavía y una lista explícita fallaría entera.
-  const { data: filasProgramas } = admin
-    ? await admin.from("programa_lealtad").select("*").eq("rancho_id", id)
-    : { data: [] };
-
+  // ── Con el complemento: los datos del programa (con la llave de
+  //    servicio de arriba, porque un colaborador no puede leer un
+  //    programa pausado por RLS) ────────────────────────────────────
   const todasLasFilas = (filasProgramas ?? []) as Record<string, unknown>[];
 
-  // Los miembros de cada una, en UNA consulta y no una por tarjeta.
+  // ── LA TARJETA PRINCIPAL: la que mandan Inicio, Clientes, Métricas
+  //    y el editor del pase ─────────────────────────────────────────
+  // Sale EN MEMORIA de las filas que ya se trajeron, y no de un
+  // segundo `select ... .maybeSingle()`. Ese `maybeSingle` era de
+  // cuando había UNA tarjeta por negocio: desde que la 0134 liberó el
+  // `unique(rancho_id)`, con dos tarjetas devuelve error y `data` en
+  // null — o sea que el negocio que MÁS tiene era el que veía «todavía
+  // no hay programa» en media pantalla.
+  //
+  // Se elige la que está emitiendo pases; si ninguna, la primera que no
+  // esté archivada; y si todas lo están, la primera. Siempre la misma
+  // para todas las secciones: dos criterios distintos mostrarían dos
+  // tarjetas distintas en la misma visita.
+  //
+  // Y la elección NO vive acá: la comparte con la página pública del QR
+  // y con los dos generadores de pases (`elegirDeFilasCrudas`, el
+  // mismo `elegirPrograma` para filas crudas), para que el dueño
+  // configure exactamente la tarjeta que su cliente recibe. Se elige
+  // ANTES de contar miembros a propósito: la elección solo mira
+  // estado, vigencias y antigüedad, así que no tiene por qué esperar
+  // esa consulta — y eso es lo que deja pedir sus recompensas en la
+  // misma tanda que el conteo.
+  const p = elegirDeFilasCrudas(todasLasFilas, ahoraCR) as ProgramaFila | null;
+
+  // ── LA TARJETA QUE SE ESTÁ MIRANDO en Clientes/Actividad/Métricas ──
+  // Por defecto es la misma principal (`p`): para el negocio con una
+  // sola tarjeta nada cambia. `?tarjeta=<id>` la pisa, y SOLO si ese
+  // id está en `todasLasFilas` —las tarjetas reales de ESTE
+  // negocio—, nunca confiando en el string suelto de la URL.
+  //
+  // El botón grande «Escanear» del shell, «Recompensas» y el resto de
+  // Inicio siguen atados a `p`/`meta`: cambiar de pestaña acá NO
+  // cambia a qué tarjeta acredita un escaneo desde el botón de
+  // siempre. Esto es SOLO para mirar y operar el mostrador/auditoría
+  // de la tarjeta elegida — ver selector-tarjeta-activa.tsx.
+  const tarjetaVistaId =
+    tarjeta && todasLasFilas.some((f) => f.id === tarjeta) ? tarjeta : (p?.id ?? null);
+  const pVista = (
+    tarjetaVistaId === p?.id ? p : (todasLasFilas.find((f) => f.id === tarjetaVistaId) ?? null)
+  ) as ProgramaFila | null;
+
   const idsProgramas = todasLasFilas.map((f) => f.id as string);
-  const { data: filasMiembros } = admin && idsProgramas.length
-    ? await admin.from("miembros").select("programa_id").in("programa_id", idsProgramas)
-    : { data: [] };
+
+  // ── TANDA 2: lo que necesita las filas de programa_lealtad ────────
+  const [
+    // Los miembros de cada tarjeta, en UNA consulta y no una por
+    // tarjeta.
+    { data: filasMiembros },
+    { data: recompensas },
+    // La recompensa activa de la tarjeta que se está mirando, si es
+    // DISTINTA de la principal — mismo criterio que ya corre para `p`,
+    // una sola vez más solo cuando hace falta.
+    { data: recompensasVista },
+    // El plan sale de la CUENTA desde la 0134 (`cuentas.plan`), con el
+    // del rancho como respaldo mientras la migración no esté corrida.
+    // Toda la pantalla —topes, capacidades, medidores— cuelga de acá,
+    // así que resolverlo en UN lugar evita que media pantalla muestre
+    // el plan nuevo y la otra media el viejo.
+    contextoCuenta,
+  ] = await Promise.all([
+    admin && idsProgramas.length
+      ? admin.from("miembros").select("programa_id").in("programa_id", idsProgramas)
+      : Promise.resolve({ data: [] }),
+    admin && p
+      ? admin
+          .from("recompensas")
+          .select("*")
+          .eq("programa_id", p.id)
+          .order("costo_puntos", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    admin && pVista && pVista.id !== p?.id
+      ? admin
+          .from("recompensas")
+          .select("*")
+          .eq("programa_id", pVista.id)
+          .order("costo_puntos", { ascending: true })
+      : Promise.resolve({ data: null }),
+    admin
+      ? contextoDeCuenta(admin, (p ?? {}) as Record<string, unknown>, {
+          planRancho: rancho.plan_lealtad as string | null,
+        })
+      : Promise.resolve({ plan: (rancho.plan_lealtad as string | null) ?? null, cuentaId: null }),
+  ]);
+
   const miembrosPorPrograma = new Map<string, number>();
   for (const m of (filasMiembros ?? []) as { programa_id: string }[]) {
     miembrosPorPrograma.set(m.programa_id, (miembrosPorPrograma.get(m.programa_id) ?? 0) + 1);
@@ -308,12 +484,16 @@ export default async function PanelNegocioLealtad({
     vigente_hasta: (f.vigente_hasta as string | null) ?? null,
     colorFondo: (f.pase_color_fondo as string | null) ?? null,
     miembros: miembrosPorPrograma.get(f.id as string) ?? 0,
-    // OBLIGATORIO aunque la sección no lo dibuje: esta misma lista es
-    // la que va a `elegirPrograma`, que desempata por antigüedad. Sin
-    // la fecha el desempate cae al uuid y el panel elige una tarjeta
-    // distinta de la que sirven el link público y el pase.
+    // OBLIGATORIO aunque la sección no lo dibuje: `lasQueOcupanCupo`
+    // y el desempate por antigüedad de la elección (que ahora corre
+    // sobre las filas crudas, arriba) miran esta fecha. Sin ella el
+    // desempate cae al uuid y el panel elige una tarjeta distinta de
+    // la que sirven el link público y el pase.
     created_at: typeof f.created_at === "string" ? f.created_at : null,
   }));
+
+  // La misma tarjeta que `p`, en la forma que consumen las secciones.
+  const principal = p ? (programasEnLista.find((f) => f.id === p.id) ?? null) : null;
 
   // Para el link directo de la caja (0206) — ver link-scan.tsx. Solo lo
   // que esa card necesita: nombre y si ese link deja atender a mano.
@@ -322,25 +502,6 @@ export default async function PanelNegocioLealtad({
     nombre: (f.nombre as string) ?? "Tarjeta",
     permiteManual: f.permite_manual_en_link === true,
   }));
-
-  // ── LA TARJETA PRINCIPAL: la que mandan Inicio, Clientes, Métricas
-  //    y el editor del pase ─────────────────────────────────────────
-  // Sale de la lista que ya se trajo, y no de un segundo
-  // `select ... .maybeSingle()`. Ese `maybeSingle` era de cuando había
-  // UNA tarjeta por negocio: desde que la 0134 liberó el
-  // `unique(rancho_id)`, con dos tarjetas devuelve error y `data` en
-  // null — o sea que el negocio que MÁS tiene era el que veía «todavía
-  // no hay programa» en media pantalla.
-  //
-  // Se elige la que está emitiendo pases; si ninguna, la primera que no
-  // esté archivada; y si todas lo están, la primera. Siempre la misma
-  // para todas las secciones: dos criterios distintos mostrarían dos
-  // tarjetas distintas en la misma visita.
-  //
-  // Y la elección NO vive acá: la comparte con la página pública del QR
-  // y con los dos generadores de pases (`elegirPrograma`), para que el
-  // dueño configure exactamente la tarjeta que su cliente recibe.
-  const principal = elegirPrograma(programasEnLista, ahoraCR);
 
   // ── EL LINK DE CADA TARJETA ────────────────────────────────────
   // Uno por tarjeta, ordenadas de la más vieja a la más nueva. La
@@ -357,51 +518,13 @@ export default async function PanelNegocioLealtad({
     emitiendo: operaAhora(resumenDeFila(f), ahoraCR),
   }));
 
-  const p = (principal
-    ? (todasLasFilas.find((f) => f.id === principal.id) ?? null)
-    : null) as ProgramaFila | null;
-
-  const { data: recompensas } = admin && p
-    ? await admin
-        .from("recompensas")
-        .select("*")
-        .eq("programa_id", p.id)
-        .order("costo_puntos", { ascending: true })
-    : { data: [] };
-
   const lista = (recompensas ?? []) as RecompensaFila[];
   const meta = lista.find((r) => r.activo) ?? null;
-
-  // ── LA TARJETA QUE SE ESTÁ MIRANDO en Clientes/Actividad/Métricas ──
-  // Por defecto es la misma principal (`p`): para el negocio con una
-  // sola tarjeta nada cambia. `?tarjeta=<id>` la pisa, y SOLO si ese
-  // id está en `programasEnLista` —las tarjetas reales de ESTE
-  // negocio—, nunca confiando en el string suelto de la URL.
-  //
-  // El botón grande «Escanear» del shell, «Recompensas» y el resto de
-  // Inicio siguen atados a `p`/`meta`: cambiar de pestaña acá NO
-  // cambia a qué tarjeta acredita un escaneo desde el botón de
-  // siempre. Esto es SOLO para mirar y operar el mostrador/auditoría
-  // de la tarjeta elegida — ver selector-tarjeta-activa.tsx.
-  const tarjetaVistaId =
-    tarjeta && programasEnLista.some((pr) => pr.id === tarjeta) ? tarjeta : (p?.id ?? null);
-  const pVista = (
-    tarjetaVistaId === p?.id ? p : (todasLasFilas.find((f) => f.id === tarjetaVistaId) ?? null)
-  ) as ProgramaFila | null;
-
-  // La recompensa activa de la tarjeta que se está mirando, si es
-  // DISTINTA de la principal — mismo criterio que ya corre para `p`
-  // arriba, una sola vez más solo cuando hace falta.
-  const { data: recompensasVista } =
-    admin && pVista && pVista.id !== p?.id
-      ? await admin
-          .from("recompensas")
-          .select("*")
-          .eq("programa_id", pVista.id)
-          .order("costo_puntos", { ascending: true })
-      : { data: null };
   const metaVista: RecompensaFila | null =
     pVista?.id === p?.id ? meta : ((recompensasVista as RecompensaFila[] | null)?.find((r) => r.activo) ?? null);
+
+  const { plan, cuentaId } = contextoCuenta;
+  const def = definicionDe(plan);
 
   // «Activo» acá es la pregunta que decide si el QR lleva a algún lado,
   // así que se responde con `operaAhora`: una tarjeta con estado activo
@@ -414,27 +537,60 @@ export default async function PanelNegocioLealtad({
   const vivas = lasQueOcupanCupo(programasEnLista, ahoraCR);
   const operan = vivas.filter((f) => operaAhora(f, ahoraCR)).length;
 
-  // Lo que dice el ledger. La misma llamada que hace <LealtadEstado>:
-  // `cargarLealtad` está envuelta en `cache()`, así que las dos
-  // secciones del mismo render comparten una sola consulta.
-  const datosLealtad = await cargarLealtad(p?.id ?? null, meta?.costo_puntos ?? null);
+  // ── TANDA 3: lo que necesita la meta (recompensas) o el plan ──────
+  const [
+    // Lo que dice el ledger. La misma llamada que hace <LealtadEstado>:
+    // `cargarLealtad` está envuelta en `cache()`, así que las dos
+    // secciones del mismo render comparten una sola consulta.
+    datosLealtad,
+    // El Top 5 del tablero de Inicio SIEMPRE de la tarjeta PRINCIPAL
+    // (`p`), nunca de la que esté seleccionada en el selector de
+    // Clientes/Métricas (`pVista`): son pantallas distintas y no
+    // tienen por qué mirar la misma tarjeta. `cargarClientesAuditados`
+    // ya trae `visitas` por miembro (movimientos 'ganado' del ledger)
+    // — es el mismo número que ordena "más visitas" en Auditoría, no
+    // un cálculo nuevo.
+    //
+    // Gateado por `permisos.auditoria`: es el MISMO dato que la
+    // pestaña Auditoría de Clientes, que ya no le llega a un
+    // colaborador con solo el permiso de acreditar (default de un
+    // empleado invitado). Ponerlo sin cerrojo en Inicio le habría
+    // abierto por atrás lo que Clientes le cierra por adelante.
+    datosClientesPrincipal,
+    // La vista de auditoría (clientes-datos.ts) se apoya en la MISMA
+    // `cargarLealtad` de arriba — cache() por render, no es una
+    // segunda consulta del padrón (y con una sola tarjeta es LA MISMA
+    // llamada que la de `p`: el cache() la deduplica también dentro de
+    // esta tanda). null cuando no hay programa todavía: la pestaña de
+    // Auditoría se apaga sola, no se rompe.
+    datosClientes,
+    // La suscripción con tarjeta (0143), si la hay. Solo la carga
+    // quien ve la sección Plan — y devuelve null sin la migración
+    // corrida, así que el panel sigue funcionando igual mientras el
+    // dueño la pega.
+    suscripcion,
+    // El mismo cupo que hace cumplir marketing-actions.ts (0183)
+    // contra `notificaciones_promocionales` — fail-open sin `admin`,
+    // mismo criterio que el resto de este archivo.
+    limiteNotificaciones,
+  ] = await Promise.all([
+    cargarLealtad(p?.id ?? null, meta?.costo_puntos ?? null),
+    p && permisos.auditoria
+      ? cargarClientesAuditados(p.id, meta?.costo_puntos ?? null)
+      : Promise.resolve(null),
+    pVista
+      ? cargarClientesAuditados(pVista.id, metaVista?.costo_puntos ?? null)
+      : Promise.resolve(null),
+    admin && puedeDisenar
+      ? suscripcionDelNegocio(admin, { ranchoId: id, cuentaId })
+      : Promise.resolve(null),
+    admin
+      ? estadoCupoNotificaciones(admin, id, plan)
+      : Promise.resolve(estadoDelLimite(plan, "notificacionesMes", 0)),
+  ]);
+
   const miembros = datosLealtad?.resumen.miembros ?? 0;
 
-  // El Top 5 del tablero de Inicio SIEMPRE de la tarjeta PRINCIPAL (`p`),
-  // nunca de la que esté seleccionada en el selector de Clientes/Métricas
-  // (`pVista`, más abajo): son pantallas distintas y no tienen por qué
-  // mirar la misma tarjeta. `cargarClientesAuditados` ya trae `visitas`
-  // por miembro (movimientos 'ganado' del ledger) — es el mismo número
-  // que ordena "más visitas" en Auditoría, no un cálculo nuevo.
-  //
-  // Gateado por `permisos.auditoria`: es el MISMO dato que la pestaña
-  // Auditoría de Clientes, que ya no le llega a un colaborador con solo
-  // el permiso de acreditar (default de un empleado invitado). Ponerlo
-  // sin cerrojo en Inicio le habría abierto por atrás lo que Clientes le
-  // cierra por adelante.
-  const datosClientesPrincipal = p && permisos.auditoria
-    ? await cargarClientesAuditados(p.id, meta?.costo_puntos ?? null)
-    : null;
   const topRecurrentes: ClienteRecurrente[] = (datosClientesPrincipal?.clientes ?? [])
     .filter((c) => c.visitas > 0)
     .sort((a, b) => b.visitas - a.visitas)
@@ -452,37 +608,14 @@ export default async function PanelNegocioLealtad({
     .slice(0, 5)
     .map((c) => ({ miembroId: c.miembroId, nombre: c.nombre, gastoTotal: c.gastoTotal }));
 
-  // La vista de auditoría (clientes-datos.ts) se apoya en la MISMA
-  // `cargarLealtad` de arriba — cache() por render, no es una segunda
-  // consulta del padrón. null cuando no hay programa todavía: la
-  // pestaña de Auditoría se apaga sola, no se rompe.
-  const datosClientes = pVista
-    ? await cargarClientesAuditados(pVista.id, metaVista?.costo_puntos ?? null)
-    : null;
-
-  // El complemento de cercanía (0123): lo pide el editor de la tarjeta
-  // para saber si ofrece el aviso por ubicación.
-  const { data: cercania } = await acceso.supabase.rpc("tiene_addon", {
-    p_rancho_id: id,
-    p_addon: "pases_cercania",
-  });
-
-  // Quién está mirando: el nombre sale de `perfiles`, nunca de la
-  // metadata que el cliente puede escribir.
-  const { data: perfil } = await acceso.supabase
-    .from("perfiles")
-    .select("nombre")
-    .eq("id", acceso.user.id)
-    .maybeSingle();
   const nombreUsuario =
     ((perfil?.nombre as string | null) ?? "").trim() || (acceso.user.email ?? "Tu cuenta");
 
-  // ── El equipo (solo lo carga quien lo puede editar) ─────────────────
+  // El equipo, ya traído en la tanda 1 (solo para quien lo puede
+  // editar); acá nada más se le da forma.
   let equipo: MiembroEquipo[] = [];
-  const puedeEquipo = acceso.esDueno || acceso.esAdmin;
   if (puedeEquipo) {
-    const { data } = await acceso.supabase.rpc("colaboradores_del_rancho", { p_rancho: id });
-    equipo = ((data ?? []) as {
+    equipo = ((equipoCrudo ?? []) as {
       usuario_id: string;
       email: string;
       nombre: string;
@@ -502,58 +635,28 @@ export default async function PanelNegocioLealtad({
     }));
   }
 
-  // ── Las secciones según el permiso ──────────────────────────────────
-  // «Negocio», «Recompensas», «Tarjeta digital» y «Plan» son del DUEÑO:
-  // colores, logo, regalías y paquete se tocan sin pedirle permiso a
-  // nadie. Los colaboradores no las ven — su checklist gobierna la
-  // operación diaria, no la identidad ni la plata de la marca.
-  const puedeDisenar = acceso.esDueno || acceso.esAdmin;
   const slug = rancho.slug as string | null;
-
-  // El plan sale de la CUENTA desde la 0134 (`cuentas.plan`), con el
-  // del rancho como respaldo mientras la migración no esté corrida.
-  // Toda la pantalla —topes, capacidades, medidores— cuelga de acá,
-  // así que resolverlo en UN lugar evita que media pantalla muestre el
-  // plan nuevo y la otra media el viejo.
-  const { plan, cuentaId } = admin
-    ? await contextoDeCuenta(admin, (p ?? {}) as Record<string, unknown>, {
-        planRancho: rancho.plan_lealtad as string | null,
-      })
-    : { plan: (rancho.plan_lealtad as string | null) ?? null, cuentaId: null };
-  const def = definicionDe(plan);
-
-  // La suscripción con tarjeta (0143), si la hay. Solo la carga quien
-  // ve la sección Plan — y devuelve null sin la migración corrida, así
-  // que el panel sigue funcionando igual mientras el dueño la pega.
-  const suscripcion =
-    admin && puedeDisenar ? await suscripcionDelNegocio(admin, { ranchoId: id, cuentaId }) : null;
 
   // ── Geo-Push (0196): las ubicaciones del negocio ────────────────
   // `null` = la consulta falló (típicamente: la tabla no existe porque
   // la migración se aplica aparte). La sección se pinta con su aviso
   // neutro y el RESTO del panel sigue vivo — el mismo criterio
-  // degradable que `suscripcionDelNegocio`, acá arriba.
+  // degradable que `suscripcionDelNegocio`. Por eso la tanda 1 guarda
+  // la respuesta ENTERA: acá se distingue el error de la lista vacía.
   let ubicaciones: UbicacionFila[] | null = null;
-  if (admin && puedeDisenar) {
-    const { data: filasUbic, error: errorUbic } = await admin
-      .from("lealtad_ubicaciones")
-      .select("id, nombre, latitud, longitud, mensaje")
-      .eq("rancho_id", id)
-      .order("created_at", { ascending: true });
-    if (!errorUbic) {
-      ubicaciones = ((filasUbic ?? []) as Record<string, unknown>[]).map(
-        (u): UbicacionFila => ({
-          id: String(u.id),
-          nombre: typeof u.nombre === "string" ? u.nombre : "",
-          latitud: Number(u.latitud),
-          longitud: Number(u.longitud),
-          mensaje: typeof u.mensaje === "string" ? u.mensaje : "",
-        }),
-      );
-    }
+  if (respuestaUbicaciones && !respuestaUbicaciones.error) {
+    ubicaciones = ((respuestaUbicaciones.data ?? []) as Record<string, unknown>[]).map(
+      (u): UbicacionFila => ({
+        id: String(u.id),
+        nombre: typeof u.nombre === "string" ? u.nombre : "",
+        latitud: Number(u.latitud),
+        longitud: Number(u.longitud),
+        mensaje: typeof u.mensaje === "string" ? u.mensaje : "",
+      }),
+    );
   }
 
-  // ── El catálogo de productos (0198) ────────────────────────────
+  // ── El catálogo de productos (0198), traído en la tanda 1 ──────
   // DOS lecturas distintas, y no son la misma por quién las usa:
   //
   //   · `catalogo` es la pantalla de CONFIGURACIÓN, del dueño: trae
@@ -568,25 +671,12 @@ export default async function PanelNegocioLealtad({
   //
   // Las dos degradan a «no hay catálogo» sin la 0198, y entonces el
   // mostrador queda exactamente como antes: monto a mano.
-  const catalogo: ProductoCatalogo[] | null =
-    admin && puedeDisenar ? await catalogoDelNegocio(admin, id) : null;
-  const productosDeVenta: ProductoDeVenta[] =
-    admin && permisos.acreditar ? await productosParaVender(admin, id) : [];
 
   // La cuenta regresiva de la prueba. Se pinta EN EL PANEL y no solo en
   // un correo a propósito: el correo se pierde, se filtra o se lee
   // tarde, y el panel es el lugar donde el dueño ya está mirando su
   // programa. Con la fecha a la vista, que la prueba se termine deja de
   // ser una sorpresa aunque el aviso por correo nunca haya salido.
-  const { data: filaAddonPlan } =
-    admin && puedeDisenar
-      ? await admin
-          .from("addons_negocio")
-          .select("vence_en")
-          .eq("rancho_id", id)
-          .eq("addon", "lealtad")
-          .maybeSingle()
-      : { data: null };
   const prueba = estadoDePrueba({
     plan,
     venceEn: (filaAddonPlan?.vence_en as string | null) ?? null,
@@ -594,12 +684,6 @@ export default async function PanelNegocioLealtad({
 
   const topeProgramas = def?.limites.programas ?? null;
   const limiteClientes = estadoDelLimite(plan, "clientesActivos", miembros);
-  // El mismo cupo que hace cumplir marketing-actions.ts (0183) contra
-  // `notificaciones_promocionales` — fail-open sin `admin`, mismo
-  // criterio que el resto de este archivo.
-  const limiteNotificaciones = admin
-    ? await estadoCupoNotificaciones(admin, id, plan)
-    : estadoDelLimite(plan, "notificacionesMes", 0);
 
   // Qué avisos de puesta en marcha cerró QUIEN MIRA (la X del tablero).
   // Se lee acá, en el servidor, para que el aviso cerrado ni siquiera se

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMockupVivo } from "./use-mockup-vivo";
 
 /**
  * LA COMPOSICIÓN ANIMADA DE «LOS QUE DEJARON DE VENIR» (pedido del
@@ -25,19 +26,16 @@ export default function MockupRescate() {
   // y el cliente ya rescatado.
   const [letras, setLetras] = useState(MENSAJE.length);
   const [fase, setFase] = useState<Fase>("rescatado");
-  const [animar, setAnimar] = useState(false);
+
+  // `vivo` reemplaza al viejo `animar`: preferencia de movimiento Y
+  // cercanía al viewport en una sola bandera (`useMockupVivo`), para
+  // que el typewriter no gaste hilo principal fuera de pantalla. El
+  // reset del montaje sobra: el loop entra por `rescatado` —el estado
+  // inicial— y `reinicio` ya deja las letras en cero.
+  const { ref, vivo } = useMockupVivo<HTMLDivElement>();
 
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- arranca el loop una sola vez, tras confirmar que el movimiento es bienvenido
-    setAnimar(true);
-    setLetras(0);
-    setFase("espera");
-  }, []);
-
-  useEffect(() => {
-    if (!animar) return;
+    if (!vivo) return;
     let t: ReturnType<typeof setTimeout>;
     if (fase === "espera") {
       t = setTimeout(() => setFase("tipeo"), 1200);
@@ -58,10 +56,10 @@ export default function MockupRescate() {
       }, 700);
     }
     return () => clearTimeout(t);
-  }, [animar, fase, letras]);
+  }, [vivo, fase, letras]);
 
   const texto = MENSAJE.slice(0, letras);
-  const rescatado = fase === "rescatado" || fase === "reinicio" || !animar;
+  const rescatado = fase === "rescatado" || fase === "reinicio" || !vivo;
   const enviando = fase === "envio";
 
   return (
@@ -74,7 +72,7 @@ export default function MockupRescate() {
        que también quedó vivo en `mockup-hitos.tsx`: los tres salieron
        del mismo molde y el arreglo original no se propagó. Baja al
        dibujo, que es lo que corresponde esconder. */
-    <div className="w-full max-w-[460px]">
+    <div ref={ref} className="w-full max-w-[460px]">
       <p className="sr-only">
         Demostración: el panel te muestra al cliente en riesgo, armás el mensaje con tu
         asesor, lo enviás y el cliente vuelve a estar activo.
@@ -121,7 +119,7 @@ export default function MockupRescate() {
         </p>
         <div className="mt-1.5 min-h-[64px] rounded-xl border border-[#e6e8ee] bg-[#f7f8fb] p-3.5 text-[13px] leading-relaxed text-[#0d1733]">
           {texto}
-          {animar && fase === "tipeo" && (
+          {vivo && fase === "tipeo" && (
             <span className="ml-[1px] inline-block h-[14px] w-[2px] translate-y-[2px] animate-pulse rounded-full bg-[#0f4c9e]" />
           )}
         </div>

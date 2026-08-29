@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMockupVivo } from "./use-mockup-vivo";
 
 /**
  * LA COMPOSICIÓN ANIMADA DE «CUANDO PASAN CERCA» (ago 2026) — el
@@ -21,19 +22,16 @@ export default function MockupCercania() {
   // Quieto: el punto ya está sobre el pin y la notificación visible.
   const [paso, setPaso] = useState(PASOS);
   const [fase, setFase] = useState<Fase>("notificacion");
-  const [animar, setAnimar] = useState(false);
+
+  // `vivo` reemplaza al viejo `animar`: preferencia de movimiento Y
+  // cercanía al viewport en una sola bandera (`useMockupVivo`), así el
+  // punto no recorre el mapa mientras nadie lo mira. El reset del
+  // montaje sobra: el loop entra por `notificacion` —el estado
+  // inicial— y al reiniciar la vuelta ya pone el punto en cero.
+  const { ref, vivo } = useMockupVivo<HTMLDivElement>();
 
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- arranca el loop una sola vez, tras confirmar que el movimiento es bienvenido
-    setAnimar(true);
-    setPaso(0);
-    setFase("acercando");
-  }, []);
-
-  useEffect(() => {
-    if (!animar) return;
+    if (!vivo) return;
     let t: ReturnType<typeof setTimeout>;
     if (fase === "acercando") {
       if (paso < PASOS) {
@@ -50,7 +48,7 @@ export default function MockupCercania() {
       }, 900);
     }
     return () => clearTimeout(t);
-  }, [animar, fase, paso]);
+  }, [vivo, fase, paso]);
 
   const notificacionVisible = fase === "notificacion";
   const progreso = Math.min(paso, PASOS) / PASOS;
@@ -79,7 +77,7 @@ export default function MockupCercania() {
        pantalla se encontraba con un hueco mudo. El texto sale afuera
        —es lo único que ese público recibe— y el dibujo se queda
        escondido, que es lo correcto para una ilustración. */
-    <div className="flex justify-center">
+    <div ref={ref} className="flex justify-center">
       <p className="sr-only">
         Cuando el cliente pasa cerca del negocio, la tarjeta le aparece sola en
         la pantalla de bloqueo con el mensaje que el negocio escribió, sin abrir
@@ -177,13 +175,15 @@ export default function MockupCercania() {
                   el estado QUIETO el punto ya está sobre el pin
                   (`progreso === 1`), o sea que `enZona` es verdadero.
 
-                  Ahora depende de `animar`, que es la misma bandera que
-                  gobierna todo lo demás. Con movimiento reducido el
-                  círculo se dibuja QUIETO en vez de desaparecer: la
-                  zona de cobertura es información —muestra hasta dónde
-                  llega el aviso—, no decoración. */}
+                  Ahora depende de `vivo`, que es la misma bandera que
+                  gobierna todo lo demás — movimiento bienvenido Y
+                  mockup a la vista, porque SMIL late aunque nadie mire
+                  y fuera del viewport también conviene el quieto. Con
+                  el reloj pausado el círculo se dibuja QUIETO en vez de
+                  desaparecer: la zona de cobertura es información
+                  —muestra hasta dónde llega el aviso—, no decoración. */}
               {enZona &&
-                (animar ? (
+                (vivo ? (
                   <circle
                     cx={finX}
                     cy={finY}

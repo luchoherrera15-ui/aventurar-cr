@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FICHAS } from "./contenido-tipos";
+import { useMockupVivo } from "./use-mockup-vivo";
 
 /**
  * LA COMPOSICIÓN ANIMADA DEL HERO — ahora cicla TRES tipos de pase, no
@@ -20,7 +21,8 @@ import { FICHAS } from "./contenido-tipos";
  * Respeta `prefers-reduced-motion`: si la persona pidió menos
  * movimiento, el mockup queda quieto en el primer tipo (sellos, 7/10)
  * — la versión estática de siempre. La animación es azúcar, no
- * información.
+ * información. Y desde la auditoría de rendimiento respeta también el
+ * scroll: el reloj corre solo con el mockup a la vista (`useMockupVivo`).
  *
  * "Café Aurora" y "María González" (sellos) siguen siendo la utilería
  * propia del hero (pedido del dueño, ago 2026) — no se tocan. Puntos y
@@ -130,20 +132,19 @@ export default function MockupHeroPase() {
   const [demoIdx, setDemoIdx] = useState(0);
   const [valor, setValor] = useState(VALOR_ESTATICO);
   const [fase, setFase] = useState<Fase>("sumando");
-  const [animar, setAnimar] = useState(false);
+
+  // `vivo` reemplaza al viejo `animar` (que miraba la preferencia de
+  // movimiento una sola vez, al montar): ahora el reloj además se
+  // pausa cuando el hero queda fuera del viewport — que es casi todo
+  // el tiempo de lectura de la página. El reset del montaje sobra: el
+  // estado inicial (sellos, 7/10, fase «sumando») ya es un punto
+  // válido del loop, así que arranca de ahí y sigue solo.
+  const { ref, vivo } = useMockupVivo<HTMLDivElement>();
 
   const demo = DEMOS[demoIdx];
 
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches) return; // quieto: sellos, 7/10
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- arranca el loop una sola vez, tras confirmar que el movimiento es bienvenido
-    setAnimar(true);
-    setValor(7);
-  }, []);
-
-  useEffect(() => {
-    if (!animar) return;
+    if (!vivo) return;
     let t: ReturnType<typeof setTimeout>;
     if (fase === "sumando") {
       if (valor < demo.meta) {
@@ -162,14 +163,14 @@ export default function MockupHeroPase() {
       }, 3600);
     }
     return () => clearTimeout(t);
-  }, [animar, fase, valor, demo, demoIdx]);
+  }, [vivo, fase, valor, demo, demoIdx]);
 
   const canjeada = fase === "canje";
   const restante = Math.max(0, demo.meta - valor);
   const progresoPct = Math.round((valor / demo.meta) * 100);
 
   return (
-    <div className="relative flex h-[560px] items-center justify-center sm:h-[640px]">
+    <div ref={ref} className="relative flex h-[560px] items-center justify-center sm:h-[640px]">
       {/* ── ACÁ REBOTABA UN BOTÓN "¡Ver demos!" Y SE FUE ────────────
           Pedido del dueño (ago 2026): dejar solo el de planes.
 
@@ -255,7 +256,7 @@ export default function MockupHeroPase() {
               <div className="mt-4 grid grid-cols-10 gap-1.5">
                 {Array.from({ length: demo.meta }, (_, i) => {
                   const lleno = i < valor;
-                  const recien = animar && fase === "sumando" && i === valor - 1 && valor > demo.inicio;
+                  const recien = vivo && fase === "sumando" && i === valor - 1 && valor > demo.inicio;
                   return (
                     <span
                       key={i}

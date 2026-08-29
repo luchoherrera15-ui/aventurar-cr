@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icono } from "./panel/[id]/iconos";
 import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
+import { useMockupVivo } from "./use-mockup-vivo";
 
 /**
  * LA COMPOSICIÓN ANIMADA DE «LOS CLIENTES VUELVEN MÁS SEGUIDO».
@@ -121,6 +122,13 @@ const PREMIOS_EJEMPLO = Math.floor(TOTALES.con / META);
 export default function MockupFidelidad() {
   const reducido = useMovimientoReducido();
 
+  /* `vivo` (de `useMockupVivo`) gatea solo el bucle que alterna
+     escenarios: movimiento bienvenido Y mockup cerca del viewport.
+     `reducido` conserva su trabajo propio en las transiciones de CSS y
+     en `desplegado`, que aplican también con el bucle pausado por
+     scroll. */
+  const { ref, vivo } = useMockupVivo<HTMLDivElement>();
+
   /**
    * Arranca en «con tarjeta» —el estado FINAL y completo— y no en
    * «sin».
@@ -161,17 +169,19 @@ export default function MockupFidelidad() {
 
   useEffect(() => {
     // Con movimiento reducido no hay bucle: un gráfico que se da vuelta
-    // solo cada 3,5 s es justo lo que esa preferencia pide evitar. El
+    // solo cada 3,5 s es justo lo que esa preferencia pide evitar. Y
+    // fuera del viewport tampoco (`vivo` junta las dos condiciones):
+    // alternar escenarios que nadie ve es re-renderizar de gratis. El
     // interruptor sigue funcionando a mano, y el estado inicial ya
     // muestra el escenario completo.
-    if (manual || reducido) return;
+    if (manual || !vivo) return;
     const t = setInterval(() => {
       setModo((m) => (m === "con" ? "sin" : "con"));
     }, MS_POR_ESCENARIO);
     // Limpiar SIEMPRE: un intervalo suelto en una landing es CPU
     // quemándose en segundo plano mientras la pestaña siga abierta.
     return () => clearInterval(t);
-  }, [manual, reducido]);
+  }, [manual, vivo]);
 
   function elegir(m: Modo) {
     setManual(true);
@@ -202,7 +212,7 @@ export default function MockupFidelidad() {
   const desplegado = montado || reducido;
 
   return (
-    <div className="w-full max-w-[580px]">
+    <div ref={ref} className="w-full max-w-[580px]">
       {/* ⚠️ ESTE PÁRRAFO VA FUERA DE CUALQUIER `aria-hidden`.
           Un `aria-hidden` esconde el subárbol ENTERO: el bug real que
           documenta `mockup-cercania.tsx` fue exactamente este texto

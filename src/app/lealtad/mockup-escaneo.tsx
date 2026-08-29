@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Icono } from "./panel/[id]/iconos";
 import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
+import { useMockupVivo } from "./use-mockup-vivo";
 
 /**
  * MOCKUP 2 DE 3 — «EL ESCANEO» (ago 2026).
@@ -151,6 +152,12 @@ export default function MockupEscaneo() {
      se apaga en el acto en vez de seguir corriendo hasta recargar. */
   const reducido = useMovimientoReducido();
 
+  /* `vivo` (de `useMockupVivo`) gatea SOLO el bucle automático.
+     `reducido` sigue teniendo trabajo propio: decide si el clic de
+     `sellar()` dibuja el barrido y si las transiciones de CSS corren —
+     cosas que aplican aunque el bucle esté pausado por scroll. */
+  const { ref, vivo } = useMockupVivo<HTMLDivElement>();
+
   const [sellos, setSellos] = useState(INICIAL);
   const [fase, setFase] = useState<Fase>("listo");
   /** true en cuanto el visitante toca el botón: el bucle automático cede. */
@@ -177,12 +184,16 @@ export default function MockupEscaneo() {
   }, [fase, sellos]);
 
   /* ── El bucle automático: una visita cada ~2,5 s ──────────────────
-     Se apaga con `reducido` (no hay movimiento que ofrecer) y con
-     `tomado` (manda el visitante). El tramo `escaneando` se saltea acá
-     a propósito: ese lo cierra el efecto de arriba, y dos timers sobre
-     la misma fase se pisarían. */
+     Se apaga con `!vivo` (movimiento reducido O mockup fuera del
+     viewport: un mostrador atendiendo solo, sin nadie mirando, es CPU
+     regalada) y con `tomado` (manda el visitante). El tramo
+     `escaneando` se saltea acá a propósito: ese lo cierra el efecto de
+     arriba, y dos timers sobre la misma fase se pisarían. Ese efecto
+     tampoco se gatea con `vivo`: es el remate one-shot de UNA lectura
+     ya arrancada (720 ms), y cortarlo a mitad dejaría el barrido
+     corriendo sin acreditar nada. */
   useEffect(() => {
-    if (reducido || tomado || fase === "escaneando") return;
+    if (!vivo || tomado || fase === "escaneando") return;
     let t: ReturnType<typeof setTimeout>;
     if (fase === "listo") {
       t = setTimeout(
@@ -203,7 +214,7 @@ export default function MockupEscaneo() {
       t = setTimeout(() => setFase("escaneando"), 520);
     }
     return () => clearTimeout(t);
-  }, [reducido, tomado, fase, sellos, completa]);
+  }, [vivo, tomado, fase, sellos, completa]);
 
   function sellar() {
     // A partir de acá manda el visitante, pase lo que pase.
@@ -261,7 +272,7 @@ export default function MockupEscaneo() {
   const anuncio = textoDelAnuncio();
 
   return (
-    <div className="flex flex-col items-center gap-7">
+    <div ref={ref} className="flex flex-col items-center gap-7">
       {/* ⚠️ ESTE PÁRRAFO VA FUERA DE LOS `aria-hidden` DE ABAJO.
           Un `aria-hidden` esconde el subárbol ENTERO: si el texto queda
           adentro, quien no ve la pantalla se encuentra con un hueco

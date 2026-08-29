@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMockupVivo } from "./use-mockup-vivo";
 
 /**
  * LA COMPOSICIÓN ANIMADA DE «LOS HITOS DEL CLIENTE» (ago 2026).
@@ -32,19 +33,16 @@ export default function MockupHitos() {
   const [saldo, setSaldo] = useState(META);
   const [hitoIndice, setHitoIndice] = useState(HITOS.length - 1);
   const [fase, setFase] = useState<Fase>("notificacion");
-  const [animar, setAnimar] = useState(false);
+
+  // `vivo` reemplaza al viejo `animar`: preferencia de movimiento Y
+  // cercanía al viewport en una sola bandera (`useMockupVivo`), así la
+  // tira no se llena en el fondo mientras nadie la mira. El reset del
+  // montaje sobra: el loop entra por `notificacion` —el estado
+  // inicial, tarjeta llena— y `llenando` ya arranca la vuelta en cero.
+  const { ref, vivo } = useMockupVivo<HTMLDivElement>();
 
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- arranca el loop una sola vez, tras confirmar que el movimiento es bienvenido
-    setAnimar(true);
-    setSaldo(0);
-    setFase("llenando");
-  }, []);
-
-  useEffect(() => {
-    if (!animar) return;
+    if (!vivo) return;
     let t: ReturnType<typeof setTimeout>;
 
     if (fase === "llenando") {
@@ -73,7 +71,7 @@ export default function MockupHitos() {
       t = setTimeout(() => setFase("llenando"), 500);
     }
     return () => clearTimeout(t);
-  }, [animar, fase, saldo]);
+  }, [vivo, fase, saldo]);
 
   const hito = HITOS[hitoIndice];
   const notificacionVisible = fase === "notificacion";
@@ -91,7 +89,7 @@ export default function MockupHitos() {
 
        Ahora el `aria-hidden` baja al teléfono, que es el dibujo, y el
        texto queda afuera: es lo único que ese público recibe. */
-    <div className="flex justify-center">
+    <div ref={ref} className="flex justify-center">
       <p className="sr-only">
         Demostración: a medida que un cliente junta sellos, recibe un correo solo en tres
         momentos — el primer sello, el penúltimo y cuando completa su tarjeta.

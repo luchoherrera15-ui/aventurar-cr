@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMockupVivo } from "./use-mockup-vivo";
 
 /**
  * LA COMPOSICIÓN ANIMADA DE «MARKETING» (pedido del dueño, ago 2026):
@@ -15,6 +16,8 @@ import { useEffect, useState } from "react";
  * misma regla con `prefers-reduced-motion`: si la persona pidió menos
  * movimiento, todo queda quieto con el anuncio ya escrito y la
  * notificación ya visible — la animación es azúcar, no información.
+ * Desde la auditoría de rendimiento la regla también vale para el
+ * scroll: el reloj corre solo con el mockup a la vista (`useMockupVivo`).
  *
  * "Café Aurora" es la misma utilería declarada del hero, nunca un
  * negocio real. El texto del anuncio también es utilería.
@@ -30,19 +33,17 @@ export default function MockupAnuncios() {
   // mismo criterio que el 7/10 estático del hero.
   const [letras, setLetras] = useState(MENSAJE.length);
   const [fase, setFase] = useState<Fase>("notificacion");
-  const [animar, setAnimar] = useState(false);
+
+  // `vivo` reemplaza al viejo `animar`: además de la preferencia de
+  // movimiento, mira si el mockup está cerca del viewport, así el
+  // typewriter no gasta hilo principal mientras el visitante lee otra
+  // parte de la página. Y el reset del montaje sobra: el loop entra
+  // por `notificacion` —que ES el estado inicial— y de ahí gira solo,
+  // igual que cuando reinicia cada vuelta.
+  const { ref, vivo } = useMockupVivo<HTMLDivElement>();
 
   useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (mq.matches) return; // quieto: anuncio escrito y notificación visible
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- arranca el loop una sola vez, tras confirmar que el movimiento es bienvenido
-    setAnimar(true);
-    setLetras(0);
-    setFase("tipeo");
-  }, []);
-
-  useEffect(() => {
-    if (!animar) return;
+    if (!vivo) return;
     let t: ReturnType<typeof setTimeout>;
     if (fase === "tipeo") {
       if (letras < MENSAJE.length) {
@@ -61,14 +62,14 @@ export default function MockupAnuncios() {
       }, 700);
     }
     return () => clearTimeout(t);
-  }, [animar, fase, letras]);
+  }, [vivo, fase, letras]);
 
   const texto = MENSAJE.slice(0, letras);
-  const enviado = fase === "notificacion" || fase === "reinicio" || !animar;
+  const enviado = fase === "notificacion" || fase === "reinicio" || !vivo;
   const notificacionVisible = fase === "notificacion";
 
   return (
-    <div>
+    <div ref={ref}>
       {/* La composición entera es decorativa y va con aria-hidden; el
           texto que tipea NO lleva aria-live a propósito — anunciaría
           letra por letra y eso sí molesta. Lo que un lector de
@@ -102,7 +103,7 @@ export default function MockupAnuncios() {
           </p>
           <div className="mt-1.5 min-h-[96px] rounded-xl border border-[#e6e8ee] bg-[#f7f8fb] p-3.5 text-[13.5px] leading-relaxed text-[#0d1733]">
             {texto}
-            {animar && fase === "tipeo" && (
+            {vivo && fase === "tipeo" && (
               <span className="ml-[1px] inline-block h-[15px] w-[2px] translate-y-[2px] animate-pulse rounded-full bg-[#0f4c9e]" />
             )}
           </div>

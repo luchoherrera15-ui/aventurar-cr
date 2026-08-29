@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { createClient } from "@/lib/supabase/server";
+import { usuarioActual } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import FormularioAuth from "@/app/cuenta/formulario-auth";
 import { coloresDe, metaDeSellos, tarjetaDesdeFila } from "@/lib/wallet/tarjeta";
@@ -120,11 +120,31 @@ export default async function VistaDeTarjeta({
     );
   }
 
-  const { data: negocio } = await admin
-    .from("ranchos")
-    .select("id, nombre, slug")
-    .eq("slug", slug)
-    .maybeSingle();
+  // ── TANDA 1 de 3: el negocio, y quién lo está mirando ─────────────
+  //
+  // Esta pantalla llegó a encadenar SEIS idas y vueltas en fila —y es
+  // la página que el cliente escanea parado en el mostrador, donde
+  // cada 100 ms se sienten—. Casi ninguna necesitaba a la anterior,
+  // así que ahora van en tres tandas por dependencia real:
+  //
+  //   1. negocio (por slug)  ‖  cookies  ‖  sesión (local, ver abajo)
+  //   2. tarjetas del negocio (necesita negocio.id)  ‖  identidad de
+  //      la persona (necesita cookie + sesión, NO necesita el negocio)
+  //   3. recompensa (necesita la tarjeta elegida)  ‖  afiliación
+  //      (necesita identidad + negocio.id)
+  //
+  // `usuarioActual()` en vez del `supabase.auth.getUser()` que vivía
+  // acá: ese era un viaje de ~150 ms a /auth/v1/user que el middleware
+  // ya pagó en esta misma petición. `usuarioActual` lee la sesión
+  // local (`getSession`, con cache() por render) — y lo que se decide
+  // con ella acá es PRESENTACIÓN (formulario vs. botones de Wallet):
+  // la emisión real del pase re-verifica la afiliación en su propia
+  // ruta contra la base, así que una cookie inventada no consigue nada.
+  const [{ data: negocio }, jar, user] = await Promise.all([
+    admin.from("ranchos").select("id, nombre, slug").eq("slug", slug).maybeSingle(),
+    cookies(),
+    usuarioActual(),
+  ]);
 
   // EL QR MAL IMPRESO TIENE SU PROPIA PANTALLA. Antes esto era un
   // `notFound()`, el mismo que salía cuando el negocio pausaba su
@@ -151,10 +171,27 @@ export default async function VistaDeTarjeta({
   //
   // `select *` porque las columnas de las 0134/0135/0136/0199 pueden no
   // existir todavía y una lista explícita fallaría entera.
-  const { data: filasCrudas } = await admin
-    .from("programa_lealtad")
-    .select("*")
-    .eq("rancho_id", negocio.id);
+  //
+  // ── TANDA 2: las tarjetas ‖ quién es esta persona ─────────────────
+  // La identidad viaja en paralelo a propósito: solo depende de la
+  // cookie del alta por QR (0138) y de la sesión — no de qué tarjeta
+  // pida el link. Si el QR trae una llave rota y abajo se corta con un
+  // aviso, se habrán hecho un par de lecturas de más; en el camino
+  // normal (el de la fila de la caja) se ahorra un viaje entero.
+  const [{ data: filasCrudas }, identidad] = await Promise.all([
+    admin.from("programa_lealtad").select("*").eq("rancho_id", negocio.id),
+    identidadDeQuienPide(admin, {
+      token: jar.get(NOMBRE_COOKIE_PERSONA)?.value ?? null,
+      // NO `user?.id`: el chat flotante del sitio abre una sesión
+      // ANÓNIMA de Supabase, que también es una fila de `auth.users`.
+      // Tomándola por cuenta, esta pantalla daba por «conocida» a una
+      // persona de la que no sabía NADA: se saltaba el formulario de
+      // dos campos, la afiliaba sin nombre, sin correo, sin teléfono,
+      // sin vínculo con el negocio y sin consentimiento. Ver
+      // `personas.ts`.
+      clienteId: idDeCuentaDeBookea(user),
+    }),
+  ]);
 
   const ahoraCR = minutoISOCR();
   // Ordenadas de la más vieja a la más nueva: es el desempate que usa
@@ -206,45 +243,11 @@ export default async function VistaDeTarjeta({
   const { config } = tarjetaDesdeFila(programa);
   const colores = coloresDe(config);
 
+  // ── TANDA 3: la regalía ‖ el estado de la afiliación ──────────────
+  //
   // La regalía que promete: la recompensa activa más barata, igual que
   // en el pase. Si cambia allá, cambia acá sola.
-  const { data: recompensa } = await admin
-    .from("recompensas")
-    .select("nombre, costo_puntos")
-    .eq("programa_id", programaId)
-    .eq("activo", true)
-    .order("costo_puntos", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  const total = metaDeSellos(
-    recompensa
-      ? {
-          nombre: recompensa.nombre as string,
-          costo_puntos: recompensa.costo_puntos as number,
-        }
-      : null,
-  );
-
-  // ¿Ya sabemos quién es? Dos caminos y ninguno pide escribir nada: la
-  // cookie del alta por QR (0138) y la sesión de Bookea, para quien
-  // además tenga cuenta.
-  const jar = await cookies();
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const identidad = await identidadDeQuienPide(admin, {
-    token: jar.get(NOMBRE_COOKIE_PERSONA)?.value ?? null,
-    // NO `user?.id`: el chat flotante del sitio abre una sesión ANÓNIMA
-    // de Supabase, que también es una fila de `auth.users`. Tomándola
-    // por cuenta, esta pantalla daba por «conocida» a una persona de la
-    // que no sabía NADA: se saltaba el formulario de dos campos, la
-    // afiliaba sin nombre, sin correo, sin teléfono, sin vínculo con el
-    // negocio y sin consentimiento. Ver `personas.ts`.
-    clienteId: idDeCuentaDeBookea(user),
-  });
-
+  //
   // ── «CONOCIDA» YA NO ES «TIENE UNA FILA EN ALGÚN LADO» ────────────
   //
   // Era `!!(personaId || clienteId)`, o sea: cualquier identificador
@@ -261,13 +264,32 @@ export default async function VistaDeTarjeta({
   // Y lo que NO pasa por acá: el pase que la persona ya tiene en su
   // teléfono. Ese lo refresca `/api/wallet/v1/passes/…`, que no se
   // tocó. Nadie pierde un sello por esto.
-  const afiliacion = await afiliacionDeQuienPide(
-    admin,
-    identidad,
-    // La llave es el rancho: esta ruta se sirve por `slug` de rancho, o
-    // sea que el programa que emite tiene sí o sí este `rancho_id`, y es
-    // por esa columna que `alta_persona_por_qr` escribe el vínculo.
-    { ranchoId: negocio.id as string, cuentaId: null },
+  const [{ data: recompensa }, afiliacion] = await Promise.all([
+    admin
+      .from("recompensas")
+      .select("nombre, costo_puntos")
+      .eq("programa_id", programaId)
+      .eq("activo", true)
+      .order("costo_puntos", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+    afiliacionDeQuienPide(
+      admin,
+      identidad,
+      // La llave es el rancho: esta ruta se sirve por `slug` de rancho, o
+      // sea que el programa que emite tiene sí o sí este `rancho_id`, y es
+      // por esa columna que `alta_persona_por_qr` escribe el vínculo.
+      { ranchoId: negocio.id as string, cuentaId: null },
+    ),
+  ]);
+
+  const total = metaDeSellos(
+    recompensa
+      ? {
+          nombre: recompensa.nombre as string,
+          costo_puntos: recompensa.costo_puntos as number,
+        }
+      : null,
   );
   const conocida = afiliacion.falta === null;
 
