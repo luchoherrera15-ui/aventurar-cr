@@ -6,7 +6,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notificarReservaCompletada } from "@/lib/notificaciones-reserva";
 import { leerCuentasDeCobro, SIN_CUENTAS } from "@/lib/ranchos-publicos";
-import type { HorarioBloque } from "./tipos-lugar";
+import {
+  calcularBaseLugar,
+  parsearPrecioPorPersona,
+  type ModalidadPrecio,
+} from "@/lib/precio-lugar";
+import { promoAplicableDelDia } from "@/lib/promociones";
+import type { PromocionDia } from "@/app/mi-negocio/types";
+import type { HorarioBloque, PrecioTier, ServicioAdicional } from "./tipos-lugar";
 
 const MINUTOS_HOLD = 10;
 
@@ -175,7 +182,19 @@ export type CompletarReservaInput = {
   cedula: string;
   tipo_evento: string;
   invitados: number;
+  /** Las horas contratadas (solo modalidad "hora"): una CANTIDAD que
+   *  elige quien reserva, no un precio. El servidor recalcula el monto
+   *  multiplicándolas por la tarifa que tiene la base. */
+  horas: number;
+  /** Los ids de los servicios adicionales que marcó. También es una
+   *  selección del cliente; el precio de cada servicio lo pone la base. */
+  servicios_ids: string[];
   horario_bloque: HorarioBloque | null;
+  /** Los tres montos de abajo viajan para que el cliente muestre lo
+   *  mismo que verá en su reserva, pero el servidor NO les cree: los
+   *  recalcula contra los precios de la base (ver recalcularMontosReserva)
+   *  y guarda los suyos. «El precio del pedido lo pone la base, no
+   *  TypeScript». */
   monto_total: number;
   deposito_monto: number;
   metodo_pago: "sinpe" | "transferencia";
@@ -192,6 +211,209 @@ export type CompletarReservaInput = {
 const CEDULA_REGEX = /^[0-9-]{7,14}$/;
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const WHATSAPP_REGEX = /^[0-9+\s-]{8,16}$/;
+
+type ClienteServidor = Awaited<ReturnType<typeof createClient>>;
+
+type MontosCalculados = {
+  montoTotal: number;
+  depositoMonto: number;
+  descuentoMonto: number;
+  /** El código en MAYÚSCULAS solo si validó contra la base; null si no
+   *  se mandó o no sirve. Solo este se guarda y se canjea — nunca el
+   *  crudo que mandó el cliente. */
+  codigoValidado: string | null;
+};
+
+/**
+ * Rehace el precio de la reserva LEYÉNDOLO DE LA BASE, nunca del
+ * navegador. (Regla del repo: «el precio del pedido lo pone la base, no
+ * TypeScript».)
+ *
+ * Antes `monto_total`, `deposito_monto` y `descuento_monto` viajaban ya
+ * armados desde el cliente y se guardaban tal cual: quien le escribiera
+ * directo a esta acción podía reservar por ₡0, o inflar el descuento y
+ * con eso encoger la comisión que Bookea devenga (que se calcula sobre
+ * el monto). Acá se corre el MISMO cálculo que enseña la ficha pública
+ * —los mismos módulos, calcularBaseLugar y promoAplicableDelDia, para no
+ * divergir de lo que la persona vio— pero con las tarifas del negocio y
+ * la validación real del código. Del cliente solo se creen las
+ * CANTIDADES que eligió (invitados, horas, cuáles servicios); los
+ * precios salen todos de la base.
+ *
+ * Devuelve un error legible si el lugar no tiene precio calculable para
+ * lo elegido (el mismo caso en que la ficha muestra "consultar" y no
+ * deja enviar) o si el grupo excede la capacidad.
+ */
+async function recalcularMontosReserva(
+  supabase: ClienteServidor,
+  ranchoId: string,
+  fecha: string,
+  input: CompletarReservaInput,
+): Promise<
+  { montos: MontosCalculados; error: null } | { montos: null; error: string }
+> {
+  const [ranchoRes, tiersRes, svcRes, promoRes] = await Promise.all([
+    supabase
+      .from("ranchos")
+      .select(
+        "modalidad_precio_lugar, precio_hora_lugar, precio_fijo_lugar, precio_hora_diciembre, precio_fijo_diciembre, precio_por_persona, tarifa_diciembre_por_persona, deposito_reserva, capacidad_max",
+      )
+      .eq("id", ranchoId)
+      .maybeSingle(),
+    // `*` y no columnas por nombre: `temporada` (0099) puede no existir
+    // todavía en la base y pedirla explícita rompería la consulta entera
+    // —igual que en la ficha (rancho-portal). Sin la columna, todo cae a
+    // 'normal'.
+    supabase
+      .from("precio_tiers")
+      .select("*")
+      .eq("rancho_id", ranchoId)
+      .order("min_invitados", { ascending: true }),
+    supabase
+      .from("servicios_adicionales")
+      .select("id, nombre, precio, requisito_max_invitados")
+      .eq("rancho_id", ranchoId)
+      .eq("activo", true),
+    supabase
+      .from("promociones_dia")
+      .select("*")
+      .eq("rancho_id", ranchoId)
+      .eq("activo", true),
+  ]);
+
+  const rancho = ranchoRes.data;
+  if (!rancho) {
+    return { montos: null, error: "No se encontró el lugar de esta reserva." };
+  }
+
+  // Capacidad: se revalida acá (el tope del formulario es solo del
+  // navegador) con el mismo mensaje de siempre.
+  const capacidadMax = rancho.capacidad_max as number | null;
+  if (capacidadMax && input.invitados > capacidadMax) {
+    return {
+      montos: null,
+      error: `Este lugar recibe hasta ${capacidadMax} personas — no se puede reservar para más.`,
+    };
+  }
+
+  // Diciembre y día de la semana salen de la FECHA del hold, no de nada
+  // que mande el cliente. El día se arma con componentes locales, no con
+  // new Date("YYYY-MM-DD") (que interpreta UTC y corre el día de la
+  // semana) — exactamente como en booking-calendar.
+  const esDiciembre = fecha.slice(5, 7) === "12";
+  const [anio, mes, diaMes] = fecha.split("-").map(Number);
+  const diaSemana = new Date(anio, mes - 1, diaMes).getDay();
+
+  // Los rangos de diciembre son filas de la misma tabla marcadas con
+  // `temporada` (mismo criterio que la ficha).
+  const filasTiers = (tiersRes.data ?? []) as (PrecioTier & {
+    temporada?: unknown;
+  })[];
+  const esDeDiciembre = (f: { temporada?: unknown }) =>
+    typeof f.temporada === "string" && f.temporada === "diciembre";
+  const soloRango = ({
+    min_invitados,
+    max_invitados,
+    precio,
+  }: PrecioTier): PrecioTier => ({ min_invitados, max_invitados, precio });
+  const tiers = filasTiers.filter((f) => !esDeDiciembre(f)).map(soloRango);
+  const tiersDiciembre = filasTiers.filter(esDeDiciembre).map(soloRango);
+
+  const promociones = (promoRes.data ?? []) as PromocionDia[];
+  const promoAplicable = promoAplicableDelDia(
+    promociones,
+    diaSemana,
+    input.invitados,
+    { esDiciembre },
+  );
+
+  // El precio base del alquiler: misma cascada y mismos datos que la
+  // ficha, pero salidos de la base.
+  const tierBase = calcularBaseLugar({
+    modalidad: (rancho.modalidad_precio_lugar ??
+      "rango_personas") as ModalidadPrecio,
+    esDiciembre,
+    porPersona: parsearPrecioPorPersona(rancho.precio_por_persona),
+    diaSemana,
+    invitados: input.invitados || null,
+    rangos: tiers,
+    rangosDiciembre: tiersDiciembre,
+    tarifaDiciembrePorPersona:
+      (rancho.tarifa_diciembre_por_persona as number | null) ?? 0,
+    horas: input.horas || null,
+    precioHora: (rancho.precio_hora_lugar as number | null) ?? null,
+    precioHoraDiciembre: (rancho.precio_hora_diciembre as number | null) ?? null,
+    precioFijo: (rancho.precio_fijo_lugar as number | null) ?? null,
+    precioFijoDiciembre: (rancho.precio_fijo_diciembre as number | null) ?? null,
+    promoPrecioFijo:
+      promoAplicable?.tipo === "precio_fijo" ? promoAplicable.precio_fijo : null,
+  });
+
+  if (tierBase === null) {
+    // La ficha muestra "consultar" y no deja enviar en este caso; el
+    // servidor tampoco puede inventar un número, así que rechaza en vez
+    // de guardar un ₡0.
+    return {
+      montos: null,
+      error:
+        "No se pudo calcular el precio de esta reserva. Revisá la fecha, la cantidad de invitados u horas, o consultá con el negocio.",
+    };
+  }
+
+  // Servicios adicionales: solo los que el cliente marcó Y que siguen
+  // activos en la base, con la MISMA regla de elegibilidad por invitados
+  // que la ficha. El precio de cada uno sale de la base, no del cliente.
+  const seleccionados = new Set(input.servicios_ids ?? []);
+  const servicios = (svcRes.data ?? []) as ServicioAdicional[];
+  const addonsTotal = servicios.reduce((acc, s) => {
+    if (!seleccionados.has(s.id)) return acc;
+    const elegible =
+      !s.requisito_max_invitados || input.invitados <= s.requisito_max_invitados;
+    return acc + (elegible ? s.precio : 0);
+  }, 0);
+
+  const cotizacionTotal = tierBase + addonsTotal;
+
+  // Promo automática por día: si es de tipo precio_fijo, su efecto ya
+  // quedó dentro de tierBase, así que acá no se resta de nuevo.
+  const descuentoPromoMonto =
+    !promoAplicable || promoAplicable.tipo === "precio_fijo"
+      ? 0
+      : Math.round(
+          cotizacionTotal * ((promoAplicable.porcentaje_descuento ?? 0) / 100),
+        );
+  const totalConPromo = cotizacionTotal - descuentoPromoMonto;
+
+  // Código de descuento: se VALIDA contra la base con verificar (que no
+  // gasta un uso — el canje se hace después, recién si la reserva se
+  // guarda). Nunca se confía en el descuento_monto que mandó el cliente.
+  let descuentoCodigoMonto = 0;
+  let codigoValidado: string | null = null;
+  const codigoCrudo = input.codigo_descuento?.trim();
+  if (codigoCrudo) {
+    const { data: filas } = await supabase.rpc("verificar_codigo_descuento", {
+      p_rancho_id: ranchoId,
+      p_codigo: codigoCrudo,
+    });
+    const fila = (filas as { tipo: string; valor: number }[] | null)?.[0];
+    if (fila) {
+      codigoValidado = codigoCrudo.toUpperCase();
+      descuentoCodigoMonto =
+        fila.tipo === "porcentaje"
+          ? Math.round(totalConPromo * (fila.valor / 100))
+          : Math.min(fila.valor, totalConPromo);
+    }
+  }
+
+  const montoTotal = Math.max(0, totalConPromo - descuentoCodigoMonto);
+  const descuentoMonto = descuentoPromoMonto + descuentoCodigoMonto;
+  const depositoMonto = (rancho.deposito_reserva as number | null) ?? 25000;
+
+  return {
+    montos: { montoTotal, depositoMonto, descuentoMonto, codigoValidado },
+    error: null,
+  };
+}
 
 export async function completarReservaTemporal(
   id: string,
@@ -212,26 +434,63 @@ export async function completarReservaTemporal(
 
   const supabase = await createClient();
 
-  // El límite de invitados en el formulario ya lo topa en capacidad_max,
-  // pero eso es solo del lado del navegador — se vuelve a comprobar acá
-  // por si alguien le escribe directo al servidor.
+  // Necesitamos la FECHA del hold (además del rancho) para recalcular el
+  // precio: diciembre y el día de la semana salen de ahí, jamás del
+  // cliente. Si el hold ya no existe (se venció o se completó), se corta
+  // acá con el mismo aviso que daría la RPC.
   const { data: hold } = await supabase
     .from("reservas")
-    .select("rancho_id")
+    .select("rancho_id, fecha")
     .eq("id", id)
     .maybeSingle();
-  if (hold?.rancho_id) {
-    const { data: ranchoDatos } = await supabase
-      .from("ranchos")
-      .select("capacidad_max")
-      .eq("id", hold.rancho_id)
-      .maybeSingle();
-    const capacidadMax = ranchoDatos?.capacidad_max;
-    if (capacidadMax && input.invitados > capacidadMax) {
-      return {
-        error: `Este lugar recibe hasta ${capacidadMax} personas — no se puede reservar para más.`,
-      };
-    }
+  if (!hold?.rancho_id || !hold?.fecha) {
+    return {
+      error:
+        "Esta reserva ya no está disponible (se venció el tiempo o ya se completó). Elegí la fecha de nuevo.",
+    };
+  }
+
+  // El dinero se rehace en el servidor con los precios de la base: lo que
+  // el cliente haya mandado en monto_total/deposito_monto/descuento_monto
+  // se IGNORA a propósito. La capacidad también se revalida acá adentro.
+  const { montos, error: errorMontos } = await recalcularMontosReserva(
+    supabase,
+    hold.rancho_id as string,
+    hold.fecha as string,
+    input,
+  );
+  if (errorMontos || !montos) {
+    return {
+      error: errorMontos ?? "No se pudo calcular el precio de la reserva.",
+    };
+  }
+
+  // El método de pago se valida server-side: el tipo lo garantiza en la
+  // web, pero quien le escriba directo a la acción podría mandar
+  // cualquier cosa.
+  if (input.metodo_pago !== "sinpe" && input.metodo_pago !== "transferencia") {
+    return { error: "Elegí un método de pago válido." };
+  }
+
+  // No se bloquea la fecha sin comprobante del depósito. Antes esta
+  // exigencia vivía SOLO en el navegador (el botón gris hasta subir la
+  // foto), así que una llamada directa podía pasar el hold a 'pendiente'
+  // —y ocupar el día— sin depositar nada ni adjuntar prueba. Si el
+  // negocio pide depósito (deposito_reserva > 0, el caso por defecto), el
+  // comprobante es obligatorio.
+  if (montos.depositoMonto > 0 && !input.deposito_comprobante_url?.trim()) {
+    return {
+      error:
+        "Para dejar la fecha reservada tenés que subir el comprobante del depósito.",
+    };
+  }
+
+  // Aceptar los términos también se exige acá, no solo en el botón del
+  // formulario.
+  if (!input.terminos_aceptados) {
+    return {
+      error: "Tenés que aceptar los términos y condiciones para reservar.",
+    };
   }
 
   // Este paso pasa por una función security definer en vez de un
@@ -253,15 +512,17 @@ export async function completarReservaTemporal(
       p_tipo_evento: input.tipo_evento,
       p_invitados: input.invitados,
       p_horario_bloque: input.horario_bloque,
-      p_monto_total: input.monto_total,
-      p_deposito_monto: input.deposito_monto,
+      // Los tres montos salen del recálculo del servidor, NO del cliente.
+      p_monto_total: montos.montoTotal,
+      p_deposito_monto: montos.depositoMonto,
       p_metodo_pago: input.metodo_pago,
       p_deposito_comprobante_url: input.deposito_comprobante_url,
       p_terminos_aceptados: input.terminos_aceptados,
       p_aviso_prohibiciones_aceptado: input.aviso_prohibiciones_aceptado,
       p_notas: input.notas,
-      p_codigo_descuento: input.codigo_descuento,
-      p_descuento_monto: input.descuento_monto,
+      // Solo se guarda el código si validó de verdad (nunca el crudo).
+      p_codigo_descuento: montos.codigoValidado,
+      p_descuento_monto: montos.descuentoMonto,
     },
   );
 
@@ -273,13 +534,14 @@ export async function completarReservaTemporal(
     };
   }
 
-  // El monto ya viene descontado desde el cliente (la vista previa del
-  // código usa esta misma función de validación); acá solo se registra
-  // el uso para que no se pueda reutilizar más veces de las permitidas.
-  if (input.codigo_descuento) {
+  // Recién ahora se GASTA un uso del código (la reserva ya quedó
+  // guardada): así un canje no se pierde si el hold se había vencido, y
+  // solo se canjea el código que ya validamos server-side —el mismo con
+  // el que se calculó el descuento—, nunca el crudo que mandó el cliente.
+  if (montos.codigoValidado) {
     await supabase.rpc("redimir_codigo_descuento", {
       p_rancho_id: ranchoId,
-      p_codigo: input.codigo_descuento,
+      p_codigo: montos.codigoValidado,
     });
   }
 

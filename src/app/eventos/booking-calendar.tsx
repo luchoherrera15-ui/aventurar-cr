@@ -743,7 +743,14 @@ export default function BookingCalendar({
       cedula: cedula.trim(),
       tipo_evento: tipoEvento,
       invitados: invitadosNum,
+      // Las CANTIDADES que eligió viajan para que el servidor rehaga el
+      // precio contra la base (no le cree el monto al navegador): las
+      // horas contratadas y cuáles servicios adicionales marcó.
+      horas: horasNum,
+      servicios_ids: Object.keys(addons).filter((sid) => addons[sid]),
       horario_bloque: horarioBloque || null,
+      // El servidor IGNORA estos montos y recalcula los suyos; se mandan
+      // solo para no cambiar la firma a medias.
       monto_total: totalFinal ?? 0,
       deposito_monto: depositoReserva,
       metodo_pago: metodoPago as "sinpe" | "transferencia",

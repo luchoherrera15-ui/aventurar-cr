@@ -5,6 +5,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Cormorant_Garamond } from "next/font/google";
 import { createClient } from "@/lib/supabase/server";
+import { esFuncionInexistente } from "@/lib/visitas";
 import {
   conAlfa,
   PALETA_ALBUM_DEFECTO,
@@ -261,11 +262,14 @@ export default async function AlbumPage({
  * Los colores del álbum: lo que se corrigió a mano en la invitación, o
  * lo que se deduce de su diseño.
  *
- * Se lee con la sesión de quien mira, no con la llave de servicio: la
- * política pública de `invitaciones` deja ver las activas, que son las
- * que tienen álbum vivo. Una invitación en borrador o archivada no se
- * lee y el álbum queda con el crema de siempre — preferible a poner una
- * llave de servicio en una página pública por un color.
+ * Se lee por una función security-definer (`invitacion_paleta_por_id`,
+ * 0221), no directo de la tabla: la migración de seguridad cerró la
+ * lectura anónima de `invitaciones` (era enumerable, con direcciones de
+ * casa adentro). La función devuelve la paleta SOLO de invitaciones
+ * activas, que son las que tienen álbum vivo; una en borrador o
+ * archivada no se lee y el álbum queda con el crema de siempre — igual
+ * que antes, y preferible a poner una llave de servicio en una página
+ * pública por un color.
  */
 async function paletaDeLaInvitacion(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -273,16 +277,30 @@ async function paletaDeLaInvitacion(
 ): Promise<Paleta> {
   if (!invitacionId) return PALETA_ALBUM_DEFECTO;
 
-  const { data } = await supabase
-    .from("invitaciones")
-    .select("paleta, html_personalizado")
-    .eq("id", invitacionId)
+  const { data, error } = await supabase
+    .rpc("invitacion_paleta_por_id", { p_id: invitacionId })
     .maybeSingle();
-  if (!data) return PALETA_ALBUM_DEFECTO;
+
+  // Mientras la 0221 no esté aplicada la función no existe: se cae al
+  // SELECT directo de siempre (que la policy vieja aún permite). Cuando
+  // la migración corra, la función responde y el álbum sigue heredando
+  // los colores; y si por lo que sea no devolviera nada, queda el crema
+  // por defecto, igual que antes.
+  const fila =
+    error && esFuncionInexistente(error)
+      ? (
+          await supabase
+            .from("invitaciones")
+            .select("paleta, html_personalizado")
+            .eq("id", invitacionId)
+            .maybeSingle()
+        ).data
+      : data;
+  if (!fila) return PALETA_ALBUM_DEFECTO;
 
   return paletaDelAlbum({
-    paleta: (data as { paleta?: unknown }).paleta,
-    htmlPersonalizado: (data as { html_personalizado?: string | null })
+    paleta: (fila as { paleta?: unknown }).paleta,
+    htmlPersonalizado: (fila as { html_personalizado?: string | null })
       .html_personalizado,
   });
 }

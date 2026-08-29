@@ -3,7 +3,9 @@ import type { Metadata, Viewport } from "next";
 import { notFound } from "next/navigation";
 import { Cormorant_Garamond } from "next/font/google";
 import { createAnonClient } from "@/lib/supabase/server";
+import { esFuncionInexistente } from "@/lib/visitas";
 import { parsearPreguntas } from "@/lib/invitaciones-preguntas";
+import { sanearHtmlInvitacion } from "@/lib/invitaciones/sanear-html";
 import { fechaLargaCR } from "@/lib/fechas";
 import InvitacionVista, { type Invitacion } from "./invitacion-vista";
 // Las animaciones de las plantillas (inv2-*/inv3-*) viven en su propia
@@ -48,6 +50,17 @@ export const dynamic = "force-static";
 export const revalidate = 60;
 
 /**
+ * Lo que devuelve `invitacion_por_slug`: los campos que pinta la vista
+ * más `preguntas` y `es_ejemplo`, que antes se leían aparte.
+ */
+type InvitacionCargada = Invitacion & {
+  /** Preguntas configurables del RSVP (0068) — jsonb crudo. */
+  preguntas: unknown;
+  /** Copia de vitrina del catálogo (0074): se ve, no se confirma. */
+  es_ejemplo: boolean | null;
+};
+
+/**
  * La invitación, UNA sola vez por visita.
  *
  * Antes esta ruta hacía la misma consulta TRES veces: una en
@@ -55,20 +68,43 @@ export const revalidate = 60;
  * `generateMetadata` (para el título) y otra en la página. Tres idas y
  * vueltas a Supabase de ~55 ms cada una para leer la misma fila.
  * `cache()` de React deduplica por render: la primera que llegue hace
- * el viaje y las otras dos reciben el mismo resultado. Las tres
- * columnas que necesitan ya venían en el select de la página.
+ * el viaje y las otras dos reciben el mismo resultado.
  */
-const cargarInvitacion = cache(async (slug: string) => {
+const cargarInvitacion = cache(async (slug: string): Promise<InvitacionCargada | null> => {
   const supabase = createAnonClient();
-  const { data } = await supabase
-    .from("invitaciones")
-    .select(
-      "id, slug, titulo, anfitriones, mensaje, fecha_evento, hora, lugar_nombre, direccion, maps_url, portada_url, html_personalizado, tema",
-    )
-    .eq("slug", slug)
-    .eq("estado", "activa")
+  // Antes esto era un SELECT directo sobre `invitaciones` con la llave
+  // anónima. La auditoría (docs/seguridad-auditoria-2026-08-29.md,
+  // hallazgo 5) confirmó EN VIVO que la policy abierta dejaba a
+  // cualquiera ENUMERAR la tabla entera —titulo, fecha y hasta la
+  // DIRECCIÓN de casa de cada evento— con un solo
+  // `GET /rest/v1/invitaciones`. RLS no puede exigir el filtro por slug,
+  // así que la fila pasa a venir por una función security-definer (0221)
+  // que solo devuelve la invitación ACTIVA de ESE slug: acceso por link,
+  // nunca listado. De paso trae `preguntas` y `es_ejemplo` en la misma
+  // vuelta, así que las dos consultas por id que había abajo se van.
+  const { data, error } = await supabase
+    .rpc("invitacion_por_slug", { p_slug: slug })
     .maybeSingle();
-  return data as Invitacion | null;
+
+  // Mientras la 0221 no esté aplicada la función no existe: se cae al
+  // SELECT directo de siempre, que la policy vieja todavía le permite al
+  // anónimo. Igual patrón que src/lib/visitas.ts con la 0107. Cuando la
+  // migración corra, la función responde y este respaldo ni se roza; y
+  // aunque se rozara, con la lectura anónima ya revocada devolvería null
+  // sin filtrar nada. Así el código y la migración pueden desplegarse en
+  // cualquier orden sin dejar la invitación en 404.
+  if (error && esFuncionInexistente(error)) {
+    const { data: directo } = await supabase
+      .from("invitaciones")
+      .select(
+        "id, slug, titulo, anfitriones, mensaje, fecha_evento, hora, lugar_nombre, direccion, maps_url, portada_url, html_personalizado, tema, preguntas, es_ejemplo",
+      )
+      .eq("slug", slug)
+      .eq("estado", "activa")
+      .maybeSingle();
+    return (directo as InvitacionCargada | null) ?? null;
+  }
+  return (data as InvitacionCargada | null) ?? null;
 });
 
 // La barra del navegador acompaña al lienzo: marfil en la plantilla
@@ -167,34 +203,40 @@ export default async function InvitacionPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const supabase = createAnonClient();
   const invitacion = await cargarInvitacion(slug);
   if (!invitacion) notFound();
 
-  // Estas dos van juntas: antes eran dos `await` seguidos, o sea dos
-  // idas y vueltas puestas en fila (~55 ms cada una) para leer dos
-  // columnas de la MISMA fila que ya se leyó arriba. Siguen siendo dos
-  // consultas aparte a propósito — cada una tolera que su migración no
-  // haya corrido sin arrastrar a la otra ni a la principal — pero ahora
-  // viajan en paralelo, en una sola tanda.
-  const [{ data: extra }, { data: muestra }] = await Promise.all([
-    // Las preguntas configurables llegaron con la 0068: si la columna no
-    // existe, esta consulta falla sola y el RSVP sigue sin preguntas.
-    supabase.from("invitaciones").select("preguntas").eq("id", invitacion.id).maybeSingle(),
-    // Las copias de vitrina (0074) se ven pero no se confirman: nadie
-    // que llegue desde la landing debe caer en la lista de invitados de
-    // un evento real.
-    supabase.from("invitaciones").select("es_ejemplo").eq("id", invitacion.id).maybeSingle(),
-  ]);
-  const preguntas = parsearPreguntas((extra as { preguntas?: unknown } | null)?.preguntas);
-  const esEjemplo = (muestra as { es_ejemplo?: boolean } | null)?.es_ejemplo === true;
+  // `preguntas` (0068) y `es_ejemplo` (0074) ya vienen en la MISMA
+  // vuelta de `invitacion_por_slug` (0221): antes eran dos consultas
+  // anónimas extra por id sobre la tabla, que la migración de seguridad
+  // dejó sin lectura directa. Un dato ausente degrada suave igual que
+  // antes — sin preguntas el RSVP va como siempre, y `es_ejemplo` en
+  // null cuenta como false (nadie que llegue de la landing cae en la
+  // lista de invitados de un evento real).
+  const preguntas = parsearPreguntas(invitacion.preguntas);
+  const esEjemplo = invitacion.es_ejemplo === true;
 
   // La reescritura se hace sobre una COPIA y solo para esta vista: el
   // marcador data-bookea="abrir-rsvp" que la vista busca en el HTML no
   // se toca, y `cargarInvitacion` sigue devolviendo la fila cruda para
   // metadata y viewport.
+  //
+  // Se SANEA acá, en el servidor, antes de que el HTML baje al
+  // dangerouslySetInnerHTML de la vista: `html_personalizado` lo genera la
+  // IA o lo edita el cliente, y por SSR sus <script> corren de verdad
+  // (XSS). sanearHtmlInvitacion quita <script>, iframes, on* y esquemas
+  // javascript:, y conserva estilos, imágenes y los ganchos data-bookea
+  // (cuenta regresiva y RSVP, que monta React). Va DESPUÉS de reescribir
+  // las fotos, para tener la última palabra sobre lo que se inyecta. Como
+  // el string resultante es estable, el memo del countdown en la vista no
+  // se ve afectado.
   const invitacionServida = invitacion.html_personalizado
-    ? { ...invitacion, html_personalizado: optimizarFotosDelBucket(invitacion.html_personalizado) }
+    ? {
+        ...invitacion,
+        html_personalizado: sanearHtmlInvitacion(
+          optimizarFotosDelBucket(invitacion.html_personalizado),
+        ),
+      }
     : invitacion;
 
   return (
