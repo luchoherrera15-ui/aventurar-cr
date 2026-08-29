@@ -56,7 +56,9 @@ export default function AyudaLealtadPage() {
     // flota; la experiencia trae su fondo. min-h-screen negro para que
     // no se cuele el blanco del layout durante la hidratación.
     <div className="min-h-screen bg-[#05070e]">
-      <NavLealtad />
+      {/* autoOcultar: en esta experiencia inmersiva la barra se esconde
+          al bajar y reaparece al subir, para no tapar el scroll. */}
+      <NavLealtad autoOcultar />
       <ExperienciaCinematografica />
     </div>
   );

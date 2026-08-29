@@ -132,6 +132,10 @@ export default function NavLealtad(props: {
   /** El nombre de la cuenta con sesión. null con sesión pero sin nombre
    *  cargado: entonces se cae a «Mi cuenta». */
   nombre?: string | null;
+  /** Ocultar la barra al bajar y traerla de vuelta al subir. Opt-in
+   *  (solo /lealtad/ayuda lo pide): en el resto de las landings la barra
+   *  se queda fija como siempre. */
+  autoOcultar?: boolean;
 }) {
   const { logueado, nombre } = useSesionDelNav(props);
   const [abierto, setAbierto] = useState(false);
@@ -160,6 +164,29 @@ export default function NavLealtad(props: {
     window.addEventListener("scroll", alScrollear, { passive: true });
     return () => window.removeEventListener("scroll", alScrollear);
   }, []);
+
+  /**
+   * ── OCULTAR AL BAJAR, MOSTRAR AL SUBIR (opt-in) ───────────────────
+   * Solo cuando `autoOcultar` está prendido (lo pide /lealtad/ayuda).
+   * Cerca del tope siempre visible; al bajar se esconde; al subir
+   * reaparece — el patrón clásico. Umbral de 4px para no titilar con
+   * micro-movimientos. `passive: true` por lo mismo que el efecto de
+   * arriba: no bloquear el scroll.
+   */
+  const [oculto, setOculto] = useState(false);
+  useEffect(() => {
+    if (!props.autoOcultar) return;
+    let ultimoY = window.scrollY;
+    const alScrollear = () => {
+      const y = window.scrollY;
+      if (y < 120) setOculto(false);
+      else if (y > ultimoY + 4) setOculto(true);
+      else if (y < ultimoY - 4) setOculto(false);
+      ultimoY = y;
+    };
+    window.addEventListener("scroll", alScrollear, { passive: true });
+    return () => window.removeEventListener("scroll", alScrollear);
+  }, [props.autoOcultar]);
   // Pedido del dueño: que arriba se vea DE QUIÉN es la sesión. Con
   // nombre se muestra el nombre; sin él (sesión sin perfil cargado),
   // «Mi cuenta»; sin sesión, «Ingresar».
@@ -177,7 +204,11 @@ export default function NavLealtad(props: {
      * ve debajo. Los hijos que sí se tocan lo vuelven a encender con
      * `pointer-events-auto`.
      */
-    <header className="pointer-events-none sticky top-0 z-50 px-3 pt-3 sm:px-5 sm:pt-4">
+    <header
+      className={`pointer-events-none sticky top-0 z-50 px-3 pt-3 transition-transform duration-300 will-change-transform sm:px-5 sm:pt-4 ${
+        oculto && !abierto ? "-translate-y-[130%]" : "translate-y-0"
+      }`}
+    >
       {/* LA BURBUJA. `rounded-full` de verdad (es una píldora, no una
           card), vidrio esmerilado siempre puesto, y el fondo/borde/
           sombra suben de intensidad al scrollear.
