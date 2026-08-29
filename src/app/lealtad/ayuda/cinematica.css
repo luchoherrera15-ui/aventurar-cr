@@ -85,19 +85,19 @@
 }
 .cine-cta-fantasma:hover { color: var(--blanco); }
 
-/* ═══ Reveals editoriales (una sola pasada, .cine-vis lo pone el IO) ═══ */
+/* ═══ Reveals editoriales (una sola pasada, .hl-activo lo pone el IO) ═══ */
 .cine-reveal { opacity: 0; transform: translateY(34px); transition: opacity 0.9s cubic-bezier(0.22,1,0.36,1), transform 0.9s cubic-bezier(0.22,1,0.36,1); }
-.cine-vis .cine-reveal, .cine-reveal.cine-vis { opacity: 1; transform: none; }
-.cine-vis .cine-reveal:nth-child(2){transition-delay:.08s}
-.cine-vis .cine-reveal:nth-child(3){transition-delay:.16s}
-.cine-vis .cine-reveal:nth-child(4){transition-delay:.24s}
-.cine-vis .cine-reveal:nth-child(5){transition-delay:.32s}
+.hl-activo .cine-reveal, .cine-reveal.hl-activo { opacity: 1; transform: none; }
+.hl-activo .cine-reveal:nth-child(2){transition-delay:.08s}
+.hl-activo .cine-reveal:nth-child(3){transition-delay:.16s}
+.hl-activo .cine-reveal:nth-child(4){transition-delay:.24s}
+.hl-activo .cine-reveal:nth-child(5){transition-delay:.32s}
 
 /* Text-reveal por clip-path (líneas que suben tras una máscara). */
 .cine-clip { clip-path: inset(0 0 100% 0); transform: translateY(0.3em); opacity: 0; transition: clip-path 1s cubic-bezier(0.22,1,0.36,1), transform 1s cubic-bezier(0.22,1,0.36,1), opacity 1s ease; }
-.cine-vis .cine-clip { clip-path: inset(-10% 0 -10% 0); transform: none; opacity: 1; }
-.cine-vis .cine-clip:nth-child(2){transition-delay:.1s}
-.cine-vis .cine-clip:nth-child(3){transition-delay:.2s}
+.hl-activo .cine-clip { clip-path: inset(-10% 0 -10% 0); transform: none; opacity: 1; }
+.hl-activo .cine-clip:nth-child(2){transition-delay:.1s}
+.hl-activo .cine-clip:nth-child(3){transition-delay:.2s}
 
 /* ═══ HÉROE — flote sutil del teléfono ═══ */
 @keyframes cine-flotar { 0%,100%{transform:translate3d(0,0,0)} 50%{transform:translate3d(0,-16px,0)} }
@@ -178,14 +178,14 @@
 
 /* ═══ Dashboard — barras y perfiles ═══ */
 .cine-barra { transform: scaleY(0); transform-origin: bottom; }
-.cine-vis .cine-barra { animation: barra-crece 1s cubic-bezier(.22,1,.36,1) forwards; }
+.hl-activo .cine-barra { animation: barra-crece 1s cubic-bezier(.22,1,.36,1) forwards; }
 @keyframes barra-crece { to { transform: scaleY(1); } }
-.cine-vis .cine-barra:nth-child(2){animation-delay:.06s}
-.cine-vis .cine-barra:nth-child(3){animation-delay:.12s}
-.cine-vis .cine-barra:nth-child(4){animation-delay:.18s}
-.cine-vis .cine-barra:nth-child(5){animation-delay:.24s}
-.cine-vis .cine-barra:nth-child(6){animation-delay:.30s}
-.cine-vis .cine-barra:nth-child(7){animation-delay:.36s}
+.hl-activo .cine-barra:nth-child(2){animation-delay:.06s}
+.hl-activo .cine-barra:nth-child(3){animation-delay:.12s}
+.hl-activo .cine-barra:nth-child(4){animation-delay:.18s}
+.hl-activo .cine-barra:nth-child(5){animation-delay:.24s}
+.hl-activo .cine-barra:nth-child(6){animation-delay:.30s}
+.hl-activo .cine-barra:nth-child(7){animation-delay:.36s}
 
 /* ═══ Galería horizontal ═══ */
 .cine-galeria { display: flex; gap: 1.25rem; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
@@ -196,6 +196,6 @@
 @media (prefers-reduced-motion: reduce) {
   .cine-flotar,.cine-e1,.cine-e2,.cine-e3,.cine-e4,.cine-hint,.qr-scan { animation: none; }
   .cine-reveal,.cine-clip { opacity: 1 !important; transform: none !important; clip-path: none !important; transition: none !important; }
-  .cine-barra,.cine-vis .cine-barra { transform: scaleY(1); animation: none; }
+  .cine-barra,.hl-activo .cine-barra { transform: scaleY(1); animation: none; }
   .escena-fija[data-fase="0"] .cfg-campo { animation: none; }
 }
