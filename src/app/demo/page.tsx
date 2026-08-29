@@ -49,10 +49,16 @@ import { QrInstalacion, TelefonoConPase } from "./piezas-demo";
  * Los cuatro negocios son FICTICIOS y la página lo declara arriba.
  */
 
-/* La página lee la base en cada visita para saber si los QR pueden ser
-   reales. Cachearla haría que, minutos después de correr el seed,
-   siguiera diciendo «pase de ejemplo» sobre tarjetas que ya existen. */
-export const dynamic = "force-dynamic";
+/* Esta página era force-dynamic: dos consultas de servicio en fila, en
+   CADA visita, para un dato que solo cambia cuando corre el seed. Ahora
+   la consulta vive detrás de `unstable_cache` (una hora, tag
+   "demo-catalogo" — ver estado-tarjetas.ts) y este `revalidate` la
+   acompaña para que el HTML también se regenere: sin él la página
+   quedaría estática del build y los QR congelados hasta el próximo
+   deploy. El peor caso —el seed recién corrido tarda hasta una hora en
+   verse— es benigno: el QR de respaldo apunta a /lealtad/crear y lo
+   dice con honestidad («pase de ejemplo»), no queda un enlace muerto. */
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "Pases demo",

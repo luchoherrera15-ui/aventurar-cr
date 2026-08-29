@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { emisoraDeFilasCrudas } from "@/lib/wallet/programa-principal";
 import { minutoISOCR } from "@/lib/fechas";
@@ -21,31 +22,34 @@ import { minutoISOCR } from "@/lib/fechas";
  * responde que ninguno está vivo y la página cae sola al QR honesto de
  * «pase de ejemplo».
  */
-export async function slugsQueEmiten(slugs: readonly string[]): Promise<Set<string>> {
-  const vivos = new Set<string>();
+async function consultarQueEmiten(slugs: readonly string[]): Promise<string[]> {
   const admin = createAdminClient();
-  if (!admin || slugs.length === 0) return vivos;
+  if (!admin || slugs.length === 0) return [];
 
   try {
-    const { data: negocios } = await admin
-      .from("ranchos")
-      .select("id, slug")
-      .in("slug", [...slugs]);
+    // Las dos consultas eran una CADENA: la de programas esperaba los
+    // ids que devolviera la de negocios, dos idas y vueltas puestas en
+    // fila. Ahora viajan juntas — la de programas ya no necesita los
+    // ids porque filtra por el slug del negocio a través de la FK
+    // (`ranchos!inner`), así que ninguna depende de la otra.
+    const [{ data: negocios }, { data: programas }] = await Promise.all([
+      admin.from("ranchos").select("id, slug").in("slug", [...slugs]),
+      // `select *` y no una lista de columnas: las columnas de las
+      // 0134/0135/0136 pueden no estar en este entorno y una lista
+      // explícita haría fallar la consulta entera (mismo criterio que
+      // /tarjeta/[slug]). El `ranchos!inner(slug)` embebido existe SOLO
+      // para poder filtrar por slug sin conocer los ids; el agrupado de
+      // abajo sigue colgando de `rancho_id`, y a `emisoraDeFilasCrudas`
+      // la clave extra no le cambia nada — recibe Record<string,
+      // unknown> y lee lo suyo.
+      admin
+        .from("programa_lealtad")
+        .select("*, ranchos!inner(slug)")
+        .in("ranchos.slug", [...slugs]),
+    ]);
 
     const filas = (negocios ?? []) as { id: string; slug: string }[];
-    if (filas.length === 0) return vivos;
-
-    // `select *` y no una lista de columnas: las columnas de las
-    // 0134/0135/0136 pueden no estar en este entorno y una lista
-    // explícita haría fallar la consulta entera (mismo criterio que
-    // /tarjeta/[slug]).
-    const { data: programas } = await admin
-      .from("programa_lealtad")
-      .select("*")
-      .in(
-        "rancho_id",
-        filas.map((f) => f.id),
-      );
+    if (filas.length === 0) return [];
 
     const ahoraCR = minutoISOCR();
     const porNegocio = new Map<string, Record<string, unknown>[]>();
@@ -57,13 +61,42 @@ export async function slugsQueEmiten(slugs: readonly string[]): Promise<Set<stri
       else porNegocio.set(id, [p]);
     }
 
+    const vivos: string[] = [];
     for (const negocio of filas) {
       const suyos = porNegocio.get(negocio.id) ?? [];
-      if (emisoraDeFilasCrudas(suyos, ahoraCR)) vivos.add(negocio.slug);
+      if (emisoraDeFilasCrudas(suyos, ahoraCR)) vivos.push(negocio.slug);
     }
-  } catch {
     return vivos;
+  } catch {
+    return [];
   }
+}
 
-  return vivos;
+/**
+ * La consulta, cacheada UNA HORA con el tag "demo-catalogo".
+ *
+ * Este dato solo cambia cuando corre `scripts/sembrar-pases-demo.mjs` —
+ * o sea casi nunca— y aun así /demo lo pedía en vivo, con dos consultas
+ * de servicio, en CADA visita de venta. Adentro no hay `cookies()` ni
+ * sesión: `createAdminClient` sale de puras variables de entorno, que
+ * es justo lo que `unstable_cache` exige.
+ *
+ * El peor caso quedó acotado y es benigno: recién corrido el seed, la
+ * página puede decir «pase de ejemplo» hasta una hora más (el QR
+ * apunta a /lealtad/crear, no a un enlace muerto). Si algún día eso
+ * estorba en una venta, el camino es `revalidateTag("demo-catalogo")`
+ * desde una server action —para eso está el tag—, no volver a
+ * force-dynamic.
+ *
+ * Devuelve y guarda un ARREGLO y no el Set con el que trabaja la
+ * página: `unstable_cache` serializa el resultado para guardarlo, y un
+ * Set serializado queda en `{}` — vacío, sin error y sin aviso.
+ */
+const consultaCacheada = unstable_cache(consultarQueEmiten, ["demo-catalogo"], {
+  revalidate: 3600,
+  tags: ["demo-catalogo"],
+});
+
+export async function slugsQueEmiten(slugs: readonly string[]): Promise<Set<string>> {
+  return new Set(await consultaCacheada(slugs));
 }

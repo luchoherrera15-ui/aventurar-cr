@@ -347,6 +347,15 @@ export async function generarPaseDeLealtad({
 
   // ── Las imágenes ──────────────────────────────────────────────────
   const colores = coloresDe(config);
+
+  // Qué va adentro de cada sello: el logo, uno de los doce dibujos, o
+  // el ícono que subió el negocio (0174). La decisión no se toma acá —
+  // se lee de la config con la misma función que usa la vista previa.
+  // Se lee ANTES de bajar nada: de ella y de la forma de la tira
+  // depende QUÉ archivos hay que pedirle al storage.
+  const sello = selloDeLaConfig(config);
+  const tira = tiraDelPase(config, meta);
+
   /**
    * El logo, bajado UNA vez y recortado UNA vez.
    *
@@ -360,13 +369,25 @@ export async function generarPaseDeLealtad({
    * caso real es una marca blanca aplastada contra blanco— y entonces
    * cada camino se cae a su respaldo de siempre, igual que cuando el
    * negocio no subió ningún logo.
+   *
+   * Y LAS TRES DESCARGAS JUNTAS, no en fila. El logo, la banda y el
+   * ícono propio del sello son archivos independientes del storage que
+   * se pedían uno detrás del otro —el logo acá, los otros dos adentro
+   * de `archivosDeLaTira`— sumando sus latencias en el camino crítico
+   * de una librería que es el hotspot de la factura de Vercel
+   * (docs/rendimiento.md). Las condiciones de descarga son EXACTAMENTE
+   * las que ya regían: la banda solo si la tira la dibuja, y el ícono
+   * propio solo cuando hay círculos que llenar (tipo "sellos") y el
+   * negocio subió el suyo — una tira "banda" o "ninguna" sigue sin
+   * pedirle ese archivo al storage.
    */
-  const logoNegocio = await recortarBordes(await bajarImagen(config.pase_logo_url));
-
-  // Qué va adentro de cada sello: el logo, uno de los doce dibujos, o
-  // el ícono que subió el negocio (0174). La decisión no se toma acá —
-  // se lee de la config con la misma función que usa la vista previa.
-  const sello = selloDeLaConfig(config);
+  const [logoNegocio, banda, iconoPropio] = await Promise.all([
+    bajarImagen(config.pase_logo_url).then(recortarBordes),
+    bajarImagen(tira.tipo === "ninguna" ? null : tira.banda),
+    tira.tipo === "sellos" && sello.clase === "propio"
+      ? bajarImagen(sello.url).then(recortarBordes)
+      : Promise.resolve<Buffer | null>(null),
+  ]);
 
   // El ícono del pase es el cuadradito que el iPhone pone al lado de
   // CADA aviso: el sello acreditado, el anuncio del negocio, el cambio
@@ -388,13 +409,18 @@ export async function generarPaseDeLealtad({
     // la marca.
     ...(await archivosDelLogo(negocio.nombre, logoNegocio)),
     ...(await archivosDeLaTira({
-      tira: tiraDelPase(config, meta),
+      tira,
       colores,
       logo: logoNegocio,
       saldo,
       // El icono del sello (0145/0174). Sin nada elegido —que es el caso
       // de todo lo emitido hasta hoy— la tira se dibuja igual que siempre.
       sello,
+      // La banda y el ícono propio ya vienen bajados (y el ícono,
+      // recortado) del Promise.all de arriba: esta función dibuja, no
+      // descarga.
+      banda,
+      iconoPropio,
       // Dónde y de qué tamaño van los sellos (0212). Se lee con la MISMA
       // función que la vista previa del panel, así el dueño diseña
       // mirando lo que su cliente va a recibir.
@@ -491,15 +517,68 @@ export async function generarPaseDeLealtad({
 }
 
 /**
+ * ── Caché de módulo url → imagen ────────────────────────────────────
+ *
+ * Cada regeneración de un pase volvía a bajar del storage el MISMO
+ * logo, la MISMA banda y el MISMO ícono — y un negocio activo regenera
+ * pases todo el día: cada sello, cada anuncio, cada cambio de diseño.
+ *
+ * El Map vive a nivel de módulo A PROPÓSITO: en serverless una
+ * instancia caliente conserva el estado del módulo entre invocaciones,
+ * así que el segundo pase del día de un negocio (y el de cualquier otro
+ * cliente del mismo negocio que caiga en la misma instancia) ya no
+ * toca el storage. No es un descuido de "estado global" — es
+ * exactamente el comportamiento que se busca. En una instancia fría el
+ * Map arranca vacío y se paga una descarga, como siempre.
+ *
+ * Los límites que lo mantienen inofensivo:
+ *
+ *   · TTL de 15 minutos: un logo recién cambiado puede tardar eso en
+ *     verse en pases nuevos servidos por una instancia caliente. Es el
+ *     mismo orden de frescura que ya tolera todo el circuito (el
+ *     teléfono tampoco refresca el pase al instante).
+ *   · Tope de entradas: las URLs vienen de la base (archivos de hasta
+ *     unos MB cada uno), y sin tope una instancia longeva acumularía
+ *     memoria sin devolverla. El Map itera en orden de inserción, así
+ *     que la primera clave es siempre la más vieja.
+ *   · Solo se guardan descargas EXITOSAS: un fallo de red o un 404 se
+ *     reintenta en la próxima invocación en vez de quedar pegado 15
+ *     minutos devolviendo null.
+ */
+const IMAGEN_TTL_MS = 15 * 60 * 1000;
+const IMAGEN_CACHE_MAX = 60;
+const imagenesBajadas = new Map<string, { buffer: Buffer; vence: number }>();
+
+/**
  * Una imagen del negocio, si la configuró. Un fallo bajándola NO tumba
  * el pase: quien llama se cae a lo de siempre, que es peor pero sirve.
  */
 async function bajarImagen(url: string | null | undefined): Promise<Buffer | null> {
   if (!url) return null;
+
+  const guardada = imagenesBajadas.get(url);
+  if (guardada && guardada.vence > Date.now()) {
+    // Se reinserta para que "recién usada" cuente como "recién llegada"
+    // y el tope de abajo bote siempre la entrada más olvidada.
+    imagenesBajadas.delete(url);
+    imagenesBajadas.set(url, guardada);
+    return guardada.buffer;
+  }
+
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
+    const buffer = Buffer.from(await res.arrayBuffer());
+
+    imagenesBajadas.delete(url);
+    imagenesBajadas.set(url, { buffer, vence: Date.now() + IMAGEN_TTL_MS });
+    while (imagenesBajadas.size > IMAGEN_CACHE_MAX) {
+      const masVieja = imagenesBajadas.keys().next().value;
+      if (masVieja === undefined) break;
+      imagenesBajadas.delete(masVieja);
+    }
+
+    return buffer;
   } catch {
     return null;
   }
@@ -558,6 +637,8 @@ async function archivosDeLaTira({
   logo,
   saldo,
   sello,
+  banda,
+  iconoPropio,
   diseno,
 }: {
   tira: TiraDelPase;
@@ -567,14 +648,23 @@ async function archivosDeLaTira({
   saldo: number;
   /** Qué lleva el sello: el logo, uno de los doce, o el ícono propio. */
   sello: DibujoDelSello;
+  /**
+   * La foto de la banda, YA BAJADA en el Promise.all del flujo
+   * principal (junto con el logo, no después de él). Se dibuja una vez
+   * por escala: es la misma imagen en tres tamaños, no tres descargas.
+   */
+  banda: Buffer | null;
+  /**
+   * El ícono propio (0174), ya bajado Y recortado arriba — o null,
+   * que cubre dos casos distintos con el mismo resultado: esta tarjeta
+   * no lo usa, o el archivo no se pudo bajar/recortar y los círculos
+   * salen lisos del color del negocio, como siempre.
+   */
+  iconoPropio: Buffer | null;
   /** Dónde va cada sello dentro de la tira (0212), ya saneado. */
   diseno: ConfigTira;
 }): Promise<Record<string, Buffer>> {
   if (tira.tipo === "ninguna") return {};
-
-  // La foto se baja UNA vez y se recorta por escala: es la misma imagen
-  // en tres tamaños, no tres descargas.
-  const banda = await bajarImagen(tira.banda);
 
   const enTresEscalas = async (dibujar: (escala: 1 | 2 | 3) => Promise<Buffer>) => {
     const salida: Record<string, Buffer> = {};
@@ -605,21 +695,12 @@ async function archivosDeLaTira({
   // en `imagenDentroDelSello` para que sea la MISMA en el dibujo y en la
   // degradación.
   const cual = imagenDentroDelSello({ sello, hayLogo: !!logo });
-  // El ícono propio se baja acá y no antes: si la tarjeta no tiene
-  // círculos que llenar —una banda sola, o sellos sin meta— no hay
-  // motivo para pedirle el archivo al storage. Va por el MISMO camino
-  // que el logo y la banda: un fallo de red no tumba el pase, deja los
-  // círculos lisos del color del negocio.
-  // El ícono propio necesita SU propio recorte: es otro archivo, no el
-  // logo. El del logo ya vino hecho desde arriba, así que este camino
-  // sigue siendo un solo `trim()` por pase — nunca los dos a la vez,
-  // porque `imagenDentroDelSello` elige uno u otro.
-  const imagenDelSello =
-    cual === "propio" && sello.clase === "propio"
-      ? await recortarBordes(await bajarImagen(sello.url))
-      : cual === "logo"
-        ? logo
-        : null;
+  // El ícono propio ya viene bajado y recortado del flujo principal —
+  // con la MISMA condición que regía acá (solo tipo "sellos" con clase
+  // "propio"): una tarjeta sin círculos que llenar sigue sin pedirle
+  // ese archivo al storage. Elegir entre él y el logo sigue siendo de
+  // `imagenDentroDelSello`, para que la regla viva en un solo lugar.
+  const imagenDelSello = cual === "propio" ? iconoPropio : cual === "logo" ? logo : null;
   const icono = sello.clase === "icono" ? sello.icono : null;
 
   // `logo` en la escalera significa «la imagen de adentro del sello»,

@@ -105,6 +105,57 @@ export async function generateMetadata({
 }
 
 /**
+ * Las fotos que la IA mete en el HTML guardado apuntan al ORIGINAL del
+ * bucket público — archivos de cámara de varios MB que cada invitado
+ * bajaba enteros, treinta invitados por invitación. Acá, y SOLO acá —
+ * este es el único punto donde ese HTML se le sirve a un visitante
+ * (/invitacion/{slug} llega por rewrite a esta misma página); el editor
+ * del admin, el duplicado de /cuenta y la hoja de imprimir siguen
+ * leyendo la columna cruda — cada `src` de `<img>` que apunte a nuestro
+ * bucket se reescribe hacia el optimizador de Next: el mismo archivo
+ * pero a 1080 px y calidad 60, en AVIF/WebP y con el mes de caché del
+ * optimizador. Los tres valores ya existen en next.config (deviceSizes,
+ * qualities, minimumCacheTTL) y el host ya está en remotePatterns: no
+ * se estrena configuración, se usa la que el resto del sitio ya paga.
+ *
+ * La regla es deliberadamente estrecha para no romper invitaciones ya
+ * emitidas:
+ *
+ *   · SOLO etiquetas <img> — un <audio> o <video> pasado por el
+ *     optimizador sería un 400 y una invitación muda;
+ *   · SOLO `src` entre comillas (simples o dobles) — lo único que
+ *     genera la IA y lo único que se puede recortar sin parsear HTML;
+ *   · SOLO URLs que empiecen EXACTAMENTE por nuestro bucket público —
+ *     un src relativo, un data:, otro host o una URL firmada
+ *     (/object/sign/) no casan con el prefijo y quedan tal cual;
+ *   · nada con `&` (sería una entidad HTML o una query que no es
+ *     nuestra) ni `.svg` (el optimizador los rechaza sin
+ *     dangerouslyAllowSVG) — ante la duda, el original de siempre.
+ *
+ * Como la ruta es force-static con revalidate 60, esta pasada corre una
+ * vez por minuto como mucho, no por visita.
+ */
+function optimizarFotosDelBucket(html: string): string {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!base) return html;
+  const prefijo = `${base}/storage/v1/object/public/`;
+
+  return html.replace(/<img\b[^>]*>/gi, (etiqueta) =>
+    // `(\s)` y no `\b`: un boundary también casaría `data-src=`.
+    etiqueta.replace(
+      /(\s)src=(?:"([^"]*)"|'([^']*)')/i,
+      (atributo: string, espacio: string, conDobles?: string, conSimples?: string) => {
+        const url = conDobles ?? conSimples ?? "";
+        if (!url.startsWith(prefijo) || url.includes("&") || /\.svg$/i.test(url)) {
+          return atributo;
+        }
+        return `${espacio}src="/_next/image?url=${encodeURIComponent(url)}&w=1080&q=60"`;
+      },
+    ),
+  );
+}
+
+/**
  * La invitación pública (/i/{slug}): pantalla completa sin el header
  * del sitio. Corre con la llave anónima — la política de la base solo
  * muestra invitaciones activas, así que un borrador o una archivada
@@ -138,9 +189,17 @@ export default async function InvitacionPage({
   const preguntas = parsearPreguntas((extra as { preguntas?: unknown } | null)?.preguntas);
   const esEjemplo = (muestra as { es_ejemplo?: boolean } | null)?.es_ejemplo === true;
 
+  // La reescritura se hace sobre una COPIA y solo para esta vista: el
+  // marcador data-bookea="abrir-rsvp" que la vista busca en el HTML no
+  // se toca, y `cargarInvitacion` sigue devolviendo la fila cruda para
+  // metadata y viewport.
+  const invitacionServida = invitacion.html_personalizado
+    ? { ...invitacion, html_personalizado: optimizarFotosDelBucket(invitacion.html_personalizado) }
+    : invitacion;
+
   return (
     <InvitacionVista
-      invitacion={invitacion}
+      invitacion={invitacionServida}
       preguntas={preguntas}
       esEjemplo={esEjemplo}
       fechaLarga={fechaLargaCR(invitacion.fecha_evento)}

@@ -155,11 +155,22 @@ export default async function AlbumPage({
       {/* La portada, de borde a borde, fundiéndose con el fondo. */}
       {portada && (
         <div className="relative h-[42svh] min-h-[280px] w-full sm:h-[52svh]">
+          {/* `preload` y no `priority`: esta foto ES el LCP de la peor
+              página del sitio (4.888 ms en frío, docs/rendimiento.md) y
+              en Next 16 `priority` quedó deprecada a favor de `preload`
+              (node_modules/next/dist/docs/.../components/image.md), que
+              es la que la doc reserva justo para este caso — el héroe
+              above the fold que define el LCP. Con ella la imagen viaja
+              como <link rel="preload"> en el <head>: el navegador la
+              pide antes de descubrirla en el body, en vez de esperar a
+              que Supabase conteste y el HTML llegue a este div. SOLO la
+              portada: la grilla (galeria.tsx) sigue lazy, que es el
+              default de next/image y ahí es lo correcto. */}
           <Image
             src={`${baseFotos}${portada.path}`}
             alt=""
             fill
-            priority
+            preload
             sizes="100vw"
             className="object-cover"
           />

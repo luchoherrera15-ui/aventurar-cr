@@ -398,9 +398,18 @@ export async function POST(request: Request) {
       if (audiosFinales.length > 0) {
         // Ningún navegador deja sonar audio sin un gesto previo: por eso
         // se pide el botón, no un autoplay que quede mudo y confunda.
+        //
+        // Y `preload="none"`, no "auto": con "auto" el navegador empezaba
+        // a bajar el MP3 entero —hasta 8 MB— apenas se abría la
+        // invitación, compitiendo con las fotos por el ancho de banda de
+        // un teléfono, aun para el invitado que jamás toca el botón de
+        // música. Con "none" el archivo no se pide hasta que algo llame
+        // `.play()` — que es exactamente lo que hacen el botón y el
+        // intento de arranque de abajo — así que el que quiere música la
+        // tiene igual y el que no, no la paga.
         promptFinal +=
           `\n\nMÚSICA DEL CLIENTE (es la banda sonora de la invitación):\n${audiosFinales.join("\n")}` +
-          `\nIncluí <audio id="musica" src="LA_PRIMERA_URL" loop preload="auto"></audio> y un botón flotante ` +
+          `\nIncluí <audio id="musica" src="LA_PRIMERA_URL" loop preload="none"></audio> y un botón flotante ` +
           `(esquina inferior derecha, por encima de todo) que la prenda y la apague, con ícono de nota musical ` +
           `y estado visible. Arrancá intentando reproducirla al abrir; si el navegador lo bloquea, el botón queda ` +
           `parpadeando suave para invitar a tocarlo. Nunca dejes música sin forma de apagarla.`;
