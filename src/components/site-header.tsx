@@ -1,7 +1,7 @@
 ﻿import Link from "next/link";
 import type { ReactNode } from "react";
-import { tieneNegocioPropio } from "@/lib/negocio-propio";
 import AccionesSesion from "./acciones-sesion";
+import BotonPublicarHeader from "./boton-publicar-header";
 
 /**
  * Header público compartido por el directorio, el portal de cada
@@ -89,9 +89,10 @@ export default async function SiteHeader({
    *  tiene efecto si `flotante` también está prendido. */
   segundaFila?: ReactNode;
 }) {
-  // A quien ya publicó no se le ofrece publicar: lo que necesita es la
-  // puerta a su panel.
-  const yaPublica = conPublicar ? await tieneNegocioPropio() : false;
+  // La sesión ya NO se lee acá: ese `await tieneNegocioPropio()` era
+  // un `cookies()` que volvía dinámicas las ~30 páginas que montan
+  // este header — texto fijo incluido. La decide el navegador, en las
+  // islas de abajo (ver use-sesion-publica.ts).
 
   return (
     <header
@@ -166,14 +167,7 @@ export default async function SiteHeader({
 
           <div className="flex shrink-0 items-center gap-3 sm:gap-5">
             {!extraCentrado && extra}
-            {conPublicar && (
-              <Link
-                href={yaPublica ? "/mi-negocio" : "/publicar"}
-                className="hidden whitespace-nowrap text-[13.5px] font-bold text-aventurea-ink hover:text-aventurea-navy sm:block"
-              >
-                {yaPublica ? "Manejá tu espacio" : "Publicá tu espacio"}
-              </Link>
-            )}
+            {conPublicar && <BotonPublicarHeader />}
             <AccionesSesion flotante={flotante} />
           </div>
         </div>

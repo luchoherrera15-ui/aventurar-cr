@@ -271,7 +271,20 @@ Sí aparece otra cosa: **`x-vercel-cache: MISS` en todas las rutas**, incluidas
 `/terminos` y `/politicas`, que son texto fijo. El HTML nunca se sirve desde la
 caché del CDN.
 
-La causa está en el matcher del proxy
+> **CORRECCIÓN (29 ago 2026, auditoría de seguimiento).** El diagnóstico
+> de este párrafo estaba EQUIVOCADO y quedó refutado con una medición:
+> `/lealtad` respondió `X-Vercel-Cache: HIT` con `Age: 124261` (34 horas
+> servida del borde) pasando por el MISMO matcher del proxy. El proxy no
+> impide el caché del CDN. Lo que lo impedía era el RENDER DINÁMICO: el
+> header compartido leía la sesión en el servidor (`cookies()` vía
+> `acciones-sesion.tsx`/`acciones-portada.tsx`/`tieneNegocioPropio()`), y
+> un solo `cookies()` en el árbol vuelve dinámica la ruta entera, con
+> `Cache-Control: private, no-store`. Arreglado ese mismo día moviendo la
+> sesión de los headers a una isla de cliente (`use-sesion-publica.ts`),
+> el patrón que /lealtad ya había probado. El párrafo se conserva como
+> estaba para que se entienda qué se creyó y por qué:
+
+La causa NO está (ver corrección de arriba) en el matcher del proxy
 ([src/proxy.ts:90](../src/proxy.ts#L90)), que agarra **todo** menos los assets:
 
 ```

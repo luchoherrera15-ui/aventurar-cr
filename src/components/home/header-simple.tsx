@@ -91,7 +91,8 @@ export default async function HeaderSimple() {
               Antes acá había un «Iniciar sesión» fijo que decía lo
               mismo con sesión y sin ella: quien ya había entrado veía
               una invitación a entrar otra vez, y no tenía por dónde
-              salir. `AccionesPortada` resuelve la sesión en el servidor
+              salir. `AccionesPortada` resuelve la sesión en el NAVEGADOR
+              (isla de cliente — así este header no vuelve dinámica la página)
               y pinta el nombre con su menú, o el par de siempre. */}
           <AccionesPortada />
 
