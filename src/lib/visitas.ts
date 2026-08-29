@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createAnonClient } from "@/lib/supabase/server";
 import { hoyISOCR } from "@/lib/fechas";
 
 /**
@@ -143,12 +144,45 @@ export function textoVisitas({ periodo }: FraseVisitas): string {
  *
  * Devuelve null ante CUALQUIER problema —base sin migrar, red caída, lo
  * que sea—. Un contador nunca puede tumbar la página de un negocio.
+ *
+ * ⚠️ CACHEADO ENTRE VISITAS, 5 MINUTOS. Las fichas públicas (eventos,
+ * citas y restaurantes) montan este contador en el camino del TTFB, y
+ * la RPC viajaba a la base en CADA visita — por un número decorativo
+ * que a nadie le urge al segundo. La clave lleva el rancho para no
+ * mezclar contadores entre negocios.
+ *
+ * Dentro de `unstable_cache` no se puede tocar `cookies()`; por eso
+ * `resumenDeLaBase` usa el cliente ANÓNIMO: el resumen son dos conteos
+ * agregados, idénticos para cualquiera que mire — un visitante sin
+ * sesión ya llamaba esta RPC con el rol `anon` y veía lo mismo.
+ *
+ * La ESCRITURA (anotar la visita) no pasa por acá: va del navegador a
+ * /api/visitas y NO se cachea — solo la lectura del resumen. Eso sí:
+ * una visita recién anotada puede tardar hasta esos 5 minutos en
+ * sumarse al numerito, y para prueba social alcanza de sobra.
  */
 export async function leerResumenVisitas(
   ranchoId: string,
 ): Promise<ResumenVisitas | null> {
+  const leer = unstable_cache(
+    () => resumenDeLaBase(ranchoId),
+    ["visitas-resumen", ranchoId],
+    { revalidate: 300 },
+  );
   try {
-    const supabase = await createClient();
+    return await leer();
+  } catch {
+    // Sin caché de datos disponible (build, entornos raros) se cae al
+    // viaje directo, que es lo que siempre hubo.
+    return resumenDeLaBase(ranchoId);
+  }
+}
+
+async function resumenDeLaBase(
+  ranchoId: string,
+): Promise<ResumenVisitas | null> {
+  try {
+    const supabase = createAnonClient();
     const { data, error } = await supabase.rpc("visitas_pagina_resumen", {
       p_rancho: ranchoId,
     });

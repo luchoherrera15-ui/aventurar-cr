@@ -287,7 +287,12 @@ export default async function NegocioCitasPage({
    * aproximación sobre las más recientes en vez del total exacto — el
    * promedio grande no, ese sale de `calificaciones_rancho`, que sí
    * cuenta la población completa. */
-  const [{ data: filasCitas }, { data: resenasCrudas }, { data: favData }] = await Promise.all([
+  const [
+    { data: filasCitas },
+    { data: resenasCrudas },
+    { data: favData },
+    { data: programaLealtad },
+  ] = await Promise.all([
     admin
       ? admin
           .from("reservas")
@@ -321,45 +326,53 @@ export default async function NegocioCitasPage({
           .eq("rancho_id", negocio.id)
           .maybeSingle()
       : Promise.resolve({ data: null }),
+    /* ¿Este negocio tiene programa de lealtad activo?
+     *
+     * Con la llave de servicio y `select *`: el programa no le da
+     * lectura al público (0060), y las columnas nuevas (0134-0136)
+     * pueden no existir todavía — una lista explícita fallaría entera.
+     *
+     * Solo necesita `negocio.id`, así que viaja en esta misma tanda
+     * (antes era un await propio, en fila, sumando su ida a Supabase
+     * al TTFB por nada). Si `admin` no está configurado queda en null
+     * y la página sigue igual: la tarjeta de lealtad es un extra; no
+     * puede tumbar la ficha del negocio. */
+    admin
+      ? admin
+          .from("programa_lealtad")
+          .select("*")
+          .eq("rancho_id", negocio.id)
+          .eq("activo", true)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
-  // Quién escribió cada reseña. Consulta aparte porque depende de los
-  // `cliente_id` recién leídos — mismo patrón de dos pasos que ya usa
-  // `quienEscribe` en la ayuda de diseño de Lealtad.
+  // Quién escribió cada reseña: depende de los `cliente_id` recién
+  // leídos — mismo patrón de dos pasos que ya usa `quienEscribe` en la
+  // ayuda de diseño de Lealtad.
   const clienteIds = [...new Set(((resenasCrudas ?? []) as { cliente_id: string }[]).map((r) => r.cliente_id))];
-  const { data: perfilesReviewers } =
+
+  /* Tercera tanda: las dos consultas que SÍ necesitan un resultado de
+   * la anterior — los perfiles piden los `cliente_id` de las reseñas, y
+   * la recompensa pide el id del programa recién leído; por eso ninguna
+   * de las dos pudo viajar arriba. Entre SÍ no se necesitan, así que
+   * van juntas: antes eran awaits en fila y cada uno sumaba su ida a
+   * Supabase (~55 ms, ver la medición de la primera tanda) al TTFB. */
+  const [{ data: perfilesReviewers }, { data: recompensaLealtad }] = await Promise.all([
     clienteIds.length > 0 && admin
-      ? await admin.from("perfiles").select("id, nombre").in("id", clienteIds)
-      : { data: null };
-
-  /* ¿Este negocio tiene programa de lealtad activo?
-   *
-   * Con la llave de servicio y `select *`: el programa no le da lectura
-   * al público (0060), y las columnas nuevas (0134-0136) pueden no
-   * existir todavía — una lista explícita fallaría entera.
-   *
-   * Va aparte de las tandas de arriba a propósito: si `admin` no está
-   * configurado, esto queda en null y la página sigue igual. La tarjeta
-   * de lealtad es un extra; no puede tumbar la ficha del negocio. */
-  const { data: programaLealtad } = admin
-    ? await admin
-        .from("programa_lealtad")
-        .select("*")
-        .eq("rancho_id", negocio.id)
-        .eq("activo", true)
-        .maybeSingle()
-    : { data: null };
-
-  const { data: recompensaLealtad } = admin && programaLealtad
-    ? await admin
-        .from("recompensas")
-        .select("nombre, costo_puntos")
-        .eq("programa_id", programaLealtad.id as string)
-        .eq("activo", true)
-        .order("costo_puntos", { ascending: true })
-        .limit(1)
-        .maybeSingle()
-    : { data: null };
+      ? admin.from("perfiles").select("id, nombre").in("id", clienteIds)
+      : Promise.resolve({ data: null }),
+    admin && programaLealtad
+      ? admin
+          .from("recompensas")
+          .select("nombre, costo_puntos")
+          .eq("programa_id", programaLealtad.id as string)
+          .eq("activo", true)
+          .order("costo_puntos", { ascending: true })
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
 
   const items = (itemsData ?? []) as (RanchoItem & {
     duracion_minutos: number | null;

@@ -1,5 +1,6 @@
 ﻿import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { usuarioActual } from "@/lib/auth";
 import BookingCalendar from "./booking-calendar";
 import ReservaModal from "./reserva-modal";
 import RevealOnScroll from "@/components/reveal-on-scroll";
@@ -207,8 +208,8 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
    * dependiera del anterior — todos filtran por `rancho.id`, que ya
    * viene en las props.
    *
-   * Acá se piden todos juntos. Para un visitante anónimo esto es UNA
-   * tanda (`auth.getUser()` sin cookie de sesión no sale a la red).
+   * Acá se piden todos juntos, en UNA tanda — y la sesión ya ni
+   * siquiera viaja (ver el comentario de `usuarioActual` abajo).
    *
    * DESAPARECIÓ el `DELETE` de reservas temporales vencidas que corría
    * en cada visita pública. No hacía falta para lo que muestra la
@@ -219,8 +220,23 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
    * además algo que vuelve la página imposible de cachear por
    * definición. La limpieza pasó al cron diario de /api/auto-cobro.
    */
-  const [sesion, { data: califData }, { data: resenasData }, datos] = await Promise.all([
-    supabase.auth.getUser(),
+  // ⚠️ `usuarioActual()` y no `supabase.auth.getUser()`. Ese método
+  // manda el token al servidor de auth y ESPERA (~150 ms), y ese mismo
+  // trabajo YA lo hizo el middleware en esta misma petición. El helper
+  // lee la sesión de la cookie, sin red, y está deduplicado por render
+  // — el porqué completo, con su cadena de confianza, está en
+  // lib/auth.ts. Y como no sale a la red, se puede saber quién mira
+  // ANTES de la tanda: eso deja meter la consulta del rol acá abajo en
+  // vez de encadenarla después, esperando otro viaje.
+  const user = await usuarioActual();
+  const esDueno = !!user && user.id === rancho.owner_id;
+
+  const [
+    { data: califData },
+    { data: resenasData },
+    datos,
+    { data: perfilData },
+  ] = await Promise.all([
     // Calificación y reseñas reales (solo de reservas confirmadas).
     supabase
       .from("calificaciones_rancho")
@@ -234,9 +250,16 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
       .order("created_at", { ascending: false })
       .limit(6),
     esLugar ? datosDeLugar(supabase, rancho.id) : datosDeServicio(supabase, rancho.id),
+    // El rol, para el acceso directo de "modificar" (abajo). Solo hace
+    // falta para quien tiene sesión y NO es el dueño — un admin
+    // ayudándolo. Depende apenas de `user.id`, que ya salió de la
+    // cookie sin viaje, así que va en esta misma tanda en vez de en
+    // una consulta encadenada después.
+    user && !esDueno
+      ? supabase.from("perfiles").select("rol").eq("id", user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
-  const user = sesion.data.user;
   const calificacion = califData as { promedio: number; total: number } | null;
   const resenas = (resenasData ?? []) as Resena[];
   const {
@@ -251,19 +274,9 @@ export default async function RanchoPortal({ rancho }: { rancho: RanchoPublico }
 
   // El dueño (o un admin ayudándolo) ve un acceso directo a modificar
   // esta misma publicación, sin tener que buscarla en "Mis publicaciones".
-  let puedeModificar = false;
-  if (user) {
-    if (user.id === rancho.owner_id) {
-      puedeModificar = true;
-    } else {
-      const { data: perfil } = await supabase
-        .from("perfiles")
-        .select("rol")
-        .eq("id", user.id)
-        .maybeSingle();
-      puedeModificar = perfil?.rol === "admin";
-    }
-  }
+  // El rol ya viajó en la tanda de arriba; acá solo se decide.
+  const puedeModificar =
+    esDueno || (perfilData as { rol?: string | null } | null)?.rol === "admin";
 
   /* Los datos de cobro (SINPE, cuenta bancaria) YA NO SE PIDEN EN ESTA
    * PÁGINA. Antes se leían para los Servicios, porque su formulario

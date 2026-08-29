@@ -1,7 +1,8 @@
 import { Suspense, cache } from "react";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createAnonClient } from "@/lib/supabase/server";
 import { CATEGORIA_LABEL, normalizarCategoria, UNIDAD_PRECIO_LABEL } from "@/app/mi-negocio/types";
 import RanchoPortal from "@/app/eventos/rancho-portal";
 import EsqueletoPortal from "@/app/eventos/esqueleto-portal";
@@ -30,8 +31,49 @@ import {
  * deduplica por render: la primera que llegue hace el viaje y la otra
  * recibe el mismo resultado. Mismo patrón que /a/[slug] y /i/[slug].
  */
+/**
+ * ⚠️ DOS CAPAS DE CACHÉ, CADA UNA CONTRA OTRO DESPERDICIO — el espejo
+ * exacto de /citas/[slug], que estrenó el patrón.
+ *
+ * `cache()` de React (afuera) deduplica DENTRO de una visita (lo del
+ * comentario de arriba). `unstable_cache` (adentro) comparte la fila
+ * ENTRE visitas: la ficha de un negocio es idéntica para todo el
+ * mundo, y sin esta capa CADA visita pagaba su propio viaje a la base.
+ *
+ * ── EL CLIENTE ANÓNIMO NO ES OPCIONAL ───────────────────────────────
+ *
+ * Dentro de `unstable_cache` no se puede tocar `cookies()` — y con
+ * razón: lo que se guarde ahí SE LE SIRVE A CUALQUIERA. Acá es seguro
+ * porque la consulta ya filtra `estado = 'aprobado'` y las columnas
+ * son las públicas (`COLUMNAS_PORTAL`, sin SINPE ni datos de cobro;
+ * ver el comentario de abajo). Nada depende de quién mira: un
+ * visitante anónimo ya ejecutaba esta MISMA consulta con el rol `anon`
+ * y veía exactamente lo mismo.
+ *
+ * El tag lleva el slug para que la edición de UN negocio no tire la
+ * caché de todos — y es el mismo `negocio:<slug>` que revienta el
+ * editor de mi-negocio con `updateTag`, así que la invalidación sigue
+ * funcionando sin tocar nada más. La CLAVE, en cambio, va aparte de la
+ * de citas a propósito: es la misma tabla pero otra lista de columnas,
+ * y compartir clave serviría filas incompletas a una de las dos fichas.
+ */
 const cargarNegocio = cache(async (slug: string) => {
-  const supabase = await createClient();
+  const leer = unstable_cache(
+    () => negocioDeLaBase(slug),
+    ["ficha-portal", slug],
+    { revalidate: 60, tags: ["negocio:" + slug] },
+  );
+  try {
+    return await leer();
+  } catch {
+    // Sin caché de datos disponible (build, entornos raros) se cae al
+    // viaje directo, que es lo que siempre hubo.
+    return negocioDeLaBase(slug);
+  }
+});
+
+function negocioDeLaBase(slug: string) {
+  const supabase = createAnonClient();
   // Lista explícita y no `select("*")`: con `*` esta consulta traía
   // también `sinpe_numero`, `sinpe_titular` y los tres campos de la
   // cuenta bancaria, y terminaban dentro del HTML público de la ficha
@@ -49,7 +91,7 @@ const cargarNegocio = cache(async (slug: string) => {
     COLUMNAS_PORTAL,
     COLUMNAS_PORTAL_JOVENES,
   );
-});
+}
 
 /** Lo que necesita el presentador de metadata, sacado de la fila pública. */
 function paraCompartir(rancho: RanchoPublico, slug: string): NegocioSeo {

@@ -43,7 +43,39 @@ export default function MapaPunto({
   const capasRef = useRef<{ calles: TileLayer; satelite: TileLayer } | null>(null);
   const [vistaSatelite, setVistaSatelite] = useState(false);
 
+  /**
+   * El mapa vive al FONDO de la ficha, pero antes se importaba Leaflet
+   * (~145 KB de JS + su CSS) y se pedían los tiles de OSM al hidratar,
+   * para algo que la mayoría nunca llega a ver. Ahora todo eso espera a
+   * que el contenedor se ACERQUE al viewport: 400px de colchón para que
+   * el import y los tiles lleguen antes que el scroll y nadie vea el
+   * mapa armarse. Si el navegador no trae IntersectionObserver (viejo o
+   * de prueba), se arranca en `true` desde el estado inicial — cargar
+   * de más es el fallo bueno, y así no hay setState síncrono en el
+   * efecto.
+   */
+  const [cerca, setCerca] = useState<boolean>(
+    () => typeof IntersectionObserver === "undefined",
+  );
+
   useEffect(() => {
+    if (cerca) return;
+    const el = contenedor.current;
+    if (!el) return;
+    const observador = new IntersectionObserver(
+      (entradas) => {
+        if (entradas.some((e) => e.isIntersecting)) setCerca(true);
+      },
+      { rootMargin: "400px" },
+    );
+    observador.observe(el);
+    return () => observador.disconnect();
+  }, [cerca]);
+
+  useEffect(() => {
+    // Sin acercarse, ni el import ni los tiles: ese es todo el ahorro.
+    if (!cerca) return;
+
     let vivo = true;
     let limpiar: (() => void) | undefined;
 
@@ -54,10 +86,18 @@ export default function MapaPunto({
       await import("leaflet/dist/leaflet.css");
       if (!vivo || !contenedor.current || mapaRef.current) return;
 
-      const mapa = L.map(contenedor.current, { scrollWheelZoom: false }).setView(
-        [latitud, longitud],
-        zoom,
-      );
+      // Quien pidió menos movimiento no tiene por qué ver los tiles
+      // aparecer en fundido ni el zoom animado.
+      const menosMovimiento = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+
+      const mapa = L.map(contenedor.current, {
+        scrollWheelZoom: false,
+        fadeAnimation: !menosMovimiento,
+        zoomAnimation: !menosMovimiento,
+        markerZoomAnimation: !menosMovimiento,
+      }).setView([latitud, longitud], zoom);
       const calles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap",
         maxZoom: 19,
@@ -91,9 +131,10 @@ export default function MapaPunto({
       vivo = false;
       limpiar?.();
     };
-    // Solo al montar: el punto no cambia en vivo en una ficha pública.
+    // Solo `cerca`: el punto no cambia en vivo en una ficha pública,
+    // así que latitud/longitud/zoom quedan fuera a propósito.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [cerca]);
 
   function alternarVista() {
     const mapa = mapaRef.current;
