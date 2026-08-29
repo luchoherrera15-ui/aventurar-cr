@@ -243,6 +243,38 @@ function ScreenPase({ conSellos = false }: { conSellos?: boolean }) {
   );
 }
 
+/** La pantalla bloqueada con las notificaciones que hacen volver. */
+function ScreenNotificacion() {
+  const avisos = [
+    ["☕", "Te falta 1 sello para tu café gratis"],
+    ["🎉", "20% off toda esta semana — te esperamos"],
+    ["💛", "Te extrañamos… ¿un cafecito hoy?"],
+  ];
+  return (
+    <div
+      className="absolute inset-0 flex flex-col px-4 pb-6 pt-14 text-white"
+      style={{ background: "linear-gradient(180deg,#0b1430 0%,#16295e 55%,#1e356e 100%)" }}
+    >
+      <p className="text-center text-[12px] font-semibold text-white/60">martes 20 de agosto</p>
+      <p className="text-center text-[52px] font-extrabold leading-none tabular-nums">9:41</p>
+      <div className="mt-9 flex flex-col gap-2.5">
+        {avisos.map(([emoji, texto]) => (
+          <div key={texto} className="rounded-2xl bg-white/12 px-3 py-2.5 backdrop-blur">
+            <p className="flex items-center gap-1.5 text-[8.5px] font-extrabold uppercase tracking-wide text-white/70">
+              <span className="grid h-4 w-4 place-items-center rounded bg-[#2f6bff] text-[9px]">{emoji}</span>
+              Bookea Lealtad · ahora
+            </p>
+            <p className="mt-1 text-[12px] font-bold leading-tight text-white">{texto}</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-auto text-center text-[9.5px] font-semibold text-white/45">
+        Directo a la tarjeta que ya tienen en el Wallet
+      </p>
+    </div>
+  );
+}
+
 /* ── la galería de rubros (fotos verificadas, por el optimizador) ── */
 const RUBROS = [
   { label: "Barbería", foto: "photo-1599351431202-1e0f0137899a", premio: "Cada 8 cortes, uno gratis" },
@@ -590,7 +622,7 @@ export default function ExperienciaCinematografica() {
       <SeccionViva className="bg-[color:var(--neg-2)] py-32">
         <div className="mx-auto max-w-[1320px] px-6">
           <h2 className="cine-display cine-reveal max-w-[22ch] text-[clamp(38px,6vw,80px)]">
-            PARA CUALQUIER NEGOCIO QUE QUIERA QUE VUELVAN.
+PENSADO PARA TODO TIPO DE NEGOCIO.
           </h2>
         </div>
         <div className="cine-reveal mt-14">
@@ -601,16 +633,37 @@ export default function ExperienciaCinematografica() {
         </div>
       </SeccionViva>
 
-      {/* ═══════════ 07 · PAUSA MINIMALISTA ═══════════ */}
-      <SeccionViva className="flex min-h-[90svh] items-center bg-[color:var(--neg-3)]">
-        <div className="mx-auto max-w-[1100px] px-6 text-center">
-          <h2 className="cine-display mx-auto max-w-[16ch] text-[clamp(44px,9vw,130px)]">
-            <span className="cine-clip block">NO ESPERES</span>
-            <span className="cine-clip block">QUE VUELVAN.</span>
-          </h2>
-          <p className="cine-reveal mt-10 text-[18px] font-semibold text-[color:var(--humo)]">
-            Dales una razón para volver.
-          </p>
+      {/* ═══════════ 07 · NOTIFICACIONES — no esperes, avisáles ═══════════ */}
+      <SeccionViva className="bg-[color:var(--neg-3)] py-32">
+        <div className="mx-auto grid max-w-[1320px] items-center gap-14 px-6 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <p className="cine-kicker cine-reveal">Notificaciones</p>
+            <h2 className="cine-display cine-reveal mt-5 text-[clamp(40px,7vw,96px)]">
+              NO ESPERES.
+              <br />
+              <span className="text-[color:var(--azul-claro)]">AVISÁLES.</span>
+            </h2>
+            <p className="cine-reveal mt-6 max-w-[44ch] text-[17px] leading-relaxed text-[color:var(--humo)]">
+              Con un toque mandás una notificación a la tarjeta que tus clientes
+              ya tienen en el teléfono — una promo, un recordatorio, un martes
+              flojo que querés llenar. Llega directo, sin apps ni números que
+              nadie guardó.
+            </p>
+            <div className="cine-reveal mt-8 flex flex-wrap gap-x-8 gap-y-3">
+              {["Promos y descuentos", "«Te falta 1 sello»", "«Te extrañamos»"].map((t) => (
+                <span key={t} className="flex items-center gap-2 text-[14px] font-bold text-white">
+                  <span className="text-[color:var(--azul-claro)]">✓</span> {t}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="cine-reveal flex justify-center lg:justify-end">
+            <div className="cine-flotar">
+              <MarcoGrande>
+                <ScreenNotificacion />
+              </MarcoGrande>
+            </div>
+          </div>
         </div>
       </SeccionViva>
 
@@ -626,10 +679,11 @@ export default function ExperienciaCinematografica() {
           </MarcoGrande>
         </div>
         <h2 className="cine-display cine-reveal text-[clamp(52px,11vw,140px)]">
-          HAZ QUE<br />VUELVAN.
+          EMPEZÁ<br />HOY.
         </h2>
-        <p className="cine-reveal mt-6 text-[17px] text-[color:var(--humo)]">
-          Empezá a construir relaciones que duran.
+        <p className="cine-reveal mt-6 max-w-[46ch] text-[17px] text-[color:var(--humo)]">
+          Tu programa de lealtad, listo en minutos. Empezá a construir
+          relaciones que duran.
         </p>
         <div className="cine-reveal mt-10 flex flex-wrap items-center justify-center gap-6">
           <Link href="/lealtad/nuevo" className="cine-cta">
