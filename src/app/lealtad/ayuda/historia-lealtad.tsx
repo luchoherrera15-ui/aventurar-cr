@@ -51,7 +51,7 @@ function suavizar(t: number) {
 }
 
 /** Un QR de utilería: dibujo, no dato (mismo criterio que el póster). */
-function QrDibujo({ className = "" }: { className?: string }) {
+export function QrDibujo({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 29 29" className={className} aria-hidden>
       {[
@@ -156,7 +156,7 @@ export function PantallaTarjeta() {
 }
 
 /** Fase 0 · el configurador del plan. */
-function PantallaConfigurador() {
+export function PantallaConfigurador() {
   return (
     <div className="absolute inset-0 flex flex-col px-4 pb-4 pt-10">
       <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#8a91a4]">
@@ -220,7 +220,7 @@ function PantallaConfigurador() {
 }
 
 /** Fase 1 · el QR y las clientas entrando. */
-function PantallaRegistro() {
+export function PantallaRegistro() {
   return (
     <div className="absolute inset-0 flex flex-col px-4 pb-4 pt-10">
       <p className="text-center text-[13px] font-extrabold text-[#0d1733]">
@@ -261,7 +261,7 @@ function PantallaRegistro() {
 }
 
 /** Fase 2 · el mostrador premiando. */
-function PantallaPremiar() {
+export function PantallaPremiar() {
   return (
     <div className="absolute inset-0 flex flex-col px-4 pb-4 pt-10">
       <p className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-[#8a91a4]">Cliente</p>
@@ -330,7 +330,7 @@ function PantallaPremiar() {
 }
 
 /** Fase 3 · las notificaciones que hacen volver. */
-function PantallaNotificaciones() {
+export function PantallaNotificaciones() {
   return (
     <div className="absolute inset-0 flex flex-col px-4 pb-4 pt-10">
       <p className="text-center text-[26px] font-extrabold tabular-nums text-[#0d1733]">9:41</p>
