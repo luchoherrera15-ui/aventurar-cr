@@ -423,7 +423,7 @@ export default function MockupEscaneo() {
         {/* ══ DERECHA — LA PANTALLA DEL NEGOCIO ════════════════════ */}
         <div
           aria-hidden
-          className="w-full max-w-[400px] overflow-hidden rounded-3xl border border-[#e6eaf3] bg-white shadow-[0_35px_80px_-25px_rgba(0,0,0,.45)]"
+          className="w-full max-w-[400px] overflow-hidden rounded-3xl border border-aventurea-line bg-aventurea-surface shadow-[0_24px_60px_-34px_rgba(16,38,88,0.22)]"
         >
           <div className="flex items-center justify-between border-b border-[#edf0f5] px-5 py-3.5">
             <div className="flex items-center gap-2.5">

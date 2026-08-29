@@ -84,8 +84,20 @@ export default function PasosSlider({ pasos }: { pasos: PasoSlide[] }) {
               {/* El mockup no debe capturar el gesto de swipe cuando la
                   persona quiere cambiar de paso arrastrando; pero SÍ es
                   interactivo (sus botones). El swipe se decide arriba por
-                  distancia, así que un clic normal en el mockup pasa. */}
-              <div className="mt-10 select-none">{p.mockup}</div>
+                  distancia, así que un clic normal en el mockup pasa.
+
+                  Se achica con `scale` (los mockups tienen tamaños fijos
+                  por dentro, así que un max-width no los encoge): en el
+                  slider ocupan menos y calzan mejor en una sola sección.
+                  El `origin-top` + margen negativo recorta el hueco que
+                  deja el transform (que no cambia el alto de layout). */}
+              <div className="mt-8 flex select-none justify-center">
+                {/* `zoom` (no `transform: scale`) achica el mockup Y su
+                    caja de layout, así no queda un hueco debajo; los
+                    botones internos siguen respondiendo. Con esto los
+                    tres mockups calzan cómodos en la sección. */}
+                <div style={{ zoom: 0.82 }}>{p.mockup}</div>
+              </div>
             </div>
           ))}
         </div>
