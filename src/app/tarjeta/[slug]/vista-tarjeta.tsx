@@ -304,30 +304,74 @@ export default async function VistaDeTarjeta({
 
   return (
     <Pantalla>
-      {/* La tarjeta, como se va a ver: los colores del negocio. */}
+      {/* La tarjeta, IGUAL al mockup del pase: un gradiente sobre el
+          color del negocio (brillo arriba, sombra abajo → profundidad),
+          encabezado con el logo, la rejilla de sellos y el pie de
+          Wallet. Antes era un rectángulo plano con puntitos que no se
+          parecía en nada a la tarjeta real. */}
       <div
-        className="mx-auto overflow-hidden rounded-2xl p-6 text-left shadow-2xl"
-        style={{ backgroundColor: colores.fondo }}
+        className="mx-auto max-w-[360px] overflow-hidden rounded-3xl p-5 text-left text-white shadow-[0_34px_80px_-30px_rgba(0,0,0,0.65)]"
+        style={{
+          background: `linear-gradient(155deg, rgba(255,255,255,0.10), rgba(0,0,0,0.30)), ${colores.fondo}`,
+        }}
       >
-        <p className="text-[17px] font-light text-white">{nombreNegocio}</p>
-        {total !== null && (
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {Array.from({ length: Math.min(total, 12) }, (_, i) => (
-              <span
-                key={i}
-                className="h-6 w-6 rounded-full"
-                style={{ backgroundColor: colores.sello, opacity: i === 0 ? 1 : 0.26 }}
-              />
-            ))}
-          </div>
-        )}
-        {recompensa && (
-          <p className="mt-4 text-[12.5px] text-white/70">
-            Al completar {recompensa.costo_puntos as number}:{" "}
-            <span className="font-bold text-white">{recompensa.nombre as string}</span>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[16px] font-extrabold leading-tight">
+            {nombreTarjeta || nombreNegocio}
           </p>
+          <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-white">
+            {config.pase_logo_url ? (
+              // El logo del negocio es una URL remota de tamaño fijo (36px):
+              // next/image no aporta acá.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={config.pase_logo_url}
+                alt=""
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span
+                className="text-[15px] font-extrabold"
+                style={{ color: colores.fondo }}
+              >
+                {(nombreNegocio.charAt(0) || "B").toUpperCase()}
+              </span>
+            )}
+          </span>
+        </div>
+
+        {total !== null && (
+          <>
+            <p className="mt-5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-white/70">
+              Tus sellos
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {Array.from({ length: Math.min(total, 12) }, (_, i) => (
+                <span
+                  key={i}
+                  className="h-[26px] w-[26px] rounded-full border"
+                  style={{ borderColor: "rgba(255,255,255,0.45)" }}
+                />
+              ))}
+            </div>
+            <p className="mt-3 text-[13px] font-extrabold">0 / {total} sellos</p>
+          </>
         )}
-        <p className="mt-3 text-right text-[10px] text-white/50">Powered by Bookea.lat</p>
+        <p className="mt-1 text-[12px] text-white/70">
+          {recompensa ? (
+            <>
+              Al completar {recompensa.costo_puntos as number}:{" "}
+              <span className="font-bold text-white">
+                {recompensa.nombre as string}
+              </span>
+            </>
+          ) : (
+            "Sumá un sello en cada visita."
+          )}
+        </p>
+        <p className="mt-4 text-right text-[9px] font-semibold uppercase tracking-wide text-white/45">
+          Powered by Bookea.lat
+        </p>
       </div>
 
       <h1 className="mt-7 text-xl font-bold text-white">Tu tarjeta de {nombreNegocio}</h1>
