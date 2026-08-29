@@ -88,10 +88,24 @@ function QrDibujo({ className = "" }: { className?: string }) {
 function MarcoGrande({ children }: { children: React.ReactNode }) {
   return (
     <div className="relative w-[min(62vw,340px)]">
-      <div className="overflow-hidden rounded-[46px] border-[9px] border-[#0b0f17] bg-[#f6f8fc] shadow-[0_80px_160px_-50px_rgba(0,0,0,0.85)]">
-        <div className="relative aspect-[9/19.2]">
-          <span aria-hidden className="absolute left-1/2 top-3 z-20 h-[22px] w-[96px] -translate-x-1/2 rounded-full bg-[#0b0f17]" />
-          {children}
+      {/* Halo suave detrás: sobre el fondo negro el teléfono se perdía;
+          este resplandor lo despega del fondo sin encender la página. */}
+      <div
+        aria-hidden
+        className="absolute -inset-8 -z-10 rounded-[60px]"
+        style={{ background: "radial-gradient(closest-side, rgba(47,107,255,0.22), rgba(255,255,255,0.05) 45%, transparent 72%)" }}
+      />
+      {/* Bisel metálico: un degradado claro→oscuro con un aro de luz
+          arriba, así el borde del aparato se ve contra el negro. */}
+      <div
+        className="rounded-[48px] p-[3px] shadow-[0_60px_140px_-40px_rgba(0,0,0,0.9)] ring-1 ring-white/15"
+        style={{ background: "linear-gradient(160deg,#3a4256 0%,#232a38 30%,#0d1017 100%)" }}
+      >
+        <div className="overflow-hidden rounded-[45px] border border-black/50 bg-[#f6f8fc]">
+          <div className="relative aspect-[9/19.2]">
+            <span aria-hidden className="absolute left-1/2 top-3 z-20 h-[22px] w-[96px] -translate-x-1/2 rounded-full bg-[#0b0f17]" />
+            {children}
+          </div>
         </div>
       </div>
     </div>
