@@ -93,60 +93,93 @@ const RUBROS: { label: string; foto: string }[] = [
  * «Libre» van a propósito — un día de mentira lleno al 100 % se ve de
  * mentira.
  */
-const AGENDA_EQUIPO: {
+/**
+ * La agenda del panel, DIBUJADA como una rejilla de horas de CRM (no
+ * una lista): cada cita se posiciona por su hora de inicio y ocupa el
+ * alto de su duración, igual que en Fresha o un Google Calendar. Por
+ * eso cada cita lleva `inicio` (HH:MM) y `min` (duración); el nombre
+ * del cliente le da el aire de una agenda real. Es utilería: una
+ * captura de stock envejece, esto no.
+ *
+ * La jornada va de las 9:00 a las 18:00. `fila()` traduce una hora a
+ * la fila de la rejilla (una por cada 30 min); `tramos()` cuántas
+ * filas ocupa. AGENDA_INICIO/AGENDA_FILAS fijan el marco.
+ */
+const AGENDA_INICIO_MIN = 9 * 60; // 9:00
+const AGENDA_FILAS = 18; // 9:00 → 18:00, media hora por fila
+const AGENDA_HORAS = Array.from({ length: 10 }, (_, i) => 9 + i); // 9…18
+
+function aMinutos(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+function fila(hhmm: string): number {
+  return Math.round((aMinutos(hhmm) - AGENDA_INICIO_MIN) / 30) + 1;
+}
+function tramos(min: number): number {
+  return Math.max(1, Math.round(min / 30));
+}
+
+type CitaAgenda = { inicio: string; min: number; titulo: string; cliente: string };
+type LibreAgenda = { inicio: string; min: number };
+type ColaboradorAgenda = {
   nombre: string;
   rol: string;
   iniciales: string;
   color: string;
-  citas: { hora: string; titulo?: string; tono?: string; libre?: boolean }[];
-}[] = [
+  citas: CitaAgenda[];
+  libres: LibreAgenda[];
+};
+
+const AGENDA_EQUIPO: ColaboradorAgenda[] = [
   {
     nombre: "Valeria",
     rol: "Estilista",
     iniciales: "VA",
-    color: "#5b7cc9",
+    color: "#8b9bff",
     citas: [
-      { hora: "9:00", titulo: "Color y peinado", tono: "#dbeafe" },
-      { hora: "11:30", titulo: "Corte y cepillado", tono: "#fce7f3" },
-      { hora: "14:00", libre: true },
-      { hora: "15:30", titulo: "Peinado de evento", tono: "#e0e7ff" },
+      { inicio: "9:00", min: 90, titulo: "Color y peinado", cliente: "María R." },
+      { inicio: "11:30", min: 60, titulo: "Corte y cepillado", cliente: "Camila S." },
+      { inicio: "15:30", min: 90, titulo: "Peinado de evento", cliente: "Andrea M." },
     ],
+    libres: [{ inicio: "14:00", min: 90 }],
   },
   {
     nombre: "Marco",
     rol: "Barbero",
     iniciales: "MA",
-    color: "#b06428",
+    color: "#f0a35e",
     citas: [
-      { hora: "9:30", titulo: "Fade clásico", tono: "#ffedd5" },
-      { hora: "10:30", titulo: "Corte y barba", tono: "#fef9c3" },
-      { hora: "12:00", titulo: "Afeitado clásico", tono: "#ffedd5" },
-      { hora: "15:30", libre: true },
+      { inicio: "9:30", min: 60, titulo: "Fade clásico", cliente: "José P." },
+      { inicio: "10:30", min: 60, titulo: "Corte y barba", cliente: "Luis H." },
+      { inicio: "12:00", min: 60, titulo: "Afeitado clásico", cliente: "Diego C." },
     ],
+    libres: [{ inicio: "15:30", min: 90 }],
   },
   {
     nombre: "Sofía",
     rol: "Uñas",
     iniciales: "SO",
-    color: "#c05299",
+    color: "#f07ec0",
     citas: [
-      { hora: "9:00", titulo: "Gel X — set completo", tono: "#fce7f3" },
-      { hora: "11:00", titulo: "Manicura semipermanente", tono: "#dbeafe" },
-      { hora: "13:30", titulo: "Pedicura spa", tono: "#dcfce7" },
-      { hora: "16:00", titulo: "Retiro y esmaltado", tono: "#fef9c3" },
+      { inicio: "9:00", min: 120, titulo: "Gel X — set completo", cliente: "Nicole V." },
+      { inicio: "11:00", min: 90, titulo: "Manicura semiperm.", cliente: "Karla T." },
+      { inicio: "13:30", min: 90, titulo: "Pedicura spa", cliente: "Paola G." },
+      { inicio: "16:00", min: 60, titulo: "Retiro y esmaltado", cliente: "Mónica L." },
     ],
+    libres: [],
   },
   {
     nombre: "Daniela",
     rol: "Masajista",
     iniciales: "DA",
-    color: "#3f8f6b",
+    color: "#5fd0a3",
     citas: [
-      { hora: "10:00", titulo: "Masaje relajante", tono: "#dcfce7" },
-      { hora: "12:30", libre: true },
-      { hora: "14:00", titulo: "Piedras calientes", tono: "#ffedd5" },
-      { hora: "16:30", titulo: "Masaje deportivo", tono: "#dbeafe" },
+      { inicio: "10:00", min: 60, titulo: "Masaje relajante", cliente: "Fernanda R." },
+      { inicio: "14:00", min: 90, titulo: "Piedras calientes", cliente: "Rodrigo M." },
+      { inicio: "16:30", min: 90, titulo: "Masaje deportivo", cliente: "Esteban Q." },
     ],
+    libres: [{ inicio: "12:30", min: 60 }],
   },
 ];
 
@@ -457,74 +490,164 @@ export default function NegociosPage() {
             vos ves el negocio entero de un vistazo.
           </p>
 
+          {/* ── EL TABLERO OSCURO, ESTILO CRM (dark mode, pedido del
+              dueño 29 ago 2026: «que parezca una verdadera agenda de
+              CRM»). Una sola sección oscura embebida en la página clara,
+              a propósito: es la pantalla del producto. La rejilla es de
+              verdad —columna de horas + una columna por colaborador, con
+              los bloques posicionados por hora y altos según su
+              duración— no una lista maquillada. En móvil la rejilla
+              scrollea horizontal dentro de su caja (min-width), como en
+              cualquier CRM; la página no se va de lado. */}
           <div
             aria-hidden
-            className="mt-9 rounded-3xl border border-aventurea-line bg-white p-4 shadow-[0_30px_70px_-35px_rgba(16,47,82,0.35)] sm:p-6"
+            className="mt-9 overflow-hidden rounded-[26px] border border-white/10 bg-[#0b1120] shadow-[0_50px_120px_-40px_rgba(8,14,30,0.8)]"
           >
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 px-1">
-              <p className="text-[14px] font-extrabold text-aventurea-ink">
-                Viernes 4 de setiembre
-              </p>
-              <span className="rounded-full bg-aventurea-cream-2 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft">
-                13 citas · 3 espacios libres
-              </span>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {AGENDA_EQUIPO.map((col) => (
-                <div key={col.nombre} className="rounded-2xl bg-aventurea-cream-2/60 p-3">
-                  <div className="mb-3 flex items-center gap-2.5">
+            {/* Barra superior: fecha, navegación falsa y el resumen. */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#0e1526] px-5 py-3.5">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-[13px] font-bold text-slate-400">‹</span>
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-[13px] font-bold text-slate-400">›</span>
+                </div>
+                <div className="leading-tight">
+                  <p className="text-[14px] font-extrabold text-slate-100">Viernes 4 de setiembre</p>
+                  <p className="text-[11px] font-semibold text-slate-500">Agenda del día · 4 colaboradores</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="hidden items-center gap-1 rounded-lg bg-white/5 p-0.5 sm:flex">
+                  {["Día", "Semana", "Mes"].map((v, i) => (
                     <span
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold text-white"
-                      style={{ background: col.color }}
+                      key={v}
+                      className={
+                        "rounded-md px-2.5 py-1 text-[11px] font-bold " +
+                        (i === 0 ? "bg-white/10 text-slate-100" : "text-slate-500")
+                      }
                     >
-                      {col.iniciales}
+                      {v}
                     </span>
-                    <span className="min-w-0">
-                      <span className="block truncate text-[13.5px] font-extrabold text-aventurea-ink">
-                        {col.nombre}
+                  ))}
+                </div>
+                <span className="flex items-center gap-1.5 rounded-full bg-emerald-400/10 px-3 py-1 text-[11px] font-extrabold text-emerald-300 ring-1 ring-inset ring-emerald-400/20">
+                  <span className="block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  13 citas · 3 libres
+                </span>
+              </div>
+            </div>
+
+            {/* La rejilla. min-w fuerza el scroll horizontal en móvil. */}
+            <div className="overflow-x-auto">
+              <div className="min-w-[720px]">
+                {/* Cabecera de colaboradores, alineada con la rejilla. */}
+                <div className="grid grid-cols-[56px_repeat(4,1fr)] border-b border-white/10 bg-[#0d1424]">
+                  <div />
+                  {AGENDA_EQUIPO.map((col) => (
+                    <div key={col.nombre} className="flex items-center gap-2.5 border-l border-white/5 px-3 py-3">
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold text-[#0b1120]"
+                        style={{ background: col.color }}
+                      >
+                        {col.iniciales}
                       </span>
-                      <span className="block text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
-                        {col.rol}
+                      <span className="min-w-0">
+                        <span className="block truncate text-[13px] font-extrabold text-slate-100">{col.nombre}</span>
+                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-500">{col.rol}</span>
                       </span>
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {col.citas.map((c) =>
-                      c.libre ? (
+                    </div>
+                  ))}
+                </div>
+
+                {/* El cuerpo: horas + 4 columnas, todo sobre la misma
+                    rejilla de ${AGENDA_FILAS} filas de media hora. */}
+                <div
+                  className="relative grid grid-cols-[56px_repeat(4,1fr)]"
+                  style={{ gridTemplateRows: "repeat(" + AGENDA_FILAS + ", 34px)" }}
+                >
+                  {/* Las líneas de cada hora, de lado a lado. */}
+                  {AGENDA_HORAS.map((h, i) => (
+                    <div
+                      key={"linea-" + h}
+                      className="col-span-5 border-t border-white/[0.06]"
+                      style={{ gridColumn: "1 / -1", gridRow: i * 2 + 1 }}
+                    />
+                  ))}
+
+                  {/* La columna de horas. */}
+                  {AGENDA_HORAS.map((h, i) => (
+                    <div
+                      key={"hora-" + h}
+                      className="-mt-2 pr-2 text-right text-[10.5px] font-bold tabular-nums text-slate-500"
+                      style={{ gridColumn: 1, gridRow: i * 2 + 1 }}
+                    >
+                      {h}:00
+                    </div>
+                  ))}
+
+                  {/* Separadores verticales entre columnas. */}
+                  {[0, 1, 2, 3].map((c) => (
+                    <div
+                      key={"sep-" + c}
+                      className="border-l border-white/5"
+                      style={{ gridColumn: c + 2, gridRow: "1 / -1" }}
+                    />
+                  ))}
+
+                  {/* Las citas y los huecos, posicionados por hora. */}
+                  {AGENDA_EQUIPO.map((col, ci) => (
+                    <div key={"col-" + col.nombre} className="contents">
+                      {col.libres.map((l) => (
                         <div
-                          key={c.hora}
-                          className="rounded-lg border border-dashed border-aventurea-line px-2.5 py-2"
+                          key={col.nombre + "-libre-" + l.inicio}
+                          className="m-0.5 flex flex-col justify-center rounded-lg border border-dashed border-white/15 px-2 text-slate-500"
+                          style={{ gridColumn: ci + 2, gridRow: fila(l.inicio) + " / span " + tramos(l.min) }}
                         >
-                          <p className="text-[10.5px] font-bold tabular-nums text-aventurea-ink-soft">
-                            {c.hora}
-                          </p>
-                          <p className="text-[12px] font-bold text-aventurea-ink-soft">
-                            Libre — se puede reservar
-                          </p>
+                          <p className="text-[9.5px] font-bold tabular-nums">{l.inicio}</p>
+                          <p className="text-[11px] font-bold">Disponible</p>
                         </div>
-                      ) : (
+                      ))}
+                      {col.citas.map((c) => (
                         <div
-                          key={c.hora}
-                          className="rounded-lg px-2.5 py-2"
-                          style={{ background: c.tono }}
+                          key={col.nombre + "-" + c.inicio}
+                          className="m-0.5 overflow-hidden rounded-lg px-2 py-1.5"
+                          style={{
+                            gridColumn: ci + 2,
+                            gridRow: fila(c.inicio) + " / span " + tramos(c.min),
+                            background: col.color + "24",
+                            borderLeft: "3px solid " + col.color,
+                          }}
                         >
-                          <p className="text-[10.5px] font-bold tabular-nums text-aventurea-ink-soft">
-                            {c.hora}
+                          <p className="text-[9.5px] font-bold tabular-nums text-slate-400">
+                            {c.inicio}
                           </p>
-                          <p className="truncate text-[12.5px] font-bold leading-tight text-aventurea-ink">
+                          <p className="truncate text-[12px] font-extrabold leading-tight text-slate-100">
                             {c.titulo}
                           </p>
+                          <p className="truncate text-[10.5px] font-semibold text-slate-400">
+                            {c.cliente}
+                          </p>
                         </div>
-                      ),
-                    )}
+                      ))}
+                    </div>
+                  ))}
+
+                  {/* La línea de AHORA — un CRM siempre marca la hora. */}
+                  <div
+                    className="pointer-events-none relative z-10"
+                    style={{ gridColumn: "2 / -1", gridRow: 8 }}
+                  >
+                    <div className="absolute inset-x-0 top-1/2 flex items-center">
+                      <span className="-ml-1 h-2 w-2 shrink-0 rounded-full bg-rose-400" />
+                      <span className="h-px w-full bg-rose-400/60" />
+                    </div>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         </section>
 
-        {/* ── «STARTUP COMPLETO Y GRATIS» — el panel, con sus aparatos ──
+        {/* ── «STARTUP COMPLETO Y GRATIS» — el panel, con sus aparatos ──        {/* ── «STARTUP COMPLETO Y GRATIS» — el panel, con sus aparatos ──
             Titular con las palabras del dueño. El teléfono y el iPad
             están DIBUJADOS (CSS), no son fotos de stock de un aparato
             ajeno: cuentan una sola historia entre los dos — al teléfono
