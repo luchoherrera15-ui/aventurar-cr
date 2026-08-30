@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CodigoQR } from "@/components/lealtad/codigo-qr";
 import { Icono, type NombreIcono } from "./panel/[id]/iconos";
 import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
 import { useMockupVivo } from "./use-mockup-vivo";
@@ -639,16 +640,11 @@ export default function MockupCreacion() {
 
               {/* El código del cliente y el botón de Wallet: son lo que
                   termina de leerse como un PASE y no como una card de
-                  sitio web. El «código de barras» es puro CSS. */}
-              <div className="mx-auto mt-4 grid h-[70px] w-[70px] place-items-center rounded-xl bg-white shadow-[0_10px_26px_rgba(13,23,51,.10)]">
-                <span
-                  className="h-[44px] w-[44px] opacity-90"
-                  style={{
-                    background:
-                      "linear-gradient(90deg,#111 10%,transparent 10% 20%,#111 20% 30%,transparent 30% 42%,#111 42% 54%,transparent 54% 63%,#111 63% 74%,transparent 74% 82%,#111 82%)," +
-                      "linear-gradient(#111 10%,transparent 10% 20%,#111 20% 30%,transparent 30% 42%,#111 42% 54%,transparent 54% 63%,#111 63% 74%,transparent 74% 82%,#111 82%)",
-                  }}
-                />
+                  sitio web. El código es un QR DE VERDAD desde el 30 ago
+                  2026 (antes era una grilla de gradientes que no escaneaba
+                  nada) — ver `codigo-qr.tsx`. */}
+              <div className="mx-auto mt-4 grid h-[70px] w-[70px] place-items-center rounded-xl bg-white text-[#0a1226] shadow-[0_10px_26px_rgba(13,23,51,.10)]">
+                <CodigoQR lado={50} />
               </div>
               <p className="mt-1.5 text-center text-[8px] font-bold text-[#6d7484]">
                 Código del cliente

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CodigoQR } from "@/components/lealtad/codigo-qr";
 import { FICHAS } from "./contenido-tipos";
 import { useMockupVivo } from "./use-mockup-vivo";
 
@@ -288,16 +289,11 @@ export default function MockupHeroPase() {
             </p>
           </div>
 
-          <div className="mx-auto mt-5 grid h-[76px] w-[76px] place-items-center rounded-xl bg-white shadow-[0_10px_26px_rgba(13,23,51,.10)]">
-            <span
-              aria-hidden
-              className="h-[48px] w-[48px] opacity-90"
-              style={{
-                background:
-                  "linear-gradient(90deg,#111 10%,transparent 10% 20%,#111 20% 30%,transparent 30% 42%,#111 42% 54%,transparent 54% 63%,#111 63% 74%,transparent 74% 82%,#111 82%)," +
-                  "linear-gradient(#111 10%,transparent 10% 20%,#111 20% 30%,transparent 30% 42%,#111 42% 54%,transparent 54% 63%,#111 63% 74%,transparent 74% 82%,#111 82%)",
-              }}
-            />
+          {/* Un QR DE VERDAD, que escanea (30 ago 2026). Acá había
+              una grilla hecha con dos gradientes cruzados que no era
+              un código ni lo parecía. Ver `codigo-qr.tsx`. */}
+          <div className="mx-auto mt-5 grid h-[76px] w-[76px] place-items-center rounded-xl bg-white text-[#0a1226] shadow-[0_10px_26px_rgba(13,23,51,.10)]">
+            <CodigoQR lado={54} />
           </div>
           <p className="mt-1.5 text-center text-[8px] font-bold text-[#6d7484]">
             Código del cliente

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CodigoDibujado } from "@/components/lealtad/vista-pase";
+import { CodigoQR } from "@/components/lealtad/codigo-qr";
 import { PANTALLAS_RUBRO, type PantallaRubro } from "@/lib/lealtad/pantallas-rubro";
 
 /**
@@ -194,9 +194,8 @@ export default function DesfileRubros() {
  * pero el ORDEN de los elementos es el mismo a propósito, para que
  * quien después arme su tarjeta reconozca lo que vio.
  *
- * El código SÍ se reusa: `CodigoDibujado` es el mismo dibujo
- * determinista del pase real (mismo módulo), así que los dos QR de la
- * página se ven iguales.
+ * El código es un QR DE VERDAD (`codigo-qr.tsx`), el mismo que usan
+ * los otros dos mockups de la página: escanearlo lleva a /lealtad.
  */
 function TelefonoConPase({ rubro }: { rubro: PantallaRubro }) {
   const faltan = Math.max(0, rubro.meta - rubro.saldo);
@@ -325,7 +324,7 @@ function TelefonoConPase({ rubro }: { rubro: PantallaRubro }) {
                   marca un lector no lo agarra, y acá además es lo que
                   hace que se lea como un pase y no como una tarjeta. */}
               <div className="mt-1.5 flex flex-col items-center bg-white px-2 py-1.5">
-                <CodigoDibujado semilla={rubro.negocio} lado={44} />
+                <CodigoQR lado={44} />
                 <span className="mt-[3px] text-[5.5px] font-semibold text-black/45">
                   Powered by Bookea.lat
                 </span>
