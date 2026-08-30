@@ -48,9 +48,16 @@ import BotonVerTipos from "./boton-ver-tipos";
  */
 export default function PanelPaquetesLealtad({
   tipoElegido,
+  codigoReferido,
+  alCambiarReferido,
   alSeguir,
 }: {
   tipoElegido: TipoTarjeta;
+  /** El código del moderador que refirió — vive en el estado del
+   *  configurador (y su respaldo en sessionStorage), no acá, para
+   *  sobrevivir la recarga del alta de cuenta. */
+  codigoReferido: string;
+  alCambiarReferido: (codigo: string) => void;
   alSeguir: (planId: PlanId) => void;
 }) {
   const esGratis = tiposDelPlan("prueba").includes(tipoElegido);
@@ -64,6 +71,41 @@ export default function PanelPaquetesLealtad({
         Armar tu tarjeta de {TIPOS_TARJETA[tipoElegido].nombre.toLowerCase()} es gratis con
         cualquiera de estos — vas a ver todo antes de crear cuenta.
       </p>
+
+      {/* ── El código de referido, ARRIBA DE LAS CARDS ──────────────
+          Pedido del dueño (30 ago 2026): capturarlo en el primer paso,
+          «antes de armar nada».
+
+          ⚠️ VA ANTES DE LA GRILLA Y NO DESPUÉS. Cada card tiene su
+          propio botón que salta al editor de una: puesto debajo, en
+          teléfono (una sola columna, con el paquete gratis arriba del
+          todo) la persona toca «Empezar gratis» sin haber scrolleado
+          nunca hasta el campo, y el alta sale sin agente que acreditar.
+
+          El valor viaja con `solicitarAltaConPlan`, que lo valida
+          contra `agentes_lealtad` — mismo campo que ya tiene el wizard
+          de /lealtad/nuevo en «Revisar». */}
+      <div className="mt-4 rounded-2xl border border-bookea-linea bg-bookea-fondo p-3.5">
+        <label
+          htmlFor="paquetes-referido"
+          className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-bookea-gris"
+        >
+          Código de referido (opcional)
+        </label>
+        <input
+          id="paquetes-referido"
+          value={codigoReferido}
+          onChange={(e) => alCambiarReferido(e.target.value.toUpperCase())}
+          placeholder="El código de tu agente"
+          maxLength={24}
+          autoCapitalize="characters"
+          className="w-full rounded-xl border border-bookea-linea bg-white px-3 py-2.5 text-[13.5px] text-bookea-tinta placeholder:text-bookea-gris/70 sm:max-w-[340px]"
+        />
+        <p className="mt-1.5 text-[12px] leading-snug text-bookea-gris">
+          ¿Te atendió un agente o moderador de Bookea? Poné su código acá y tu cuenta queda
+          asociada a esa persona.
+        </p>
+      </div>
 
       <div className="mt-5 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         {PLANES_VIGENTES.map((def) => (

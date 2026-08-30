@@ -107,6 +107,7 @@ export function Portada({
   acento,
   metadatos,
   nota,
+  rotulo,
 }: {
   valor: string;
   alCambiar: (v: string) => void;
@@ -120,6 +121,12 @@ export function Portada({
   acento: string;
   metadatos: readonly string[];
   nota?: React.ReactNode;
+  /**
+   * El indicador VISIBLE arriba del campo (pedido del dueño, 30 ago
+   * 2026: que el «Café Aroma» de ejemplo diga qué es). Sin él, el
+   * rótulo queda solo para el lector de pantalla, como siempre.
+   */
+  rotulo?: string;
 }) {
   return (
     <header className="px-5 pb-8 pt-8 sm:px-10 sm:pb-10 sm:pt-11 lg:px-12">
@@ -129,10 +136,16 @@ export function Portada({
         style={{ background: acento }}
       />
       <label className="mt-5 block">
-        {/* El rótulo existe para el lector de pantalla y no para el ojo:
-            un campo de 38 px que dice el nombre del negocio no necesita
-            que le expliquen qué es, pero un lector de pantalla sí. */}
-        <span className="sr-only">Nombre de la tarjeta</span>
+        {/* Con `rotulo` el indicador SE VE (alta pública: «Nombre de tu
+            negocio» arriba del ejemplo Café Aroma); sin él existe solo
+            para el lector de pantalla, como siempre en el panel. */}
+        {rotulo ? (
+          <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.14em] text-bookea-gris">
+            {rotulo}
+          </span>
+        ) : (
+          <span className="sr-only">Nombre de la tarjeta</span>
+        )}
         <input
           required
           value={valor}

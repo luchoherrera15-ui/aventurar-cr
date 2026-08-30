@@ -45,7 +45,7 @@ export default function PasosSlider({ pasos }: { pasos: PasoSlide[] }) {
   };
 
   return (
-    <div className="mt-12">
+    <div className="mt-8">
       {/* La ventana: solo se ve un paso; el track se corre. */}
       <div
         className="overflow-hidden"
@@ -54,7 +54,11 @@ export default function PasosSlider({ pasos }: { pasos: PasoSlide[] }) {
         style={{ touchAction: "pan-y" }}
       >
         <div
-          className="flex items-start transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          /* items-center y no items-start: el track mide lo que el paso
+             MÁS alto, así que con items-start los pasos 2 y 3 quedaban
+             con casi 500px de blanco muerto abajo. Centrado, ese sobrante
+             se reparte arriba y abajo y deja de leerse como un hueco. */
+          className="flex items-center transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
           style={{ transform: `translateX(-${i * 100}%)` }}
         >
           {pasos.map((p, idx) => (
@@ -63,24 +67,61 @@ export default function PasosSlider({ pasos }: { pasos: PasoSlide[] }) {
               className="w-full shrink-0 px-1"
               aria-hidden={idx !== i}
             >
-              <div className="mx-auto max-w-[56ch] text-center">
-                <span
-                  aria-hidden
-                  className="mx-auto grid h-9 w-9 place-items-center rounded-full text-[14px] font-extrabold"
-                  style={{ background: "var(--accion-suave)", color: "var(--accion-fuerte)" }}
-                >
-                  {p.numero}
-                </span>
-                <p className="mt-4 text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-                  {p.eyebrow}
-                </p>
-                <h3 className="titulo mx-auto mt-3 max-w-[20ch] text-[clamp(22px,3.2vw,32px)] leading-tight text-aventurea-navy">
-                  {p.titulo}
-                </h3>
-                <p className="mx-auto mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
-                  {p.bajada}
-                </p>
-              </div>
+              {/* ⚠️ TEXTO Y MOCKUP LADO A LADO EN ESCRITORIO (30 ago 2026).
+
+                  Pedido del dueño: «que esas secciones se vean completas y
+                  no cortadas, que hay que hacer scroll y se pierde lo que
+                  uno está intentando entender».
+
+                  El problema medido no era el mockup: era que el bloque de
+                  texto (disco + eyebrow + titular + bajada = ~219 px) iba
+                  ENCIMA y se sumaba, así que un paso pedía ~1.263 px de
+                  alto. En una pantalla de 900 px se veía el texto y el
+                  teléfono cortado por la mitad.
+
+                  Al ponerlos en dos columnas el texto deja de sumar: entra
+                  DENTRO del alto del mockup. Es el mismo patrón que esta
+                  página ya usa en las secciones de rescate e hitos, y
+                  respeta el breakpoint real del repo (`lg`, no `md`).
+
+                  Debajo de `lg` vuelve a apilarse y centrarse, que en
+                  teléfono es lo correcto. */}
+              {/* ⚠️ LAS DOS COLUMNAS ARRANCAN EN xl, NO EN lg.
+
+                  Se probó a lg (1024px) y entre 1024 y 1279 el paso
+                  quedaba MÁS alto que apilado: a ese ancho la columna de
+                  texto se estrecha, el titular pasa a tres o cuatro
+                  líneas y el mockup —que tiene ancho fijo por dentro— no
+                  achica, así que la fila crece en vez de encogerse. Es
+                  justo el problema que este cambio venía a resolver.
+
+                  Desde 1280 sí hay ancho para las dos cosas. Debajo,
+                  apilado y centrado, que a esos anchos es lo correcto. */}
+              <div className="grid items-center gap-8 lg:grid-cols-[minmax(0,32ch)_minmax(0,1fr)] lg:gap-12">
+                <div className="mx-auto max-w-[56ch] text-center lg:mx-0 lg:text-left">
+                  <span className="flex items-center justify-center gap-3 lg:justify-start">
+                    <span
+                      aria-hidden
+                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[14px] font-extrabold"
+                      style={{ background: "var(--accion-suave)", color: "var(--accion-fuerte)" }}
+                    >
+                      {p.numero}
+                    </span>
+                    {/* El rótulo pasa a la MISMA fila que el número: dos
+                        renglones para «1» y «CREÁ TU PASE» eran 68 px
+                        gastados en decir lo que el punto del slider ya
+                        dice. */}
+                    <span className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
+                      {p.eyebrow}
+                    </span>
+                  </span>
+                  <h3 className="titulo mt-3.5 max-w-[20ch] text-[clamp(21px,2.7vw,29px)] leading-tight text-aventurea-navy max-lg:mx-auto">
+                    {p.titulo}
+                  </h3>
+                  <p className="mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
+                    {p.bajada}
+                  </p>
+                </div>
               {/* El mockup no debe capturar el gesto de swipe cuando la
                   persona quiere cambiar de paso arrastrando; pero SÍ es
                   interactivo (sus botones). El swipe se decide arriba por
@@ -91,12 +132,12 @@ export default function PasosSlider({ pasos }: { pasos: PasoSlide[] }) {
                   slider ocupan menos y calzan mejor en una sola sección.
                   El `origin-top` + margen negativo recorta el hueco que
                   deja el transform (que no cambia el alto de layout). */}
-              <div className="mt-8 flex select-none justify-center">
-                {/* `zoom` (no `transform: scale`) achica el mockup Y su
-                    caja de layout, así no queda un hueco debajo; los
-                    botones internos siguen respondiendo. Con esto los
-                    tres mockups calzan cómodos en la sección. */}
-                <div style={{ zoom: 0.82 }}>{p.mockup}</div>
+                <div className="flex select-none justify-center max-lg:mt-2">
+                  {/* `zoom` (no `transform: scale`) achica el mockup Y su
+                      caja de layout, así no queda un hueco debajo; los
+                      botones internos siguen respondiendo. */}
+                  <div style={{ zoom: 0.74 }}>{p.mockup}</div>
+                </div>
               </div>
             </div>
           ))}
@@ -104,7 +145,7 @@ export default function PasosSlider({ pasos }: { pasos: PasoSlide[] }) {
       </div>
 
       {/* Controles: flechas + puntos, en una sola fila. */}
-      <div className="mt-10 flex items-center justify-center gap-5">
+      <div className="mt-6 flex items-center justify-center gap-5">
         <button
           type="button"
           onClick={() => ir(i - 1)}

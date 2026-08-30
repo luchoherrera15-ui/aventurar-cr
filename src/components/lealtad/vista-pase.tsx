@@ -234,37 +234,58 @@ function MarcoTelefono({
   // blanca sobre una app clara.
   const oscuro = plataforma === "apple";
   const tinta = oscuro ? "#ffffff" : "#0a1226";
+  // El titanio del canto, compartido por el marco y los botones
+  // físicos — botones de otro gris se leen como pegados después.
+  const titanio =
+    "linear-gradient(150deg,#6b7280,#2a2f38 20%,#171b22 50%,#3f454f 76%,#6b7280)";
 
   return (
-    <div className="mx-auto mt-4 w-full max-w-[262px]">
+    // 224px y no los 262 de antes (pedido del dueño, 30 ago 2026:
+    // «más pequeño, de mejor calidad»). El pase adentro es fluido
+    // (max-w + truncate), así que solo se encoge, no se rompe; los
+    // radios y la isla bajan en proporción para que el dibujo no se
+    // vea inflado a la escala nueva.
+    <div className="mx-auto mt-4 w-full max-w-[224px]">
       <div
-        className="relative rounded-[42px] p-[3px]"
+        className="relative rounded-[36px] p-[3px]"
         style={{
-          // El canto: un degradado que simula el reflejo del titanio.
-          background:
-            "linear-gradient(150deg,#6b7280,#2a2f38 20%,#171b22 50%,#3f454f 76%,#6b7280)",
-          boxShadow: "0 26px 50px -18px rgba(6,12,26,.55), 0 0 0 1px rgba(255,255,255,.05)",
+          background: titanio,
+          boxShadow: "0 22px 44px -16px rgba(6,12,26,.55), 0 0 0 1px rgba(255,255,255,.05)",
         }}
       >
+        {/* Los botones físicos del canto: acción y volumen a la
+            izquierda, encendido a la derecha. El detalle chico que
+            separa «teléfono» de «tarjeta con esquinas redondas». */}
+        <span aria-hidden className="absolute -left-[2px] top-[17%] h-[3.5%] w-[2px] rounded-l-full" style={{ background: titanio }} />
+        <span aria-hidden className="absolute -left-[2px] top-[24%] h-[6.5%] w-[2px] rounded-l-full" style={{ background: titanio }} />
+        <span aria-hidden className="absolute -left-[2px] top-[32%] h-[6.5%] w-[2px] rounded-l-full" style={{ background: titanio }} />
+        <span aria-hidden className="absolute -right-[2px] top-[26%] h-[10%] w-[2px] rounded-r-full" style={{ background: titanio }} />
+
         <div
-          className="relative overflow-hidden rounded-[39px]"
-          style={{ background: oscuro ? "#000000" : "#f4f5f7", aspectRatio: "393 / 800" }}
+          className="relative overflow-hidden rounded-[33px]"
+          style={{
+            background: oscuro ? "#000000" : "#f4f5f7",
+            aspectRatio: "393 / 800",
+            // El bisel: la lámina negra entre el vidrio y el titanio,
+            // visible sobre todo cuando Wallet va claro (Google).
+            boxShadow: "inset 0 0 0 2px #05070c",
+          }}
         >
           {/* La isla dinámica, con el punto de la cámara adentro. */}
           <div
             aria-hidden
-            className="absolute left-1/2 top-[9px] z-20 flex h-[24px] w-[82px] -translate-x-1/2 items-center justify-end rounded-full pr-2.5"
-            style={{ background: "#000000" }}
+            className="absolute left-1/2 top-[8px] z-20 flex h-[21px] w-[72px] -translate-x-1/2 items-center justify-end rounded-full pr-2"
+            style={{ background: "#000000", boxShadow: "0 0 0 1px rgba(255,255,255,.04)" }}
           >
             <span
-              className="h-[7px] w-[7px] rounded-full"
+              className="h-[6px] w-[6px] rounded-full"
               style={{ background: "#0b1a2b", boxShadow: "inset 0 0 3px rgba(90,150,230,.75)" }}
             />
           </div>
 
           <div
             aria-hidden
-            className="absolute inset-x-0 top-0 z-10 flex h-[36px] items-center justify-between px-5 text-[10px] font-semibold"
+            className="absolute inset-x-0 top-0 z-10 flex h-[32px] items-center justify-between px-4 text-[9px] font-semibold"
             style={{ color: tinta }}
           >
             <span className="tracking-tight">9:41</span>
@@ -277,9 +298,9 @@ function MarcoTelefono({
 
           {/* El contenido de la app. El nombre arriba ubica la escena:
               una tarjeta suelta sobre negro no dice DÓNDE está. */}
-          <div className="absolute inset-x-0 bottom-0 top-[36px] px-2.5 pt-1">
+          <div className="absolute inset-x-0 bottom-0 top-[32px] px-2 pt-1">
             <p
-              className="mb-2 px-1 text-[13px] font-bold tracking-tight"
+              className="mb-1.5 px-1 text-[12px] font-bold tracking-tight"
               style={{ color: tinta }}
             >
               Wallet
@@ -287,9 +308,21 @@ function MarcoTelefono({
             {children}
           </div>
 
+          {/* El reflejo del vidrio, por ENCIMA de todo: la diagonal de
+              luz que separa «captura de pantalla» de «teléfono». Tan
+              tenue a propósito que no toca la legibilidad del pase. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-30 rounded-[33px]"
+            style={{
+              background:
+                "linear-gradient(118deg, rgba(255,255,255,.085) 0%, rgba(255,255,255,.03) 26%, rgba(255,255,255,0) 42%)",
+            }}
+          />
+
           <span
             aria-hidden
-            className="absolute bottom-[7px] left-1/2 h-[4px] w-[100px] -translate-x-1/2 rounded-full"
+            className="absolute bottom-[6px] left-1/2 z-20 h-[4px] w-[86px] -translate-x-1/2 rounded-full"
             style={{ background: oscuro ? "rgba(255,255,255,.9)" : "rgba(10,18,38,.75)" }}
           />
         </div>
@@ -297,7 +330,6 @@ function MarcoTelefono({
     </div>
   );
 }
-
 function IconoSenal() {
   return (
     <svg width="15" height="10" viewBox="0 0 18 12" fill="currentColor" aria-hidden>
@@ -573,7 +605,7 @@ function Tira({
  * servidor y el cliente tienen que pintar lo mismo o React tira
  * hydration mismatch. De yapa, cada negocio tiene su propio dibujo.
  */
-function CodigoDibujado({ semilla, lado }: { semilla: string; lado: number }) {
+export function CodigoDibujado({ semilla, lado }: { semilla: string; lado: number }) {
   const MODULOS = 21; // el tamaño de un QR de verdad (versión 1)
   const px = lado / MODULOS;
 

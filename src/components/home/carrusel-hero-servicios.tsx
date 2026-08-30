@@ -55,14 +55,6 @@ type Diapositiva = {
   desde: string;
   hasta: string;
   Mockup: React.ComponentType<{ activo: boolean }>;
-  /** Video de fondo A PANTALLA COMPLETA de la diapositiva, en vez del
-   *  degradado `desde/hasta` — pedido puntual del dueño para "Pases de
-   *  lealtad" con una pieza ya producida (`referencia/videos/walletheader.mp4`,
-   *  comprimida a 720p/H.264 sin audio para no pesarle a la portada).
-   *  Trae su propia animación de pase — por eso esa diapositiva no
-   *  monta además `Mockup`, para no repetir la misma tarjeta dos veces. */
-  video?: string;
-  videoPoster?: string;
 };
 
 const DIAPOSITIVAS: Diapositiva[] = [
@@ -78,8 +70,6 @@ const DIAPOSITIVAS: Diapositiva[] = [
     desde: "#062653",
     hasta: "#0a1638",
     Mockup: MockupWallet,
-    video: "/lealtad/video/wallet-header.mp4",
-    videoPoster: "/lealtad/video/wallet-header-poster.jpg",
   },
   {
     id: "automatizaciones",
@@ -167,43 +157,24 @@ export default function CarruselHeroServicios() {
           }`}
           style={{ background: `linear-gradient(120deg, ${s.desde} 0%, ${s.hasta} 100%)` }}
         >
-          {/* El video de fondo, montado SOLO mientras es la diapositiva
-              activa — igual que el mockup de abajo, así no sigue
-              descargando/reproduciendo escondido en las otras 3 y
-              arranca de cero cada vez que le vuelve a tocar turno. El
-              degradado de la línea de arriba queda de base por si el
-              video tarda en tener el primer frame. */}
-          {s.video && i === indice && (
-            <video
-              key={indice}
-              className="absolute inset-0 h-full w-full object-cover"
-              src={s.video}
-              poster={s.videoPoster}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="auto"
-            />
-          )}
-
           {/* El mockup, montado SOLO mientras es la diapositiva activa (o
               la que se acaba de dejar, para que el fade de salida no se
               vea vacío): así cada secuencia temporizada arranca de cero
               la próxima vez que le toque, en vez de seguir corriendo
-              escondida de fondo. Las diapositivas con video de fondo no
-              montan además su Mockup — el video ya trae su propia
-              animación de tarjeta, y las dos juntas se pisarían. */}
+              escondida de fondo.
+
+              (30 ago 2026: la diapositiva de lealtad traía acá un video
+              de fondo de 6,3 MB. Se retiró —ya no se usaba en ningún
+              header— y volvió a montar su mockup animado, que cuenta
+              lo mismo sin pesar nada.) */}
           {/* Escondido en mobile: a 580px de alto no entra el bloque de
               texto Y el mockup sin que uno tape al otro — en vez de
               acortar el texto o estirar la sección, el mockup queda
               como mejora de escritorio, igual que ya hacía el
               placeholder de la versión anterior. */}
-          {!s.video && (
-            <div className="absolute inset-0 hidden items-center justify-end px-[8%] pb-16 pt-16 lg:flex">
-              {i === indice && <s.Mockup key={indice} activo={i === indice} />}
-            </div>
-          )}
+          <div className="absolute inset-0 hidden items-center justify-end px-[8%] pb-16 pt-16 lg:flex">
+            {i === indice && <s.Mockup key={indice} activo={i === indice} />}
+          </div>
         </div>
       ))}
 

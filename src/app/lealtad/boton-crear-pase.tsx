@@ -46,13 +46,11 @@ export default function BotonCrearPase({
   return (
     <Link
       href="/lealtad/crear"
-      /* `grupo-gratis`: el hover que agranda la palabra se dispara
-         desde ACÁ, desde el botón entero. Ver `globals.css`.
-
-         ⚠️ SIN `overflow-hidden` NI `hover:scale`. La palabra tiene
-         que poder desbordar la caja del botón, y cualquiera de las dos
-         cosas la volvería a meter adentro. */
-      className={`grupo-gratis presionable inline-flex items-center justify-center gap-2 rounded-xl font-bold transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 ${
+      /* La palabra «gratis» de adentro YA NO se anima al pasar el
+         mouse (pedido del dueño, 30 ago 2026): queda más grande y con
+         brillo leve fijo vía `.palabra-gratis` (globals.css). El botón
+         conserva solo su propio hover de levantarse. */
+      className={`presionable inline-flex items-center justify-center gap-2 rounded-xl font-bold transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90 ${
         grande ? "px-8 py-4.5 text-[17px] sm:text-[18px]" : "px-6 py-3.5 text-[14px]"
       }`}
       style={estilo}

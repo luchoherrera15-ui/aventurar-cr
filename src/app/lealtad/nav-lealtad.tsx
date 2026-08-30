@@ -132,9 +132,9 @@ export default function NavLealtad(props: {
   /** El nombre de la cuenta con sesión. null con sesión pero sin nombre
    *  cargado: entonces se cae a «Mi cuenta». */
   nombre?: string | null;
-  /** Ocultar la barra al bajar y traerla de vuelta al subir. Opt-in
-   *  (solo /lealtad/ayuda lo pide): en el resto de las landings la barra
-   *  se queda fija como siempre. */
+  /** Ocultar la barra al bajar y traerla de vuelta al subir. Opt-in:
+   *  lo piden /lealtad/ayuda, la landing /lealtad y /lealtad/crear
+   *  (30 ago 2026). El resto de las landings la deja fija. */
   autoOcultar?: boolean;
 }) {
   const { logueado, nombre } = useSesionDelNav(props);
@@ -167,7 +167,8 @@ export default function NavLealtad(props: {
 
   /**
    * ── OCULTAR AL BAJAR, MOSTRAR AL SUBIR (opt-in) ───────────────────
-   * Solo cuando `autoOcultar` está prendido (lo pide /lealtad/ayuda).
+   * Solo cuando `autoOcultar` está prendido — lo piden /lealtad/ayuda,
+   * la landing /lealtad y /lealtad/crear (30 ago 2026).
    * Cerca del tope siempre visible; al bajar se esconde; al subir
    * reaparece — el patrón clásico. Umbral de 4px para no titilar con
    * micro-movimientos. `passive: true` por lo mismo que el efecto de

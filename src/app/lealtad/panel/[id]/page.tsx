@@ -1048,7 +1048,11 @@ export default async function PanelNegocioLealtad({
                     etiqueta: "Crecimiento",
                     contenido: (
                       <>
-                        <MetricasLealtad programaId={pVista?.id ?? null} plan={plan} />
+                        <MetricasLealtad
+                          programaId={pVista?.id ?? null}
+                          plan={plan}
+                          meta={metaVista?.costo_puntos ?? null}
+                        />
                         <Rotulo className="mt-6">Estado de las tarjetas</Rotulo>
                         <WalletLealtad programaId={pVista?.id ?? null} />
                       </>

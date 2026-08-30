@@ -33,10 +33,10 @@ export default function robots(): MetadataRoute.Robots {
         "/mensajes",
         "/lealtad/panel",
         // ⚠️ Acá había tres reglas de FOOD. Bookea Food se apagó el 27
-        // ago 2026 (ver src/lib/food-apagado.ts): todo /food/* devuelve
-        // 404, así que no hay nada que esconderle a Google. Se dejan
-        // fuera en vez de comentadas para que este archivo siga
-        // describiendo el sitio que existe hoy.
+        // ago 2026 y se ELIMINÓ del repo el 30: no hay nada que
+        // esconderle a Google porque no hay ruta. Se dejan fuera en vez
+        // de comentadas para que este archivo siga describiendo el
+        // sitio que existe hoy.
         // Endpoints y flujos que no son páginas.
         "/api/",
         "/auth",

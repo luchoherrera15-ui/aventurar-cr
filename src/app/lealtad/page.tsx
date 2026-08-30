@@ -17,6 +17,7 @@ import MockupCercania from "./mockup-cercania";
 import MockupHeroPase from "./mockup-hero-pase";
 import MockupPanelNegocio from "./mockup-panel-negocio";
 import BotonCrearPase from "./boton-crear-pase";
+import DesfileRubros from "./desfile-rubros";
 import BotonAyudaPersonalizada from "./boton-ayuda-personalizada";
 import SelectorTiposLanding from "./selector-tipos-landing";
 import FlujoAutomatizaciones from "./flujo-automatizaciones";
@@ -207,7 +208,7 @@ export default async function LealtadPage() {
   return (
     <main className="min-h-svh bg-white">
       <RevealOnScroll />
-      <NavLealtad />
+      <NavLealtad autoOcultar />
       <BurbujaContacto />
 
       {/* ============================================================
@@ -337,18 +338,22 @@ export default async function LealtadPage() {
           vuelve más seguido. Es el ciclo entero del producto, en tres
           pantallas y sin una línea de texto de más.
           ============================================================ */}
-      <section id="como-funciona" className="scroll-mt-28 px-5 py-24 sm:px-8">
+      <section id="como-funciona" className="scroll-mt-20 px-5 py-12 sm:px-8 lg:py-16">
         <div className="mx-auto w-full max-w-[1120px]">
           <div data-reveal className="mx-auto max-w-[52ch] text-center">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
               Paso a paso
             </p>
-            <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
+            {/* Titular y bajada más compactos (30 ago 2026): el
+                encabezado de la sección medía ~160px y empujaba el paso
+                fuera de la pantalla. Sigue diciendo lo mismo, ocupando
+                la mitad. */}
+            <h2 className="titulo mx-auto mt-3 max-w-[20ch] text-[clamp(26px,3.6vw,40px)] leading-[1.08] text-aventurea-navy">
               ¿Cómo funciona?
             </h2>
-            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Tres pantallas, y las tres se tocan. Probá el producto acá mismo,
-              sin crear una cuenta.
+            <p className="mx-auto mt-2.5 text-[15px] leading-relaxed text-aventurea-ink-soft">
+              Tres pantallas, y las tres se tocan. Probá el producto acá mismo, sin crear una
+              cuenta.
             </p>
           </div>
 
@@ -756,6 +761,44 @@ export default async function LealtadPage() {
               </BotonCrearPase>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ============================================================
+          RUBROS — «¿esto sirve para MI negocio?»
+
+          Pedido del dueño (30 ago 2026): pantallas de teléfono por
+          rubro desfilando solas hacia la derecha, y que la de abajo
+          del cursor se levante.
+
+          Va ACÁ y no más arriba a propósito: cuando alguien llega a
+          esta altura ya entendió QUÉ es el producto (lo contó «¿Cómo
+          funciona?»); lo que le falta saber es si aplica a lo suyo.
+          Seis rubros reconocibles contestan eso sin una línea de
+          venta.
+          ============================================================ */}
+      <section className="overflow-hidden px-0 py-14 sm:py-16">
+        <div className="mx-auto w-full max-w-[1120px] px-5 sm:px-8">
+          <p
+            data-reveal
+            className="text-center text-[13.5px] font-bold text-aventurea-ink-soft"
+          >
+            Funciona en cualquier negocio donde el cliente{" "}
+            <span className="text-aventurea-navy">vuelve</span>.
+          </p>
+          <h2
+            data-reveal
+            className="titulo mx-auto mt-3 max-w-[22ch] text-center text-[clamp(24px,3.2vw,34px)] leading-[1.1] text-aventurea-navy"
+          >
+            Así se le ve a tu cliente
+          </h2>
+        </div>
+
+        {/* El riel va FUERA del contenedor con ancho máximo: tiene que
+            poder salirse por los dos costados de la pantalla, o deja de
+            leerse como algo que sigue de largo. */}
+        <div data-reveal className="mt-8">
+          <DesfileRubros />
         </div>
       </section>
 

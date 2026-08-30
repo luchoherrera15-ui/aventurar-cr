@@ -71,7 +71,7 @@ export default async function CrearPaseLealtadPage({
 
   return (
     <main className="min-h-svh bg-[#fbfcff]">
-      <NavLealtad logueado={sesion.logueado} nombre={sesion.nombre} />
+      <NavLealtad autoOcultar logueado={sesion.logueado} nombre={sesion.nombre} />
 
       <section className="px-5 pb-20 pt-10 sm:px-8">
         <div className="mx-auto w-full max-w-[1560px]">

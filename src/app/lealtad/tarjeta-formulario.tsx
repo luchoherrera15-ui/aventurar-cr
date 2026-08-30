@@ -164,6 +164,21 @@ export type ValorFormulario = {
   vencenMeses: number | null;
   /** Solo público lo pide (para coordinar el alta). */
   telefono: string;
+  /**
+   * El código del moderador/agente que refirió el alta (0219).
+   *
+   * ⚠️ VIAJA EN ESTE TIPO Y NO SOLO EN `EstadoLealtad` POR UNA RAZÓN:
+   * `irAlPlanPago` respalda EXACTAMENTE este objeto en sessionStorage
+   * antes de mandar a /lealtad/nuevo. Cuando el campo no estaba acá,
+   * ese respaldo pisaba el del configurador y el código escrito se
+   * perdía en silencio — y es justo el camino pago, el único que le
+   * paga comisión al moderador.
+   *
+   * Opcional porque solo el alta pública lo llena: el creador y el
+   * editor del panel operan sobre un negocio que ya tiene (o no)
+   * su agente asignado, y no vuelven a preguntarlo.
+   */
+  codigoReferido?: string;
 
   /** Bookkeeping SOLO de modo "publico": banco de plantillas + preview local. */
   imagenModo: "ninguna" | "stock" | "propia";
@@ -422,6 +437,17 @@ export default function TarjetaFormulario({
 
   const [verMasColores, setVerMasColores] = useState(false);
   const [verPase, setVerPase] = useState(false);
+
+  // ── La hoja pública en dos PARTES (pedido del dueño, 30 ago 2026:
+  // «el proceso en paso a paso — dos pasos, slide 1; dos pasos, slide
+  // 2»). Solo existe en modo público; el panel sigue con la hoja
+  // continua. El scroll vuelve al tope de la hoja al cambiar: en
+  // teléfono la parte nueva arranca arriba, no donde quedó el dedo.
+  const [parteHoja, setParteHoja] = useState(0);
+  function irAParte(p: number) {
+    setParteHoja(p);
+    document.getElementById("hoja-tarjeta")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   // ── Estado local SOLO del banco/preview de "publico" ────────────────
   // Nunca se usan en crear/editar (que suben directo con `SubirImagen`),
@@ -824,8 +850,12 @@ export default function TarjetaFormulario({
                 el que se pega— y además cortaría los números colgantes
                 del `lg:-ml-9`. El radio de abajo lo pinta la barra con
                 su propio `rounded-b-3xl`. */}
-            <div className="rounded-3xl border border-bookea-linea bg-white shadow-elevado">
+            <div
+              id="hoja-tarjeta"
+              className="scroll-mt-24 rounded-3xl border border-bookea-linea bg-white shadow-elevado"
+            >
               <Portada
+                rotulo={esPublico ? "Nombre de tu negocio" : undefined}
                 valor={valor.nombre}
                 alCambiar={(v) => patch({ nombre: v })}
                 bloqueada={esEditar && bloqueada}
@@ -848,6 +878,21 @@ export default function TarjetaFormulario({
                 }
               />
 
+              {/* ── LA HOJA EN DOS PARTES (30 ago 2026) ──────────────
+                  En el alta pública los capítulos van de dos en dos:
+                  parte 1 = identidad y premio; parte 2 = apariencia y
+                  franja. Se usa el patrón `pasos`/`paso` de globals.css
+                  (todas las partes apiladas en una celda de grid, sin
+                  salto de altura al cambiar). En el panel el wrapper
+                  existe igual pero sin clase y sin `hidden`: la hoja
+                  sigue siendo UNA superficie continua y el JSX de los
+                  capítulos vive una sola vez. */}
+              <div className={esPublico ? "pasos" : undefined}>
+                <div
+                  className={esPublico ? "paso" : undefined}
+                  data-estado={!esPublico || parteHoja === 0 ? "activo" : "saliendo"}
+                  hidden={esPublico && parteHoja !== 0}
+                >
               {/* ── 1 · Identidad ─────────────────────────────────────
                   El nombre se mudó a la portada: acá queda lo que de
                   verdad decide cómo funciona la tarjeta. */}
@@ -928,6 +973,14 @@ export default function TarjetaFormulario({
                 )}
               </div>
               </Apartado>
+                </div>
+
+                {/* ── Parte 2: apariencia y franja ─────────────────── */}
+                <div
+                  className={esPublico ? "paso" : undefined}
+                  data-estado={!esPublico || parteHoja === 1 ? "activo" : "saliendo"}
+                  hidden={esPublico && parteHoja !== 1}
+                >
 
               {/* ── 3 · Apariencia ─────────────────────────────────── */}
               <Apartado
@@ -1238,21 +1291,93 @@ export default function TarjetaFormulario({
                   />
                 </Apartado>
               )}
+                </div>
+              </div>
+
+              {/* La navegación entre las dos partes — solo el alta
+                  pública. Vive DENTRO de la hoja para que cambiar de
+                  parte se lea como pasar la página de la misma ficha. */}
+              {esPublico && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bookea-linea px-5 py-5 sm:px-10 lg:px-12">
+                  <button
+                    type="button"
+                    onClick={() => irAParte(0)}
+                    disabled={parteHoja === 0}
+                    className="presionable min-h-[44px] rounded-xl border border-bookea-linea px-4 py-3 text-[12.5px] font-bold text-bookea-gris disabled:invisible"
+                  >
+                    ← Anterior
+                  </button>
+                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-bookea-gris">
+                    Parte {parteHoja + 1} de 2
+                  </span>
+                  {parteHoja === 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => irAParte(1)}
+                      className="presionable min-h-[44px] rounded-xl px-4 py-3 text-[12.5px] font-extrabold"
+                      style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+                    >
+                      Siguiente: cómo se ve →
+                    </button>
+                  ) : (
+                    <span className="text-[12px] font-bold text-bookea-gris">
+                      Listo — creá tu tarjeta abajo ↓
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           {/* ── El cierre ────────────────────────────────────────────
               Ni una sección numerada ni un paso: es la barra de guardar,
-              y vive donde termina el trabajo. En escritorio queda pegada
-              abajo para que se pueda guardar desde cualquier punto del
-              scroll sin volver al final. */}
+              y vive donde termina el trabajo.
+
+              EN EL ALTA PÚBLICA YA NO ES PEGAJOSA (pedido del dueño,
+              30 ago 2026): la caja del teléfono venía siguiendo el
+              scroll y en el celular tapaba el propio formulario que la
+              persona intentaba llenar. Ahí va al final, quieta, como
+              cualquier cierre de formulario. En el panel (crear/editar)
+              se conserva pegada abajo: ese editor no pide teléfono y
+              poder guardar desde cualquier punto del scroll sigue
+              valiendo. */}
           {/* Es su propia tarjeta, separada de la hoja: la hoja termina
               donde termina el diseño, y esto es la acción. Blanca en los
               dos modos ahora que los capítulos viven sobre blanco. */}
-          <div className="sticky bottom-0 z-30 mt-4 rounded-3xl border border-bookea-linea bg-white/95 px-5 py-5 shadow-elevado backdrop-blur sm:px-10">
+          <div
+            className={`mt-4 rounded-3xl border border-bookea-linea px-5 py-5 shadow-elevado sm:px-10 ${
+              esPublico ? "bg-white" : "sticky bottom-0 z-30 bg-white/95 backdrop-blur"
+            }`}
+          >
             {esPublico && (
               <div className="mb-4">
                 <CampoTelefono valor={valor.telefono} alCambiar={(t) => patch({ telefono: t })} />
+              </div>
+            )}
+
+            {/* ── EL CÓDIGO DE REFERIDO, PARA CORREGIRLO ACÁ ─────────
+                Se escribe en el paso de paquetes, pero el servidor lo
+                valida recién al crear —o sea acá—: si el código no
+                existe, el aviso salía en esta barra mientras el campo
+                quedaba una pantalla atrás. Aparece SOLO si ya hay algo
+                escrito: quien no usó código no ve un campo de más, y
+                quien sí lo usó puede arreglar el typo sin volver.
+
+                Es el MISMO dato del estado (no una copia), así que
+                editarlo acá o allá es indistinto. */}
+            {esPublico && (valor.codigoReferido ?? "") !== "" && (
+              <div className="mb-4">
+                <label className={etiqueta} htmlFor="cierre-referido">
+                  Código de referido
+                </label>
+                <input
+                  id="cierre-referido"
+                  value={valor.codigoReferido ?? ""}
+                  onChange={(e) => patch({ codigoReferido: e.target.value.toUpperCase() })}
+                  maxLength={24}
+                  autoCapitalize="characters"
+                  className={CAMPO_BASE}
+                />
               </div>
             )}
 

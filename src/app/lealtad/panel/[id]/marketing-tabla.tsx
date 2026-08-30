@@ -4,8 +4,8 @@ import { useState, useTransition } from "react";
 import { enviarAvisoDePrueba } from "./marketing-actions";
 import type { DiagnosticoPlataforma } from "@/lib/wallet/servicio";
 import type { FilaMarketing } from "./marketing-actions";
-import { RADIO_CARD, RADIO_TILE } from "@/components/panel/sistema";
-import { ACCION, ACCION_TINTA, ACCION_TINTE } from "../sistema-lealtad";
+import { ESTADO_PILDORA, RADIO_CARD, RADIO_TILE } from "@/components/panel/sistema";
+import { ACCION, ACCION_TINTA } from "../sistema-lealtad";
 
 const ETIQUETA_PLATAFORMA: Record<"apple" | "google", string> = {
   apple: "Apple Wallet",
@@ -77,7 +77,11 @@ function FilaCliente({
       }`}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-white">
+        {/* ⚠️ NO `text-white`: este panel tiene modo claro y oscuro, y
+            sobre la superficie clara el nombre desaparecía (reportado el
+            30 ago 2026 — la lista se veía vacía). `text-aventurea-ink` es
+            la tinta del sistema: se da vuelta sola con el tema. */}
+        <span className="min-w-0 flex-1 truncate text-[13.5px] font-bold text-aventurea-ink">
           {fila.nombre}
         </span>
 
@@ -87,12 +91,16 @@ function FilaCliente({
             // pendiente" — es "acá no hay forma de saber si el teléfono
             // lo recibió". Mostrarlo como ⏳ prometería una confirmación
             // que nunca va a llegar.
-            const estilo =
+            // Las TRES salen del sistema, no de hex sueltos: un `style`
+            // inline no lo puede re-mapear `.lealtad-oscuro`, y el verde
+            // que había acá medía 1,9:1 sobre la superficie clara — el
+            // mismo síntoma que dejó la lista "vacía".
+            const clase =
               p.confirmadoEnTelefono === true
-                ? { background: "rgba(52,199,89,.15)", color: "#34c759" }
+                ? ESTADO_PILDORA.exito
                 : p.confirmadoEnTelefono === false
-                  ? { background: ACCION_TINTE, color: ACCION }
-                  : { background: "rgba(255,255,255,.08)", color: "rgba(255,255,255,.55)" };
+                  ? ESTADO_PILDORA.info
+                  : ESTADO_PILDORA.neutro;
             const titulo =
               p.confirmadoEnTelefono === true
                 ? "El teléfono ya confirmó el último cambio"
@@ -104,8 +112,7 @@ function FilaCliente({
             return (
               <span
                 key={p.plataforma}
-                className="rounded-lg px-2.5 py-1 text-[11px] font-bold"
-                style={estilo}
+                className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${clase}`}
                 title={titulo}
               >
                 {ETIQUETA_PLATAFORMA[p.plataforma]} · {p.saldoCache}
@@ -133,7 +140,11 @@ function FilaCliente({
       )}
 
       {error && (
-        <p role="alert" className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-[12px] font-bold text-red-200">
+        // Mismo bug que el nombre del cliente 60 líneas arriba: el par
+        // rojo era el del tema OSCURO y sobre la superficie clara el aviso
+        // quedaba invisible. `ESTADO_PILDORA.alerta` es el par medido, y
+        // `.lealtad-oscuro` lo re-mapea solo.
+        <p role="alert" className={`mt-2 rounded-lg px-3 py-2 text-[12px] font-bold ${ESTADO_PILDORA.alerta}`}>
           {error}
         </p>
       )}

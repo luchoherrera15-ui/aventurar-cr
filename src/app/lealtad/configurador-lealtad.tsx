@@ -128,6 +128,15 @@ export type EstadoLealtad = {
   diseno: ConfigTira;
 
   telefono: string;
+
+  /**
+   * El código del moderador/agente que refirió el alta (0219). Se
+   * captura en el PRIMER paso (los paquetes, pedido del dueño 30 ago
+   * 2026): quien llega de la mano de un «reseller» trae el código
+   * antes de armar nada. Viaja con `solicitarAltaConPlan`, que lo
+   * valida contra `agentes_lealtad` y amarra el negocio al agente.
+   */
+  codigoReferido: string;
 };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -169,6 +178,7 @@ function estadoInicial(planInicial?: PlanId | null): EstadoLealtad {
     notificacionLogoUrl: null,
     diseno: CONFIG_CLASICA,
     telefono: "",
+    codigoReferido: "",
   };
 }
 
@@ -189,6 +199,10 @@ function sanearGuardado(crudo: unknown): EstadoLealtad {
   }
   if (typeof c.nombreNegocio === "string") limpio.nombreNegocio = c.nombreNegocio.slice(0, 80);
   if (typeof c.telefono === "string") limpio.telefono = c.telefono.slice(0, 30);
+  // Mismo tope y mayúscula que escribe el input del panel de paquetes.
+  if (typeof c.codigoReferido === "string") {
+    limpio.codigoReferido = c.codigoReferido.slice(0, 24).toUpperCase();
+  }
   if (typeof c.modo === "string" && esTipoTarjeta(c.modo)) {
     limpio.modo = c.modo;
     limpio.beneficio = leerBeneficio(c.beneficio, c.modo) ?? configPorDefecto(c.modo);
@@ -327,6 +341,11 @@ export default function ConfiguradorLealtad({
     reglas: REGLAS_VACIAS,
     vencenMeses: null,
     telefono: estado.telefono,
+    // Viaja en el valor —y no solo en `EstadoLealtad`— porque
+    // `irAlPlanPago` respalda este objeto tal cual antes de mandar a
+    // /lealtad/nuevo: sin el campo acá, el camino pago perdía el
+    // código escrito (y con él, la comisión del moderador).
+    codigoReferido: estado.codigoReferido,
     imagenModo: estado.imagenModo,
     imagenStockId: estado.imagenStockId,
     franjaModo: estado.franjaModo,
@@ -350,6 +369,7 @@ export default function ConfiguradorLealtad({
     if (p.logoUrl !== undefined) cambios.logoUrl = p.logoUrl;
     if (p.bannerUrl !== undefined) cambios.bannerUrl = p.bannerUrl;
     if (p.telefono !== undefined) cambios.telefono = p.telefono;
+    if (p.codigoReferido !== undefined) cambios.codigoReferido = p.codigoReferido;
     if (p.imagenModo !== undefined) cambios.imagenModo = p.imagenModo;
     if (p.imagenStockId !== undefined) cambios.imagenStockId = p.imagenStockId;
     if (p.franjaModo !== undefined) cambios.franjaModo = p.franjaModo;
@@ -388,6 +408,9 @@ export default function ConfiguradorLealtad({
       metodoPago: "sinpe",
       comprobanteUrl: "",
       telefono: estado.telefono,
+      // El servidor lo normaliza y valida contra `agentes_lealtad`;
+      // un typo frena el alta con aviso en vez de guardarse mudo.
+      codigoReferido: estado.codigoReferido,
       personalizado: false,
       descripcion: "",
       paseColor: estado.colorFondo,
@@ -486,6 +509,8 @@ export default function ConfiguradorLealtad({
       ) : (
         <PanelPaquetesLealtad
           tipoElegido={estado.modo}
+          codigoReferido={estado.codigoReferido}
+          alCambiarReferido={(codigo) => patch({ codigoReferido: codigo })}
           alSeguir={(planId) => patch({ planElegido: planId, vista: "editor" })}
         />
       )}

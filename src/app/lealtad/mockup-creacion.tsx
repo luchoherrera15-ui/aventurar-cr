@@ -226,6 +226,17 @@ export default function MockupCreacion() {
         y el código son un ejemplo ilustrativo.
       </p>
 
+      {/* ⚠️ SE ABRE EN lg Y SE VUELVE A CERRAR EN xl, Y NO ES UN ERROR.
+
+          Este mockup vive dentro del slider de «¿Cómo funciona?», que
+          se parte en dos columnas recién en xl (1280). Entonces:
+          · hasta 1279 el slider va apilado y acá SÍ hay ancho para
+            poner el panel y el teléfono lado a lado (a 1100 px,
+            apilarlos empujaba la sección a 1.502 px);
+          · desde 1280 el slider ya tomó la mitad del ancho para el
+            texto, así que este mockup se cierra a una columna o
+            quedarían tres columnas apretadas.
+          Medido a 1100 y a 1440 px. */}
       <div className="grid items-center justify-items-center gap-10 lg:grid-cols-2 lg:gap-8">
         {/* ═══ IZQUIERDA: LOS CONTROLES ═══════════════════════════════
             Sin `aria-hidden` a propósito. Son botones reales, con foco,

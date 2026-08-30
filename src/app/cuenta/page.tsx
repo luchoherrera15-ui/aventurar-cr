@@ -43,22 +43,15 @@ export default async function CuentaPage({
   // panel. `/lealtad/entrar` YA sabe resolver "cero/uno/varios negocios
   // con programa" (ver ese archivo); acá solo se reusa.
   //
-  // `volver=food:{slug}`: mismo mecanismo, para quien venía reservando
-  // en FOOD.BOOKEA y tuvo que loguearse a mitad de camino — sin esto
-  // caía en el tablero genérico y perdía la franja/cantidad de personas
-  // que ya había elegido en /food/restaurante/{slug}.
+  // (Existió un `volver=food:{slug}` para quien reservaba en
+  // FOOD.BOOKEA y se logueaba a mitad de camino. FOOD se eliminó el 30
+  // ago 2026 y con él su destino: un `volver=food:...` viejo ahora
+  // cae al tablero, que es lo correcto.)
   searchParams: Promise<{ volver?: string }>;
 }) {
   const { volver } = await searchParams;
   const destinoLealtad = volver === "lealtad" ? "/lealtad/entrar" : null;
-  // `volver=food:{slug}` arma una ruta interna de prefijo fijo, pero el
-  // slug lo pone el usuario: se valida el charset (letras, numeros,
-  // guiones) para que no se cuele un `..` ni caracteres que tuerzan el
-  // destino de la redireccion. Si no calza, se ignora y cae al tablero.
-  const slugFood = volver?.startsWith("food:") ? volver.slice("food:".length) : null;
-  const destinoFood =
-    slugFood && /^[a-z0-9-]+$/i.test(slugFood) ? `/food/restaurante/${slugFood}` : null;
-  const destino = destinoLealtad ?? destinoFood;
+  const destino = destinoLealtad;
 
   const supabase = await createClient();
   const {

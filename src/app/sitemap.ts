@@ -67,13 +67,12 @@ const SECCIONES: { ruta: string; prioridad: number; frecuencia: "daily" | "weekl
     { ruta: "/", prioridad: 1, frecuencia: "daily" },
     { ruta: "/hospedajes", prioridad: 0.8, frecuencia: "weekly" },
     { ruta: "/restaurantes", prioridad: 0.8, frecuencia: "weekly" },
-    // FOOD.BOOKEA es un producto aparte (no vive en `ranchos`, no
-    // aparece en la navegación principal) pero SÍ quiere clientes
-    // reales por buscador — por eso va acá con sus propias fichas
-    // abajo, igual criterio que /restaurantes.
-    // ⚠️ `/food` salió del sitemap: Bookea Food se apagó (27 ago 2026,
-    // ver src/lib/food-apagado.ts). Dejarla acá le pediría a Google que
-    // indexe una ruta que hoy devuelve 404.
+    // ⚠️ `/food` salió del sitemap: Bookea Food se apagó el 27 ago 2026
+    // y se eliminó del repo el 30. Dejarla acá le pediría a Google que
+    // indexe una ruta que ya no existe.
+    //
+    // OJO: `/restaurantes` de arriba NO es FOOD — es la cuarta vertical
+    // del marketplace, sobre la tabla `ranchos`. Sigue viva.
     { ruta: "/lealtad", prioridad: 0.7, frecuencia: "weekly" },
     { ruta: "/invitaciones", prioridad: 0.7, frecuencia: "weekly" },
     { ruta: "/publicar", prioridad: 0.6, frecuencia: "monthly" },
@@ -143,9 +142,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   // ⚠️ ACÁ SE LEÍAN LAS FICHAS DE FOOD (`food_businesses`) PARA EL
-  // SITEMAP. Bookea Food se apagó el 27 ago 2026 —ver
-  // `src/lib/food-apagado.ts`— así que esas URLs devuelven 404 y
-  // pedirle a Google que las visite sería mandarlo a la nada.
+  // SITEMAP. Bookea Food se apagó el 27 ago 2026 y se eliminó del repo
+  // el 30, así que esas URLs ya no existen y pedirle a Google que las
+  // visite sería mandarlo a la nada. Las tablas `food_*` siguen en la
+  // base con sus datos; nada del sitio las lee.
   //
   // La consulta se va entera, no solo las URLs: era una ida a Supabase
   // en cada generación del sitemap para una tabla que este sitio ya no

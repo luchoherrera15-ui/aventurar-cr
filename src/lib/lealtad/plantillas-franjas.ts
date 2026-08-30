@@ -56,6 +56,32 @@ export type PlantillaFranja = {
   creditoFotografo?: string;
 };
 
+/**
+ * ── DE DÓNDE SALEN LAS FOTOS DEL BANCO (30 ago 2026) ──────────────
+ *
+ * Vivían en `public/lealtad/plantillas/franjas/` y pesaban 5,1 MB: el
+ * 75 % de todo `public/` una vez eliminado FOOD. Ese peso se clonaba y
+ * se volvía a subir al CDN en CADA despliegue, y se hicieron casi cien
+ * en un ciclo.
+ *
+ * Ahora las sirve Cloudflare Images, que ya estaba montado para las
+ * fotos reales de los negocios. Cloudflare además las entrega
+ * optimizadas: la misma foto que acá pesaba 526 KB sale por ~53 KB.
+ *
+ * ⚠️ MOVERLAS ES SEGURO PORQUE SON SOLO VISTA PREVIA. Un id de
+ * `PLANTILLAS_FRANJA` nunca viaja al servidor (lo dice
+ * `configurador-lealtad.tsx`): al crear el pase, `bannerUrl` se manda
+ * únicamente cuando la franja es PROPIA, subida por el negocio a
+ * nuestro Storage. Ninguna franja del banco entra al .pkpass.
+ *
+ * El hash de la cuenta es PÚBLICO —aparece en cada URL de imagen— así
+ * que el respaldo literal no filtra nada; la variable existe para no
+ * quedar clavados a una cuenta. Se suben con
+ * `scripts/subir-franjas-a-cloudflare.mjs`.
+ */
+const BASE_FRANJAS =
+  process.env.NEXT_PUBLIC_IMAGES_URL ?? "https://imagedelivery.net/X6xhTJPyvf9Jhtws4_jH8g";
+
 const franja = (
   archivo: string,
   rubro: string,
@@ -68,7 +94,7 @@ const franja = (
   }
   return {
     id: archivo,
-    src: `/lealtad/plantillas/franjas/${archivo}.jpg`,
+    src: `${BASE_FRANJAS}/lealtad/franjas/${archivo}/public`,
     rubro,
     creditoFotografo,
   };
