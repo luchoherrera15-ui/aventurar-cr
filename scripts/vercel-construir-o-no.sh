@@ -37,18 +37,38 @@ RUTAS=(
   "postcss.config.mjs"
 )
 
-# Sin commit anterior contra el cual comparar (primer deploy, historial
-# superficial): construir.
-if ! git rev-parse HEAD^ >/dev/null 2>&1; then
-  echo "Sin commit anterior — construyo por las dudas."
-  exit 1
+# ⚠️ SE MIRAN VARIOS COMMITS, NO SOLO EL ÚLTIMO.
+#
+# La primera versión comparaba HEAD^ contra HEAD y se saltó un deploy de
+# verdad (30 ago 2026): el push llevaba dos commits —uno con cambios de
+# `src/` y encima otro que solo restauraba un PNG de la raíz— y Vercel
+# construye el ÚLTIMO. Como ese último no tocaba el sitio, el script dijo
+# «saltear» y los cambios reales se quedaron sin publicar, en silencio,
+# que es exactamente el peor resultado posible.
+#
+# Mirar una ventana de commits corrige eso: si CUALQUIERA de los últimos
+# tocó el sitio, se construye. Puede construir de más cuando la ventana
+# alcanza commits ya desplegados; eso cuesta centavos, mientras que no
+# construir cuando hacía falta cuesta producción vieja sin que nadie se
+# entere. La regla de oro manda.
+VENTANA=8
+
+BASE="HEAD~${VENTANA}"
+if ! git rev-parse "$BASE" >/dev/null 2>&1; then
+  # Historial más corto que la ventana (clone superficial, repo nuevo):
+  # se compara contra lo que haya, y si tampoco existe, se construye.
+  if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+    echo "Sin historial para comparar — construyo por las dudas."
+    exit 1
+  fi
+  BASE="HEAD^"
 fi
 
 # `git diff --quiet` sale 0 si NO hay cambios y 1 si los hay: es
 # exactamente la convención que espera Vercel, pero al revés de lo que
 # uno leería, así que se hace explícito.
-if git diff --quiet HEAD^ HEAD -- "${RUTAS[@]}" 2>/dev/null; then
-  echo "Este commit no toca el sitio (${RUTAS[*]}) — me salto el build."
+if git diff --quiet "$BASE" HEAD -- "${RUTAS[@]}" 2>/dev/null; then
+  echo "Ningún commit reciente ($BASE..HEAD) toca el sitio (${RUTAS[*]}) — me salto el build."
   exit 0
 fi
 
