@@ -179,7 +179,7 @@ export async function solicitarAltaConPlan(datos: {
   // El `tope` viaja en la respuesta para que la pantalla abra el
   // formulario de contacto en vez de pintar un error rojo: pedir el
   // segundo negocio es un camino válido, no una equivocación.
-  const cupo = await puedeCrearNegocioDeLealtad(user.id);
+  const cupo = await puedeCrearNegocioDeLealtad(user.id, datos.plan);
   if (!cupo.puede) return { ok: false, motivo: cupo.motivo, tope: true };
 
   // ── EL CAMINO AUTOMÁTICO: Gratis + creador = se crea TODO al toque ──

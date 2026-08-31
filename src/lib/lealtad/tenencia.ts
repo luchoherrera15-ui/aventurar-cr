@@ -1,11 +1,17 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { esPlanSinCosto } from "./planes";
 
 /**
- * UN NEGOCIO DE LEALTAD POR CUENTA — el conteo, en un solo lugar.
+ * UN NEGOCIO GRATIS POR CUENTA — el conteo, en un solo lugar.
  *
- * Regla del dueño (31 ago 2026): «solo se puede crear UN NEGOCIO por
- * persona en los planes de lealtad. Si quisiera agregar otro lo
- * hacemos nosotros por contacto directo».
+ * Regla del dueño (31 ago 2026): «solo se puede crear un negocio por
+ * persona», aclarada el mismo día: «si es pagando sí se pueden crear
+ * otros, solo el gratis limitalo a uno».
+ *
+ * O sea que el tope NO es de la cuenta: es del plan sin costo. Quien
+ * paga abre los negocios que quiera —cada uno es una suscripción
+ * más—, y lo que se protege es que no se regalen programas gratis en
+ * cantidad desde una sola cuenta.
  *
  * ------------------------------------------------------------------
  * POR QUÉ ESTE ARCHIVO EXISTE
@@ -48,7 +54,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * si se puede crear UNO MÁS. Nada de lo que ya existe se toca.
  */
 
-/** El cupo. Uno, y la constante existe para que se lea el porqué. */
+/** El cupo de negocios GRATIS. Uno. */
 export const TOPE_NEGOCIOS_LEALTAD = 1;
 
 export type TenenciaLealtad = {
@@ -115,19 +121,26 @@ export async function tenenciaDeLealtad(userId: string): Promise<TenenciaLealtad
   return { negocios, tramitesPendientes, total: negocios.length + tramitesPendientes };
 }
 
-/** El texto que ve la persona. Uno solo, para que las cuatro puertas digan lo mismo. */
+/** El texto que ve la persona. Uno solo, para que las puertas digan lo mismo. */
 export const MOTIVO_TOPE_NEGOCIOS =
-  "Ya tenés tu negocio en Lealtad. Para abrir otro escribinos y lo damos de alta nosotros.";
+  "Ya tenés tu negocio gratis en Lealtad. Podés abrir otro eligiendo un paquete de pago, o escribinos y lo damos de alta nosotros.";
 
 /**
  * La puerta. `true` en `puede` = adelante.
+ *
+ * ⚠️ EL `plan` NO ES OPCIONAL, y por eso se pide explícito: un plan
+ *    de pago SIEMPRE puede abrir otro negocio. Si esta función se
+ *    llamara sin él, el tope se aplicaría al pago y estaríamos
+ *    rechazando ventas.
  *
  * `yaTiene` viaja para que la pantalla pueda decir CUÁL negocio ocupa
  * el cupo en vez de un «no se puede» a secas.
  */
 export async function puedeCrearNegocioDeLealtad(
   userId: string,
+  plan: string | null,
 ): Promise<{ puede: true } | { puede: false; motivo: string; yaTiene: TenenciaLealtad }> {
+  if (!esPlanSinCosto(plan)) return { puede: true };
   const tenencia = await tenenciaDeLealtad(userId);
   if (tenencia.total < TOPE_NEGOCIOS_LEALTAD) return { puede: true };
   return { puede: false, motivo: MOTIVO_TOPE_NEGOCIOS, yaTiene: tenencia };

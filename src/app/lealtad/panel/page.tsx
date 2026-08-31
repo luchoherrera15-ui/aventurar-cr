@@ -9,8 +9,6 @@ import { estadoDeAddon } from "@/lib/addons";
 import { elegirDeFilasCrudas } from "@/lib/wallet/programa-principal";
 import { minutoISOCR } from "@/lib/fechas";
 import { Card, PildoraEstado } from "@/components/panel/piezas";
-import { tenenciaDeLealtad } from "@/lib/lealtad/tenencia";
-import PedirOtroNegocio from "./pedir-otro-negocio";
 import {
   BAJADA_PANTALLA,
   CUERPO_SUAVE,
@@ -117,17 +115,6 @@ export default async function PanelLealtadPage() {
     .is("rancho_id", null);
   const altasPendientes = ((altasData ?? []) as { id: string; negocio_nombre?: string | null; plan: string }[])
     .filter((a) => a.negocio_nombre);
-
-  // ── EL CUPO (dueño, 31 ago 2026) ─────────────────────────────────
-  // Una cuenta, un negocio de Lealtad; el segundo lo abre el equipo.
-  //
-  // ⚠️ SE PREGUNTA AL MISMO CONTADOR QUE USAN LAS PUERTAS DEL
-  //    SERVIDOR, y no se deduce de `negocios.length`: esa lista mezcla
-  //    los propios con aquellos donde la persona solo COLABORA, que no
-  //    son suyos y no gastan cupo. Deducirlo de acá le cerraría el
-  //    alta a quien ayuda a administrar el negocio de otro.
-  const cupo = await tenenciaDeLealtad(user.id);
-  const puedeCrear = cupo.total === 0;
 
   const negocios: TarjetaNegocio[] = [];
 
@@ -336,30 +323,31 @@ export default async function PanelLealtadPage() {
             </Card>
           ))}
 
-          {/* El primer programa se arma solo; el segundo se pide.
-              Ver `pedir-otro-negocio.tsx` para el porqué. */}
-          {puedeCrear ? (
-            <Link
-              href="/lealtad/crear"
-              className={`flex min-h-[150px] flex-col items-center justify-center ${RADIO_CARD} border border-dashed border-aventurea-line bg-aventurea-cream-2 p-5 text-center transition-colors hover:border-aventurea-navy`}
+          {/* Crear otro programa — o el primero.
+
+              El «+» está siempre: el tope de un negocio es solo del
+              plan GRATIS (aclaración del dueño, 31 ago 2026), así que
+              el segundo se abre solo eligiendo un paquete de pago. Si
+              elige el gratis teniendo ya uno, se lo dice el servidor
+              con la salida en el mismo mensaje. */}
+          <Link
+            href="/lealtad/crear"
+            className={`flex min-h-[150px] flex-col items-center justify-center ${RADIO_CARD} border border-dashed border-aventurea-line bg-aventurea-cream-2 p-5 text-center transition-colors hover:border-aventurea-navy`}
+          >
+            <span
+              aria-hidden
+              className="grid h-10 w-10 place-items-center rounded-xl text-[22px] leading-none"
+              style={{ background: "var(--accion-suave)", color: "var(--accion)" }}
             >
-              <span
-                aria-hidden
-                className="grid h-10 w-10 place-items-center rounded-xl text-[22px] leading-none"
-                style={{ background: "var(--accion-suave)", color: "var(--accion)" }}
-              >
-                +
-              </span>
-              <span className="mt-2.5 text-[13.5px] font-bold text-aventurea-ink">
-                Creá tu primer programa
-              </span>
-              <span className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">
-                Sin publicarte en el marketplace
-              </span>
-            </Link>
-          ) : (
-            <PedirOtroNegocio />
-          )}
+              +
+            </span>
+            <span className="mt-2.5 text-[13.5px] font-bold text-aventurea-ink">
+              {negocios.length === 0 ? "Creá tu primer programa" : "Otro negocio"}
+            </span>
+            <span className="mt-0.5 text-[11.5px] text-aventurea-ink-soft">
+              Sin publicarte en el marketplace
+            </span>
+          </Link>
         </div>
 
         {negocios.length === 0 && (

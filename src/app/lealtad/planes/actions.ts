@@ -95,7 +95,7 @@ export async function solicitarPlanLealtad(datos: {
   // Un negocio de Lealtad por cuenta (31 ago 2026). Solo en el ALTA:
   // pedir plan para un negocio que YA es suyo no crea nada nuevo.
   if (esAlta) {
-    const cupo = await puedeCrearNegocioDeLealtad(user.id);
+    const cupo = await puedeCrearNegocioDeLealtad(user.id, plan);
     if (!cupo.puede) return { ok: false, motivo: cupo.motivo };
   }
 
