@@ -1,0 +1,157 @@
+{
+  "_comentario": [
+    "LOS OCHO NEGOCIOS DE DEMOSTRACIÓN — uno por tipo de tarjeta.",
+    "",
+    "Pedido del dueño (31 ago 2026): que en la sección «Elegí qué guardan",
+    "en el teléfono» cada pestaña tenga sus botones de Apple Wallet y",
+    "Google Wallet, y que lleven al MISMO formulario que llena un cliente",
+    "real al afiliarse — para que quien mira la landing pueda bajarse un",
+    "pase de verdad y vivir la experiencia completa.",
+    "",
+    "⚠️ ESTE ARCHIVO ES LA ÚNICA FUENTE. Lo leen dos lados:",
+    "  · src/lib/lealtad/demos-wallet.ts — la landing, para armar el link",
+    "    /tarjeta/<slug> de cada pestaña.",
+    "  · scripts/seed-demos-wallet.mjs — el sembrador, que crea el negocio",
+    "    y su programa en la base.",
+    "Es JSON y no TypeScript justamente por eso: un script .mjs no puede",
+    "importar un .ts, y duplicar la tabla en dos archivos es la forma más",
+    "rápida de que un slug quede apuntando a un negocio que no existe.",
+    "",
+    "Los slugs empiezan con `demo-` a propósito: es lo que permite",
+    "reconocerlos de un vistazo en la base y lo que usa el sembrador para",
+    "no tocar jamás un negocio de un cliente real."
+  ],
+  "negocios": [
+    {
+      "tipo": "sellos",
+      "nombre": "Café La Esquina",
+      "slug": "demo-cafe-la-esquina",
+      "rubro": "Cafetería",
+      "color": "#4a2c17",
+      "acento": "#e8a33d",
+      "regalia": "Un café gratis",
+      "config": {
+        "tipo": "sellos",
+        "requeridos": 10,
+        "recompensa": "Un café gratis",
+        "inicial": 1,
+        "repetible": true,
+        "sellosPor": "compra",
+        "montoPorSello": null
+      }
+    },
+    {
+      "tipo": "puntos",
+      "nombre": "Súper La Cosecha",
+      "slug": "demo-super-la-cosecha",
+      "rubro": "Supermercado",
+      "color": "#14532d",
+      "acento": "#86efac",
+      "regalia": "200 puntos = ₡2.000 de descuento",
+      "config": {
+        "tipo": "puntos",
+        "nombre": "puntos",
+        "porMoneda": 0,
+        "porVisita": 10,
+        "inicial": 0,
+        "minimoCanje": 200,
+        "maximo": null
+      }
+    },
+    {
+      "tipo": "cupon",
+      "nombre": "Pizzería Nápoli",
+      "slug": "demo-pizzeria-napoli",
+      "rubro": "Restaurante",
+      "color": "#7f1d1d",
+      "acento": "#fca5a5",
+      "regalia": "2×1 en pizza",
+      "config": {
+        "tipo": "cupon",
+        "beneficio": { "forma": "gratis", "que": "La segunda pizza" },
+        "compraMinima": 0,
+        "descuentoMaximo": null,
+        "usosPorCliente": 1
+      }
+    },
+    {
+      "tipo": "descuento",
+      "nombre": "Farmacia Central",
+      "slug": "demo-farmacia-central",
+      "rubro": "Farmacia",
+      "color": "#0c4a6e",
+      "acento": "#7dd3fc",
+      "regalia": "15 % en toda la compra",
+      "config": {
+        "tipo": "descuento",
+        "beneficio": { "forma": "porcentaje", "valor": 15 },
+        "compraMinima": 0,
+        "descuentoMaximo": null,
+        "usosPorCliente": 0
+      }
+    },
+    {
+      "tipo": "membresia",
+      "nombre": "Gimnasio Fuerza",
+      "slug": "demo-gimnasio-fuerza",
+      "rubro": "Gimnasio",
+      "color": "#1e1b4b",
+      "acento": "#a5b4fc",
+      "regalia": "Socio Oro",
+      "config": {
+        "tipo": "membresia",
+        "nivel": "Oro",
+        "beneficios": ["Clases sin límite", "Invitado gratis por mes"],
+        "vigenciaMeses": 12,
+        "renovacionAutomatica": false
+      }
+    },
+    {
+      "tipo": "giftcard",
+      "nombre": "Boutique Aurora",
+      "slug": "demo-boutique-aurora",
+      "rubro": "Tienda de ropa",
+      "color": "#4a044e",
+      "acento": "#f0abfc",
+      "regalia": "Saldo de regalo",
+      "config": {
+        "tipo": "giftcard",
+        "valor": 10000,
+        "moneda": "CRC",
+        "canjeParcial": true,
+        "transferible": true
+      }
+    },
+    {
+      "tipo": "evento",
+      "nombre": "Teatro Melico",
+      "slug": "demo-teatro-melico",
+      "rubro": "Teatro",
+      "color": "#431407",
+      "acento": "#fdba74",
+      "regalia": "Entrada general",
+      "config": {
+        "tipo": "evento",
+        "fecha": "2026-12-05",
+        "hora": "19:30",
+        "ubicacion": "Avenida 2, San José",
+        "capacidad": null
+      }
+    },
+    {
+      "tipo": "cashback",
+      "nombre": "Lavacar Brillo",
+      "slug": "demo-lavacar-brillo",
+      "rubro": "Lavacar",
+      "color": "#083344",
+      "acento": "#67e8f9",
+      "regalia": "5 % de vuelta en saldo",
+      "config": {
+        "tipo": "cashback",
+        "porcentaje": 5,
+        "compraMinima": 0,
+        "topePorCompra": null
+      }
+    }
+  ]
+}

@@ -9,7 +9,9 @@ import {
 import { tiposDelPlan, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { FICHAS } from "./contenido-tipos";
 import { Icono, type NombreIcono } from "./panel/[id]/iconos";
+import Link from "next/link";
 import TelefonoMockup, { PantallaWallet } from "./telefono-mockup";
+import { demoDe, rutaDeAfiliacion } from "@/lib/lealtad/demos-wallet";
 
 /**
  * "ELEGÍ QUÉ GUARDAN EN EL TELÉFONO" — el selector de los ocho tipos.
@@ -64,6 +66,7 @@ export default function SelectorTiposLanding() {
   }
 
   const def = TIPOS_TARJETA[tipo];
+  const demo = demoDe(tipo);
   const ficha = FICHAS[tipo];
   const puedeDestacado = ficha.puede.slice(0, 3);
 
@@ -211,6 +214,49 @@ export default function SelectorTiposLanding() {
                 />
               </TelefonoMockup>
             </div>
+
+            {/* ── PROBARLA DE VERDAD (dueño, 31 ago 2026) ──────────
+                Pedido: que cada pestaña tenga sus botones de Apple y
+                Google Wallet y que lleven «al formulario que se llena
+                en cada cliente al registrar la tarjeta».
+
+                Y es EL formulario, no una imitación: `/tarjeta/<slug>`
+                es la misma pantalla a la que llega quien escanea el QR
+                en el mostrador de un negocio de verdad. Detrás de cada
+                tipo hay un negocio de demostración sembrado, así que el
+                pase que baja funciona en el teléfono — se le pueden
+                sellar visitas y le llegan avisos.
+
+                Un solo enlace para los dos botones a propósito: cuál de
+                los dos wallets corresponde lo decide la ficha del
+                cliente mirando el dispositivo, y adelantarnos acá sería
+                ofrecerle Apple Wallet a quien entra con un Android. */}
+            {demo && (
+              <div className="mt-5">
+                <div className="flex flex-wrap items-center justify-center gap-2.5">
+                  <Link
+                    href={rutaDeAfiliacion(demo)}
+                    className="presionable inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-black px-4 text-[13px] font-bold text-white"
+                  >
+                    <span aria-hidden className="text-[15px] leading-none"></span>
+                    Agregar a Apple Wallet
+                  </Link>
+                  <Link
+                    href={rutaDeAfiliacion(demo)}
+                    className="presionable inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-aventurea-line bg-white px-4 text-[13px] font-bold text-aventurea-ink"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- SVG
+                        estático de marca; next/image no aporta nada. */}
+                    <img src="/pagos/google-pay.svg" alt="" aria-hidden className="h-3.5 w-auto" />
+                    Guardar en Google Wallet
+                  </Link>
+                </div>
+                <p className="mt-2.5 text-center text-[12px] text-aventurea-ink-soft">
+                  Probala de verdad: es el mismo formulario que llena tu cliente, con{" "}
+                  <span className="font-bold text-aventurea-ink">{demo.nombre}</span> de ejemplo.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
