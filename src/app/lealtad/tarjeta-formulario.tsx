@@ -192,7 +192,34 @@ export type ValorFormulario = {
 export type CandadoTipo = { puede: boolean; motivo: string | null };
 
 const CLAVE_SESION_RESPALDO = "bookea-lealtad-wizard:nuevo";
-const ANCLA = "/lealtad#configurador-lealtad";
+
+/**
+ * A DÓNDE VUELVE QUIEN SE LOGUEA A MITAD DE ARMAR SU TARJETA.
+ *
+ * ⚠️ Era `/lealtad#configurador-lealtad` y estaba ROTO desde que el
+ * configurador se mudó de la landing a su propia pantalla: entrar con
+ * el correo devolvía a /lealtad —la página de venta— en vez de al
+ * creador, así que la persona terminaba de loguearse y se encontraba
+ * fuera de lo que estaba haciendo, con la sensación de haber perdido
+ * el trabajo. (No lo perdía: el borrador sigue en sessionStorage y
+ * `configurador-lealtad.tsx` lo restaura con su vista; pero había que
+ * volver a mano a /lealtad/crear para verlo.)
+ *
+ * Reportado por el dueño el 30 ago 2026: «cuando inicia lo saca de la
+ * página; la idea sería CREAR TARJETA → panel de login → panel de
+ * configurar la tarjeta».
+ *
+ * ⚠️ SIN ANCLA (`#configurador-lealtad`), y eso NO es un olvido.
+ * `FormularioCodigoAcceso` navega con `window.location.href = destino`,
+ * y el login ocurre DENTRO de /lealtad/crear: si el destino se
+ * diferenciara de la URL actual solo en el hash, el navegador haría
+ * scroll y NADA MÁS —sin recargar—, así que el servidor no volvería a
+ * renderizar y `haySesion` seguiría en false: la persona entraría bien
+ * y seguiría viendo el formulario de acceso, como si no hubiera pasado
+ * nada. Sin hash es la misma URL exacta y el navegador sí recarga, que
+ * es justo lo que este flujo necesita para enterarse de la sesión.
+ */
+const ANCLA = "/lealtad/crear";
 
 /**
  * El rótulo de un campo.
