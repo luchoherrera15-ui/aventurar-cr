@@ -133,7 +133,7 @@ describe("validarTarjetaDeAlta — el beneficio", () => {
   it("delega las reglas del negocio en validarBeneficio", () => {
     const rota: ConfigBeneficio = { ...sellos, requeridos: 0 };
     const r = validarTarjetaDeAlta({ modo: "sellos", beneficio: rota }, "prueba");
-    expect(r).toEqual({ ok: false, motivo: "Los sellos de la meta van de 1 a 100." });
+    expect(r).toEqual({ ok: false, motivo: "Los sellos de la meta van de 1 a 15." });
   });
 });
 

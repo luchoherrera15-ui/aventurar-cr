@@ -345,8 +345,11 @@ export function configPorDefecto(tipo: TipoTarjeta): ConfigBeneficio {
 export function validarBeneficio(config: ConfigBeneficio): string | null {
   switch (config.tipo) {
     case "sellos": {
-      if (!Number.isInteger(config.requeridos) || config.requeridos < 1 || config.requeridos > 100) {
-        return "Los sellos de la meta van de 1 a 100.";
+      // 15 y no 100 (dueño, 31 ago 2026). Una tarjeta de 30 sellos
+      // no la termina nadie: la meta tiene que verse alcanzable el
+      // día que el cliente la guarda, o el pase se vuelve adorno.
+      if (!Number.isInteger(config.requeridos) || config.requeridos < 1 || config.requeridos > 15) {
+        return "Los sellos de la meta van de 1 a 15.";
       }
       if (!config.recompensa.trim()) return "Contá qué se gana al completar los sellos.";
       if (!Number.isInteger(config.inicial) || config.inicial < 0) {

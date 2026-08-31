@@ -767,6 +767,12 @@ export default function TarjetaFormulario({
    */
   const trabadoPorCuenta = esPublico && !haySesion && enPaso("cuenta");
 
+  // El paso del premio no se cruza con el campo vacío: es la promesa
+  // que va escrita en el pase, y sin ella la tarjeta no significa
+  // nada. Mismo `motivoBeneficio` que usa el guardado, para que el
+  // botón y el servidor no puedan discrepar.
+  const faltaElPremio = esPublico && enPaso("premio") && motivoBeneficio !== null;
+
   /**
    * Los datos que la portada muestra bajo el nombre, en una línea.
    *
@@ -1492,7 +1498,7 @@ export default function TarjetaFormulario({
                         <button
                           type="button"
                           onClick={() => irAPaso(paso + 1)}
-                          disabled={trabadoPorCuenta}
+                          disabled={trabadoPorCuenta || faltaElPremio}
                           className="presionable min-h-[44px] rounded-xl px-5 py-3 text-[13px] font-extrabold disabled:cursor-not-allowed disabled:opacity-45"
                           style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
                         >
@@ -1504,6 +1510,11 @@ export default function TarjetaFormulario({
                         {trabadoPorCuenta && (
                           <span className="text-[11.5px] font-bold text-bookea-gris">
                             Entrá con tu correo para seguir
+                          </span>
+                        )}
+                        {!trabadoPorCuenta && faltaElPremio && (
+                          <span className="text-[11.5px] font-bold text-bookea-gris">
+                            {motivoBeneficio}
                           </span>
                         )}
                       </span>

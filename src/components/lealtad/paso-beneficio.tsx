@@ -77,7 +77,7 @@ export default function PasoBeneficio({
                 id="b-req"
                 type="number"
                 min={1}
-                max={100}
+                max={15}
                 value={config.requeridos}
                 onChange={(e) => alCambiar({ ...config, requeridos: num(e.target.value, 1) })}
                 className={campo}
