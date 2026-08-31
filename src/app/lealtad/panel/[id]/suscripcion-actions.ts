@@ -89,6 +89,14 @@ export async function iniciarPagoConTarjeta(datos: {
 
     const previa = await suscripcionDelNegocio(admin, { ranchoId: datos.ranchoId, cuentaId });
     clienteStripe = previa?.clienteStripe || null;
+
+    // ⚠️ CAMBIAR DE PAQUETE NO ES UNA COMPRA NUEVA.
+    //    Los dos estados son los que `daDerechoAlPlan` considera
+    //    vivos: si hay una suscripción andando, abrir un Checkout la
+    //    duplicaría en vez de reemplazarla. Al portal, que sabe hacer
+    //    el prorrateo y mover la fecha de renovación.
+    const yaPaga = previa?.estado === "activa" || previa?.estado === "en_prueba";
+    if (yaPaga) return abrirPortalDeFacturacion(datos.ranchoId);
   }
 
   // La sesión la arma `abrirCheckoutDeSuscripcion`, que es la misma que

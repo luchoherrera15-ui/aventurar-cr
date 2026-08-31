@@ -27,8 +27,12 @@ export default function FormularioAuth({
 }: {
   /** A dónde vuelve la persona después de entrar (ruta interna). */
   destino?: string;
-  titulo?: string;
-  intro?: string;
+  /** `null` para no mostrarlo: lo usa el asistente de Lealtad, donde el
+   *  paso ya se llama «Tu cuenta» y el título repetido solo empujaba el
+   *  campo del correo fuera de la pantalla. */
+  titulo?: string | null;
+  /** `null` para no mostrarla, por la misma razón que `titulo`. */
+  intro?: string | null;
 } = {}) {
   // Cuál de los dos está redirigiendo, para deshabilitar solo ese.
   const [pendiente, setPendiente] = useState<Proveedor | null>(null);
@@ -56,8 +60,8 @@ export default function FormularioAuth({
 
   return (
     <div className="mx-auto max-w-sm rounded-2xl border border-aventurea-line bg-aventurea-surface p-9 shadow-2xl">
-      <h1 className="text-xl font-bold text-aventurea-ink">{titulo}</h1>
-      <p className="mt-1.5 text-sm text-aventurea-ink-soft">{intro}</p>
+      {titulo && <h1 className="text-xl font-bold text-aventurea-ink">{titulo}</h1>}
+      {intro && <p className="mt-1.5 text-sm text-aventurea-ink-soft">{intro}</p>}
 
       {/* Si el correo es nuevo, la cuenta nace como cliente — nunca como
           dueño de negocio (eso lo decide el alta en /publicar). El

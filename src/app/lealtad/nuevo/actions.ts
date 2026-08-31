@@ -17,6 +17,7 @@ import { generarSlugUnico } from "@/lib/slug";
 import { apagarModulosOperativos } from "@/lib/lealtad/solo-lealtad";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
+import { puedeCrearNegocioDeLealtad } from "@/lib/lealtad/tenencia";
 
 /**
  * La solicitud de ALTA (0130): acá el negocio NO se crea — se PIDE.
@@ -42,7 +43,16 @@ type Resultado =
       /** Solo el plan Gratis del creador: se creó TODO al instante. */
       creado?: { ranchoId: string; slug: string | null };
     }
-  | { ok: false; motivo: string };
+  | {
+      ok: false;
+      motivo: string;
+      /**
+       * Se alcanzó el tope de un negocio por cuenta. NO es un error de
+       * lo que la persona escribió: la pantalla lo usa para ofrecer el
+       * formulario de contacto en vez de un aviso rojo.
+       */
+      tope?: boolean;
+    };
 
 export async function solicitarAltaConPlan(datos: {
   nombreNegocio: string;
@@ -159,6 +169,18 @@ export async function solicitarAltaConPlan(datos: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, motivo: "Iniciá sesión para enviar la solicitud." };
+
+  // ── UN NEGOCIO DE LEALTAD POR CUENTA (dueño, 31 ago 2026) ─────────
+  // Va ACÁ ARRIBA, antes de la bifurcación de más abajo, porque las
+  // DOS ramas dan de alta un negocio: la gratis lo crea al instante y
+  // la de pago lo deja pedido para que el equipo lo cree. Puesto en
+  // una sola, la otra queda de puerta trasera.
+  //
+  // El `tope` viaja en la respuesta para que la pantalla abra el
+  // formulario de contacto en vez de pintar un error rojo: pedir el
+  // segundo negocio es un camino válido, no una equivocación.
+  const cupo = await puedeCrearNegocioDeLealtad(user.id);
+  if (!cupo.puede) return { ok: false, motivo: cupo.motivo, tope: true };
 
   // ── EL CAMINO AUTOMÁTICO: Gratis + creador = se crea TODO al toque ──
   // Sin depósito no hay nada que verificar: el único requisito era la

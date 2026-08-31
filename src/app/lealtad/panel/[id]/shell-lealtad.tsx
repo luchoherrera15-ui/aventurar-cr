@@ -17,6 +17,7 @@ import {
   ACCION,
   ACCION_TINTE,
   RAIL_GRUPO_LEALTAD,
+  RAIL_ITEM_ACTIVO,
   RAIL_ITEM_LEALTAD,
 } from "../sistema-lealtad";
 
@@ -337,23 +338,19 @@ export default function ShellLealtad({
                             setActiva(item.id);
                             setMenuAbierto(false);
                           }}
-                          /* La barrita del acento entra por el BORDE
-                             IZQUIERDO del propio ítem y no por un <span>
-                             absoluto: así los 3px están siempre
-                             reservados —el activo y el de reposo miden
-                             igual— y el texto no salta al cambiar de
-                             sección. Es el `inset 3px 0 var(--accent)`
-                             de la maqueta. */
+                          /* El activo es una PÍLDORA SÓLIDA (31 ago 2026).
+                             Antes era una barrita de 3px en el borde más
+                             un tinte translúcido: había que buscar cuál
+                             estaba encendido. Un bloque de color se ve de
+                             una, que es lo que se pidió — «más simple de
+                             usar». El relleno va en `style` porque el par
+                             sale de las variables del módulo. */
                           className={`${RAIL_ITEM_LEALTAD} ${
-                            esta ? "text-white" : "text-aventurea-rail hover:text-white"
+                            esta ? RAIL_ITEM_ACTIVO : "text-aventurea-rail hover:bg-white/[0.06] hover:text-white"
                           }`}
-                          style={
-                            esta
-                              ? { background: ACCION_TINTE, borderLeftColor: ACENTO }
-                              : undefined
-                          }
+                          style={esta ? { background: ACCION } : undefined}
                         >
-                          <Icono nombre={item.icono} className="h-[17px] w-[17px] shrink-0" />
+                          <Icono nombre={item.icono} className="h-5 w-5 shrink-0" />
                           <span className="min-w-0 truncate">{item.etiqueta}</span>
                         </a>
                       </li>

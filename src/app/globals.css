@@ -171,8 +171,27 @@
   --orange-claro: #ffb076; /* naranja como texto en oscuro . 10,40:1 */
   --orange-suave: #fff1e6; /* solo pills de acento; ya NO avisos */
 
-  font-family: var(--font-montserrat), var(--font-figtree), system-ui, sans-serif;
+  /* ── MONTSERRAT PARA TITULAR, FIGTREE PARA LEER ─────────────────
+     Acá Montserrat pintaba TODO el módulo, cuerpo incluido, y el dueño
+     lo vio enseguida: «el texto se ve poco nítido, no se ve formal ni
+     serio» (31 ago 2026).
+
+     No es percepción: Montserrat es una geométrica de display —altura
+     de equis baja y letras de trazo parejo y muy cerrado— y a los 11-13
+     px de una etiqueta o una viñeta las formas se empastan. Figtree
+     está dibujada para interfaz y a ese tamaño se lee limpia.
+
+     La identidad del módulo NO se pierde: Montserrat sigue en los
+     titulares, que es donde se la reconoce. Es el reparto clásico de
+     una familia de display con una de texto, y no una familia nueva.
+
+     El póster no se entera: declara su propia `--poster-letra`. */
+  font-family: var(--font-figtree), system-ui, sans-serif;
   color: var(--text);
+}
+
+.lealtad :is(h1, h2, h3, .titulo) {
+  font-family: var(--font-montserrat), var(--font-figtree), system-ui, sans-serif;
 }
 
 /* ── Los dos naranjas que el scope NO puede alcanzar ───────────────

@@ -465,14 +465,24 @@ export default function TarjetaFormulario({
   const [verMasColores, setVerMasColores] = useState(false);
   const [verPase, setVerPase] = useState(false);
 
-  // ── La hoja pública en dos PARTES (pedido del dueño, 30 ago 2026:
-  // «el proceso en paso a paso — dos pasos, slide 1; dos pasos, slide
-  // 2»). Solo existe en modo público; el panel sigue con la hoja
-  // continua. El scroll vuelve al tope de la hoja al cambiar: en
-  // teléfono la parte nueva arranca arriba, no donde quedó el dedo.
-  const [parteHoja, setParteHoja] = useState(0);
-  function irAParte(p: number) {
-    setParteHoja(p);
+  // ── EL ALTA PÚBLICA ES UN ASISTENTE, UN PASO POR PANTALLA ─────────
+  //
+  // Pedido del dueño (31 ago 2026): «el cuadro blanco donde se hacen
+  // las configuraciones será por slides tipo Siguiente, Siguiente, e ir
+  // configurando paso por paso».
+  //
+  // Antes era una hoja larga con cuatro capítulos apilados y había que
+  // scrollear para saber cuánto faltaba. Un paso por pantalla contesta
+  // esa pregunta sola: se ve dónde estás, cuánto queda y qué sigue.
+  //
+  // Solo en modo público. El panel (crear/editar) mantiene la hoja
+  // continua: ahí quien edita ya sabe lo que busca y saltar entre
+  // capítulos con el scroll es más rápido que pasar pantallas.
+  const [paso, setPaso] = useState(0);
+  function irAPaso(p: number) {
+    setPaso(p);
+    // Al tope de la tarjeta: el paso nuevo arranca donde empieza, no
+    // donde el dedo dejó el scroll del paso anterior.
     document.getElementById("hoja-tarjeta")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -714,6 +724,49 @@ export default function TarjetaFormulario({
    */
   const hayTira = valor.tipo === "sellos" && metaSellos > 0;
 
+  // ⚠️ ACÁ Y NO ARRIBA CON EL RESTO DEL ESTADO: depende de `hayTira`, y
+  // ponerlo antes reventaba con «Cannot access hayTira before
+  // initialization» — la pantalla entera quedaba en blanco.
+  //
+  // «La franja» solo es un paso cuando el tipo dibuja una tira de sellos,
+  // así que el total se calcula y no se escribe a mano: un asistente que
+  // dice «paso 3 de 4» y termina en el 3 se siente roto.
+  // ⚠️ «Tu cuenta» ES UN PASO MÁS, no un bloque encima de todo.
+  //
+  // Estaba arriba de la hoja y medía 1.687 px él solo —más que el
+  // resto de la pantalla junta—, así que el asistente nacía con
+  // 990 px de scroll antes de tocar nada. Como paso, se ve uno por
+  // vez y el pedido de «que todo quede en la pantalla» se cumple sin
+  // recortarle nada al formulario de acceso.
+  //
+  // Solo existe sin sesión: quien ya entró no tiene que pasar por una
+  // pantalla que le pide lo que ya dio.
+  const pasosVisibles = PASOS_PUBLICOS.filter(
+    (x) =>
+      (x.clave !== "franja" || hayTira) &&
+      (x.clave !== "cuenta" || (esPublico && !haySesion)),
+  );
+  const totalPasos = pasosVisibles.length;
+  /** ¿El paso que se está viendo es este? Por CLAVE y no por índice:
+   *  con la cuenta entrando y saliendo, los índices se corren. */
+  const enPaso = (clave: string) =>
+    !esPublico || pasosVisibles[paso]?.clave === clave;
+
+  /**
+   * LA CUENTA ES OBLIGATORIA PARA SEGUIR (dueño, 31 ago 2026):
+   * «el paso de registrarse debe ser obligatorio para poder crear una
+   * tarjeta digital».
+   *
+   * Antes se podía pasar de largo y armar la tarjeta entera sin cuenta;
+   * recién al final aparecía el pedido de entrar, con todo el trabajo ya
+   * hecho y la sensación de peaje. Trabar el «Siguiente» ACÁ es más
+   * honesto: se pide una vez, al principio, y después no molesta más.
+   *
+   * No hace falta candado en los demás pasos: sin sesión, la cuenta es
+   * el paso 1 y no hay forma de llegar al 2 sin pasar por este botón.
+   */
+  const trabadoPorCuenta = esPublico && !haySesion && enPaso("cuenta");
+
   /**
    * Los datos que la portada muestra bajo el nombre, en una línea.
    *
@@ -750,22 +803,6 @@ export default function TarjetaFormulario({
     { rotulo: "Contraste", valor: `${contrasteTexto.toFixed(1)}:1` },
   ];
 
-  /**
-   * DE QUÉ COLOR VA CADA BLOQUE.
-   *
-   * No es una preferencia: es contraste contra el fondo que le tocó. En
-   * el alta pública este formulario vive DENTRO de una tarjeta blanca
-   * (`configurador-lealtad.tsx` lo envuelve en `bg-white p-5 sm:p-8`), y
-   * en el panel va suelto sobre el gris de la pantalla (`var(--grey)` en
-   * `crear/page.tsx` y en `editar/[programaId]/page.tsx`).
-   *
-   * Bloques blancos en los dos lados dejarían la pantalla pública
-   * completamente plana —cinco cajas invisibles sobre el mismo blanco—
-   * y grises en los dos borrarían la separación en el panel. Se invierte
-   * con el fondo, que es lo único que hace que los bloques SE VEAN como
-   * bloques en las dos pantallas.
-   */
-  const superficie = esPublico ? "bg-bookea-fondo" : "bg-white";
 
   // ── El botón de cerrar, que es UNO para los tres modos ──────────────
   const textoGuardar = guardando
@@ -779,6 +816,110 @@ export default function TarjetaFormulario({
       : esCrear
         ? "Publicar tarjeta"
         : "Guardar cambios";
+
+  /* ══════════════════════════════════════════════════════════════
+     LA CUENTA VA SOLA, EN UN CUADRO (dueño, 31 ago 2026)
+     ══════════════════════════════════════════════════════════════
+
+     «Lo de la cuenta es lo que debería salir de primero, pero en un
+     solo cuadro; y luego darle siguiente y que ya aparezca el mockup
+     y los pasos».
+
+     EL PASE VA AL LADO (dueño, 31 ago 2026): «que salga el login, o
+     sea el box, y a la derecha el mockup del teléfono, y que diga
+     que para configurarlo debés registrarte».
+
+     Acá esto estuvo un rato sin el pase, con este argumento: el
+     teléfono mostraba una tarjeta que no era de nadie al lado de un
+     formulario que solo pide un correo, o sea dos tareas en pantalla
+     y la más grande es la que todavía no se puede hacer.
+
+     Pesa más el otro lado: pedir una cuenta sin enseñar qué se
+     recibe a cambio es exactamente el peaje que este paso tiene que
+     NO parecer. El pase de al lado es la respuesta a «¿y esto para
+     qué?», y por eso va SIN la ficha técnica al pie (meta, filas,
+     tamaño, contraste): son decisiones que todavía no se tomaron, y
+     mostrar los valores por defecto como si fueran elegidos es lo
+     que hacía que se leyera como relleno.
+
+     Con la cuenta resuelta el formulario desaparece del asistente
+     (`pasosVisibles` lo saca cuando hay sesión) y el paso 1 pasa a
+     ser la tarjeta — o sea que este cuadro se ve UNA vez, al
+     principio, y nunca más.
+
+     El return es temprano a propósito: esconder el asistente con
+     `hidden` lo dejaría montado y la pantalla seguiría midiendo lo
+     que mide el asistente completo. ═════════════════════════════ */
+  if (trabadoPorCuenta) {
+    return (
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8">
+        <div className="min-w-0">
+        {alVolver && (
+          <button
+            type="button"
+            onClick={alVolver}
+            className="presionable mb-4 text-[12px] font-bold text-bookea-gris hover:text-bookea-tinta"
+          >
+            ← Volver a los paquetes
+          </button>
+        )}
+
+        <div className="rounded-3xl border border-bookea-linea bg-white p-6 shadow-elevado sm:p-7">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-[color:var(--accion)]">
+            Paso previo
+          </p>
+          <h2 className="titulo mt-1.5 text-[22px] leading-tight text-bookea-tinta">
+            Registrate para configurar tu tarjeta
+          </h2>
+          <p className="mt-1.5 text-[13.5px] leading-relaxed text-bookea-gris">
+            Es lo único que hace falta antes de empezar. Apenas entrés armás el pase paso
+            por paso y lo vas viendo acá al lado, como le va a llegar a tu cliente.
+          </p>
+
+          <ul className="mt-4 space-y-1.5">
+            {[
+              "Tu correo — te llega un código, no hay contraseñas que recordar.",
+              "Tu nombre, para que la tarjeta quede a tu nombre.",
+              "Un teléfono, para poder avisarte si algo pasa con tu programa.",
+            ].map((linea) => (
+              <li
+                key={linea}
+                className="flex items-start gap-2.5 text-[12.5px] leading-snug text-bookea-tinta"
+              >
+                <span
+                  aria-hidden
+                  className="mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
+                  style={{ background: "var(--accion)" }}
+                >
+                  ✓
+                </span>
+                {linea}
+              </li>
+            ))}
+          </ul>
+
+          {/* Sin `titulo` ni `intro`: el cuadro ya se llama «Tu cuenta»
+              y los tres puntos de arriba dijeron qué se pide. Repetirlo
+              adentro empujaba el campo del correo —lo único que hay que
+              tocar— fuera de la pantalla. */}
+          <div className="mt-4 border-t border-bookea-linea pt-4">
+            <FormularioAuth destino={ANCLA} titulo={null} intro={null} />
+          </div>
+        </div>
+        </div>
+
+        {/* En teléfono va DEBAJO del formulario, no arriba: acá lo que
+            hay que hacer es escribir un correo, y un mockup de 600 px
+            por delante sería la tercera vez que se empuja el campo
+            fuera de la primera pantalla. */}
+        <aside className="mt-6 lg:mt-0">
+          <div className="lg:sticky lg:top-24">
+            <PlacaPase datos={datosVista} derivados={[]} />
+          </div>
+        </aside>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -814,57 +955,10 @@ export default function TarjetaFormulario({
               colores y volver al nombre después. El número al costado
               ordena la lectura sin encerrar a nadie en un paso. */}
           <div>
-            {/* «Tu cuenta» queda FUERA de la hoja y fuera de la
-                numeración: es un requisito previo, no una propiedad de
-                la tarjeta. Numerarlo como capítulo 1 hacía que la
-                pantalla arrancara hablando de nosotros en vez de hablar
-                de su tarjeta. */}
-            {esPublico && !haySesion && (
-              <Bloque
-                superficie={superficie}
-                numero={1}
-                titulo="Tu cuenta"
-                bajada="Empezá por acá: es lo único que hace falta antes de armar la tarjeta."
-              >
-                {/* La explicación va ANTES del formulario y no adentro:
-                    este es el PRIMER bloque, y quien recién llega
-                    necesita saber qué le van a pedir antes de decidir si
-                    sigue. Enterarse a mitad de camino es lo que hacía
-                    que esto se sintiera un peaje. */}
-                <ul className="mb-5 space-y-2">
-                  {[
-                    "Tu correo — te llega un código, no hay contraseñas que recordar.",
-                    "Tu nombre, para que la tarjeta quede a tu nombre.",
-                    "Un teléfono, para poder avisarte si algo pasa con tu programa.",
-                  ].map((linea) => (
-                    <li
-                      key={linea}
-                      className="flex items-start gap-2.5 text-[13px] leading-relaxed text-bookea-tinta"
-                    >
-                      <span
-                        aria-hidden
-                        className="mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-full text-[10px] font-bold text-white"
-                        style={{ background: "var(--accion)" }}
-                      >
-                        ✓
-                      </span>
-                      {linea}
-                    </li>
-                  ))}
-                </ul>
-                <p className="mb-5 text-[12.5px] leading-relaxed text-bookea-gris">
-                  Si ya tenés cuenta en Bookea, con el correo entrás directo — no se te pide
-                  nada más.
-                </p>
-                <div className="-mx-1">
-                  <FormularioAuth
-                    destino={ANCLA}
-                    titulo="Creá tu cuenta"
-                    intro="Escribí tu correo. Si es tu primera vez te pedimos el nombre y un teléfono; si ya tenés cuenta, entrás directo."
-                  />
-                </div>
-              </Bloque>
-            )}
+            {/* «Tu cuenta» ya no vive acá: desde el 31 ago 2026 tiene
+                su propia pantalla, sola y sin el mockup al lado (ver el
+                return temprano de `trabadoPorCuenta` más arriba).
+                Cuando este JSX corre, o hay sesión o el paso ya pasó. */}
 
             {/* ── La hoja ─────────────────────────────────────────────
                 UNA superficie continua, no cinco cajas apiladas. Los
@@ -917,8 +1011,8 @@ export default function TarjetaFormulario({
               <div className={esPublico ? "pasos" : undefined}>
                 <div
                   className={esPublico ? "paso" : undefined}
-                  data-estado={!esPublico || parteHoja === 0 ? "activo" : "saliendo"}
-                  hidden={esPublico && parteHoja !== 0}
+                  data-estado={enPaso("identidad") ? "activo" : "saliendo"}
+                  hidden={!enPaso("identidad")}
                 >
               {/* ── 1 · Identidad ─────────────────────────────────────
                   El nombre se mudó a la portada: acá queda lo que de
@@ -948,6 +1042,15 @@ export default function TarjetaFormulario({
                   )}
                 </div>
               </Apartado>
+
+                </div>
+
+                {/* ── Paso 2: el premio ────────────────────────────── */}
+                <div
+                  className={esPublico ? "paso" : undefined}
+                  data-estado={enPaso("premio") ? "activo" : "saliendo"}
+                  hidden={!enPaso("premio")}
+                >
 
               {/* ── 2 · El premio ──────────────────────────────────── */}
               <Apartado
@@ -1002,11 +1105,11 @@ export default function TarjetaFormulario({
               </Apartado>
                 </div>
 
-                {/* ── Parte 2: apariencia y franja ─────────────────── */}
+                {/* ── Paso 3: cómo se ve ──────────────────────────── */}
                 <div
                   className={esPublico ? "paso" : undefined}
-                  data-estado={!esPublico || parteHoja === 1 ? "activo" : "saliendo"}
-                  hidden={esPublico && parteHoja !== 1}
+                  data-estado={enPaso("apariencia") ? "activo" : "saliendo"}
+                  hidden={!enPaso("apariencia")}
                 >
 
               {/* ── 3 · Apariencia ─────────────────────────────────── */}
@@ -1303,6 +1406,15 @@ export default function TarjetaFormulario({
               </div>
               </Apartado>
 
+                </div>
+
+                {/* ── Paso 4: dónde van los sellos ─────────────────── */}
+                <div
+                  className={esPublico ? "paso" : undefined}
+                  data-estado={enPaso("franja") ? "activo" : "saliendo"}
+                  hidden={!enPaso("franja")}
+                >
+
               {/* ── 4 · La franja ──────────────────────────────────── */}
               {hayTira && (
                 <Apartado
@@ -1321,36 +1433,90 @@ export default function TarjetaFormulario({
                 </div>
               </div>
 
-              {/* La navegación entre las dos partes — solo el alta
-                  pública. Vive DENTRO de la hoja para que cambiar de
-                  parte se lea como pasar la página de la misma ficha. */}
+              {/* ── LA NAVEGACIÓN DEL ASISTENTE ──────────────────────
+                  Vive DENTRO de la tarjeta blanca para que pasar de paso
+                  se lea como pasar la página de la misma ficha, no como
+                  irse a otro lado.
+
+                  Los puntos NO son decorativos: son el único lugar donde
+                  se ve cuántos pasos faltan. Y se puede tocar cualquiera
+                  para volver a uno ya visto — nada de obligar a pasar de
+                  a uno para corregir un color dos pasos atrás. */}
               {esPublico && (
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bookea-linea px-5 py-5 sm:px-10 lg:px-12">
-                  <button
-                    type="button"
-                    onClick={() => irAParte(0)}
-                    disabled={parteHoja === 0}
-                    className="presionable min-h-[44px] rounded-xl border border-bookea-linea px-4 py-3 text-[12.5px] font-bold text-bookea-gris disabled:invisible"
-                  >
-                    ← Anterior
-                  </button>
-                  <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-bookea-gris">
-                    Parte {parteHoja + 1} de 2
-                  </span>
-                  {parteHoja === 0 ? (
+                <div className="border-t border-bookea-linea px-5 py-5 sm:px-8">
+                  <div className="flex items-center justify-center gap-2">
+                    {pasosVisibles.map((x, i) => {
+                        const activo = i === paso;
+                        return (
+                          <button
+                            key={x.clave}
+                            type="button"
+                            onClick={() => irAPaso(i)}
+                            aria-current={activo ? "step" : undefined}
+                            aria-label={`Paso ${i + 1}: ${x.titulo}`}
+                            className="presionable grid h-11 w-11 place-items-center rounded-full"
+                          >
+                            <span
+                              className="block rounded-full transition-all duration-200 ease-[var(--ease-bookea)]"
+                              style={{
+                                width: activo ? 26 : 9,
+                                height: 9,
+                                background: activo
+                                  ? "var(--accion)"
+                                  : i < paso
+                                    ? "var(--accion-suave)"
+                                    : "var(--line)",
+                              }}
+                            />
+                          </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                     <button
                       type="button"
-                      onClick={() => irAParte(1)}
-                      className="presionable min-h-[44px] rounded-xl px-4 py-3 text-[12.5px] font-extrabold"
-                      style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+                      onClick={() => irAPaso(Math.max(0, paso - 1))}
+                      disabled={paso === 0}
+                      className="presionable min-h-[44px] rounded-xl border border-bookea-linea px-4 py-3 text-[13px] font-bold text-bookea-gris disabled:invisible"
                     >
-                      Siguiente: cómo se ve →
+                      ← Atrás
                     </button>
-                  ) : (
-                    <span className="text-[12px] font-bold text-bookea-gris">
-                      Listo — creá tu tarjeta abajo ↓
+
+                    <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-bookea-gris">
+                      Paso {paso + 1} de {totalPasos}
                     </span>
-                  )}
+
+                    {paso < totalPasos - 1 ? (
+                      <span className="flex flex-col items-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => irAPaso(paso + 1)}
+                          disabled={trabadoPorCuenta}
+                          className="presionable min-h-[44px] rounded-xl px-5 py-3 text-[13px] font-extrabold disabled:cursor-not-allowed disabled:opacity-45"
+                          style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+                        >
+                          Siguiente →
+                        </button>
+                        {/* Por qué está apagado. Un botón gris sin motivo es
+                            el peor final de un formulario: la persona no
+                            sabe si es un error nuestro o algo que le falta. */}
+                        {trabadoPorCuenta && (
+                          <span className="text-[11.5px] font-bold text-bookea-gris">
+                            Entrá con tu correo para seguir
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      // En el último paso el botón de crear ya está abajo:
+                      // dos llamados a la acción compitiendo en la misma
+                      // pantalla es la forma más rápida de que no se toque
+                      // ninguno.
+                      <span className="text-[12.5px] font-bold text-bookea-gris">
+                        Último paso ↓
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1544,6 +1710,21 @@ export default function TarjetaFormulario({
   );
 }
 
+/**
+ * LOS PASOS DEL ALTA PÚBLICA.
+ *
+ * Vive acá y no dentro del componente porque no depende de nada del
+ * estado: es el guion de la pantalla. El `hayTira` que decide si «La
+ * franja» entra o no se aplica al usarlo, no acá.
+ */
+const PASOS_PUBLICOS: { clave: string; titulo: string }[] = [
+  { clave: "cuenta", titulo: "Tu cuenta" },
+  { clave: "identidad", titulo: "Qué tipo de tarjeta es" },
+  { clave: "premio", titulo: "Qué se gana" },
+  { clave: "apariencia", titulo: "Cómo se ve" },
+  { clave: "franja", titulo: "Dónde van los sellos" },
+];
+
 // ── Piezas ─────────────────────────────────────────────────────────
 
 /**
@@ -1577,46 +1758,6 @@ function faltaParaGuardar({
   if (motivoBeneficio) return motivoBeneficio;
   if (pideTelefono && !telefonoListo) return "Falta el teléfono.";
   return "";
-}
-
-/**
- * UN BLOQUE de la pantalla.
- *
- * Reemplaza a `Seccion`, que numeraba PASOS de un asistente. La
- * diferencia no es cosmética: aquella pintaba «el paso en el que
- * estás», ésta pinta una tarjeta blanca que convive con las demás. El
- * número sigue estando porque ordena la lectura —se entiende que el
- * nombre va antes que los colores— pero ya no significa «todavía no
- * llegaste acá».
- */
-function Bloque({
-  numero,
-  titulo,
-  bajada,
-  superficie,
-  children,
-}: {
-  numero: number;
-  titulo: string;
-  bajada: string;
-  /** La clase de fondo, que se invierte con la pantalla — ver `superficie`. */
-  superficie: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className={`rounded-2xl border border-bookea-linea p-5 ${superficie}`}>
-      <div className="flex items-baseline gap-2.5">
-        <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-bookea-azul-suave text-[12px] font-extrabold text-bookea-azul">
-          {numero}
-        </span>
-        <div>
-          <h2 className="titulo text-[17px] text-bookea-tinta">{titulo}</h2>
-          <p className="text-[12px] text-bookea-gris">{bajada}</p>
-        </div>
-      </div>
-      <div className="mt-4">{children}</div>
-    </section>
-  );
 }
 
 /**

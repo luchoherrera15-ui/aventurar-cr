@@ -269,11 +269,6 @@ export default async function LealtadPage() {
                 </BotonCrearPase>
                 <BotonAyudaPersonalizada grande />
               </div>
-              <p className="mt-3 flex items-center justify-center gap-2 text-[13.5px] font-bold text-aventurea-ink-soft lg:justify-start">
-                <span aria-hidden>📲</span>
-                Tus clientes la agregan al Wallet al instante — sin instalar
-                nada.
-              </p>
             </div>
 
             {/* ── ACÁ VIVÍAN TRES CARDS DE CIFRAS ────────────────────
@@ -288,18 +283,6 @@ export default async function LealtadPage() {
                 está en la bajada y en las preguntas frecuentes, y los
                 tipos de tarjeta tienen su propia sección con el
                 selector. */}
-            <p className="mt-7 text-[13px] text-aventurea-ink-soft/80">
-              ¿Ya tenés el programa?{" "}
-              <Link
-                href="/cuenta?volver=lealtad"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-bold underline transition-colors hover:opacity-75"
-                style={{ color: "var(--accion)" }}
-              >
-                Entrá acá
-              </Link>
-            </p>
           </div>
 
           <MockupHeroPase />

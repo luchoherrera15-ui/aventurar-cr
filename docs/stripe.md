@@ -31,13 +31,24 @@ mensual y uno anual.
 
 | Producto    | Precio mensual | Precio anual | Moneda |
 | ----------- | -------------- | ------------ | ------ |
-| Arranque    | 12             | 120          | USD    |
-| Impulso     | 42             | 420          | USD    |
-| Ilimitado   | 89             | 890          | USD    |
+| Arranque    | 12             | 115          | USD    |
+| Impulso     | 42             | 400          | USD    |
+| Ilimitado   | 89             | 850          | USD    |
 
-El anual regala dos meses (12 × 12 = 144, y el anual sale 120): eso ya
-está escrito en el catálogo del código, no hay que configurar ningún
-descuento en Stripe.
+⚠️ **Los anuales tienen que ser 115, 400 y 850 — ni uno más.** Esta
+tabla decía 120, 420 y 890, de cuando el anual regalaba dos meses; el
+catálogo pasó a «20 % menos» (`precioAnual` en `src/lib/lealtad/planes.ts`)
+y esta página quedó vieja.
+
+Importa porque lo que se COBRA sale del precio de Stripe, mientras que lo
+que el botón PROMETE sale del catálogo del código: con los números viejos,
+el botón decía «Pagar el año — $115 (20 % menos)» y Stripe cobraba $120.
+Y un precio de Stripe no se puede editar: para corregirlo hay que crear
+otro y mudar a mano a cada quien ya estuviera pagando el viejo.
+
+Antes de crear cada precio, comparalo contra `precioAnual` del catálogo.
+Si algún día el catálogo cambia, el precio nuevo se crea en Stripe — nunca
+se edita el existente.
 
 Al crear cada precio, Stripe da un id que empieza con `price_`. **Hay
 que copiar los seis.** No sirve el id del producto (`prod_…`) — es el
@@ -95,6 +106,14 @@ habilitado:
 
 Sin esto activado, el botón «Administrar mi suscripción» del panel
 devuelve un error de Stripe.
+
+⚠️ **«Cambiar de plan» dejó de ser opcional (31 ago 2026).** Desde que
+se corrigió el doble cobro, subir o bajar de paquete desde el panel ya
+no abre un Checkout —eso creaba una SEGUNDA suscripción y el negocio
+quedaba pagando las dos—: manda al portal, que es lo único que sabe
+reemplazar una suscripción con su prorrateo. Si esa casilla está
+apagada, quien quiera cambiar de paquete llega al portal y no encuentra
+cómo.
 
 ## 5. Las variables en Vercel
 

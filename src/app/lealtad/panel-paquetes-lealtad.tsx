@@ -65,11 +65,16 @@ export default function PanelPaquetesLealtad({
   const idResaltado = esGratis ? "prueba" : (planQueAbre?.id ?? null);
 
   return (
-    <div className="p-4 lg:p-5">
-      <h2 className="titulo text-[18px] text-bookea-tinta">Elegí tu paquete</h2>
-      <p className="mt-0.5 text-[12px] text-bookea-gris">
+    <div className="p-5 sm:px-7 sm:py-5">
+      <span className="inline-flex rounded-full bg-bookea-azul-suave px-3 py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-bookea-azul">
+        Paso 1 · Elegí tu plan
+      </span>
+      <h2 className="titulo mt-2 text-[26px] leading-tight text-bookea-tinta">
+        Empezá con el plan que te sirva hoy
+      </h2>
+      <p className="mt-1.5 text-[13px] text-bookea-gris">
         Armar tu tarjeta de {TIPOS_TARJETA[tipoElegido].nombre.toLowerCase()} es gratis con
-        cualquiera de estos — vas a ver todo antes de crear cuenta.
+        cualquiera, y podés cambiar de plan cuando quieras.
       </p>
 
       {/* ── El código de referido, ARRIBA DE LAS CARDS ──────────────
@@ -85,29 +90,22 @@ export default function PanelPaquetesLealtad({
           El valor viaja con `solicitarAltaConPlan`, que lo valida
           contra `agentes_lealtad` — mismo campo que ya tiene el wizard
           de /lealtad/nuevo en «Revisar». */}
-      <div className="mt-4 rounded-2xl border border-bookea-linea bg-bookea-fondo p-3.5">
-        <label
-          htmlFor="paquetes-referido"
-          className="mb-1.5 block text-[11px] font-bold uppercase tracking-wide text-bookea-gris"
-        >
-          Código de referido (opcional)
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-bookea-linea bg-bookea-fondo px-3.5 py-2.5">
+        <label htmlFor="paquetes-referido" className="text-[12.5px] font-bold text-bookea-tinta">
+          ¿Te atendió un agente de Bookea?
         </label>
         <input
           id="paquetes-referido"
           value={codigoReferido}
           onChange={(e) => alCambiarReferido(e.target.value.toUpperCase())}
-          placeholder="El código de tu agente"
+          placeholder="Su código (opcional)"
           maxLength={24}
           autoCapitalize="characters"
-          className="w-full rounded-xl border border-bookea-linea bg-white px-3 py-2.5 text-[13.5px] text-bookea-tinta placeholder:text-bookea-gris/70 sm:max-w-[340px]"
+          className="min-w-0 flex-1 rounded-xl border border-bookea-linea bg-white px-3 py-2 text-[13px] text-bookea-tinta placeholder:text-bookea-gris/70 sm:max-w-[260px]"
         />
-        <p className="mt-1.5 text-[12px] leading-snug text-bookea-gris">
-          ¿Te atendió un agente o moderador de Bookea? Poné su código acá y tu cuenta queda
-          asociada a esa persona.
-        </p>
       </div>
 
-      <div className="mt-5 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-4 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         {PLANES_VIGENTES.map((def) => (
           <TarjetaPlanLectura
             key={def.id}
@@ -119,12 +117,6 @@ export default function PanelPaquetesLealtad({
       </div>
 
       <SeccionConfianzaPago />
-
-      <p className="mt-4 text-center text-[11.5px]">
-        <Link href="/lealtad/planes" className="font-bold text-bookea-azul underline">
-          Ver el detalle completo de los paquetes →
-        </Link>
-      </p>
     </div>
   );
 }
@@ -176,18 +168,32 @@ function TarjetaPlanLectura({
   const botonDestacado = resaltado || destacado;
 
   return (
-    // La card ENTERA se anima al pasar el mouse (pedido del rediseño
-    // SaaS): crece un poco, se levanta y gana sombra — `hover:z-10`
-    // para que al agrandarse pase por ENCIMA de sus vecinas y no se
-    // recorte contra ellas. `will-change-transform` mantiene el texto
-    // nítido durante la transición de escala.
+    /* ⚠️ SIN `scale` Y SIN `will-change`: ASÍ SE VEÍA BORROSO.
+
+       Acá había `hover:scale-[1.045]` junto a `will-change-transform`,
+       con un comentario que afirmaba que el `will-change` "mantiene el
+       texto nítido". Es exactamente al revés, y está documentado en el
+       sistema de diseño del repo: `will-change` sube el elemento a su
+       propia capa, el navegador la rasteriza UNA vez a tamaño 1× y
+       escalarla después estira esos píxeles — el texto se nubla. Y como
+       el `will-change` era permanente (no solo en hover), las cuatro
+       tarjetas vivían siempre en una capa aparte: por eso los paquetes
+       se veían sin filo incluso sin pasar el mouse.
+
+       El realce ahora lo hace `elevar` (globals.css), que es el patrón
+       del sistema para esto: sube 3 px y gana sombra, con la duración y
+       la curva del repo. Se levanta igual y el texto queda nítido. */
     <div
-      className={`relative flex flex-col rounded-2xl border p-5 transition-all duration-300 ease-out will-change-transform hover:z-10 hover:-translate-y-1.5 hover:scale-[1.045] hover:shadow-[0_26px_60px_-20px_rgba(15,40,90,0.35)] ${
+      /* Borde de 1,5 px y no 1: a cuatro tarjetas juntas, un borde de
+         un píxel se pierde y las columnas dejan de leerse separadas.
+         El elegido lleva 2 px, que es lo que lo hace saltar sin
+         necesidad de otro color de fondo. */
+      className={`elevar relative flex flex-col rounded-[18px] p-5 hover:z-10 ${
         resaltado
-          ? "border-bookea-azul bg-bookea-azul-suave"
+          ? "border-2 border-bookea-azul bg-white shadow-[0_18px_40px_-24px_rgba(15,40,90,.4)]"
           : destacado
-            ? "border-bookea-linea bg-bookea-fondo hover:border-bookea-azul/50"
-            : "border-bookea-linea bg-white hover:border-bookea-azul/50"
+            ? "border-[1.5px] border-orange-200 bg-white"
+            : "border-[1.5px] border-bookea-linea bg-white hover:border-bookea-azul/50"
       }`}
     >
       {resaltado ? (
@@ -215,18 +221,44 @@ function TarjetaPlanLectura({
         <span className="mb-2 h-[21px]" aria-hidden />
       )}
 
-      <h3 className="text-[15px] font-extrabold text-bookea-tinta">{def.nombre}</h3>
-      <p className="mt-1 text-[20px] font-extrabold leading-none text-bookea-tinta">
-        {precio === null ? "A convenir" : esGratis ? "Gratis" : precio}
+      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-bookea-gris">
+        {esGratis ? "Para empezar" : "Plan"}
+      </p>
+      <h3 className="mt-1 text-[19px] font-extrabold leading-tight text-bookea-tinta">
+        {def.nombre}
+      </h3>
+
+      {/* El precio, en grande: es el dato que se compara entre las
+          cuatro columnas y estaba en 20 px, apenas más que el nombre. */}
+      <p className="mt-3 flex items-baseline gap-1.5 text-bookea-tinta">
+        <span className="text-[30px] font-extrabold leading-none tracking-[-0.03em]">
+          {precio === null ? "A convenir" : esGratis ? "Gratis" : precio}
+        </span>
         {!esGratis && precio !== null && (
-          <span className="text-[11.5px] font-bold text-bookea-gris"> /mes</span>
+          <span className="text-[13px] font-bold text-bookea-gris">/mes</span>
         )}
       </p>
 
-      <ul className="mt-3.5 flex-1 space-y-1.5">
+      <button
+        type="button"
+        onClick={onElegir}
+        className={`presionable mt-4 min-h-[44px] w-full rounded-xl px-3 text-[13px] font-extrabold ${
+          botonDestacado
+            ? ""
+            : "border-[1.5px] border-bookea-linea text-bookea-azul hover:border-bookea-azul"
+        }`}
+        style={botonDestacado ? { background: "var(--accion)", color: "var(--accion-tinta)" } : undefined}
+      >
+        {esGratis ? "Empezar gratis →" : `Elegir ${def.nombre} →`}
+      </button>
+
+      <p className="mt-4 text-[10.5px] font-bold uppercase tracking-[0.14em] text-bookea-gris">
+        Incluye
+      </p>
+      <ul className="mt-2 flex-1 space-y-1.5">
         {beneficios.map((b, i) => (
-          <li key={b} className="flex items-start gap-1.5 text-[11.5px] leading-snug text-bookea-gris">
-            <Icono nombre="listo" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-bookea-azul" />
+          <li key={b} className="flex items-start gap-2 text-[12px] leading-snug text-bookea-gris">
+            <Icono nombre="listo" className="mt-0.5 h-4 w-4 shrink-0 text-bookea-azul" />
             <span>
               {b}
               {i === 0 && <BotonVerTipos tipos={def.tipos} />}
@@ -234,17 +266,6 @@ function TarjetaPlanLectura({
           </li>
         ))}
       </ul>
-
-      <button
-        type="button"
-        onClick={onElegir}
-        className={`presionable mt-4 w-full rounded-full px-3 py-3 text-[12.5px] font-extrabold ${
-          botonDestacado ? "" : "border border-bookea-linea text-bookea-azul"
-        }`}
-        style={botonDestacado ? { background: "var(--accion)", color: "var(--accion-tinta)" } : undefined}
-      >
-        {esGratis ? "Empezar gratis y personalizar →" : `Elegir ${def.nombre} →`}
-      </button>
     </div>
   );
 }
@@ -276,21 +297,8 @@ const LOGOS_PAGO: { archivo: string; nombre: string }[] = [
 
 function SeccionConfianzaPago() {
   return (
-    <div className="mt-5 rounded-2xl border border-bookea-linea bg-bookea-fondo p-3.5">
-      <p className="text-[12.5px] font-extrabold text-bookea-tinta">
-        Pagás como prefieras, siempre seguro
-      </p>
-      <p className="mt-1 text-[11.5px] leading-relaxed text-bookea-gris">
-        Con tarjeta —Visa, Mastercard, American Express, Apple Pay o Google Pay según tu
-        dispositivo—, 100&nbsp;% cifrado y seguro. ¿Preferís depositar? También podés pagar por
-        transferencia SINPE Móvil: subís el comprobante y activamos tu paquete apenas lo
-        confirmamos.
-      </p>
-      <p className="mt-2 flex items-center gap-1.5 text-[11px] font-bold text-bookea-tinta">
-        <Icono nombre="listo" className="h-3.5 w-3.5 shrink-0 text-bookea-azul" />
-        100&nbsp;% seguro, sin guardar tu tarjeta en Bookea
-      </p>
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2.5 rounded-2xl border border-bookea-linea bg-bookea-fondo px-3.5 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
         {LOGOS_PAGO.map((l) => (
           <span
             key={l.archivo}
@@ -306,6 +314,15 @@ function SeccionConfianzaPago() {
           SINPE Móvil
         </span>
       </div>
+      <p className="flex min-w-0 flex-1 items-center gap-1.5 text-[11.5px] leading-snug text-bookea-gris">
+        <Icono nombre="listo" className="h-3.5 w-3.5 shrink-0 text-bookea-azul" />
+        <span>
+          Pago cifrado, sin guardar tu tarjeta.{" "}
+          <Link href="/lealtad/planes" className="font-bold text-bookea-azul underline">
+            Ver el detalle de los paquetes →
+          </Link>
+        </span>
+      </p>
     </div>
   );
 }

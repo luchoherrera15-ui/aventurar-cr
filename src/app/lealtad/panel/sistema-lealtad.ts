@@ -158,11 +158,42 @@ export const ESTADO_DE_TONO = {
 //  5 · LA COLUMNA DEL MENÚ
 // ───────────────────────────────────────────────────────────────────
 
-/** El ítem en reposo. `text-aventurea-rail` es el sólido de 8,86:1
- *  sobre el #070d1c del rail — el reemplazo del `text-white/55` que
- *  tenía, que se veía de tres colores distintos según el fondo. */
+/**
+ * El ítem del menú en reposo.
+ *
+ * ── MÁS GRANDE Y MÁS SIMPLE (dueño, 31 ago 2026) ──────────────────
+ * Pedido textual: «que sean como más grandes, más simples de usar y
+ * más fáciles», con una referencia visual de otro panel.
+ *
+ * Qué cambió y por qué:
+ *  · 38 → 48 px de alto. El mínimo táctil del sistema es 44; el menú
+ *    del panel es lo que más se toca en el teléfono y estaba 6 px por
+ *    debajo.
+ *  · 13 → 14,5 px de texto y el ícono de 17 → 20. Un menú se lee de
+ *    reojo mientras se hace otra cosa, no se estudia.
+ *  · SE FUE EL BORDE IZQUIERDO DE 3 px. El activo ahora es una
+ *    píldora sólida (ver `RAIL_ITEM_ACTIVO`): una barrita fina obliga
+ *    a buscar cuál está encendido, un bloque de color se ve de una.
+ *    Al no reservar esos 3 px, el texto tampoco salta al cambiar de
+ *    sección — que era el motivo por el que el borde estaba siempre
+ *    presente en transparente.
+ *
+ * `text-aventurea-rail` es el sólido de 8,86:1 sobre el #070d1c del
+ * rail — el reemplazo del `text-white/55` que tenía, que se veía de
+ * tres colores distintos según el fondo.
+ */
 export const RAIL_ITEM_LEALTAD =
-  "relative flex min-h-[38px] items-center gap-2.5 rounded-xl border-l-[3px] border-transparent px-3 py-2 text-[13px] font-bold transition-colors";
+  "relative flex min-h-[48px] items-center gap-3 rounded-xl px-3.5 text-[14.5px] font-bold transition-colors";
+
+/**
+ * El ítem ENCENDIDO: píldora sólida con el azul de acción.
+ *
+ * ⚠️ El par es `--accion-claro` sobre el navy del rail, no `--accion`:
+ * el azul de acción sobre fondo oscuro da 1,44:1 y el ítem activo se
+ * tragaría el texto. Es el mismo par que ya usa el resto del módulo
+ * sobre superficies oscuras.
+ */
+export const RAIL_ITEM_ACTIVO = "text-[color:var(--accion-claro-tinta)]";
 
 /** El rótulo de un grupo del menú (`.nav-label` de la maqueta). */
 export const RAIL_GRUPO_LEALTAD =

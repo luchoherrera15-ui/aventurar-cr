@@ -88,6 +88,13 @@ export default function RestauranteFichaScreen() {
       .eq("id", id)
       .eq("vertical", "restaurantes")
       .eq("estado", "aprobado")
+      // ⚠️ Sin los negocios de la DEMO. El seed de /demo-bookea siembra
+      // 99 negocios APROBADOS con `en_marketplace = false`; los LISTADOS
+      // ya los filtraban desde el 27 ago 2026, pero la FICHA no, así que
+      // un demo seguía siendo alcanzable por enlace directo. `neq(false)`
+      // y no `eq(true)`: en Postgres un NULL viejo no es ni igual ni
+      // distinto a true, y con `eq` esas filas desaparecerían.
+      .neq("en_marketplace", false)
       .maybeSingle();
 
     if (!data) {

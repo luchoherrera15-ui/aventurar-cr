@@ -11,6 +11,7 @@ import {
 } from "@/lib/pagos/checkout";
 import { esPeriodo, esPlanConCobro } from "@/lib/pagos/precios";
 import { suscripcionDelNegocio } from "@/lib/pagos/puerta-supabase";
+import { puedeCrearNegocioDeLealtad } from "@/lib/lealtad/tenencia";
 
 /**
  * PAGAR EL PAQUETE CON TARJETA DESDE LA PÁGINA DE PAQUETES.
@@ -161,6 +162,13 @@ export async function iniciarPagoDelPaquete(datos: {
   }
 
   // ── El negocio que TODAVÍA NO EXISTE: el alta ──────────────────────
+  // ⚠️ EL TOPE VA ANTES DE ABRIR EL CHECKOUT (31 ago 2026). Si se
+  //    comprobara después —en el webhook, cuando Stripe avisa que
+  //    cobró— habría que rechazar el alta con la plata ya cobrada y
+  //    devolverla a mano. Acá todavía no se le tocó la tarjeta.
+  const cupo = await puedeCrearNegocioDeLealtad(user.id);
+  if (!cupo.puede) return { ok: false, motivo: cupo.motivo };
+
   const nombre = datos.nombreNegocio.trim();
   if (!nombre || nombre.length > 80) {
     return { ok: false, motivo: "Escribí el nombre de tu negocio (máximo 80)." };

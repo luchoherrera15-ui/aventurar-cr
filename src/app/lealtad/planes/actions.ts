@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
+import { puedeCrearNegocioDeLealtad } from "@/lib/lealtad/tenencia";
 
 /**
  * Dejar la solicitud de un paquete de lealtad (0126).
@@ -90,6 +91,13 @@ export async function solicitarPlanLealtad(datos: {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, motivo: "Iniciá sesión para solicitar el plan." };
+
+  // Un negocio de Lealtad por cuenta (31 ago 2026). Solo en el ALTA:
+  // pedir plan para un negocio que YA es suyo no crea nada nuevo.
+  if (esAlta) {
+    const cupo = await puedeCrearNegocioDeLealtad(user.id);
+    if (!cupo.puede) return { ok: false, motivo: cupo.motivo };
+  }
 
   // Solo aplica cuando HAY negocio: en un alta en frío no hay nada que
   // revisar todavía, y consultar `ranchos` con un id vacío ni siquiera

@@ -1,6 +1,7 @@
 "use server";
 
 import { avisarAAdministradores, correosDeAdministradores } from "@/lib/correo/administradores";
+import { createClient } from "@/lib/supabase/server";
 import { escaparHtml } from "@/lib/email";
 
 /**
@@ -25,12 +26,28 @@ import { escaparHtml } from "@/lib/email";
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TOPE_MENSAJE = 800;
 
+/**
+ * DE DÓNDE SALIÓ LA CONSULTA. Cambia el asunto y el pie del correo,
+ * nada más — pero ese pie es lo que le dice al equipo qué hacer.
+ *
+ *  · `landing`  — la burbuja de bookea.lat/lealtad. Quien escribe no
+ *    tiene cuenta ni negocio: hay que contestarle por fuera.
+ *  · `segundo-negocio` — un dueño que YA tiene el suyo y pide abrir
+ *    otro (el tope es de uno por cuenta, y el segundo lo damos de
+ *    alta nosotros). Acá sí hay cuenta, y saberlo es la mitad del
+ *    trabajo: sin eso el equipo recibe un pedido sin saber a qué
+ *    negocio sumárselo.
+ */
+export type OrigenConsulta = "landing" | "segundo-negocio";
+
 export type ConsultaLanding = {
   nombre: string;
   contacto: string; // correo o WhatsApp, texto libre — la persona elige cómo prefiere que le escriban
   mensaje: string;
   /** Campo señuelo: invisible para una persona, tentador para un bot. Si viene con algo, se descarta en silencio. */
   panal: string;
+  /** Por defecto `landing`, que es como nació este formulario. */
+  origen?: OrigenConsulta;
 };
 
 type Resultado = { ok: true } | { ok: false; motivo: string };
@@ -55,11 +72,32 @@ export async function enviarConsultaLanding(datos: ConsultaLanding): Promise<Res
   }
 
   const pareceCorreo = CORREO_REGEX.test(contacto);
+  const esSegundo = datos.origen === "segundo-negocio";
+
+  // Quién pide, cuando hay sesión. Es lo que le permite al equipo
+  // encontrar la cuenta sin tener que adivinar por el nombre escrito
+  // a mano. En la landing no hay sesión y queda en null, como antes.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const cuenta = user?.email ?? null;
 
   await avisarAAdministradores({
-    subject: `LEALTAD — consulta desde la landing: ${nombre}`,
+    subject: esSegundo
+      ? `LEALTAD — pide un segundo negocio: ${nombre}`
+      : `LEALTAD — consulta desde la landing: ${nombre}`,
     html: `
-      <h2 style="margin:0 0 12px">Alguien escribió desde bookea.lat/lealtad</h2>
+      <h2 style="margin:0 0 12px">${
+        esSegundo
+          ? "Un dueño pide abrir OTRO negocio de Lealtad"
+          : "Alguien escribió desde bookea.lat/lealtad"
+      }</h2>
+      ${
+        cuenta
+          ? `<p style="margin:0 0 6px;font-size:14px"><b>Cuenta:</b> ${escaparHtml(cuenta)}</p>`
+          : ""
+      }
       <p style="margin:0 0 6px;font-size:14px"><b>Nombre:</b> ${escaparHtml(nombre)}</p>
       <p style="margin:0 0 12px;font-size:14px">
         <b>${pareceCorreo ? "Correo" : "Contacto"}:</b> ${escaparHtml(contacto)}
@@ -68,7 +106,11 @@ export async function enviarConsultaLanding(datos: ConsultaLanding): Promise<Res
         ${escaparHtml(mensaje).replaceAll("\n", "<br>")}
       </blockquote>
       <p style="margin:16px 0 0;font-size:12.5px;color:#777">
-        Escrito desde la landing pública — todavía no tiene cuenta ni negocio en Bookea.
+        ${
+          esSegundo
+            ? "Ya tiene un negocio en Lealtad — el tope es de uno por cuenta y el segundo lo damos de alta nosotros desde el panel de admin."
+            : "Escrito desde la landing pública — todavía no tiene cuenta ni negocio en Bookea."
+        }
         Contestale directo a su contacto de arriba.
       </p>
     `,
