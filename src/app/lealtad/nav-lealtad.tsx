@@ -23,16 +23,23 @@ import { createClient } from "@/lib/supabase/client";
  * las dos.
  */
 
+/**
+ * EL NAV QUEDÓ EN UN SOLO ENLACE (dueño, 31 ago 2026).
+ *
+ * Eran tres. Se fueron dos:
+ *  · «¿Cómo funciona?» apuntaba a /lealtad/ayuda, que todavía no está
+ *    terminada — mandar tráfico a una pantalla a medio hacer es peor
+ *    que no ofrecer la puerta. Cuando esa página esté lista, se vuelve
+ *    a agregar acá y listo.
+ *  · «Soluciones» era un ancla (#soluciones) que solo funcionaba
+ *    parado sobre la landing: desde /lealtad/crear o /lealtad/planes no
+ *    llevaba a ningún lado.
+ *
+ * «Planes» pasa a llamarse «Precios», que es la palabra que la gente
+ * busca cuando quiere saber cuánto cuesta.
+ */
 const ENLACES: { href: string; label: string }[] = [
-  // Al TUTORIAL (/lealtad/ayuda, 28 ago 2026) y ya no al ancla
-  // #como-funciona: el dueño pidió la puerta en el nav, y una ruta real
-  // funciona desde CUALQUIER página de Lealtad — el ancla solo servía
-  // parada sobre la landing (desde /lealtad/industrias no iba a ningún
-  // lado). La sección de la landing conserva su id por si algún enlace
-  // viejo la apunta.
-  { href: "/lealtad/ayuda", label: "¿Cómo funciona?" },
-  { href: "#soluciones", label: "Soluciones" },
-  { href: "#planes", label: "Planes" },
+  { href: "#planes", label: "Precios" },
 ];
 
 /** Los ítems del menú de cuenta — desktop y mobile dibujan la misma lista. */
