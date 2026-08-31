@@ -441,13 +441,13 @@ export default function MockupCreacion() {
               texto arriba. Adentro no hay un solo control enfocable. */}
           <div
             aria-hidden
-            className="relative h-[560px] w-[300px] rotate-[1.5deg] rounded-[46px] p-[9px] sm:h-[600px] sm:w-[322px]"
+            className="relative h-[560px] w-[268px] rotate-[1.5deg] rounded-[46px] p-[9px] sm:h-[600px] sm:w-[287px]"
             style={{
               background: "linear-gradient(145deg,#121827,#3d4557 50%,#0c101a)",
               boxShadow: "0 45px 90px rgba(10,18,38,.28), 0 8px 25px rgba(10,18,38,.14)",
             }}
           >
-            <span className="absolute left-1/2 top-[15px] z-[8] h-[26px] w-[100px] -translate-x-1/2 rounded-[18px] bg-[#070b12]" />
+            <span className="absolute left-1/2 top-[15px] z-[8] h-[23px] w-[80px] -translate-x-1/2 rounded-full bg-[#070b12]" />
 
             <div className="relative h-full overflow-hidden rounded-[38px] bg-[#f7f8fb]">
               <div className="flex justify-between px-5 pt-4 text-[11px] font-bold text-[#0d1733]">

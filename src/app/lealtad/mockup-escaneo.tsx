@@ -292,14 +292,14 @@ export default function MockupEscaneo() {
         {/* ══ IZQUIERDA — EL TELÉFONO DEL CLIENTE ══════════════════ */}
         <div
           aria-hidden
-          className="relative h-[496px] w-[266px] shrink-0 -rotate-[1.5deg] rounded-[42px] p-[8px] sm:h-[528px] sm:w-[284px]"
+          className="relative h-[496px] w-[238px] shrink-0 -rotate-[1.5deg] rounded-[42px] p-[8px] sm:h-[528px] sm:w-[252px]"
           style={{
             background: "linear-gradient(145deg,#121827,#3d4557 50%,#0c101a)",
             boxShadow:
               "0 45px 90px rgba(10,18,38,.28), 0 8px 25px rgba(10,18,38,.14)",
           }}
         >
-          <span className="absolute left-1/2 top-[14px] z-[8] h-[24px] w-[92px] -translate-x-1/2 rounded-[16px] bg-[#070b12]" />
+          <span className="absolute left-1/2 top-[14px] z-[8] h-[20px] w-[71px] -translate-x-1/2 rounded-full bg-[#070b12]" />
           <div className="relative h-full overflow-hidden rounded-[35px] bg-[#f7f8fb]">
             <div className="flex justify-between px-5 pt-4 text-[11px] font-bold text-[#0d1733]">
               <span>9:41</span>
