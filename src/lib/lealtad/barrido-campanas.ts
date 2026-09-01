@@ -33,7 +33,7 @@ import {
  * EL CUPO ES EL DEL PAQUETE, SIN EXCEPCIONES
  * ------------------------------------------------------------------
  * Se reserva con la MISMA función que el botón manual (topes en
- * `planes.ts`: 1 / 10 / 50 / ilimitado). Una campaña
+ * `planes.ts`: 1 / 25 / ilimitado). Una campaña
  * automática no es un permiso para saltarse el tope: cuando no hay
  * cupo, el envío se anota como `sin_cupo` y el panel lo muestra. Que se
  * salte en silencio sería peor que no tener la función — el negocio

@@ -165,9 +165,13 @@ describe("catalogoPublico — lo que NO puede filtrar", () => {
       const def = PLANES_VIGENTES.find((d) => d.id === publicado.id);
       expect(def?.vigente, `${publicado.id} se publicó estando retirado`).toBe(true);
     }
-    // Hoy el catálogo de verdad no arrastra ninguno; el único retirado
-    // que existe en esta corrida es el inventado acá arriba.
-    expect(PLANES_RETIRADOS).toHaveLength(0);
+    // Desde el 1 sep 2026 el catálogo arrastra uno de verdad
+    // («ilimitado», que se retiró cuando Impulso pasó a ser el tope),
+    // además del inventado acá arriba. Ninguno de los dos puede salir
+    // publicado, y eso se comprueba como REGLA y no como lista.
+    for (const id of PLANES_RETIRADOS) {
+      expect(ids, `${id} se publicó estando retirado`).not.toContain(id);
+    }
   });
 
   it("no filtra el nombre ni el precio de un paquete retirado", () => {
@@ -285,29 +289,25 @@ describe("catalogoPublico — los números que la app estaba mintiendo", () => {
     expect(arranque?.etiquetaClientes).toBe("Hasta 100 clientes");
   });
 
-  it("Impulso escribe sus 1000 clientes con separador de miles", () => {
-    const impulso = catalogoPublico().planes.find((p) => p.id === "impulso");
-    expect(impulso?.precio).toBe("$42");
-    // El separador de es-CR es un ESPACIO DURO (U+00A0), no un punto:
-    // es lo que devuelve `toLocaleString("es-CR")` y por lo tanto lo
-    // que ya pinta la landing (`paquetes-cliente.tsx`). Se escribe con
-    // el código de escape para que nadie lo "arregle" a un espacio
-    // normal creyendo que es un typo — con espacio normal el número se
-    // parte en dos al final de una línea.
-    expect(impulso?.etiquetaClientes).toBe("Hasta 1 000 clientes");
-    expect(impulso?.topes.find((t) => t.id === "clientesActivos")?.valor).toBe(1000);
+  it("Starter escribe sus 100 clientes", () => {
+    const starter = catalogoPublico().planes.find((p) => p.id === "arranque");
+    expect(starter?.precio).toBe("$12");
+    expect(starter?.etiquetaClientes).toBe("Hasta 100 clientes");
+    expect(starter?.topes.find((t) => t.id === "clientesActivos")?.valor).toBe(100);
   });
 
-  it("Ilimitado es el único sin tope, y son $89", () => {
+  it("Impulso es el único sin tope, y son $42", () => {
+    // Desde el 1 sep 2026 Impulso es el paquete tope: se quedó con lo
+    // que era de «Ilimitado», que se retiró del catálogo.
     const c = catalogoPublico();
-    const ilimitado = c.planes.find((p) => p.id === "ilimitado");
-    expect(ilimitado?.precio).toBe("$89");
-    expect(ilimitado?.etiquetaClientes).toBe("Clientes ilimitados");
+    const impulso = c.planes.find((p) => p.id === "impulso");
+    expect(impulso?.precio).toBe("$42");
+    expect(impulso?.etiquetaClientes).toBe("Clientes ilimitados");
     const sinTope = c.planes.filter((p) => p.etiquetaClientes === "Clientes ilimitados");
     expect(sinTope).toHaveLength(1);
   });
 
-  it("los cuatro prometen Wallet, porque Wallet está en producción", () => {
+  it("todos prometen Wallet, porque Wallet está en producción", () => {
     for (const plan of catalogoPublico().planes) {
       expect(plan.incluye).toContain("Pases en Apple Wallet y Google Wallet");
     }

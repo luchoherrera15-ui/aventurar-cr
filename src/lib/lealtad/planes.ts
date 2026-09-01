@@ -93,19 +93,27 @@
 import { TIPOS_TARJETA, TIPOS_TARJETA_ID, type TipoTarjeta } from "./tipos-tarjeta";
 
 /** Lo que se ofrece hoy, de menor a mayor. */
-export const PLANES_OFRECIDOS = ["prueba", "arranque", "impulso", "ilimitado"] as const;
+export const PLANES_OFRECIDOS = ["prueba", "arranque", "impulso"] as const;
 
 /**
  * Planes de etapas anteriores: ya no se venden, pero siguen
  * resolviendo para quien los tiene.
  *
  * ------------------------------------------------------------------
- * ESTÁ VACÍA, Y NO ES LO MISMO QUE NO EXISTIR
+ * ACÁ VIVE 'ilimitado' DESDE EL 1 SEP 2026
  * ------------------------------------------------------------------
- * Hoy no hay ninguno: los ocho que había se borraron cuando se
- * comprobó que ninguna fila de la base los tenía (ver la cabecera). La
- * lista se queda porque es LA MITAD DEL MECANISMO de retiro, y el
- * mecanismo sigue siendo la política correcta.
+ * El dueño lo retiró y le pasó TODO lo que tenía a Impulso, que pasa
+ * a ser el paquete tope. Se comprobó antes de tocar nada que ninguna
+ * fila de la base lo tuviera puesto: `ranchos.plan_lealtad`,
+ * `cuentas.plan`, `suscripciones.plan` y `solicitudes_lealtad.plan`
+ * no lo mencionan ni una vez. Aun así se RETIRA y no se borra —
+ * borrarlo mientras exista el valor en un CHECK de la base es dejar
+ * la puerta para que una fila con ese id resuelva a `null`, o sea a
+ * ilimitado y gratis.
+ *
+ * Sus topes quedan intactos a propósito (paso 3 de la receta de
+ * abajo): si mañana aparece una fila con este id, tiene que resolver
+ * a lo que se le vendió, no a lo que se ofrece hoy.
  *
  * Retirar un paquete, el día que toque, son tres movimientos y nada
  * más:
@@ -122,7 +130,7 @@ export const PLANES_OFRECIDOS = ["prueba", "arranque", "impulso", "ilimitado"] a
  * Lo que NO hay que hacer nunca es borrarle la definición mientras una
  * fila lo tenga puesto. Eso no lo apaga: lo vuelve ilimitado y gratis.
  */
-export const PLANES_RETIRADOS = [] as const;
+export const PLANES_RETIRADOS = ["ilimitado"] as const;
 
 /**
  * Todo lo que la base puede tener GUARDADO en una columna de plan.
@@ -639,15 +647,14 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
       // cuenta de la 0142 eso ya no pasa —los 100 son 100 sumando las
       // dos— y el escalón puede ser lo que el dueño aprobó.
       programas: 2,
-      // DIEZ al mes (dueño, 1 sep 2026 — antes eran 2).
+      // VEINTICINCO al mes (dueño, 1 sep 2026 — antes 2, después 10).
       //
-      // El número subió cuando llegaron las campañas automáticas
-      // (0226): un día de la semana marcado son ~4,3 envíos al mes, así
-      // que con 2 el paquete no aguantaba ni UNA campaña completa —
-      // salía dos semanas y las otras dos no, que es la peor versión de
-      // la función. Con 10 entran dos días por semana y sobra para un
-      // aviso suelto.
-      notificacionesMes: 10,
+      // Con campañas automáticas (0226) un día de la semana marcado son
+      // ~4,3 envíos al mes: 25 dan para CINCO días programados, o para
+      // tres días y varios avisos sueltos. El paquete de $12 deja de
+      // ser «para avisos puntuales» y pasa a aguantar una operación
+      // semanal de verdad.
+      notificacionesMes: 25,
       // CERO: Geo-Push arranca en Impulso (dueño, ago 2026) — es el
       // gancho para subir de paquete. La sección se ve bloqueada, no
       // escondida.
@@ -675,30 +682,40 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     // 42 × 12 = 504, menos 20% = 403,20 → 400 (20,6%). Ver la nota del
     // redondeo en el paquete Arranque: siempre hacia abajo.
     precioAnual: 400,
+    // ⚠️ ACÁ ESTÁ TODO LO QUE ERA DE «ILIMITADO» (1 sep 2026).
+    //
+    // El dueño retiró ese paquete y pasó sus límites y sus capacidades
+    // a Impulso, que queda como el tope del catálogo. Los números de
+    // abajo son literalmente los que tenía Ilimitado — no una versión
+    // recortada—: si Impulso es ahora el paquete grande, tiene que dar
+    // lo que daba el grande.
     limites: {
-      clientesActivos: 1_000,
-      programas: 5,
-      // CINCUENTA al mes (dueño, 1 sep 2026 — antes eran 15).
-      //
-      // Con campañas automáticas (0226), 50 son los siete días de la
-      // semana programados (~30 al mes) y todavía sobra margen para los
-      // avisos sueltos. El escalón contra los 10 de Starter sigue siendo
-      // claro: Starter programa un par de días, Impulso programa la
-      // semana entera.
-      notificacionesMes: 50,
-      // TRES: el negocio con clientela suele tener más de un punto (el
-      // local, la feria del sábado, el punto de retiro). IMPULSO ES EL
-      // PRIMERO QUE TRAE UBICACIONES — decisión del dueño: Geo-Push es
-      // el gancho para subir de paquete, así que Prueba y Starter van
-      // en 0 y la pantalla los invita a cambiar de suscripción.
-      ubicaciones: 3,
-      administradores: 10,
+      // SIN TECHO de clientes ni de tarjetas, como Ilimitado.
+      clientesActivos: null,
+      programas: null,
+      // ILIMITADAS. `null` es el valor que `etiquetaNotificacionesDe`
+      // traduce a «Notificaciones ilimitadas al pase del cliente».
+      // Cuántas mandar pasa a ser juicio del negocio y no del
+      // catálogo — el mismo criterio con el que Ilimitado las tenía.
+      notificacionesMes: null,
+      // DIEZ y no `null`: es el máximo que Apple acepta por pase. Ver
+      // la nota de `LimitesPlan.ubicaciones` — «ilimitado» acá sería
+      // prometer lo que iOS no entrega.
+      ubicaciones: 10,
+      administradores: null,
       sedes: 1,
       automatizaciones: 0,
     },
-    // `INCLUIDO_SIEMPRE` más la proyección de crecimiento: es el
-    // primer paquete que la trae (ver `proyeccion_metricas`).
-    capacidades: [...INCLUIDO_SIEMPRE, "proyeccion_metricas"],
+    // `INCLUIDO_SIEMPRE` más las tres que quedaban arriba. `cercania`
+    // se sigue vendiendo suelta como complemento (0123) para quien ya
+    // la compró: `puede()` acepta las dos puertas, así que subirla al
+    // paquete no le apaga el aviso a nadie.
+    capacidades: [
+      ...INCLUIDO_SIEMPRE,
+      "proyeccion_metricas",
+      "cercania",
+      "diseno_a_medida",
+    ],
     // Los ocho: membresía, gift card y evento entran acá.
     tipos: null,
     diasPrueba: 0,
@@ -738,7 +755,12 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     capacidades: [...INCLUIDO_SIEMPRE, "proyeccion_metricas", "cercania", "diseno_a_medida"],
     tipos: null,
     diasPrueba: 0,
-    vigente: true,
+    // RETIRADO el 1 sep 2026: todo lo suyo pasó a Impulso. Con esto
+    // `esPlanOfrecido()` cierra la puerta solo y el paquete desaparece
+    // de toda grilla y del catálogo público, sin que haya que buscar
+    // dónde más se pintaba. La definición se queda entera —topes
+    // incluidos— por si alguna fila aparece con este id.
+    vigente: false,
   },
 };
 

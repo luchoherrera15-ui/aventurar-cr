@@ -277,23 +277,36 @@ describe("UN PAQUETE RETIRADO NO SE PUEDE ELEGIR, PERO SE SIGUE RESPETANDO", () 
   });
 });
 
-describe("hoy el catálogo no arrastra ningún paquete retirado", () => {
-  it("las dos listas coinciden, y por eso `PLANES_ID` son los cuatro", () => {
-    // No es que la separación sobre: es que está vacía. El día que se
-    // retire uno, su id se mueve a `PLANES_RETIRADOS` y `PLANES_ID`
-    // vuelve a ser más largo que `PLANES_OFRECIDOS`.
-    expect(PLANES_RETIRADOS).toHaveLength(0);
-    expect([...PLANES_ID]).toEqual([...PLANES_OFRECIDOS]);
+describe("el catálogo arrastra un retirado, y así tiene que ser", () => {
+  it("«ilimitado» salió de lo ofrecido pero NO de lo que la base acepta", () => {
+    // El 1 sep 2026 se retiró y todo lo suyo pasó a Impulso. Sigue en
+    // `PLANES_ID` a propósito: si se borrara mientras el CHECK de la
+    // base todavía acepta el valor, una fila con ese id resolvería a
+    // `definicionDe() === null`, y con plan null TODOS los topes son
+    // null. Retirar mal un paquete no lo apaga: lo vuelve infinito.
+    expect([...PLANES_RETIRADOS]).toEqual(["ilimitado"]);
+    expect([...PLANES_OFRECIDOS]).not.toContain("ilimitado");
+    expect([...PLANES_ID]).toContain("ilimitado");
     expect(Object.keys(PLANES).sort()).toEqual([...PLANES_ID].sort());
   });
 
-  it("ninguna definición quedó apagada dentro del catálogo", () => {
+  it("conserva los topes que se le vendieron", () => {
+    // Paso 3 de la receta de retiro: bajárselos a quien ya pagó por un
+    // cambio de catálogo sería quitarle lo comprado.
+    expect(PLANES.ilimitado.limites.clientesActivos).toBeNull();
+    expect(PLANES.ilimitado.limites.programas).toBeNull();
+    expect(PLANES.ilimitado.limites.notificacionesMes).toBeNull();
+  });
+
+  it("solo el retirado está apagado; los ofrecidos, encendidos", () => {
     for (const def of Object.values(PLANES)) {
-      expect(def.vigente, `${def.id} está en el catálogo pero apagado`).toBe(true);
+      const esperado = !(PLANES_RETIRADOS as readonly string[]).includes(def.id);
+      expect(def.vigente, `${def.id}`).toBe(esperado);
     }
   });
 
-  it("los cuatro ofrecidos SÍ se pueden elegir", () => {
+  it("los ofrecidos SÍ se pueden elegir, y el retirado NO", () => {
+    expect(esPlanOfrecido("ilimitado")).toBe(false);
     for (const id of PLANES_OFRECIDOS) {
       expect(esPlanOfrecido(id), `${id} se ofrece`).toBe(true);
     }
@@ -454,9 +467,9 @@ describe("un plan que el catálogo no conoce no bloquea: DESBLOQUEA", () => {
 });
 
 describe("el catálogo de Lealtad", () => {
-  it("son cuatro: la prueba y los tres de pago", () => {
-    expect(PLANES_OFRECIDOS).toEqual(["prueba", "arranque", "impulso", "ilimitado"]);
-    expect(PLANES_VIGENTES).toHaveLength(4);
+  it("son tres: la prueba y los dos de pago", () => {
+    expect(PLANES_OFRECIDOS).toEqual(["prueba", "arranque", "impulso"]);
+    expect(PLANES_VIGENTES).toHaveLength(3);
     for (const def of PLANES_VIGENTES) expect(def.vigente).toBe(true);
   });
 
@@ -464,20 +477,19 @@ describe("el catálogo de Lealtad", () => {
     expect(PLANES.prueba.precioMensual).toBe(0);
     expect(PLANES.arranque.precioMensual).toBe(12);
     expect(PLANES.impulso.precioMensual).toBe(42);
-    expect(PLANES.ilimitado.precioMensual).toBe(89);
   });
 
-  it("tiene los topes de clientes acordados", () => {
+  it("Impulso es el tope del catálogo: sin techo de clientes", () => {
     expect(PLANES.arranque.limites.clientesActivos).toBe(100);
-    expect(PLANES.impulso.limites.clientesActivos).toBe(1_000);
-    // El de $89 es ILIMITADO: sin tope, no un número muy grande.
-    expect(PLANES.ilimitado.limites.clientesActivos).toBeNull();
+    // Desde el 1 sep 2026 Impulso es ILIMITADO: sin tope, no un
+    // número muy grande. Se quedó con lo que era de «Ilimitado».
+    expect(PLANES.impulso.limites.clientesActivos).toBeNull();
   });
 
   it("el anual regala exactamente dos meses", () => {
     // El copy dice «Ahorrá 2 meses» y ese 2 sale del cálculo, no de un
     // texto escrito a mano que se desincroniza al cambiar un precio.
-    for (const id of ["arranque", "impulso", "ilimitado"] as const) {
+    for (const id of ["arranque", "impulso"] as const) {
     // (la función quedó sin uso en producción: el anual se anuncia por
     // porcentaje, no contando meses. Se conserva por si alguna pantalla
     // futura quiere el dato en meses.)
@@ -522,25 +534,24 @@ describe("el catálogo de Lealtad", () => {
     }
   });
 
-  it("el paquete de $89 no esconde un techo en las tarjetas", () => {
-    expect(PLANES.ilimitado.limites.programas).toBeNull();
-    expect(PLANES.ilimitado.limites.clientesActivos).toBeNull();
-    expect(PLANES.ilimitado.limites.administradores).toBeNull();
+  it("el paquete tope no esconde un techo en ningún lado", () => {
+    // Desde el 1 sep 2026 el tope es Impulso, no «Ilimitado».
+    expect(PLANES.impulso.limites.programas).toBeNull();
+    expect(PLANES.impulso.limites.clientesActivos).toBeNull();
+    expect(PLANES.impulso.limites.administradores).toBeNull();
   });
 
-  it("tiene las tarjetas acordadas: 1 · 2 · 5 · sin tope", () => {
+  it("tiene las tarjetas acordadas: 1 · 2 · sin tope", () => {
     expect(PLANES.prueba.limites.programas).toBe(1);
     expect(PLANES.arranque.limites.programas).toBe(2);
-    expect(PLANES.impulso.limites.programas).toBe(5);
-    expect(PLANES.ilimitado.limites.programas).toBeNull();
+    expect(PLANES.impulso.limites.programas).toBeNull();
   });
 
-  it("tiene el equipo acordado: 1 · 3 · 10 · sin tope", () => {
+  it("tiene el equipo acordado: 1 · 3 · sin tope", () => {
     // El tope INCLUYE al dueño, y por eso la Prueba va en 1.
     expect(PLANES.prueba.limites.administradores).toBe(1);
     expect(PLANES.arranque.limites.administradores).toBe(3);
-    expect(PLANES.impulso.limites.administradores).toBe(10);
-    expect(PLANES.ilimitado.limites.administradores).toBeNull();
+    expect(PLANES.impulso.limites.administradores).toBeNull();
   });
 });
 
@@ -573,11 +584,13 @@ describe("EL CUPO NO SE MULTIPLICA POR LAS TARJETAS", () => {
     }
   });
 
-  it("Impulso son 1.000 clientes con sus 5 tarjetas, no 5.000", () => {
-    expect(PLANES.impulso.limites.programas).toBe(5);
-    expect(PLANES.impulso.limites.clientesActivos).toBe(1_000);
-    expect(estadoDelLimite("impulso", "clientesActivos", 1_000).lleno).toBe(true);
-    expect(estadoDelLimite("impulso", "clientesActivos", 5_000).disponibles).toBe(0);
+  it("Impulso ya no tiene techo de clientes: nunca se llena", () => {
+    // Se quedó con los límites de «Ilimitado» (1 sep 2026). Sin tope,
+    // la multiplicación por tarjetas que este bloque vigila no tiene
+    // con qué equivocarse — pero la regla se comprueba igual en
+    // Arranque, que sí tiene número.
+    expect(PLANES.impulso.limites.clientesActivos).toBeNull();
+    expect(estadoDelLimite("impulso", "clientesActivos", 50_000).lleno).toBe(false);
   });
 
   it("Arranque son 100 con sus 2 tarjetas, no 200", () => {
@@ -721,28 +734,26 @@ describe("no se promete lo que no existe", () => {
     }
   });
 
-  it("el cupo de notificaciones es 1/10/50/ilimitado", () => {
-    // Los números que fijó el dueño el 1 sep 2026 (antes 1/2/15):
-    // Prueba: 1 por mes · Starter ($12): 10 · Impulso: 50
-    // Ilimitado: sin tope (null = «ilimitadas», ver
-    // `etiquetaNotificacionesDe`).
+  it("el cupo de notificaciones es 1 / 25 / ilimitado", () => {
+    // Los números que fijó el dueño el 1 sep 2026. El día tuvo tres
+    // versiones (2/15 → 10/50 → 25/ilimitado) y esta es la última:
+    // Prueba 1 · Starter ($12) 25 · Impulso sin tope.
     //
-    // Subieron con las campañas automáticas (0226): un día de la
-    // semana programado son ~4,3 envíos al mes, así que con los 2 de
-    // antes Starter no aguantaba ni una campaña entera.
+    // `null` es lo que `etiquetaNotificacionesDe` traduce a
+    // «Notificaciones ilimitadas al pase del cliente».
     expect(PLANES.prueba.limites.notificacionesMes).toBe(1);
-    expect(PLANES.arranque.limites.notificacionesMes).toBe(10);
-    expect(PLANES.impulso.limites.notificacionesMes).toBe(50);
-    expect(PLANES.ilimitado.limites.notificacionesMes).toBeNull();
+    expect(PLANES.arranque.limites.notificacionesMes).toBe(25);
+    expect(PLANES.impulso.limites.notificacionesMes).toBeNull();
   });
 
-  // La razón de ser de los números de arriba: que una campaña semanal
-  // quepa. Si alguien vuelve a bajar el cupo, esto se pone en rojo
+  // La razón de ser del número de Starter: que una campaña automática
+  // semanal quepa. Si alguien vuelve a bajarlo, esto se pone en rojo
   // antes de que un cliente descubra que su promo dejó de salir.
-  it("Starter aguanta una campaña semanal; Impulso, la semana entera", () => {
+  it("Starter aguanta varios días programados por semana", () => {
     const porMes = (dias: number) => Math.round(dias * (52 / 12));
-    expect(PLANES.arranque.limites.notificacionesMes!).toBeGreaterThanOrEqual(porMes(2));
-    expect(PLANES.impulso.limites.notificacionesMes!).toBeGreaterThanOrEqual(porMes(7));
+    expect(PLANES.arranque.limites.notificacionesMes!).toBeGreaterThanOrEqual(porMes(5));
+    // Impulso sin tope: la semana entera y lo que haga falta.
+    expect(PLANES.impulso.limites.notificacionesMes).toBeNull();
   });
 
   it("Geo-Push (ubicaciones) arranca en Impulso", () => {
@@ -751,17 +762,16 @@ describe("no se promete lo que no existe", () => {
     // escondido (ver seccion-ubicaciones.tsx).
     expect(PLANES.prueba.limites.ubicaciones).toBe(0);
     expect(PLANES.arranque.limites.ubicaciones).toBe(0);
-    expect(PLANES.impulso.limites.ubicaciones).toBe(3);
-    // 10 y no null: es el techo que acepta Apple por pase.
-    expect(PLANES.ilimitado.limites.ubicaciones).toBe(10);
+    // 10 y no null: es el techo que acepta Apple por pase. Impulso se
+    // quedó con las diez de «Ilimitado» (1 sep 2026).
+    expect(PLANES.impulso.limites.ubicaciones).toBe(10);
   });
 
   it("la proyección de crecimiento es SOLO de Impulso para arriba", () => {
     expect(puede("prueba", "proyeccion_metricas")).toBe(false);
     expect(puede("arranque", "proyeccion_metricas")).toBe(false);
     expect(puede("impulso", "proyeccion_metricas")).toBe(true);
-    expect(puede("ilimitado", "proyeccion_metricas")).toBe(true);
-    // Las cuatro cifras básicas se quedan en los cuatro paquetes: no se
+    // Las cuatro cifras básicas se quedan en todos los paquetes: no se
     // confunden `analitica` (siempre) con `proyeccion_metricas` (desde
     // Impulso).
     for (const id of PLANES_OFRECIDOS) expect(puede(id, "analitica")).toBe(true);
@@ -770,10 +780,9 @@ describe("no se promete lo que no existe", () => {
   it("mandar notificaciones lo puede hacer cualquier paquete — lo que cambia es el número", () => {
     for (const id of PLANES_OFRECIDOS) expect(puede(id, "notificaciones")).toBe(true);
     expect(etiquetaNotificacionesDe(PLANES.prueba)).toBe("1 notificación al mes");
-    expect(etiquetaNotificacionesDe(PLANES.arranque)).toBe("10 notificaciones al mes");
-    expect(etiquetaNotificacionesDe(PLANES.impulso)).toBe("50 notificaciones al mes");
-    // Ilimitado ya no lleva número: `null` se traduce a la frase.
-    expect(etiquetaNotificacionesDe(PLANES.ilimitado)).toBe(
+    expect(etiquetaNotificacionesDe(PLANES.arranque)).toBe("25 notificaciones al mes");
+    // Impulso ya no lleva número: `null` se traduce a la frase.
+    expect(etiquetaNotificacionesDe(PLANES.impulso)).toBe(
       "Notificaciones ilimitadas al pase del cliente",
     );
   });
@@ -809,22 +818,18 @@ describe("no se promete lo que no existe", () => {
     }
   });
 
-  it("Impulso suma sobre Prueba/Arranque exactamente proyeccion_metricas", () => {
+  it("Impulso suma sobre Prueba/Arranque exactamente tres, y las tres existen", () => {
+    // Desde el 1 sep 2026 Impulso es el tope: se quedó con lo que
+    // sumaba «Ilimitado» (cercanía y diseño a medida) además de su
+    // proyección de crecimiento.
     const extra = PLANES.impulso.capacidades.filter(
       (c) => !PLANES.arranque.capacidades.includes(c),
     );
-    expect([...extra].sort()).toEqual(["proyeccion_metricas"]);
-    for (const cap of extra) {
-      expect(CAPACIDADES_SIN_PRODUCTO).not.toContain(cap);
-      expect(ETIQUETAS_CAPACIDAD[cap]).toBeTruthy();
-    }
-  });
-
-  it("Ilimitado suma exactamente dos, y las dos existen de verdad", () => {
-    const extra = PLANES.ilimitado.capacidades.filter(
-      (c) => !PLANES.impulso.capacidades.includes(c),
-    );
-    expect([...extra].sort()).toEqual(["cercania", "diseno_a_medida"]);
+    expect([...extra].sort()).toEqual([
+      "cercania",
+      "diseno_a_medida",
+      "proyeccion_metricas",
+    ]);
     for (const cap of extra) {
       // Nada de `CAPACIDADES_SIN_PRODUCTO` puede subir de escalón: si no
       // hay código detrás, cobrarlo es vender humo.
@@ -833,10 +838,10 @@ describe("no se promete lo que no existe", () => {
     }
   });
 
-  it("cercanía y diseño a medida SOLO en el de $89", () => {
+  it("cercanía y diseño a medida SOLO en el paquete tope", () => {
     for (const cap of ["cercania", "diseno_a_medida"] as const) {
-      expect(puede("ilimitado", cap)).toBe(true);
-      for (const id of ["prueba", "arranque", "impulso"] as const) {
+      expect(puede("impulso", cap)).toBe(true);
+      for (const id of ["prueba", "arranque"] as const) {
         expect(puede(id, cap), `${id} → ${cap}`).toBe(false);
       }
     }
@@ -848,9 +853,8 @@ describe("no se promete lo que no existe", () => {
     // sería quitarle lo pagado por un cambio de catálogo.
     expect(puede("prueba", "cercania", ["pases_cercania"])).toBe(true);
     expect(puede("arranque", "cercania", ["pases_cercania"])).toBe(true);
-    expect(puede("impulso", "cercania", ["pases_cercania"])).toBe(true);
     // Y a quien ya lo tiene por el paquete, apagar el add-on no se lo quita.
-    expect(puede("ilimitado", "cercania", [])).toBe(true);
+    expect(puede("impulso", "cercania", [])).toBe(true);
   });
 
   it("la etiqueta de cercanía dice que es solo en iPhone", () => {
@@ -903,12 +907,9 @@ describe("los planes crecen", () => {
       programas: 2,
       administradores: 3,
     });
+    // Impulso es el tope desde el 1 sep 2026: sin techo en ninguno de
+    // los tres. El retirado conserva los suyos, que eran los mismos.
     expect(PLANES.impulso.limites).toMatchObject({
-      clientesActivos: 1_000,
-      programas: 5,
-      administradores: 10,
-    });
-    expect(PLANES.ilimitado.limites).toMatchObject({
       clientesActivos: null,
       programas: null,
       administradores: null,
@@ -920,7 +921,6 @@ describe("precioDe", () => {
   it("escribe dólares con símbolo y sin centavos de relleno", () => {
     expect(precioDe(PLANES.arranque)).toBe("$12");
     expect(precioDe(PLANES.impulso)).toBe("$42");
-    expect(precioDe(PLANES.ilimitado)).toBe("$89");
   });
 
   it("da el precio anual cuando se lo piden", () => {
@@ -968,18 +968,21 @@ describe("puede", () => {
   });
 
   it("un complemento regalado abre una capacidad sin subir de plan", () => {
-    expect(puede("impulso", "cercania")).toBe(false);
-    expect(puede("impulso", "cercania", ["pases_cercania"])).toBe(true);
+    // Con «arranque» y no con «impulso»: desde el 1 sep 2026 Impulso
+    // trae `cercania` en el paquete, así que ya no sirve de ejemplo de
+    // «capacidad que el plan NO incluye».
+    expect(puede("arranque", "cercania")).toBe(false);
+    expect(puede("arranque", "cercania", ["pases_cercania"])).toBe(true);
   });
 
   it("un complemento de otra cosa no abre la capacidad pedida", () => {
-    expect(puede("impulso", "cercania", ["pases_api", "agenda_ia"])).toBe(false);
+    expect(puede("arranque", "cercania", ["pases_api", "agenda_ia"])).toBe(false);
   });
 
   it("un complemento NO puede quitar lo que el plan incluye", () => {
     // Apagar un add-on por error no debe degradar a quien pagó el plan.
-    expect(puede("ilimitado", "cercania", [])).toBe(true);
-    expect(puede("ilimitado", "cercania", ["agenda_ia"])).toBe(true);
+    expect(puede("impulso", "cercania", [])).toBe(true);
+    expect(puede("impulso", "cercania", ["agenda_ia"])).toBe(true);
   });
 
   it("un plan inventado no concede nada", () => {
@@ -1004,8 +1007,9 @@ describe("estadoDelLimite", () => {
   it("marca lleno justo en el tope, no después", () => {
     expect(estadoDelLimite("arranque", "clientesActivos", 99).lleno).toBe(false);
     expect(estadoDelLimite("arranque", "clientesActivos", 100).lleno).toBe(true);
-    expect(estadoDelLimite("impulso", "clientesActivos", 999).lleno).toBe(false);
-    expect(estadoDelLimite("impulso", "clientesActivos", 1_000).lleno).toBe(true);
+    // Impulso ya no tiene tope: nunca se llena. El corte exacto se
+    // comprueba en «arranque», que sí tiene número.
+    expect(estadoDelLimite("impulso", "clientesActivos", 1_000).lleno).toBe(false);
   });
 
   it("pasado el tope no muestra disponibles negativos ni pasa de 100%", () => {

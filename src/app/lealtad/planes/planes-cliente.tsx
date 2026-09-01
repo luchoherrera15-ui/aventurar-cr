@@ -190,7 +190,12 @@ export default function PlanesCliente({
               )}
             </p>
             <p className="mt-0.5 text-[12.5px] text-white/55">
-              Hasta {p.limite === null ? "miembros ilimitados" : `${p.limite.toLocaleString("es-CR")} miembros`}
+              {/* El «Hasta» solo tiene sentido con un número detrás:
+                  «Hasta miembros ilimitados» no se entiende. Sin tope,
+                  la frase entera cambia. */}
+              {p.limite === null
+                ? "Miembros ilimitados"
+                : `Hasta ${p.limite.toLocaleString("es-CR")} miembros`}
             </p>
 
             <ul className="mt-3 flex-1 space-y-1.5">

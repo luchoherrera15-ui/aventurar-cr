@@ -24,9 +24,9 @@ import type { EstadoLimite } from "@/lib/lealtad/planes";
  * ------------------------------------------------------------------
  * LO QUE ESTA PANTALLA TIENE QUE DECIR ANTES DE QUE SE ACTIVE
  * ------------------------------------------------------------------
- * Un día marcado son ~4,3 envíos al mes. Los topes son 1 / 10 / 50 /
- * ilimitado (ver `planes.ts`). O sea que Starter aguanta dos días por
- * semana e Impulso la semana entera — pero el paquete gratis se queda
+ * Un día marcado son ~4,3 envíos al mes. Los topes son 1 / 25 /
+ * ilimitado (ver `planes.ts`). O sea que Starter aguanta cinco días
+ * por semana e Impulso no tiene techo — pero el paquete gratis se queda
  * sin cupo en la primera semana, y eso hay que decirlo antes.
  *
  * `resumenDeCampanas` devuelve esa cuenta hecha —cuántos envíos implica

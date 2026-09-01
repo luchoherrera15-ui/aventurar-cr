@@ -35,7 +35,10 @@ const ENTORNO: Entorno = {
 
 describe("el catálogo de lo que se cobra", () => {
   it("son los paquetes ofrecidos que cuestan algo", () => {
-    expect([...PLANES_CON_COBRO]).toEqual(["arranque", "impulso", "ilimitado"]);
+    // «ilimitado» salió el 1 sep 2026: al retirarlo de
+    // `PLANES_OFRECIDOS`, deja de cobrarse solo — este catálogo se
+    // deriva de ahí y no de una lista propia.
+    expect([...PLANES_CON_COBRO]).toEqual(["arranque", "impulso"]);
   });
 
   it("el plan de $0 NUNCA entra: se activa solo, sin pasar por Stripe", () => {
@@ -130,7 +133,6 @@ describe("del precio al plan — el camino que activa", () => {
     expect([...mapaDePrecios(ENTORNO).keys()].sort()).toEqual([
       "price_arranque_anio",
       "price_arranque_mes",
-      "price_ilimitado_mes",
       "price_impulso_mes",
     ]);
   });
@@ -158,7 +160,7 @@ describe("SIN NINGUNA LLAVE CONFIGURADA — el SINPE tiene que seguir", () => {
   it("el catálogo de paquetes sigue existiendo igual", () => {
     // Que no se pueda pagar con tarjeta no puede borrar los paquetes:
     // se siguen mostrando y se siguen pidiendo por SINPE.
-    expect(PLANES_CON_COBRO.length).toBe(3);
+    expect(PLANES_CON_COBRO.length).toBe(2);
   });
 
   it("/lealtad/planes no le pasa NI UN período a ningún paquete", () => {
@@ -178,7 +180,6 @@ describe("qué paquetes muestran botón de tarjeta", () => {
     expect(planesConPrecio(ENTORNO)).toEqual([
       { plan: "arranque", periodos: ["mensual", "anual"] },
       { plan: "impulso", periodos: ["mensual"] },
-      { plan: "ilimitado", periodos: ["mensual"] },
     ]);
   });
 });
