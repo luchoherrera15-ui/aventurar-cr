@@ -7,6 +7,7 @@ import FormularioSolicitud, {
   type DatosPago,
   type NegocioElegible,
 } from "./formulario-solicitud";
+import { grillaDePaquetes } from "@/lib/lealtad/grilla-paquetes";
 
 /**
  * Las tarjetas de los tres paquetes. Elegir una abre el paso de
@@ -156,7 +157,10 @@ export default function PlanesCliente({
 
   return (
     <div ref={raiz}>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Las columnas siguen a la cantidad de paquetes (ver
+          `grillaDePaquetes`): con un número fijo, retirar uno deja
+          una columna vacía y descentra la grilla entera. */}
+      <div className={`gap-4 ${grillaDePaquetes(planes.length)}`}>
         {planes.map((p) => (
           <div
             key={p.id}

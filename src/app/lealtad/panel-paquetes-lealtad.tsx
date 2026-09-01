@@ -17,6 +17,7 @@ import {
 import { TIPOS_TARJETA, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { Icono } from "./panel/[id]/iconos";
 import BotonVerTipos from "./boton-ver-tipos";
+import { grillaDePaquetes } from "@/lib/lealtad/grilla-paquetes";
 
 /**
  * MODO 2 — «al hacer clic en el botón se abren los paquetes que
@@ -105,7 +106,8 @@ export default function PanelPaquetesLealtad({
         />
       </div>
 
-      <div className="mt-4 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Ídem: las columnas salen del catálogo (`grillaDePaquetes`). */}
+      <div className={`mt-4 gap-3.5 ${grillaDePaquetes(PLANES_VIGENTES.length)}`}>
         {PLANES_VIGENTES.map((def) => (
           <TarjetaPlanLectura
             key={def.id}

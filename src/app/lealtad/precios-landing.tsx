@@ -12,6 +12,7 @@ import {
 import { bulletsDe } from "./panel-paquetes-lealtad";
 import { Icono } from "./panel/[id]/iconos";
 import BotonVerTipos from "./boton-ver-tipos";
+import { grillaDePaquetes } from "@/lib/lealtad/grilla-paquetes";
 
 /**
  * LOS CUATRO PAQUETES, EN LA PORTADA.
@@ -53,7 +54,11 @@ export default function PreciosLanding() {
         ))}
       </div>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Las columnas salen de CUÁNTOS paquetes hay, no escritas a
+          mano: con `lg:grid-cols-4` fijo y tres paquetes, la cuarta
+          columna quedaba vacía y las tarjetas se corrían a la
+          izquierda con un hueco a la derecha. */}
+      <div className={`mt-8 gap-4 ${grillaDePaquetes(PLANES_VIGENTES.length)}`}>
         {PLANES_VIGENTES.map((def) => (
           <TarjetaPlan key={def.id} def={def} periodo={periodo} />
         ))}
