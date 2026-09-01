@@ -4,8 +4,11 @@ import { usuarioActual } from "@/lib/auth";
 import { cerrarSesionPublica } from "@/components/sesion-publica-actions";
 import {
   comisionMensualUSD,
+  comisionDeNegocioUSD,
   casilleroDePlan,
+  dolares,
   CONTEO_VACIO,
+  TARIFA_USD,
   type ConteoPlanes,
 } from "@/lib/lealtad/comision-moderador";
 
@@ -18,9 +21,15 @@ import {
  * Entra por /admin con su cuenta; el proxy lo trae SOLO acá.
  *
  * Cuánto gana: comisión RECURRENTE por mes, según el PAQUETE de cada
- * negocio activo que trajo (regla en lib/lealtad/comision-moderador):
- * Starter en grupos de 3 ($1 suelto / $6 en trío), Impulso $10 c/u. En
- * dólares. El plan de cada negocio sale de `ranchos.plan_lealtad`.
+ * negocio activo que trajo (la tarifa vive en
+ * lib/lealtad/comision-moderador, no acá). En dólares, y el plan de
+ * cada negocio sale de `ranchos.plan_lealtad`.
+ *
+ * La pantalla está armada alrededor de UNA pregunta —«¿qué me deja
+ * cada negocio?»— y por eso la lista de negocios trae su propio monto
+ * por fila. Eso solo se puede escribir porque la tarifa es plana: con
+ * la regla vieja (Starter en grupos de 3) la plata de un negocio
+ * dependía de cuántos otros hubiera, y la columna habría sido mentira.
  *
  * Se lee con el service role (agentes_lealtad tiene RLS sin políticas,
  * 0219), pero acotado al usuario logueado: cada quien ve solo lo suyo.
@@ -30,8 +39,6 @@ export const metadata: Metadata = {
   title: "Panel de moderación",
   robots: { index: false, follow: false },
 };
-
-const dolares = (n: number) => "$" + n.toLocaleString("es-CR");
 
 const NOMBRE_MES = [
   "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -105,6 +112,9 @@ export default async function PanelModeracionPage() {
     return {
       nombre: f.ranchos?.nombre ?? "Negocio",
       plan: casillero,
+      // Lo que deja ESTE negocio, por mes. Sale de la misma tarifa
+      // que el total de arriba: las filas suman el encabezado.
+      gana: comisionDeNegocioUSD(f.ranchos?.plan_lealtad),
       inicio: anioMesCR(f.atendida_en ?? f.created_at),
       desde: f.atendida_en ?? f.created_at,
     };
@@ -173,13 +183,85 @@ export default async function PanelModeracionPage() {
         <Cifra etiqueta="Total acumulado" valor={dolares(totalAcumulado)} />
       </div>
 
-      {/* Cómo se calcula. */}
+      {/* Cómo se calcula. Los montos salen de `TARIFA_USD`, no
+          escritos a mano: un texto que no coincida con la cuenta es
+          peor que no tener texto. */}
       <div className="mt-4 rounded-2xl border border-aventurea-line bg-aventurea-surface px-4 py-3 text-[12.5px] text-aventurea-ink-soft">
         <span className="font-bold text-aventurea-ink">Cómo se calcula:</span>{" "}
-        Starter se paga en grupos de 3 — $1 cada uno suelto, y $6 cada uno al
-        completar un trío. Impulso: $10 por negocio, por mes. Se cobra mientras
-        el negocio siga activo.
+        {dolares(TARIFA_USD.impulso ?? 0)} por cada negocio con paquete Impulso y{" "}
+        {dolares(TARIFA_USD.arranque ?? 0)} por cada uno con Starter, todos los meses.
+        Se cobra mientras el negocio siga activo.
       </div>
+
+      {/* ── LO QUE DEJA CADA NEGOCIO ─────────────────────────────
+          Pedido del dueño (1 sep 2026): «nombre de comercio, plan
+          contratado, cantidad de dinero ganado».
+
+          Va ANTES del histórico mensual a propósito: el mes a mes es
+          contexto, y esta tabla es la respuesta a la pregunta con la
+          que el moderador entra al panel.
+
+          Ordenada por lo que deja, de mayor a menor: los Impulso
+          arriba. Alfabético dejaba la plata repartida al azar. */}
+      {negocios.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-[15px] font-extrabold text-aventurea-navy">Tus negocios</h2>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-aventurea-line">
+            <table className="w-full text-left text-[13.5px]">
+              <thead className="bg-aventurea-sky-light text-[11px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft">
+                <tr>
+                  <th className="px-4 py-2.5">Comercio</th>
+                  <th className="px-4 py-2.5">Paquete contratado</th>
+                  <th className="px-4 py-2.5 text-right">Ganás por mes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-aventurea-line">
+                {[...negocios]
+                  .sort((a, b) => b.gana - a.gana || a.nombre.localeCompare(b.nombre, "es"))
+                  .map((n, i) => (
+                    <tr key={i} className="bg-white">
+                      <td className="px-4 py-2.5">
+                        <span className="font-bold text-aventurea-ink">{n.nombre}</span>
+                        {/* Desde cuándo cuenta: es lo que explica que un
+                            negocio no aparezca en los meses de antes. */}
+                        <span className="ml-2 text-[12px] text-aventurea-ink-soft">
+                          desde {new Date(n.desde).toLocaleDateString("es-CR", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="rounded-md bg-aventurea-sky-light px-2 py-0.5 text-[12px] font-bold text-aventurea-navy">
+                          {ETIQUETA_PLAN[n.plan]}
+                        </span>
+                      </td>
+                      {/* Un paquete sin tarifa NO muestra $0 pelado: eso
+                          se lee como «este negocio no te paga» cuando la
+                          verdad es que todavía no hay tarifa definida. */}
+                      <td className="px-4 py-2.5 text-right tabular-nums">
+                        {n.gana > 0 ? (
+                          <span className="font-bold text-aventurea-navy">{dolares(n.gana)}</span>
+                        ) : (
+                          <span className="text-[12px] text-aventurea-ink-soft">sin comisión</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+              {/* El pie cierra la cuenta: las filas SUMAN el titular de
+                  arriba. Con la tarifa vieja esto no cuadraba. */}
+              <tfoot className="border-t-2 border-aventurea-line bg-aventurea-surface">
+                <tr>
+                  <td className="px-4 py-2.5 font-extrabold text-aventurea-ink" colSpan={2}>
+                    Total por mes
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-[15px] font-extrabold tabular-nums text-aventurea-navy">
+                    {dolares(gananciaEsteMes)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Tabla mensual. */}
       <div className="mt-8">
@@ -211,25 +293,6 @@ export default async function PanelModeracionPage() {
         </div>
       </div>
 
-      {/* Lista de negocios. */}
-      {negocios.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-[15px] font-extrabold text-aventurea-navy">Tus negocios</h2>
-          <div className="mt-3 flex flex-col gap-2">
-            {negocios.map((n, i) => (
-              <div key={i} className="flex items-center justify-between rounded-xl border border-aventurea-line bg-white px-4 py-2.5">
-                <span className="font-bold text-aventurea-ink">{n.nombre}</span>
-                <span className="flex items-center gap-3 text-[12px] text-aventurea-ink-soft">
-                  <span className="rounded-md bg-aventurea-sky-light px-2 py-0.5 font-bold text-aventurea-navy">
-                    {ETIQUETA_PLAN[n.plan]}
-                  </span>
-                  desde {new Date(n.desde).toLocaleDateString("es-CR", { day: "numeric", month: "short", year: "numeric" })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </Marco>
   );
 }

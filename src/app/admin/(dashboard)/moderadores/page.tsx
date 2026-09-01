@@ -4,20 +4,19 @@ import { alternarActivo } from "./actions";
 import {
   comisionMensualUSD,
   casilleroDePlan,
+  dolares,
   CONTEO_VACIO,
   type ConteoPlanes,
 } from "@/lib/lealtad/comision-moderador";
 
 /**
  * /admin/moderadores — el admin da (y saca) el rol de moderador y ve el
- * rendimiento de cada uno. La comisión sale de la regla por paquete
- * (Starter en grupos de 3 · Impulso $10), no se fija a mano. La pantalla
+ * rendimiento de cada uno. La comisión sale de la tarifa por paquete
+ * (lib/lealtad/comision-moderador), no se fija a mano. La pantalla
  * del propio moderador es /admin/moderacion.
  */
 
 export const metadata = { title: "Moderadores" };
-
-const dolares = (n: number) => "$" + n.toLocaleString("es-CR");
 
 export default async function ModeradoresAdminPage() {
   const admin = createAdminClient();
