@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CodigoQR } from "@/components/lealtad/codigo-qr";
 import { FICHAS } from "./contenido-tipos";
 import { useMockupVivo } from "./use-mockup-vivo";
+import { MarcoIPhone } from "./telefono-mockup";
 
 /**
  * LA COMPOSICIÓN ANIMADA DEL HERO — ahora cicla TRES tipos de pase, no
@@ -184,19 +185,17 @@ export default function MockupHeroPase() {
           Las demos no se pierden: `/lealtad/demo` sigue existiendo y
           «Industrias» del nav lleva a los ejemplos por rubro. */}
 
-      {/* ── El teléfono ─────────────────────────────────────────── */}
-      <div
-        className="relative z-[4] h-[560px] w-[268px] rotate-[1.5deg] rounded-[46px] p-[9px] sm:h-[600px] sm:w-[287px]"
-        style={{
-          background: "linear-gradient(145deg,#121827,#3d4557 50%,#0c101a)",
-          boxShadow: "0 45px 90px rgba(10,18,38,.28), 0 8px 25px rgba(10,18,38,.14)",
-        }}
+      {/* ── El teléfono ─────────────────────────────────────────────
+          El chasis sale de `MarcoIPhone` y ya no se dibuja acá: antes
+          este archivo tenía su propio degradado, su radio y su isla, y
+          los otros cinco mockups los suyos — seis teléfonos distintos
+          en la misma página. */}
+      <MarcoIPhone
+        ancho="w-[268px] sm:w-[287px]"
+        fondoPantalla="#f7f8fb"
+        className="relative z-[4] rotate-[1.5deg]"
+        conBrillo={false}
       >
-        <span
-          aria-hidden
-          className="absolute left-1/2 top-[15px] z-[8] h-[23px] w-[80px] -translate-x-1/2 rounded-full bg-[#070b12]"
-        />
-        <div className="relative h-full overflow-hidden rounded-[38px] bg-[#f7f8fb]">
           <div className="flex justify-between px-5 pt-4 text-[11px] font-bold text-[#0d1733]">
             <span>9:41</span>
             <span aria-hidden>● ◒ ▰</span>
@@ -301,8 +300,7 @@ export default function MockupHeroPase() {
           <div className="mx-4 mt-3 rounded-xl border border-[#e6e8ee] bg-white p-3 text-center text-[11px] font-bold text-[#0d1733]">
              Agregar a Apple Wallet
           </div>
-        </div>
-      </div>
+      </MarcoIPhone>
 
       {/* ── Puntitos de progreso: qué tipo se está mostrando ahora ──
           Nuevo (pedido: "que informe"): sin esto, alguien que mira 2

@@ -45,15 +45,57 @@ export default function TelefonoMockup({
   conBrillo?: boolean;
 }) {
   return (
+    // `flotante` es el vaivén lento; el resto del chasis vive en
+    // `MarcoIPhone` para que los mockups de la landing usen el mismo.
+    //
     // El `100%` del min NO es decorativo: el `72vw` mide contra la
     // VENTANA y no sabe del padding que tenga arriba. Dentro del panel
     // del acordeón —que en 320px deja 232px de caja— el teléfono pedía
     // 230,4: entraba por 1,6px. Con `100%` se rinde al contenedor
-    // cuando este es el más chico, y hoy no cambia ni un pixel porque
-    // en las dos pantallas donde se usa el `72vw` sigue siendo menor.
-    <div
-      className={`flotante relative mx-auto w-[min(268px,72vw,100%)] ${className}`}
-    >
+    // cuando este es el más chico.
+    <MarcoIPhone className={`flotante ${className}`} conBrillo={conBrillo}>
+      {children}
+    </MarcoIPhone>
+  );
+}
+
+/**
+ * EL CHASIS. Uno solo para todo Lealtad.
+ *
+ * Lo que lo hace leerse como un iPhone y no como un rectángulo son
+ * cinco cosas, y las cinco viven acá para que ninguna pantalla se
+ * olvide de alguna:
+ *
+ *   · el canto de titanio con sus nueve bandas frías —un borde de un
+ *     solo tono se ve pintado, no metálico—;
+ *   · el bisel negro de 6 px entre el canto y el vidrio;
+ *   · la proporción 9/19,5, que es lo primero que delata a un mockup
+ *     cuando está mal: la silueta se lee antes que cualquier detalle;
+ *   · la isla dinámica con el punto de la cámara;
+ *   · el reflejo diagonal, que convierte la pantalla en superficie.
+ *
+ * ⚠️ NO DIBUJES OTRO MARCO. Antes de esto había siete: este y los seis
+ *    de los mockups de la landing, cada uno con su degradado, su radio
+ *    y su isla. Si necesitás otro tamaño, pasá `ancho`; si necesitás
+ *    otro fondo de pantalla, pasá `fondoPantalla`.
+ */
+export function MarcoIPhone({
+  children,
+  className = "",
+  /** La clase de ancho. El alto sale solo de la proporción. */
+  ancho = "w-[min(268px,72vw,100%)]",
+  /** El color de la pantalla apagada, detrás del contenido. */
+  fondoPantalla = "#0a1226",
+  conBrillo = true,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  ancho?: string;
+  fondoPantalla?: string;
+  conBrillo?: boolean;
+}) {
+  return (
+    <div className={`relative mx-auto ${ancho} ${className}`}>
       {/* El canto de titanio — más bandas que antes y más frías (el
           gris azulado del titanio de verdad, no el gris cálido de un
           aluminio genérico), para que el brillo lea como metal
@@ -99,7 +141,7 @@ export default function TelefonoMockup({
           <div
             className="relative aspect-[9/19.5] overflow-hidden rounded-[36px]"
             style={{
-              background: "#0a1226",
+              background: fondoPantalla,
               boxShadow: "inset 0 0 0 1px rgba(255,255,255,.04)",
             }}
           >

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useMockupVivo } from "./use-mockup-vivo";
+import { MarcoIPhone } from "./telefono-mockup";
 
 /**
  * LA COMPOSICIÓN ANIMADA DE «LOS HITOS DEL CLIENTE» (ago 2026).
@@ -95,23 +96,20 @@ export default function MockupHitos() {
         momentos — el primer sello, el penúltimo y cuando completa su tarjeta.
       </p>
 
-      <div
+      {/* El chasis sale de `MarcoIPhone`. Acá había uno dibujado a
+          mano, y otro distinto en cada uno de los otros cinco
+          mockups: seis teléfonos con distinto degradado, radio e
+          isla en la misma página. */}
+      <MarcoIPhone
         aria-hidden
-        className="relative h-[560px] w-[268px] rotate-[1.5deg] rounded-[46px] p-[9px] sm:h-[600px] sm:w-[287px]"
-        style={{
-          background: "linear-gradient(145deg,#121827,#3d4557 50%,#0c101a)",
-          boxShadow: "0 45px 90px rgba(10,18,38,.28), 0 8px 25px rgba(10,18,38,.14)",
-        }}
+        ancho="w-[268px] sm:w-[287px]"
+        fondoPantalla={
+          "radial-gradient(circle at 22% 16%, rgba(157,180,255,.35), transparent 52%)," +
+          "linear-gradient(195deg,#1b2a55 0%,#31437c 52%,#7286c4 100%)"
+        }
+        className="relative rotate-[1.5deg]"
+        conBrillo={false}
       >
-        <span className="absolute left-1/2 top-[15px] z-[8] h-[23px] w-[80px] -translate-x-1/2 rounded-full bg-[#070b12]" />
-        <div
-          className="relative h-full overflow-hidden rounded-[38px]"
-          style={{
-            background:
-              "radial-gradient(circle at 22% 16%, rgba(157,180,255,.35), transparent 52%)," +
-              "linear-gradient(195deg,#1b2a55 0%,#31437c 52%,#7286c4 100%)",
-          }}
-        >
           <div className="pt-11 text-center text-white">
             <p className="text-[13px] opacity-80">🔒</p>
             <p className="mt-2 text-[13px] font-bold text-white/85">miércoles, 20 de agosto</p>
@@ -170,8 +168,7 @@ export default function MockupHitos() {
             </span>
           </div>
           <span className="absolute bottom-2 left-1/2 h-[5px] w-[110px] -translate-x-1/2 rounded-full bg-white/85" />
-        </div>
-      </div>
+      </MarcoIPhone>
     </div>
   );
 }

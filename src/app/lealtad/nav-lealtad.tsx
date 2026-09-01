@@ -27,19 +27,29 @@ import { createClient } from "@/lib/supabase/client";
  * EL NAV QUEDÓ EN UN SOLO ENLACE (dueño, 31 ago 2026).
  *
  * Eran tres. Se fueron dos:
- *  · «¿Cómo funciona?» apuntaba a /lealtad/ayuda, que todavía no está
- *    terminada — mandar tráfico a una pantalla a medio hacer es peor
- *    que no ofrecer la puerta. Cuando esa página esté lista, se vuelve
- *    a agregar acá y listo.
- *  · «Soluciones» era un ancla (#soluciones) que solo funcionaba
- *    parado sobre la landing: desde /lealtad/crear o /lealtad/planes no
- *    llevaba a ningún lado.
+ * ── EL MENÚ VUELVE A TENER LAS SECCIONES (dueño, 31 ago 2026) ──────
+ * Pedido: «que el header de arriba linkee con cada sección de la
+ * página».
  *
- * «Planes» pasa a llamarse «Precios», que es la palabra que la gente
- * busca cuando quiere saber cuánto cuesta.
+ * ⚠️ CON LA RUTA ADELANTE, NO SOLO EL ANCLA. Acá hubo un «#soluciones»
+ *    pelado y se sacó justamente porque solo servía estando ya parado
+ *    sobre la landing: desde /lealtad/crear o /lealtad/planes el
+ *    navegador buscaba ese id en LA PANTALLA ACTUAL y no pasaba nada.
+ *    Con «/lealtad#soluciones» navega primero y después baja, así que
+ *    el mismo menú sirve en todo el módulo.
+ *
+ * Cada uno apunta a un `id` que existe en src/app/lealtad/page.tsx. Si
+ * allá se renombra una sección, esto se rompe EN SILENCIO: un ancla
+ * que no encuentra su id no avisa, simplemente no hace nada.
+ *
+ * «Planes» se llama «Precios», que es la palabra que la gente busca
+ * cuando quiere saber cuánto cuesta.
  */
 const ENLACES: { href: string; label: string }[] = [
-  { href: "#planes", label: "Precios" },
+  { href: "/lealtad#como-funciona", label: "Cómo funciona" },
+  { href: "/lealtad#soluciones", label: "Soluciones" },
+  { href: "/lealtad#panel", label: "El panel" },
+  { href: "/lealtad#planes", label: "Precios" },
 ];
 
 /** Los ítems del menú de cuenta — desktop y mobile dibujan la misma lista. */

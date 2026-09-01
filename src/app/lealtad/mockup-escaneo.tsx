@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Icono } from "./panel/[id]/iconos";
 import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
 import { useMockupVivo } from "./use-mockup-vivo";
+import { MarcoIPhone } from "./telefono-mockup";
 
 /**
  * MOCKUP 2 DE 3 — «EL ESCANEO» (ago 2026).
@@ -290,17 +291,15 @@ export default function MockupEscaneo() {
 
       <div className="flex w-full flex-col items-center gap-7 lg:flex-row lg:items-center lg:justify-center lg:gap-10">
         {/* ══ IZQUIERDA — EL TELÉFONO DEL CLIENTE ══════════════════ */}
-        <div
-          aria-hidden
-          className="relative h-[496px] w-[238px] shrink-0 -rotate-[1.5deg] rounded-[42px] p-[8px] sm:h-[528px] sm:w-[252px]"
-          style={{
-            background: "linear-gradient(145deg,#121827,#3d4557 50%,#0c101a)",
-            boxShadow:
-              "0 45px 90px rgba(10,18,38,.28), 0 8px 25px rgba(10,18,38,.14)",
-          }}
+        {/* El chasis sale de `MarcoIPhone`: acá había uno dibujado a
+            mano, y otro distinto en cada mockup — seis teléfonos con
+            distinto degradado, radio e isla en la misma página. */}
+        <MarcoIPhone
+          ancho="w-[238px] shrink-0 sm:w-[252px]"
+          fondoPantalla={"#f7f8fb"}
+          className="relative -rotate-[1.5deg]"
+          conBrillo={false}
         >
-          <span className="absolute left-1/2 top-[14px] z-[8] h-[20px] w-[71px] -translate-x-1/2 rounded-full bg-[#070b12]" />
-          <div className="relative h-full overflow-hidden rounded-[35px] bg-[#f7f8fb]">
             <div className="flex justify-between px-5 pt-4 text-[11px] font-bold text-[#0d1733]">
               <span>9:41</span>
               <span>● ◒ ▰</span>
@@ -417,8 +416,7 @@ export default function MockupEscaneo() {
             </p>
 
             <span className="absolute bottom-2 left-1/2 h-[5px] w-[104px] -translate-x-1/2 rounded-full bg-[#0d1733]/25" />
-          </div>
-        </div>
+        </MarcoIPhone>
 
         {/* ══ DERECHA — LA PANTALLA DEL NEGOCIO ════════════════════ */}
         <div

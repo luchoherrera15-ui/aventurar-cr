@@ -5,6 +5,7 @@ import { CodigoQR } from "@/components/lealtad/codigo-qr";
 import { Icono, type NombreIcono } from "./panel/[id]/iconos";
 import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
 import { useMockupVivo } from "./use-mockup-vivo";
+import { MarcoIPhone } from "./telefono-mockup";
 
 /**
  * LA COMPOSICIÓN ANIMADA DE «CREÁ TU PASE» (ago 2026) — la primera de
@@ -439,17 +440,15 @@ export default function MockupCreacion() {
           {/* Solo el DIBUJO va escondido: no tiene nada que un lector de
               pantalla pueda aprovechar, y todo lo que dice ya está en
               texto arriba. Adentro no hay un solo control enfocable. */}
-          <div
-            aria-hidden
-            className="relative h-[560px] w-[268px] rotate-[1.5deg] rounded-[46px] p-[9px] sm:h-[600px] sm:w-[287px]"
-            style={{
-              background: "linear-gradient(145deg,#121827,#3d4557 50%,#0c101a)",
-              boxShadow: "0 45px 90px rgba(10,18,38,.28), 0 8px 25px rgba(10,18,38,.14)",
-            }}
+          {/* El chasis sale de `MarcoIPhone`: acá había uno dibujado a
+              mano, y otro distinto en cada mockup — seis teléfonos con
+              distinto degradado, radio e isla en la misma página. */}
+          <MarcoIPhone
+            ancho="w-[268px] sm:w-[287px]"
+            fondoPantalla={"#f7f8fb"}
+            className="relative rotate-[1.5deg]"
+            conBrillo={false}
           >
-            <span className="absolute left-1/2 top-[15px] z-[8] h-[23px] w-[80px] -translate-x-1/2 rounded-full bg-[#070b12]" />
-
-            <div className="relative h-full overflow-hidden rounded-[38px] bg-[#f7f8fb]">
               <div className="flex justify-between px-5 pt-4 text-[11px] font-bold text-[#0d1733]">
                 <span>9:41</span>
                 <span>● ◒ ▰</span>
@@ -652,8 +651,7 @@ export default function MockupCreacion() {
               <div className="mx-4 mt-3 rounded-xl border border-[#e6e8ee] bg-white p-2.5 text-center text-[11px] font-bold text-[#0d1733]">
                 Agregar a Apple Wallet
               </div>
-            </div>
-          </div>
+          </MarcoIPhone>
 
           <p className="mt-4 text-center text-[11px] font-bold text-aventurea-ink-soft">
             Así lo ve tu cliente en su teléfono
