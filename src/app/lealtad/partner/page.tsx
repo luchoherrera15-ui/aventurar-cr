@@ -36,11 +36,24 @@ import { MaquetaInvitar, MaquetaPanel, MaquetaGanancias } from "./maquetas-partn
  * pantalla que al partner nuevo le va a faltar el primer día.
  *
  * ------------------------------------------------------------------
- * Y TAMPOCO INVENTA UNA COMISIÓN
+ * LA COMISIÓN QUE SÍ DICE, Y DE DÓNDE SALE
  * ------------------------------------------------------------------
- * No hay un porcentaje escrito en ningún lado del producto, así que la
- * página no dice «ganás X %»: dice que el ingreso es mensual y que se
- * conversa. Un número inventado acá es el que después hay que honrar.
+ * El rango «5 % al 25 %» lo fijó el dueño el 1 sep 2026. Antes la
+ * página no decía ningún número a propósito —no había ninguno
+ * acordado, y un número inventado es el que después hay que honrar—.
+ * Ahora que existe, se escribe.
+ *
+ * ⚠️ OJO AL COMPARARLO CON EL PANEL DEL MODERADOR. Ese panel
+ *    (`/admin/moderacion`) NO paga por porcentaje: paga una tarifa
+ *    PLANA por negocio activo ($15 Impulso · $1,50 Starter, ver
+ *    `lib/lealtad/comision-moderador.ts`). Sobre los precios de hoy
+ *    eso da ~36 % en Impulso y ~12,5 % en Starter, así que el 36 % se
+ *    sale por arriba del rango que promete esta página.
+ *
+ *    Las dos cosas no pueden convivir mucho tiempo: o el panel pasa a
+ *    calcular un porcentaje, o el rango de acá se ajusta a lo que el
+ *    panel de verdad paga. Está anotado para que quien toque una de
+ *    las dos se acuerde de la otra.
  */
 
 export const metadata: Metadata = {
@@ -55,14 +68,16 @@ const PASOS: {
   icono: NombreIcono;
   titulo: string;
   texto: string;
+  /** Un dato duro que se destaca aparte del párrafo. Opcional. */
+  nota?: string;
   maqueta: React.ReactNode;
 }[] = [
   {
     numero: "01",
     icono: "afiliar",
-    titulo: "Invitás a tus clientes",
+    titulo: "Acompañás a tus clientes en la creación de su pase",
     texto:
-      "Te damos un código propio. Se lo pasás a los negocios que ya conocés —por WhatsApp, redes o en persona— y cuando se registran con él, quedan acreditados a tu nombre para siempre.",
+      "Te damos un código propio y vos estás con el negocio de punta a punta: le mostrás cómo se arma la tarjeta, lo ayudás a elegir el tipo y la regalía, y lo acompañás hasta que su pase esté andando. Cuando se registra con tu código, queda acreditado a tu nombre para siempre.",
     maqueta: <MaquetaInvitar />,
   },
   {
@@ -71,6 +86,11 @@ const PASOS: {
     titulo: "Vas a tener tu panel",
     texto:
       "Una pantalla propia para ver qué negocios trajiste, cuáles ya están activos, en qué paquete están y cuánto suman este mes. Sin pedirle el reporte a nadie.",
+    // El rango va acá y no en el paso 3 porque es el paso donde se
+    // habla de NÚMEROS: el 3 cuenta que el ingreso se repite, no
+    // cuánto es.
+    nota:
+      "Las comisiones van del 5 % al 25 %, según cuántos clientes traigas y qué paquetes distribuyas. El porcentaje exacto se acuerda con vos al entrar.",
     maqueta: <MaquetaPanel />,
   },
   {
@@ -199,6 +219,22 @@ export default async function PaginaPartner() {
                 <p className="mt-3 max-w-[52ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
                   {p.texto}
                 </p>
+
+                {/* La nota, en su propia caja: es el dato que la
+                    persona vino a buscar y en medio del párrafo se
+                    pierde. */}
+                {p.nota && (
+                  <p
+                    className="mt-4 max-w-[52ch] rounded-xl border px-4 py-3 text-[14px] font-bold leading-relaxed"
+                    style={{
+                      borderColor: "var(--line)",
+                      background: "var(--accion-suave)",
+                      color: "var(--accion-fuerte)",
+                    }}
+                  >
+                    {p.nota}
+                  </p>
+                )}
               </div>
 
               <div
