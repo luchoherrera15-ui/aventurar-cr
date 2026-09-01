@@ -157,7 +157,12 @@ function estadoInicial(planInicial?: PlanId | null): EstadoLealtad {
     // paquetes se muestran contextualizados a la opción gratuita; si
     // en el editor se elige un tipo que pide más, el aviso ámbar de
     // plan pago ya existente se enciende solo.
-    vista: "paquetes",
+    // Con `?plan=` YA ELEGIDO se entra derecho al editor: quien tocó
+    // «Impulso» en la página de precios ya contestó esa pregunta, y
+    // volver a mostrarle la grilla de paquetes es pedirle lo mismo dos
+    // veces antes de dejarlo empezar (dueño, 1 sep 2026). Sin plan en
+    // la URL sigue arrancando en paquetes, como siempre.
+    vista: planInicial ? "editor" : "paquetes",
     nombreNegocio: "",
     modo: "sellos",
     // Trae el plan que la persona ya había elegido en /lealtad/planes

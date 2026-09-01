@@ -204,7 +204,32 @@ export default function PlanesCliente({
               ))}
             </ul>
 
-            {conSesion ? (
+            {/* ── A DÓNDE LLEVA TOCAR UN PAQUETE ──────────────────
+                Pedido del dueño (1 sep 2026): «que lo lleve directo
+                a donde se comienza el proceso de creación de la
+                tarjeta».
+
+                Quien NO tiene ningún negocio va derecho a
+                `/lealtad/crear` — sin sesión también, porque el
+                creador funciona sin cuenta («mirala en el teléfono
+                antes de crear cuenta»). Antes había DOS barreras
+                antes de ver nada: sin sesión mandaba a registrarse,
+                y con sesión abría un diálogo donde el enlace al
+                creador era una tarjeta más adentro.
+
+                ⚠️ QUIEN YA TIENE NEGOCIOS SIGUE VIENDO EL DIÁLOGO, y
+                   no es un olvido: ese botón para él significa
+                   «subir de paquete», y ahí hay que elegir a CUÁL de
+                   sus negocios y pagar. Mandarlo al creador le
+                   armaría un segundo negocio que no pidió. */}
+            {negocios.length === 0 ? (
+              <Link
+                href={`/lealtad/crear?plan=${p.id}`}
+                className={`mt-4 rounded-xl px-4 py-3 text-center text-[13.5px] font-extrabold ${BOTON_ACCION}`}
+              >
+                {p.esGratis ? "Empezar gratis" : "Llevar este plan"}
+              </Link>
+            ) : conSesion ? (
               /* El relleno blanco marca cuál está elegido mientras el
                  diálogo está abierto: la grilla se ve atenuada detrás y
                  así se sabe de un vistazo sobre cuál se está trabajando.

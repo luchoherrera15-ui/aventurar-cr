@@ -137,8 +137,11 @@ function TarjetaPlan({ def, periodo }: { def: DefinicionPlan; periodo: "mes" | "
         ))}
       </ul>
 
+      {/* El paquete elegido viaja en `?plan=`: sin eso, tocar
+          «Elegir Impulso» abría el creador sin saber que la persona
+          ya había elegido Impulso, y volvía a preguntárselo. */}
       <Link
-        href="/lealtad/crear"
+        href={`/lealtad/crear?plan=${def.id}`}
         className="presionable mt-5 block rounded-full px-4 py-3 text-center text-[12.5px] font-extrabold"
         style={
           destacado
