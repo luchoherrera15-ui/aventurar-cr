@@ -102,7 +102,14 @@ export default function SeccionTiposTarjeta() {
             `lg:order-2`. En móvil, donde las columnas se apilan, eso lo
             deja arriba: lo primero que se ve es el pase, no una lista
             de ocho nombres. */}
-        <div className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-14">
+        {/* `grid-cols-1` no es decorativo: un grid SIN columnas
+            declaradas crea una implícita de ancho `auto`, o sea
+            max-content — y acá el contenido más ancho son los dos
+            botones de Wallet, que empujaban la página a 460px en un
+            teléfono de 375 y dejaban scroll horizontal en TODA la
+            landing. `grid-cols-1` es `minmax(0,1fr)`, que sí se deja
+            achicar. */}
+        <div className="mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-14">
           {/* ── EL TELÉFONO, FIJO ─────────────────────────────────── */}
           <div className="lg:order-2 lg:sticky lg:top-24">
             <div

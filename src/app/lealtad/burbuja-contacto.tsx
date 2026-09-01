@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useSyncExternalStore } from "react";
 import { enviarConsultaLanding } from "./contacto-actions";
 import { enlaceWhatsapp } from "@/lib/contacto-bookea";
@@ -295,15 +294,27 @@ export default function BurbujaContacto() {
       )}
 
       {/* ── El botón flotante ─────────────────────────────────────
-          Pedido del dueño (31 ago 2026): acá había una burbuja con el
-          globito de chat de siempre, y nadie sabe qué hay del otro
-          lado de un globito. Ahora lleva la B de Bookea y dice para
-          qué es, que es lo único que hace que alguien lo toque.
 
-          El cuadro es NAVY y no del azul de acción: el icono de la
-          marca es una B navy sobre blanco, y sobre el azul de acción
-          quedaba un bloque azul dentro de otro. Sobre navy, el
-          cuadrito blanco del logo se recorta solo.
+          ── POR QUÉ UN «?» Y NO LA B (1 sep 2026) ──────────────────
+          Pedido del dueño: «quitá la B, poné algún símbolo de ayuda y
+          que sea más pequeño — en móvil es muy grande».
+
+          El «?» es el único símbolo que se entiende SIN texto al lado,
+          y eso es justamente lo que permite achicarlo: en el teléfono
+          queda un círculo pelado y se sigue sabiendo qué es. Con la B
+          no se podía —un logo no dice «pedí ayuda acá»—, así que había
+          que acompañarlo de dos renglones de texto, y esos dos
+          renglones eran el tamaño.
+
+          ── DOS FORMAS, UN SOLO BOTÓN ──────────────────────────────
+          En el TELÉFONO: círculo de 44px con el «?» y nada más. 44 y
+          no menos porque es el área táctil mínima del sistema de
+          diseño — achicarlo más lo vuelve difícil de tocar, que es
+          peor que grande.
+
+          Desde `sm`: una píldora con el «?» y «Ayuda personalizada» en
+          UNA línea. Ocupa bastante menos que el cuadro de 104px con el
+          texto en dos renglones, y ahí sí hay lugar para explicarse.
 
           Abierto se encoge al círculo con la ✕: con el panel arriba,
           un botón ancho que repite «ayuda personalizada» compite con
@@ -313,8 +324,10 @@ export default function BurbujaContacto() {
         onClick={alternarBurbujaContacto}
         aria-label={abierta ? "Cerrar el chat" : "Pedir ayuda personalizada a Bookea"}
         aria-expanded={abierta}
-        className={`presionable fixed bottom-5 right-5 z-[70] flex items-center justify-center border-2 shadow-2xl transition-transform hover:scale-105 ${
-          abierta ? "h-14 w-14 rounded-full" : "w-[104px] flex-col gap-1.5 rounded-2xl px-3 py-3"
+        className={`presionable fixed bottom-4 right-4 z-[70] flex items-center justify-center rounded-full border-2 shadow-2xl transition-transform hover:scale-105 sm:bottom-5 sm:right-5 ${
+          abierta
+            ? "h-11 w-11"
+            : "h-11 w-11 sm:h-auto sm:w-auto sm:gap-2 sm:px-4 sm:py-2.5"
         }`}
         style={{
           background: abierta ? ACCION : "var(--navy)",
@@ -323,23 +336,29 @@ export default function BurbujaContacto() {
         }}
       >
         {abierta ? (
-          <span aria-hidden className="text-[22px] font-bold">
+          <span aria-hidden className="text-[19px] font-bold leading-none">
             ✕
           </span>
         ) : (
           <>
-            <Image
-              src="/icono-bookea-v2.png"
-              alt=""
+            {/* El «?» dibujado y no la glifa de la fuente: así pesa
+                igual en cualquier sistema y no baila de grosor entre
+                Android e iOS. */}
+            <svg
               aria-hidden
-              width={40}
-              height={40}
-              className="h-9 w-9 rounded-[10px]"
-            />
-            <span className="text-[9.5px] font-extrabold uppercase leading-[1.15] tracking-[0.04em] text-white">
-              ¡Ayuda
-              <br />
-              personalizada!
+              viewBox="0 0 24 24"
+              className="h-[19px] w-[19px] shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9.1 9a3 3 0 1 1 4.2 2.75c-.8.38-1.3 1.18-1.3 2.06v.44" />
+              <path d="M12 17.6h.01" />
+            </svg>
+            <span className="hidden text-[12px] font-extrabold leading-none text-white sm:inline">
+              Ayuda personalizada
             </span>
           </>
         )}
