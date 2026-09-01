@@ -1,64 +1,69 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { ImageResponse } from "next/og";
 
 /**
  * ════════════════════════════════════════════════════════════════════
- *  LA IMAGEN QUE SE VE AL COMPARTIR bookea.lat
+ *  LA IMAGEN QUE SE VE AL COMPARTIR UN LINK DE BOOKEA
  * ════════════════════════════════════════════════════════════════════
  *
  * Next la detecta por convención de nombre y la enchufa sola en
  * `openGraph.images` de TODA ruta que no traiga la suya. No hay que
  * declararla a mano en `metadata`.
  *
- * ── POR QUÉ HACÍA FALTA ─────────────────────────────────────────────
+ * ── LA B Y UNA SOLA FRASE (1 sep 2026) ──────────────────────────────
  *
- * No existía ninguna en la raíz —solo `/assist` tenía la suya—, y sin
- * imagen declarada Facebook y WhatsApp NO se quedan sin nada: agarran
- * la primera foto grande que encuentran en la página. En la portada eso
- * era la foto de un negocio del catálogo, así que compartir el link de
- * Invitaciones mostraba la barbería de otro cliente. Y a medida que
- * entren negocios, iba a cambiar sola.
+ * Pedido del dueño: «al enviar un link salen unas tonteras de info» y
+ * después, en concreto: la letra B del logo y «Plataforma que te brinda
+ * soluciones digitales».
  *
- * ── SE DIBUJA, NO SE SUBE ───────────────────────────────────────────
+ * Acá había una tarjeta con titular grande, bajada, halo naranja y el
+ * dominio abajo: «¿Necesitás un servicio? Mirá la lista completa de
+ * locales…». Tenía sentido cuando lo que se compartía era el
+ * marketplace. Hoy los links que circulan son de Lealtad, de una
+ * tarjeta o de un panel, y ese titular los describía a todos igual —o
+ * sea, mal—: la previa de `/tarjeta/x` decía «mirá la lista de
+ * locales», que no es lo que hay del otro lado.
  *
- * Es un componente, no un PNG en /public. Así el eslogan se edita como
- * texto y no hay que abrir un editor de imágenes ni mantener un archivo
- * binario en el repo. Se genera en el borde y se cachea.
+ * Una frase que vale para toda la plataforma no puede describir mal
+ * ninguna página.
  *
- * Los colores van literales y no como `var(--navy)`: esto corre en el
- * runtime edge, sin DOM y sin la hoja de estilos. Son tres valores.
+ * ── EL LOGO ES EL ARCHIVO, NO UN PARECIDO ───────────────────────────
+ *
+ * La versión anterior dibujaba una «b» minúscula en un cuadradito
+ * naranja hecho con CSS. Acá se lee `public/logo-b-bookea.png`, que es
+ * el tile recortado del logo oficial (`logo-bookea-v4.png`), y se
+ * incrusta como data URI: se lee UNA vez, en el build.
+ *
+ * ── POR QUÉ NO VA `runtime = "edge"` ────────────────────────────────
+ *
+ * Una ruta de metadata en edge no se prerenderiza: Next la compila como
+ * función y la ejecuta EN CADA PETICIÓN, y `ImageResponse` monta Satori,
+ * arma un SVG y lo rasteriza. Medido en Vercel: 135 invocaciones en 12
+ * horas a ~444 ms de CPU cada una — un minuto entero de CPU para
+ * dibujar una imagen que nunca cambia.
+ *
+ * En Node, Next la prerenderiza en el build y después sale del CDN.
+ * Cero invocaciones. Y `readFileSync` solo funciona de este lado.
  */
 
-/**
- * ⚠️ ACÁ DECÍA `runtime = "edge"` Y ESO ERA LO CARO.
- *
- * Una ruta de metadata en runtime EDGE no se prerenderiza: Next la
- * compila como función y la ejecuta EN CADA PETICIÓN. Y `ImageResponse`
- * no es barato — monta un motor de layout (Satori), arma un SVG y lo
- * rasteriza a PNG.
- *
- * Medido en el panel de Vercel: 135 invocaciones en 12 horas, ~444 ms
- * de CPU activa cada una. Un minuto entero de CPU para dibujar una
- * imagen que NUNCA CAMBIA — colores fijos, texto fijo, sin parámetros
- * ni datos.
- *
- * Sin esa línea la ruta corre en Node y Next la PRERENDERIZA en el
- * build: se dibuja una vez al desplegar y después sale del CDN. Cero
- * invocaciones, cero CPU.
- *
- * El comentario de arriba sigue valiendo igual: los colores van
- * literales porque esto no tiene DOM ni hoja de estilos.
- */
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-// El `alt` describe lo que se DIBUJA, así que sigue al texto de la
-// imagen. Es lo que lee un lector de pantalla cuando alguien comparte
-// el link en una red que lo respeta.
-export const alt =
-  "Bookea — ¿Necesitás un servicio? Mirá la lista completa de locales en Costa Rica";
+/** El `alt` dice lo que se DIBUJA: lo lee quien usa lector de pantalla. */
+export const alt = "Bookea — Plataforma que te brinda soluciones digitales";
 
-const NAVY = "#16295e";
-const NAVY_PROFUNDO = "#0a1226";
-const NARANJA = "#ee7420";
+/**
+ * El logo, leído del disco en el build.
+ *
+ * A nivel de módulo a propósito: corre una sola vez cuando Next
+ * prerenderiza, no una por render. `process.cwd()` es la raíz del
+ * proyecto durante el build, que es donde vive `public/`.
+ */
+const LOGO_B = `data:image/png;base64,${readFileSync(
+  join(process.cwd(), "public", "logo-b-bookea.png"),
+).toString("base64")}`;
+
+const NAVY = "#031b4e";
 
 export default function ImagenOg() {
   return new ImageResponse(
@@ -69,104 +74,39 @@ export default function ImagenOg() {
           height: "100%",
           display: "flex",
           flexDirection: "column",
+          alignItems: "center",
           justifyContent: "center",
-          padding: 88,
-          background: `linear-gradient(135deg, ${NAVY_PROFUNDO} 0%, ${NAVY} 100%)`,
-          color: "#ffffff",
+          gap: 44,
+          // Blanco: el logo ES navy, así que sobre navy desaparecería.
+          // Y en la burbuja de WhatsApp, que ya tiene su propio fondo,
+          // el blanco recorta limpio.
+          background: "#ffffff",
           fontFamily: "sans-serif",
-          position: "relative",
         }}
       >
-        {/* El halo naranja: el mismo gesto de la portada, en versión
-            quieta. Da profundidad sin competir con el texto. */}
-        <div
-          style={{
-            position: "absolute",
-            top: -160,
-            right: -120,
-            width: 620,
-            height: 620,
-            borderRadius: 620,
-            background: NARANJA,
-            opacity: 0.18,
-            display: "flex",
-          }}
-        />
+        {/* eslint-disable-next-line @next/next/no-img-element -- Satori
+            solo entiende <img>; acá no hay DOM ni next/image. */}
+        <img src={LOGO_B} width={210} height={200} alt="" />
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 34 }}>
-          <div
-            style={{
-              width: 56,
-              height: 56,
-              borderRadius: 16,
-              background: NARANJA,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 34,
-              fontWeight: 800,
-              color: "#ffffff",
-            }}
-          >
-            b
-          </div>
-          <div style={{ display: "flex", fontSize: 34, fontWeight: 800, letterSpacing: -0.5 }}>
-            Bookea
-          </div>
-        </div>
-
+        {/* Una sola línea y centrada. `maxWidth` para que no se estire
+            de borde a borde: cuando WhatsApp recorta la previa, lo
+            primero que pierde son los extremos. */}
         <div
           style={{
             display: "flex",
-            fontSize: 68,
-            fontWeight: 800,
-            lineHeight: 1.08,
-            letterSpacing: -1.5,
-            maxWidth: 900,
-          }}
-        >
-          {/* ⚠️ ESTO ES LO QUE VE ALGUIEN A QUIEN LE PASAN EL LINK POR
-              WHATSAPP, Y ESE ES TODO EL CRITERIO.
-
-              Antes decía «Convertí cada interacción en una experiencia»
-              — el eslogan de la marca. Suena bien en la portada, donde
-              ya estás adentro y podés bajar a mirar. Pero en una
-              conversación de WhatsApp, junto a un link que alguien te
-              acaba de pasar, no dice QUÉ HAY del otro lado.
-
-              Pedido del dueño (26 ago 2026): «que muestre "necesitás
-              algún servicio, revisá toda la lista de los locales que
-              tenemos", tipo el marketplace».
-
-              Una pregunta directa hace el trabajo que un eslogan no
-              puede: le dice al que recibe el link para qué le sirve. */}
-          ¿Necesitás un servicio?
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            marginTop: 28,
-            fontSize: 30,
-            lineHeight: 1.35,
-            color: "rgba(255,255,255,.68)",
-            maxWidth: 820,
-          }}
-        >
-          Mirá la lista completa de locales en Costa Rica — barberías, uñas, spa,
-          ranchos para eventos y más.
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            marginTop: 44,
-            fontSize: 26,
+            // 40px contra 1040 de ancho: la frase entra en UNA línea.
+            // A 46 se partía y dejaba «digitales» solo en el segundo
+            // renglón, que en una previa chica se lee como un error.
+            fontSize: 40,
             fontWeight: 700,
-            color: NARANJA,
+            letterSpacing: -0.8,
+            color: NAVY,
+            maxWidth: 1040,
+            textAlign: "center",
+            lineHeight: 1.25,
           }}
         >
-          bookea.lat
+          Plataforma que te brinda soluciones digitales
         </div>
       </div>
     ),

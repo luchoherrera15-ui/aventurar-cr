@@ -58,5 +58,5 @@ export const IMAGEN_OG = {
   url: urlSitio("/opengraph-image"),
   width: 1200,
   height: 630,
-  alt: "Bookea — Convertí cada interacción en una experiencia",
+  alt: "Bookea — Plataforma que te brinda soluciones digitales",
 } as const;
