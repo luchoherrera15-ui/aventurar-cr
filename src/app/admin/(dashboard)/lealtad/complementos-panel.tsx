@@ -12,6 +12,7 @@ import {
 import { activarAddon, desactivarAddon } from "./actions";
 import { asignarPlanLealtad } from "./plan-actions";
 import { estadoDelLimite, PLANES, PLANES_ID } from "@/lib/lealtad/planes";
+import { separarPruebas } from "@/lib/lealtad/negocio-de-pruebas";
 import {
   avisosDeCambioDePlan,
   CONCEPTO_AYUDA,
@@ -234,6 +235,9 @@ export default function ComplementosPanel({
   const [desc, setDesc] = useState(false);
   const [pagina, setPagina] = useState(0);
   const [elegido, setElegido] = useState<string | null>(null);
+  // El cajón de las pruebas arranca CERRADO: es la razón de ser de
+  // esta pantalla — que la lista de todos los días muestre clientes.
+  const [verPruebas, setVerPruebas] = useState(false);
   // Los dos modales viven a este nivel (no dentro de Fila) porque un
   // modal por fila x 50 filas visibles sería 50 componentes montados
   // escuchando; acá solo hay UNO de cada uno, con el id de a quién le
@@ -325,9 +329,30 @@ export default function ComplementosPanel({
     return desc ? lista.reverse() : lista;
   }, [filtrados, campo, desc]);
 
-  const paginas = Math.max(1, Math.ceil(ordenados.length / POR_PAGINA));
+  // ── LOS DE VERDAD, Y LOS DE PRUEBA ───────────────────────────
+  // Pedido del dueño (1 sep 2026): las demos y las pruebas guardadas
+  // en un cajón que se abre, no mezcladas con los clientes. La regla
+  // de quién es quién vive en `lib/lealtad/negocio-de-pruebas` — acá
+  // solo se aplica. Ojo: NO mira el paquete; un negocio en el plan
+  // gratis puede ser un cliente de verdad.
+  const { reales, pruebas } = useMemo(
+    () =>
+      separarPruebas(
+        ordenados.map((n) => ({ ...n, correoDueno: n.dueno?.correo ?? null })),
+      ),
+    [ordenados],
+  );
+
+  const paginas = Math.max(1, Math.ceil(reales.length / POR_PAGINA));
   const paginaSegura = Math.min(pagina, paginas - 1);
-  const visibles = ordenados.slice(paginaSegura * POR_PAGINA, (paginaSegura + 1) * POR_PAGINA);
+  const visibles = reales.slice(paginaSegura * POR_PAGINA, (paginaSegura + 1) * POR_PAGINA);
+
+  // Buscar tiene que encontrar TAMBIÉN adentro del cajón: si alguien
+  // escribe «Café La Esquina» y el resultado queda escondido detrás
+  // de un acordeón cerrado, la pantalla le está diciendo que ese
+  // negocio no existe. Con búsqueda activa el cajón se abre solo.
+  const buscando = busqueda.trim().length > 0;
+  const pruebasAbierto = verPruebas || buscando;
 
   function ordenarPor(nuevo: Campo) {
     if (nuevo === campo) setDesc((d) => !d);
@@ -402,97 +427,52 @@ export default function ComplementosPanel({
           </button>
         ))}
 
+        {/* La cuenta habla de CLIENTES. Las pruebas se nombran
+            aparte y no se suman: sumadas, este número contestaba mal
+            la única pregunta que se le hace. */}
         <span className="ml-auto text-aventurea-ink-soft">
-          {ordenados.length} de {negocios.length} negocio{negocios.length === 1 ? "" : "s"}
+          {reales.length} de {negocios.length - pruebas.length} negocio
+          {negocios.length - pruebas.length === 1 ? "" : "s"}
+          {pruebas.length > 0 ? ` · ${pruebas.length} de prueba` : ""}
           {busqueda.trim() ? " (buscando en todos)" : ""}
         </span>
       </div>
 
-      {/* ── LA LISTA ──────────────────────────────────────────────── */}
-      {ordenados.length === 0 ? (
+      {/* ── LA LISTA: LOS CLIENTES DE VERDAD ──────────────────────
+          Las demos y las pruebas ya no están acá: viven en el cajón
+          de abajo. La cuenta de arriba también cambió — decía «20 de
+          20 negocios» cuando la respuesta a «cuántos clientes tiene
+          Lealtad» era 5. */}
+      {reales.length === 0 ? (
         <p className="rounded-2xl border border-aventurea-line bg-white p-8 text-center text-[13.5px] text-aventurea-ink-soft">
-          Ningún negocio con eso.
+          {pruebas.length > 0
+            ? "Ningún negocio de verdad con eso — mirá el cajón de pruebas."
+            : "Ningún negocio con eso."}
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-white">
-          <table className="w-full min-w-[1120px] border-collapse text-[13px]">
-            <thead>
-              <tr className="border-b border-aventurea-line bg-aventurea-cream-2/50 text-left text-[11px] uppercase tracking-[0.1em] text-aventurea-ink-soft">
-                <Encabezado campo="nombre" actual={campo} desc={desc} onClick={ordenarPor}>
-                  Negocio
-                </Encabezado>
-                {/* La cuenta va PEGADA al negocio: las dos contestan
-                    «quién es esto». Puesta al final, en una tabla de
-                    once columnas con scroll horizontal, había que
-                    arrastrar para leer un dato de identidad. */}
-                <Encabezado campo="cuenta" actual={campo} desc={desc} onClick={ordenarPor}>
-                  Cuenta
-                </Encabezado>
-                <Encabezado campo="categoria" actual={campo} desc={desc} onClick={ordenarPor}>
-                  Categoría
-                </Encabezado>
-                <Encabezado campo="plan" actual={campo} desc={desc} onClick={ordenarPor}>
-                  Paquete
-                </Encabezado>
-                <Encabezado campo="clientes" actual={campo} desc={desc} onClick={ordenarPor}>
-                  Clientes
-                </Encabezado>
-                <th className="px-3 py-2.5 font-bold">Tarjetas</th>
-                <th className="px-3 py-2.5 font-bold">Complementos</th>
-                <th className="px-3 py-2.5 font-bold">Vence</th>
-                <Encabezado campo="desde" actual={campo} desc={desc} onClick={ordenarPor}>
-                  Cliente desde
-                </Encabezado>
-                <th className="px-3 py-2.5 font-bold">Pase</th>
-                <th className="px-3 py-2.5 font-bold">Auditoría</th>
-                <th className="px-3 py-2.5 font-bold">Administrar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibles.map((n) => (
-                // El detalle se abre PEGADO a su fila, no al final de la
-                // página: con 50 filas, tocar la tercera y que el panel
-                // apareciera abajo del todo obligaba a scrollear a
-                // ciegas para ver qué se había abierto (y a volver para
-                // comprobar cuál estaba marcada).
-                <Fragment key={n.id}>
-                  <Fila
-                    negocio={n}
-                    elegido={elegido === n.id}
-                    onElegir={() => setElegido(elegido === n.id ? null : n.id)}
-                    onVerPase={() => setVerPase({ id: n.id, nombre: n.nombre })}
-                    onVerClientes={() => setVerClientes({ id: n.id, nombre: n.nombre })}
-                    onVerAuditoria={() => setVerAuditoria({ id: n.id, nombre: n.nombre })}
-                    onAdministrar={() => setAdministrar({ id: n.id, nombre: n.nombre })}
-                  />
-                  {elegido === n.id && (
-                    <tr>
-                      <td colSpan={12} className="bg-aventurea-cream-2/40 p-0">
-                        <div className="px-3 py-3">
-                          <Detalle
-                            negocio={n}
-                            onCerrar={() => setElegido(null)}
-                            faltaLaBitacora={faltaLaBitacora}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <TablaNegocios
+          filas={visibles}
+          campo={campo}
+          desc={desc}
+          onOrdenar={ordenarPor}
+          elegido={elegido}
+          setElegido={setElegido}
+          setVerPase={setVerPase}
+          setVerClientes={setVerClientes}
+          setVerAuditoria={setVerAuditoria}
+          setAdministrar={setAdministrar}
+          faltaLaBitacora={faltaLaBitacora}
+        />
       )}
 
       {/* Paginado. Se dice SIEMPRE cuántas filas se están viendo de
           cuántas: una lista que corta en silencio hace creer que lo que
           no aparece no existe. */}
-      {ordenados.length > 0 && (
+      {reales.length > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-3 text-[12.5px] text-aventurea-ink-soft">
           <span>
             Mostrando {paginaSegura * POR_PAGINA + 1}–
-            {Math.min((paginaSegura + 1) * POR_PAGINA, ordenados.length)} de {ordenados.length}
+            {Math.min((paginaSegura + 1) * POR_PAGINA, reales.length)} de {reales.length}
           </span>
           {paginas > 1 && (
             <span className="flex items-center gap-2">
@@ -517,6 +497,83 @@ export default function ComplementosPanel({
               </button>
             </span>
           )}
+        </div>
+      )}
+
+      {/* ══ EL CAJÓN DE LAS PRUEBAS ═══════════════════════════════
+          Pedido del dueño (1 sep 2026): «todo lo que sea de pruebas y
+          demos, en un tab que diga Pruebas y que se pueda expandir,
+          que esté todo guardado en el expandir».
+
+          Cerrado por defecto y SIN paginar: son quince filas fijas —
+          las ocho demos de la landing y las altas de probar—, no una
+          lista que crezca. Paginarlas sería agregarle controles a algo
+          que se mira una vez cada tanto.
+
+          Se abre solo si hay búsqueda activa (ver `pruebasAbierto`):
+          un resultado escondido detrás de un acordeón cerrado se lee
+          como «ese negocio no existe». */}
+      {pruebas.length > 0 && (
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setVerPruebas((v) => !v)}
+            disabled={buscando}
+            aria-expanded={pruebasAbierto}
+            className="presionable flex w-full items-center gap-3 rounded-2xl border border-aventurea-line bg-aventurea-cream-2/60 px-4 py-3 text-left disabled:opacity-100"
+          >
+            <span
+              aria-hidden
+              className="text-[11px] text-aventurea-ink-soft transition-transform duration-200"
+              style={{ transform: pruebasAbierto ? "rotate(90deg)" : "none" }}
+            >
+              ▶
+            </span>
+            <span className="text-[13.5px] font-bold text-aventurea-ink">Pruebas y demos</span>
+            <span className="rounded-full bg-aventurea-navy/10 px-2 py-0.5 text-[11.5px] font-bold text-aventurea-navy">
+              {pruebas.length}
+            </span>
+            <span className="ml-auto text-[12px] text-aventurea-ink-soft">
+              {buscando
+                ? "abierto porque estás buscando"
+                : pruebasAbierto
+                  ? "Ocultar"
+                  : "Ver"}
+            </span>
+          </button>
+
+          {/* `desplegable` y no un `max-height` a ojo: interpola
+              `grid-template-rows` de 0fr a 1fr, así que el alto sale
+              del contenido de verdad y no hay que adivinar un techo
+              que después corta la última fila. */}
+          <div className="desplegable" data-abierto={pruebasAbierto}>
+            <div>
+              <div className="pt-3">
+                <TablaNegocios
+                  filas={pruebas}
+                  campo={campo}
+                  desc={desc}
+                  onOrdenar={ordenarPor}
+                  elegido={elegido}
+                  setElegido={setElegido}
+                  setVerPase={setVerPase}
+                  setVerClientes={setVerClientes}
+                  setVerAuditoria={setVerAuditoria}
+                  setAdministrar={setAdministrar}
+                  faltaLaBitacora={faltaLaBitacora}
+                />
+                <p className="mt-2 px-1 text-[12px] text-aventurea-ink-soft">
+                  Entran acá los negocios de las cuentas de demostración de Bookea, los
+                  sembrados por script y los que se llaman «prueba». Si alguno está mal
+                  clasificado, la regla vive en{" "}
+                  <code className="rounded bg-aventurea-cream-2 px-1 py-0.5 text-[11px]">
+                    lib/lealtad/negocio-de-pruebas.ts
+                  </code>
+                  .
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -561,6 +618,117 @@ function indicePlan(plan: string | null): number {
   if (!plan) return -1;
   const i = (PLANES_ID as readonly string[]).indexOf(plan);
   return i < 0 ? 99 : i;
+}
+
+/**
+ * LA TABLA DE NEGOCIOS. Una sola, usada dos veces: la de los clientes
+ * y la del cajón de pruebas.
+ *
+ * Se extrajo el 1 sep 2026, cuando apareció la segunda lista. Copiar
+ * las doce columnas y el detalle desplegable habría garantizado que la
+ * próxima columna nueva entrara en una sola de las dos — y la que se
+ * quedaría atrás es la que nadie mira todos los días.
+ *
+ * Los `setX` se pasan enteros en vez de callbacks ya cerrados sobre la
+ * fila: los modales viven arriba (uno solo de cada uno para toda la
+ * pantalla, no uno por fila), así que quien abre tiene que decir CUÁL.
+ */
+function TablaNegocios({
+  filas,
+  campo,
+  desc,
+  onOrdenar,
+  elegido,
+  setElegido,
+  setVerPase,
+  setVerClientes,
+  setVerAuditoria,
+  setAdministrar,
+  faltaLaBitacora,
+}: {
+  filas: NegocioConAddons[];
+  campo: Campo;
+  desc: boolean;
+  onOrdenar: (c: Campo) => void;
+  elegido: string | null;
+  setElegido: (id: string | null) => void;
+  setVerPase: (v: { id: string; nombre: string }) => void;
+  setVerClientes: (v: { id: string; nombre: string }) => void;
+  setVerAuditoria: (v: { id: string; nombre: string }) => void;
+  setAdministrar: (v: { id: string; nombre: string }) => void;
+  faltaLaBitacora: boolean;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-2xl border border-aventurea-line bg-white">
+      <table className="w-full min-w-[1120px] border-collapse text-[13px]">
+          <thead>
+            <tr className="border-b border-aventurea-line bg-aventurea-cream-2/50 text-left text-[11px] uppercase tracking-[0.1em] text-aventurea-ink-soft">
+              <Encabezado campo="nombre" actual={campo} desc={desc} onClick={onOrdenar}>
+                Negocio
+              </Encabezado>
+              {/* La cuenta va PEGADA al negocio: las dos contestan
+                  «quién es esto». Puesta al final, en una tabla de
+                  once columnas con scroll horizontal, había que
+                  arrastrar para leer un dato de identidad. */}
+              <Encabezado campo="cuenta" actual={campo} desc={desc} onClick={onOrdenar}>
+                Cuenta
+              </Encabezado>
+              <Encabezado campo="categoria" actual={campo} desc={desc} onClick={onOrdenar}>
+                Categoría
+              </Encabezado>
+              <Encabezado campo="plan" actual={campo} desc={desc} onClick={onOrdenar}>
+                Paquete
+              </Encabezado>
+              <Encabezado campo="clientes" actual={campo} desc={desc} onClick={onOrdenar}>
+                Clientes
+              </Encabezado>
+              <th className="px-3 py-2.5 font-bold">Tarjetas</th>
+              <th className="px-3 py-2.5 font-bold">Complementos</th>
+              <th className="px-3 py-2.5 font-bold">Vence</th>
+              <Encabezado campo="desde" actual={campo} desc={desc} onClick={onOrdenar}>
+                Cliente desde
+              </Encabezado>
+              <th className="px-3 py-2.5 font-bold">Pase</th>
+              <th className="px-3 py-2.5 font-bold">Auditoría</th>
+              <th className="px-3 py-2.5 font-bold">Administrar</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((n) => (
+              // El detalle se abre PEGADO a su fila, no al final de la
+              // página: con 50 filas, tocar la tercera y que el panel
+              // apareciera abajo del todo obligaba a scrollear a
+              // ciegas para ver qué se había abierto (y a volver para
+              // comprobar cuál estaba marcada).
+              <Fragment key={n.id}>
+                <Fila
+                  negocio={n}
+                  elegido={elegido === n.id}
+                  onElegir={() => setElegido(elegido === n.id ? null : n.id)}
+                  onVerPase={() => setVerPase({ id: n.id, nombre: n.nombre })}
+                  onVerClientes={() => setVerClientes({ id: n.id, nombre: n.nombre })}
+                  onVerAuditoria={() => setVerAuditoria({ id: n.id, nombre: n.nombre })}
+                  onAdministrar={() => setAdministrar({ id: n.id, nombre: n.nombre })}
+                />
+                {elegido === n.id && (
+                  <tr>
+                    <td colSpan={12} className="bg-aventurea-cream-2/40 p-0">
+                      <div className="px-3 py-3">
+                        <Detalle
+                          negocio={n}
+                          onCerrar={() => setElegido(null)}
+                          faltaLaBitacora={faltaLaBitacora}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+      </table>
+    </div>
+  );
 }
 
 function Encabezado({

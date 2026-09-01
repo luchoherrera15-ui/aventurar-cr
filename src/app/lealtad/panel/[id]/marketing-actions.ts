@@ -4,7 +4,11 @@ import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { probarAvisoDePase, type DiagnosticoAviso } from "@/lib/wallet/servicio";
 import { enviarMensajePromocional } from "@/lib/wallet/mensaje-promocional";
-import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
+// `planDelNegocio` se mudó a lib/ cuando las campañas automáticas
+// (0226) necesitaron el mismo dato: este archivo es `"use server"` y
+// desde ahí no se puede exportar una función común sin convertirla en
+// un server action.
+import { planDelNegocio } from "@/lib/lealtad/plan-del-negocio";
 import {
   estadoCupoNotificaciones,
   inicioProximoMesEnCR,
@@ -217,34 +221,6 @@ export async function enviarAvisoDePrueba(
 const TOPE_MENSAJE = 120;
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
-
-/**
- * El plan efectivo de un negocio, mismo patrón que ya usan
- * `equipoLleno` (equipo-actions.ts) y el chequeo de tipo de
- * `crear-actions.ts`: se lee con la llave de servicio porque el
- * paquete es dato de producto y no de la fila de nadie —depender de la
- * sesión ataría el tope a que la RLS de `cuentas` (0134) esté corrida—,
- * y `contextoDeCuenta` hace ganar a la cuenta sobre el respaldo del
- * rancho (la transición de la 0134, en dos tiempos).
- */
-async function planDelNegocio(db: Admin, ranchoId: string): Promise<string | null> {
-  const { data: rancho } = await db
-    .from("ranchos")
-    .select("plan_lealtad")
-    .eq("id", ranchoId)
-    .maybeSingle();
-  const { data: cuenta } = await db
-    .from("cuentas")
-    .select("id")
-    .eq("rancho_id", ranchoId)
-    .maybeSingle();
-  const { plan } = await contextoDeCuenta(
-    db,
-    cuenta?.id ? { cuenta_id: cuenta.id as string } : {},
-    { planRancho: (rancho?.plan_lealtad as string | null) ?? null },
-  );
-  return plan;
-}
 
 /**
  * Cuánto cupo de notificaciones le queda al negocio este mes, para que

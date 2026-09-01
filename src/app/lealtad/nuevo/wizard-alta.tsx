@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { subirImagenAlAlta } from "@/lib/lealtad/subida-alta";
 import { solicitarAltaConPlan } from "./actions";
+// Solo se usa en modo admin. Importarlo siempre no cuesta nada: un
+// server action es una referencia, no código que viaje al cliente.
+import { crearPaseDesdeAdmin } from "@/app/admin/(dashboard)/lealtad/nuevo/actions";
 import { iniciarPagoDelPaquete } from "@/app/lealtad/planes/pago-actions";
 import type { DatosPago } from "@/app/lealtad/planes/formulario-solicitud";
 import { crearTarjeta, type BorradorTarjeta } from "@/app/lealtad/panel/[id]/crear-actions";
@@ -35,6 +38,11 @@ import PasoBeneficio from "@/components/lealtad/paso-beneficio";
 import PlantillasColor from "@/components/lealtad/plantillas-color";
 import SelectorIconoSello from "@/components/lealtad/selector-icono-sello";
 import VistaPase, { type DatosVista } from "@/components/lealtad/vista-pase";
+import {
+  regaliaDelBeneficio,
+  metaDelBeneficio,
+  resumenDelBeneficio,
+} from "@/lib/lealtad/mostrador";
 import CampoColor from "@/components/campo-color";
 import SubirImagen from "@/components/subir-imagen";
 
@@ -103,7 +111,15 @@ export type RanchoWizard = {
 // redundante al pagar" que se reportó. Salta directo a "revisar".
 type Camino = "creador" | "personalizado" | "prellenado";
 
-type Pantalla = "nombre" | "negocio" | "beneficio" | "apariencia" | "descripcion" | "revisar";
+type Pantalla =
+  | "nombre"
+  | "negocio"
+  | "beneficio"
+  | "apariencia"
+  | "descripcion"
+  // Solo en modo admin: a nombre de quién queda el pase (1 sep 2026).
+  | "cuenta"
+  | "revisar";
 
 /** El estado que se respalda en sessionStorage (todo serializable). */
 type EstadoWizard = {
@@ -133,6 +149,18 @@ type EstadoWizard = {
   descripcion: string;
   /** El código del agente de ventas que atendió el alta (opcional). */
   codigoReferido: string;
+  /**
+   * MODO ADMIN: a quién le queda el pase.
+   *
+   * Van en el estado —y no en un `useState` suelto— para que el
+   * respaldo en sessionStorage los conserve: un admin que arma una
+   * tarjeta larga y recarga sin querer no tiene por qué volver a
+   * escribir el correo del cliente.
+   *
+   * En el alta pública quedan vacíos y nadie los mira.
+   */
+  correoAdmin: string;
+  nombrePersona: string;
 };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
@@ -168,6 +196,8 @@ function estadoInicial(): EstadoWizard {
     diseno: CONFIG_CLASICA,
     telefono: "",
     descripcion: "",
+    correoAdmin: "",
+    nombrePersona: "",
     codigoReferido: "",
   };
 }
@@ -236,18 +266,44 @@ function sanearGuardado(crudo: unknown, plan: string | null, topePasos: number):
 type Exito =
   | { tipo: "instantaneo"; ranchoId: string; slug: string | null }
   | { tipo: "tarjeta"; ranchoId: string; slug: string | null }
+  // Modo admin: el pase quedó a nombre de otra persona, y hay que
+  // decirle a quién y cómo entra.
+  | {
+      tipo: "admin";
+      ranchoId: string;
+      slug: string | null;
+      correo: string;
+      cuentaNueva: boolean;
+      enlaceDeEntrada: string | null;
+    }
   | { tipo: "solicitud"; personalizado: boolean };
 
 export default function WizardAlta({
   plan,
   pago,
   rancho = null,
+  admin = false,
 }: {
   /** El paquete elegido (?plan=), ya validado con `esPlanOfrecido`. */
   plan: PlanElegido;
   pago: DatosPago;
   /** Presente = modo solo-tarjeta: el negocio ya existe. */
   rancho?: RanchoWizard | null;
+  /**
+   * MODO ADMIN (1 sep 2026): alguien de Bookea le arma el pase a un
+   * cliente. Cambia tres cosas y ninguna más:
+   *
+   *   · no se cobra —el paquete se acordó por fuera—, así que el
+   *     bloque de SINPE/transferencia no aparece;
+   *   · aparece un paso «cuenta» antes de revisar, con el correo de
+   *     quien va a administrar el pase;
+   *   · publica con `crearPaseDesdeAdmin` en vez del alta pública.
+   *
+   * Los CINCO pasos de armar la tarjeta son exactamente los mismos —
+   * ese era el pedido («mismos pasos»)—, y eso solo se puede prometer
+   * porque es el mismo componente y no una copia para el admin.
+   */
+  admin?: boolean;
 }) {
   const soloTarjeta = rancho !== null;
   const planActual = soloTarjeta ? rancho.plan : plan.id;
@@ -272,9 +328,16 @@ export default function WizardAlta({
   const [subiendoBanda, setSubiendoBanda] = useState(false);
   const [errorBanda, setErrorBanda] = useState("");
 
+  // El paso «cuenta» va JUSTO ANTES de revisar y solo en modo admin:
+  // «al final pone el correo de la persona que será el administrador
+  // de ese pase». Antes de armar la tarjeta, pedir el correo obliga a
+  // tenerlo a mano para empezar; al final, se puede armar la tarjeta
+  // mientras el cliente todavía lo está dictando.
   const pantallas: Pantalla[] =
     estado.camino === "creador"
-      ? ["nombre", "negocio", "beneficio", "apariencia", "revisar"]
+      ? admin
+        ? ["nombre", "negocio", "beneficio", "apariencia", "cuenta", "revisar"]
+        : ["nombre", "negocio", "beneficio", "apariencia", "revisar"]
       : estado.camino === "prellenado"
         ? ["revisar"]
         : ["nombre", "negocio", "descripcion", "revisar"];
@@ -350,7 +413,16 @@ export default function WizardAlta({
     ? validarBeneficio(estado.beneficio)
     : "Elegí el tipo de tarjeta.";
 
-  const requierePago = !soloTarjeta && !plan.esGratis;
+  // Desde el admin no se cobra acá: el paquete se acordó por fuera y
+  // el pase nace con él puesto. Pedir un comprobante sería pedirle a
+  // un admin que se deposite a sí mismo.
+  const requierePago = !soloTarjeta && !plan.esGratis && !admin;
+
+  // El correo de quien administra. La validación de verdad la hace el
+  // server action; acá solo se atajan los dedazos para no dejar
+  // avanzar con «juan@» a medio escribir.
+  const correoListo =
+    !admin || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(estado.correoAdmin.trim());
   const telefonoListo = soloTarjeta || estado.telefono.trim().length > 0;
   const contenidoListo =
     estado.camino === "personalizado"
@@ -362,6 +434,7 @@ export default function WizardAlta({
     nombre.length > 0 &&
     contenidoListo &&
     telefonoListo &&
+    correoListo &&
     (!requierePago || comprobanteUrl !== "");
 
   const puedeAvanzar: Record<Pantalla, boolean> = {
@@ -372,6 +445,7 @@ export default function WizardAlta({
         : estado.modo !== null && (soloTarjeta || rubroListo),
     beneficio: motivoBeneficio === null,
     apariencia: !subiendoLogo && !subiendoBanda,
+    cuenta: correoListo,
     descripcion: estado.descripcion.trim().length >= 5,
     revisar: puedePublicar,
   };
@@ -526,6 +600,44 @@ export default function WizardAlta({
               diseno: estado.diseno,
             },
     };
+    // ── MODO ADMIN: otra puerta, la misma tarjeta ──────────────
+    // `datos.tarjeta` ya está armado arriba con todo lo que se
+    // configuró; lo único que cambia es a nombre de quién queda y
+    // que no hay comprobante que mandar.
+    if (admin) {
+      if (!datos.tarjeta) {
+        setError("Falta armar la tarjeta.");
+        return;
+      }
+      const tarjeta = datos.tarjeta;
+      iniciar(async () => {
+        const res = await crearPaseDesdeAdmin({
+          correo: estado.correoAdmin,
+          nombrePersona: estado.nombrePersona,
+          nombreNegocio: nombre,
+          tipo: estado.tipoNegocio ?? "otro",
+          detalleOtro: estado.detalleOtro,
+          plan: plan.id,
+          telefono: estado.telefono,
+          tarjeta,
+        });
+        if (!res.ok) {
+          setError(res.motivo);
+          return;
+        }
+        limpiarRespaldo();
+        setExito({
+          tipo: "admin",
+          ranchoId: res.ranchoId,
+          slug: res.slug,
+          correo: estado.correoAdmin.trim().toLowerCase(),
+          cuentaNueva: res.cuentaNueva,
+          enlaceDeEntrada: res.enlaceDeEntrada,
+        });
+      });
+      return;
+    }
+
     iniciar(async () => {
       const res = await solicitarAltaConPlan(datos);
       if (!res.ok) {
@@ -621,6 +733,77 @@ export default function WizardAlta({
     );
   }
 
+  if (exito?.tipo === "admin") {
+    return (
+      <div className="entra-suave mx-auto max-w-[560px] rounded-3xl border border-bookea-linea bg-white p-8">
+        <h2 className="titulo text-center text-[22px] text-bookea-tinta">
+          Pase creado 🎉
+        </h2>
+        <p className="mx-auto mt-2 max-w-[440px] text-center text-[13.5px] leading-relaxed text-bookea-gris">
+          <strong className="text-bookea-tinta">{nombre}</strong> quedó creado con el
+          paquete <strong>{plan.nombre}</strong>, a nombre de{" "}
+          <strong className="text-bookea-tinta">{exito.correo}</strong>.
+        </p>
+
+        {/* El enlace de entrada se muestra UNA vez y no se guarda en
+            ningún lado: es una credencial. Si se pierde, se manda otro
+            desde /admin/usuarios — que es mejor que dejarlo escrito en
+            una pantalla que alguien puede volver a abrir. */}
+        {exito.cuentaNueva && exito.enlaceDeEntrada && (
+          <div
+            className="mt-5 rounded-xl border p-4"
+            style={{ borderColor: "var(--line)", background: "var(--accion-suave)" }}
+          >
+            <p className="text-[12.5px] font-bold" style={{ color: "var(--accion-fuerte)" }}>
+              La cuenta no existía y se creó. Pasale este enlace para que entre:
+            </p>
+            <textarea
+              readOnly
+              value={exito.enlaceDeEntrada}
+              rows={3}
+              onFocus={(e) => e.currentTarget.select()}
+              className="mt-2 w-full resize-none rounded-lg border border-bookea-linea bg-white px-3 py-2 text-[11.5px] leading-snug text-bookea-tinta"
+            />
+            <p className="mt-1.5 text-[11.5px] leading-snug text-aventurea-ink-soft">
+              Se usa una sola vez y vence. Si se vence, mandale un «olvidé mi contraseña»
+              desde Cuentas y accesos.
+            </p>
+          </div>
+        )}
+
+        {!exito.cuentaNueva && (
+          <p className="mt-4 text-center text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            Esa cuenta ya existía: el pase le aparece al entrar con su clave de siempre.
+          </p>
+        )}
+
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <a
+            href={`/admin/lealtad`}
+            className="presionable rounded-xl px-5 py-2.5 text-[13px] font-extrabold"
+            style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+          >
+            Volver a Lealtad
+          </a>
+          {exito.slug && (
+            <a
+              href={`/tarjeta/${exito.slug}`}
+              className="presionable rounded-xl border border-bookea-linea px-5 py-2.5 text-[13px] font-bold text-bookea-gris"
+            >
+              Ver la tarjeta
+            </a>
+          )}
+          <a
+            href={`/admin/lealtad/nuevo`}
+            className="presionable rounded-xl border border-bookea-linea px-5 py-2.5 text-[13px] font-bold text-bookea-gris"
+          >
+            Crear otro
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   if (exito?.tipo === "solicitud") {
     return (
       <div className="entra-suave mx-auto max-w-[560px] rounded-3xl border border-bookea-linea bg-white p-8 text-center">
@@ -662,6 +845,10 @@ export default function WizardAlta({
     beneficio: { titulo: "El beneficio", bajada: "Qué se gana y cómo." },
     apariencia: { titulo: "Apariencia", bajada: "Cómo se ve en el teléfono de tu cliente. Todo es opcional." },
     descripcion: { titulo: "Contanos cómo la soñás", bajada: "El equipo de Bookea la diseña con vos." },
+    cuenta: {
+      titulo: "¿A nombre de quién queda?",
+      bajada: "El correo de la persona que va a administrar este pase.",
+    },
     revisar: { titulo: "Revisar y publicar", bajada: "Una última mirada antes de publicar." },
   };
 
@@ -1035,6 +1222,77 @@ export default function WizardAlta({
                   ← Mejor uso el creador
                 </button>
               </p>
+            </section>
+
+            {/* ── Paso 5 (solo admin): a nombre de quién queda ────
+                Pedido del dueño (1 sep 2026): «al final pone el correo
+                de la persona que será el administrador de ese pase».
+
+                Es un paso propio y no dos campos metidos en «Revisar»
+                porque es la decisión más consecuente de todo el alta:
+                el pase queda a nombre de ese correo y no hay una
+                pantalla para cambiarlo después. Merece su renglón. */}
+            <section
+              className="paso"
+              data-estado={pantalla === "cuenta" ? "activo" : "saliendo"}
+              hidden={pantalla !== "cuenta"}
+            >
+              <div className="space-y-4">
+                <div>
+                  <label className={etiqueta} htmlFor="w-correo">
+                    Correo de quien lo administra
+                  </label>
+                  <input
+                    id="w-correo"
+                    type="email"
+                    value={estado.correoAdmin}
+                    onChange={(e) => patch({ correoAdmin: e.target.value })}
+                    placeholder="cliente@sunegocio.com"
+                    maxLength={120}
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    className={campo}
+                  />
+                  <p className="mt-1.5 text-[12px] leading-snug text-aventurea-ink-soft">
+                    Si ya tiene cuenta en Bookea, el pase se le suma a la que ya usa. Si no,
+                    se le crea una y te damos el enlace para que entre y ponga su clave.
+                  </p>
+                </div>
+
+                <div>
+                  <label className={etiqueta} htmlFor="w-persona">
+                    Nombre de la persona (opcional)
+                  </label>
+                  <input
+                    id="w-persona"
+                    value={estado.nombrePersona}
+                    onChange={(e) => patch({ nombrePersona: e.target.value })}
+                    placeholder="María González"
+                    maxLength={80}
+                    className={campo}
+                  />
+                  <p className="mt-1.5 text-[12px] leading-snug text-aventurea-ink-soft">
+                    Solo se usa si hay que crear la cuenta. Si ya existe, se respeta el
+                    nombre que la persona haya puesto.
+                  </p>
+                </div>
+
+                {/* Lo que este formulario NO hace, dicho antes de
+                    apretar y no después. */}
+                <div
+                  className="rounded-xl border px-3.5 py-3 text-[12.5px] leading-relaxed"
+                  style={{
+                    borderColor: "var(--line)",
+                    background: "var(--accion-suave)",
+                    color: "var(--accion-fuerte)",
+                  }}
+                >
+                  El pase nace con el paquete <b>{plan.nombre}</b> puesto y{" "}
+                  <b>sin cobro</b>: no se le crea ninguna suscripción. Si el cliente va a
+                  pagar por Bookea, eso se hace aparte desde su panel.
+                </div>
+              </div>
             </section>
 
             {/* ── Paso 5: revisar y publicar ────────────────────── */}
@@ -1628,45 +1886,4 @@ function BloquePago({
   );
 }
 
-// ── Derivaciones para los campos «legado» del alta ─────────────────
-// La acción de hoy guarda regalía + meta de sellos; la extendida lee la
-// tarjeta entera. Se derivan del beneficio para que las dos entiendan
-// lo mismo, con el MISMO resumen que pinta el creador del panel.
 
-function resumenDelBeneficio(b: ConfigBeneficio): string {
-  switch (b.tipo) {
-    case "sellos":
-      return `${b.requeridos} sellos → ${b.recompensa || "…"}`;
-    case "puntos":
-      return `${b.porVisita} por visita · ${b.porMoneda} por colón`;
-    case "cupon":
-    case "descuento":
-      return b.beneficio.forma === "porcentaje"
-        ? `${b.beneficio.valor}% de descuento`
-        : b.beneficio.forma === "monto"
-          ? `₡${b.beneficio.valor.toLocaleString("es-CR")} de descuento`
-          : `${b.beneficio.que || "…"} gratis`;
-    case "membresia":
-      return `${b.nivel || "…"} · ${b.vigenciaMeses} meses`;
-    case "giftcard":
-      return `${b.moneda === "USD" ? "$" : "₡"}${b.valor.toLocaleString("es-CR")}`;
-    case "evento":
-      return `${b.fecha || "…"} ${b.hora} · ${b.ubicacion || "…"}`;
-    case "cashback":
-      return `${b.porcentaje}% de vuelta`;
-  }
-}
-
-function regaliaDelBeneficio(b: ConfigBeneficio): string {
-  if (b.tipo === "sellos") return b.recompensa;
-  return resumenDelBeneficio(b).slice(0, 120);
-}
-
-function metaDelBeneficio(b: ConfigBeneficio): number {
-  if (b.tipo === "sellos") return b.requeridos;
-  // Acotado a 1–100: la acción valida `metaSellos` con el rango de los
-  // SELLOS aun cuando acá es solo el marcador legado de una tarjeta de
-  // puntos — un mínimo de canje de 500 puntos no puede tumbar el envío.
-  if (b.tipo === "puntos") return Math.min(100, Math.max(1, b.minimoCanje));
-  return 10;
-}

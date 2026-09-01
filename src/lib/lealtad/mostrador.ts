@@ -682,3 +682,55 @@ export function recompensaInicial(config: ConfigBeneficio): RecompensaInicial | 
     }
   }
 }
+
+/**
+ * ── DERIVACIONES PARA LOS CAMPOS «LEGADO» DEL ALTA ─────────────────
+ *
+ * `solicitudes_lealtad` guarda una regalía en texto y una meta de
+ * sellos: son de cuando las tarjetas eran solo de sellos. Las tarjetas
+ * de hoy viajan enteras en `beneficio` (0135), pero esas dos columnas
+ * siguen existiendo y hay que llenarlas con algo honesto.
+ *
+ * Vivían adentro de `wizard-alta.tsx`, que es `"use client"`. Cuando
+ * el alta desde el admin las necesitó, importarlas de ahí habría
+ * arrastrado un componente de cliente a un server action — el error
+ * que ya rompió Finanzas e IA en este repo. Son funciones puras sobre
+ * `ConfigBeneficio`: su lugar es acá.
+ */
+export function resumenDelBeneficio(b: ConfigBeneficio): string {
+  switch (b.tipo) {
+    case "sellos":
+      return `${b.requeridos} sellos → ${b.recompensa || "…"}`;
+    case "puntos":
+      return `${b.porVisita} por visita · ${b.porMoneda} por colón`;
+    case "cupon":
+    case "descuento":
+      return b.beneficio.forma === "porcentaje"
+        ? `${b.beneficio.valor}% de descuento`
+        : b.beneficio.forma === "monto"
+          ? `₡${b.beneficio.valor.toLocaleString("es-CR")} de descuento`
+          : `${b.beneficio.que || "…"} gratis`;
+    case "membresia":
+      return `${b.nivel || "…"} · ${b.vigenciaMeses} meses`;
+    case "giftcard":
+      return `${b.moneda === "USD" ? "$" : "₡"}${b.valor.toLocaleString("es-CR")}`;
+    case "evento":
+      return `${b.fecha || "…"} ${b.hora} · ${b.ubicacion || "…"}`;
+    case "cashback":
+      return `${b.porcentaje}% de vuelta`;
+  }
+}
+
+export function regaliaDelBeneficio(b: ConfigBeneficio): string {
+  if (b.tipo === "sellos") return b.recompensa;
+  return resumenDelBeneficio(b).slice(0, 120);
+}
+
+export function metaDelBeneficio(b: ConfigBeneficio): number {
+  if (b.tipo === "sellos") return b.requeridos;
+  // Acotado a 1–100: la acción valida `metaSellos` con el rango de los
+  // SELLOS aun cuando acá es solo el marcador legado de una tarjeta de
+  // puntos — un mínimo de canje de 500 puntos no puede tumbar el envío.
+  if (b.tipo === "puntos") return Math.min(100, Math.max(1, b.minimoCanje));
+  return 10;
+}

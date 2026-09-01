@@ -95,6 +95,10 @@ export const GRUPOS_ADMIN: GrupoAdmin[] = [
     titulo: "Lealtad",
     items: [
       { href: "/admin/lealtad", etiqueta: "Negocios de lealtad", icono: "complemento" },
+      // Crearle el pase a un cliente cuando la venta se cerró por fuera
+      // (1 sep 2026). Va PEGADO a la lista y no en otro grupo: es la
+      // misma pantalla, una mira y la otra agrega.
+      { href: "/admin/lealtad/nuevo", etiqueta: "Crear pase", icono: "etiqueta" },
       { href: "/admin/moderadores", etiqueta: "Moderadores", icono: "users" },
     ],
   },
