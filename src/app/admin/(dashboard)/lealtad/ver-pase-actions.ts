@@ -2,8 +2,7 @@
 
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
-import { leerBeneficio, tipoDe, configPorDefecto } from "@/lib/lealtad/tipos-tarjeta";
-import { selloParaGuardar } from "@/lib/lealtad/iconos-sello";
+import { datosVistaDeFila } from "@/lib/lealtad/datos-vista-pase";
 import { elegirDeFilasCrudas } from "@/lib/wallet/programa-principal";
 import { minutoISOCR } from "@/lib/fechas";
 import type { DatosVista } from "@/components/lealtad/vista-pase"; // type-only: cruza la
@@ -75,26 +74,15 @@ export async function verPaseDeNegocio(ranchoId: string): Promise<ResultadoVerPa
     };
   }
 
-  const modo = typeof elegido.modo === "string" ? elegido.modo : null;
-  const tipo = tipoDe(modo);
-  const beneficio = leerBeneficio(elegido.beneficio, tipo) ?? configPorDefecto(tipo);
-  const sello = selloParaGuardar({
-    tipo: elegido.modo,
-    icono: elegido.pase_sello_icono,
-    url: elegido.pase_sello_icono_url,
-  });
-
-  const datos: DatosVista = {
-    negocioNombre: typeof rancho.nombre === "string" ? rancho.nombre : "",
-    modo,
-    beneficio,
-    colorFondo: typeof elegido.pase_color_fondo === "string" ? elegido.pase_color_fondo : null,
-    colorSello: typeof elegido.pase_color_sello === "string" ? elegido.pase_color_sello : null,
-    logoUrl: typeof elegido.pase_logo_url === "string" ? elegido.pase_logo_url : null,
-    bannerUrl: typeof elegido.pase_banner_url === "string" ? elegido.pase_banner_url : null,
-    iconoSello: sello.icono,
-    iconoUrl: sello.url,
-  };
+  // La traducción de fila a previa vive en `datos-vista-pase.ts`,
+  // una sola para las cinco pantallas. Acá estaba escrita a mano y
+  // se olvidaba de `pase_diseno` (0212): un negocio que movió sus
+  // sellos los veía en su lugar en el teléfono y en la grilla
+  // clásica en este modal.
+  const datos: DatosVista = datosVistaDeFila(
+    typeof rancho.nombre === "string" ? rancho.nombre : "",
+    elegido,
+  );
 
   return { ok: true, datos, totalProgramas: lista.length };
 }

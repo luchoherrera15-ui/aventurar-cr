@@ -418,7 +418,34 @@ export function camposSegunModo(datos: DatosDelTexto): CamposTarjeta {
 
 function camposDelTipo(datos: DatosDelTexto): CamposTarjeta {
   const modo = tipoDe(datos.config.modo);
-  const meta = metaDeSellos(datos.meta);
+
+  // ── LA META DE UNA TARJETA DE SELLOS ──────────────────────────
+  //
+  // Primero `recompensas` —la fila activa más barata, que es la que
+  // el negocio puede editar y la que manda—; si no hay ninguna, la
+  // que dice el propio `beneficio`.
+  //
+  // ⚠️ ESE SEGUNDO INTENTO NO ES UN LUJO. Sin él, una tarjeta de
+  //    sellos SIN fila en `recompensas` se caía hasta la rama
+  //    genérica del final y el cliente veía «PUNTOS 0» en el
+  //    teléfono — una tarjeta de puntos, con otro nombre y otra
+  //    mecánica, para un programa que el negocio armó de sellos.
+  //    Pasa de verdad: ocho de los doce programas sembrados no
+  //    tienen fila en `recompensas`, y el `beneficio` de todos
+  //    ellos dice perfectamente cuántos sellos pide y qué se gana.
+  //
+  //    `recompensas` es la tabla vieja; `beneficio` (0135) es donde
+  //    vive la configuración de los ocho tipos. Que la vieja mande
+  //    cuando existe conserva el comportamiento de los programas de
+  //    siempre; que la nueva conteste cuando la vieja calla es lo
+  //    que evita que el pase mienta.
+  const b = datos.beneficio;
+  const metaDelBeneficio =
+    b?.tipo === "sellos" && b.requeridos > 0
+      ? { nombre: b.recompensa.trim(), costo_puntos: b.requeridos }
+      : null;
+  const regaliaSellos = datos.meta ?? metaDelBeneficio;
+  const meta = metaDeSellos(regaliaSellos);
 
   if (modo === "sellos" && meta !== null) {
     const faltan = Math.max(0, meta - datos.saldo);
@@ -431,7 +458,12 @@ function camposDelTipo(datos: DatosDelTexto): CamposTarjeta {
             ? "Pedila en tu próxima visita"
             : `Te ${faltan === 1 ? "falta" : "faltan"} ${faltan} ${faltan === 1 ? "sello" : "sellos"}`,
       },
-      regalia: datos.meta ? { label: "REGALÍA", value: datos.meta.nombre } : null,
+      // Sin nombre de regalía no se pinta la fila: «REGALÍA: » vacío
+      // se lee como un campo roto, y el «7/10» ya cuenta la historia.
+      regalia:
+        regaliaSellos && regaliaSellos.nombre
+          ? { label: "REGALÍA", value: regaliaSellos.nombre }
+          : null,
     };
   }
 
@@ -447,7 +479,7 @@ function camposDelTipo(datos: DatosDelTexto): CamposTarjeta {
   // Sin esto caerían en la rama genérica de abajo y un cupón mostraría
   // «PUNTOS 0» en el teléfono del cliente: la tarjeta diría algo que
   // no tiene nada que ver con lo que el negocio prometió.
-  const b = datos.beneficio;
+  // (`b` se lee arriba, junto con la meta de los sellos.)
 
   if (modo === "cupon" || modo === "descuento") {
     const texto =

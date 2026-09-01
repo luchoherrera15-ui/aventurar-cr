@@ -73,6 +73,22 @@ export type DatosVista = {
   diseno?: ConfigTira;
   /** Saldo de ejemplo. Por defecto, la mitad de la meta. */
   saldoEjemplo?: number;
+  /**
+   * LA META QUE VA A MOSTRAR EL PASE DE VERDAD.
+   *
+   * El generador (`lib/wallet/generar.ts`) NO deriva la meta del
+   * beneficio: la lee de `recompensas` —la activa más barata— porque
+   * es la que el cliente puede alcanzar primero. Esta pantalla la
+   * derivaba del beneficio, así que un negocio que le cambió el
+   * nombre a su premio («Café gratis» → «Tu café de la casa») lo veía
+   * cambiado en el teléfono y viejo en la vista previa.
+   *
+   * Se pasa donde esa fila EXISTE (la página de afiliación, el panel).
+   * Ausente —el creador y el editor, donde la recompensa todavía no
+   * está sembrada— se sigue derivando del beneficio, que ahí es lo
+   * único que hay y es lo correcto.
+   */
+  metaReal?: MetaRecompensa;
 };
 
 type Plataforma = "apple" | "google";
@@ -126,9 +142,14 @@ export default function VistaPase({
     pase_sello_icono_url: columnas.url,
   };
   const sello = selloDeLaConfig(config);
-  const recompensa: MetaRecompensa = meta
-    ? { nombre: nombreDeLaMeta(datos.beneficio), costo_puntos: meta }
-    : null;
+  // La de la base gana sobre la derivada: es la que el generador va
+  // a leer cuando arme el pase (ver `metaReal` arriba).
+  const recompensa: MetaRecompensa =
+    datos.metaReal !== undefined
+      ? datos.metaReal
+      : meta
+        ? { nombre: nombreDeLaMeta(datos.beneficio), costo_puntos: meta }
+        : null;
 
   const campos = camposSegunModo({
     negocioNombre: datos.negocioNombre || "Tu negocio",

@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { usuarioActual } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import FormularioAuth from "@/app/cuenta/formulario-auth";
-import { coloresDe, metaDeSellos, tarjetaDesdeFila } from "@/lib/wallet/tarjeta";
+import type { MetaRecompensa } from "@/lib/wallet/tarjeta";
 import {
   filasCrudasPorAntiguedad,
   laDelLinkDeFilasCrudas,
@@ -23,6 +23,8 @@ import {
   textoConsentimientoNegocio,
 } from "@/lib/lealtad/personas";
 import FormularioAlta from "./formulario-alta";
+import VistaPase from "@/components/lealtad/vista-pase";
+import { datosVistaDeFila } from "@/lib/lealtad/datos-vista-pase";
 import {
   avisoDeFalloDelPase,
   avisoDeSlugDesconocido,
@@ -237,11 +239,9 @@ export default async function VistaDeTarjeta({
   const programaId = programa.id as string;
   const nombreTarjeta =
     typeof programa.nombre === "string" ? programa.nombre.trim() : "";
-  // El MISMO lector que usa el pase (tarjeta.ts): si esta pantalla
-  // leyera los colores por su cuenta, prometería una tarjeta y el
-  // teléfono mostraría otra.
-  const { config } = tarjetaDesdeFila(programa);
-  const colores = coloresDe(config);
+  // Los colores y el resto de la apariencia ya no se leen acá: los lee
+  // `datosVistaDeFila` con los mismos ojos que el generador del pase, y
+  // los dibuja `VistaPase` más abajo.
 
   // ── TANDA 3: la regalía ‖ el estado de la afiliación ──────────────
   //
@@ -283,14 +283,16 @@ export default async function VistaDeTarjeta({
     ),
   ]);
 
-  const total = metaDeSellos(
-    recompensa
-      ? {
-          nombre: recompensa.nombre as string,
-          costo_puntos: recompensa.costo_puntos as number,
-        }
-      : null,
-  );
+  // La recompensa activa más barata, con la forma que espera el
+  // pase. Es EXACTAMENTE la misma consulta que hace
+  // `lib/wallet/generar.ts` para armar el `.pkpass`, así que la
+  // previa y el pase prometen el mismo premio.
+  const metaDelPase: MetaRecompensa = recompensa
+    ? {
+        nombre: recompensa.nombre as string,
+        costo_puntos: recompensa.costo_puntos as number,
+      }
+    : null;
   const conocida = afiliacion.falta === null;
 
   // Los dos botones se muestran solo si el servidor PUEDE emitir esa
@@ -304,74 +306,43 @@ export default async function VistaDeTarjeta({
 
   return (
     <Pantalla>
-      {/* La tarjeta, IGUAL al mockup del pase: un gradiente sobre el
-          color del negocio (brillo arriba, sombra abajo → profundidad),
-          encabezado con el logo, la rejilla de sellos y el pie de
-          Wallet. Antes era un rectángulo plano con puntitos que no se
-          parecía en nada a la tarjeta real. */}
-      <div
-        className="mx-auto max-w-[360px] overflow-hidden rounded-3xl p-5 text-left text-white shadow-[0_34px_80px_-30px_rgba(0,0,0,0.65)]"
-        style={{
-          background: `linear-gradient(155deg, rgba(255,255,255,0.10), rgba(0,0,0,0.30)), ${colores.fondo}`,
-        }}
-      >
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[16px] font-extrabold leading-tight">
-            {nombreTarjeta || nombreNegocio}
-          </p>
-          <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-white">
-            {config.pase_logo_url ? (
-              // El logo del negocio es una URL remota de tamaño fijo (36px):
-              // next/image no aporta acá.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={config.pase_logo_url}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span
-                className="text-[15px] font-extrabold"
-                style={{ color: colores.fondo }}
-              >
-                {(nombreNegocio.charAt(0) || "B").toUpperCase()}
-              </span>
-            )}
-          </span>
-        </div>
+      {/* ══ EL PASE, EL DE VERDAD ═════════════════════════════════
+          Acá había un rectángulo dibujado a mano: un gradiente, el
+          nombre, un cuadrito con el logo y una rejilla de circulitos
+          vacíos. Se parecía a una tarjeta, pero no a ESTA tarjeta —
+          dibujaba sellos SIEMPRE, aunque el programa fuera de cupón,
+          de puntos o de cashback, y no leía ni la banda ni la
+          geometría de los sellos que el negocio hubiera configurado.
 
-        {total !== null && (
-          <>
-            <p className="mt-5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-white/70">
-              Tus sellos
-            </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {Array.from({ length: Math.min(total, 12) }, (_, i) => (
-                <span
-                  key={i}
-                  className="h-[26px] w-[26px] rounded-full border"
-                  style={{ borderColor: "rgba(255,255,255,0.45)" }}
-                />
-              ))}
-            </div>
-            <p className="mt-3 text-[13px] font-extrabold">0 / {total} sellos</p>
-          </>
-        )}
-        <p className="mt-1 text-[12px] text-white/70">
-          {recompensa ? (
-            <>
-              Al completar {recompensa.costo_puntos as number}:{" "}
-              <span className="font-bold text-white">
-                {recompensa.nombre as string}
-              </span>
-            </>
-          ) : (
-            "Sumá un sello en cada visita."
-          )}
-        </p>
-        <p className="mt-4 text-right text-[9px] font-semibold uppercase tracking-wide text-white/45">
-          Powered by Bookea.lat
-        </p>
+          Es la peor pantalla donde tener esa diferencia: es la última
+          que ve el cliente antes de bajarse el pase de verdad.
+
+          Ahora es `VistaPase`, la misma que usa el creador y el
+          editor, alimentada por `datosVistaDeFila` — que lee la fila
+          con `tarjetaDesdeFila`, o sea con los MISMOS ojos que el
+          generador del `.pkpass`. Los textos de cada campo salen de
+          `camposSegunModo()`, la función que arma el `pass.json` que
+          se firma.
+
+          `superficie="oscura"` porque esta pantalla es navy. */}
+      <div className="mx-auto max-w-[360px]">
+        <VistaPase
+          datos={{
+            ...datosVistaDeFila(nombreNegocio, programa),
+            // La misma recompensa que va a leer el generador: esta
+            // página ya la tenía consultada para el texto de abajo.
+            metaReal: metaDelPase,
+            // EN CERO, no a la mitad.
+            //
+            // `VistaPase` muestra por defecto medio saldo, que es lo
+            // correcto en el creador: una tarjeta al 0 % se ve vacía y
+            // no se entiende que avanza. Pero acá la mira alguien que
+            // TODAVÍA NO tiene la tarjeta, y un «100 puntos» de adorno
+            // en esa pantalla no es una ilustración: es una promesa.
+            saldoEjemplo: 0,
+          }}
+          superficie="oscura"
+        />
       </div>
 
       <h1 className="mt-7 text-xl font-bold text-white">Tu tarjeta de {nombreNegocio}</h1>

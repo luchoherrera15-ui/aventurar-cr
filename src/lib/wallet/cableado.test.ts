@@ -224,9 +224,26 @@ describe("de la fila de programa_lealtad al pass.json", () => {
   it("los ocho tipos salen con texto propio, ninguno cae en el genérico", () => {
     const etiquetas = TIPOS_TARJETA_ID.map((tipo) => encabezado(passDeLaFila(fila(tipo))).label);
     // Si un tipo nuevo se olvida, su etiqueta cae en «PUNTOS» y esto lo
-    // delata: solo 'puntos' (y 'sellos' sin recompensa) pueden decirlo.
-    expect(etiquetas.filter((e) => e === "PUNTOS")).toHaveLength(2);
+    // delata: el ÚNICO que puede decir «PUNTOS» es 'puntos'.
+    //
+    // Antes eran dos, y el segundo era un bug con forma de excepción:
+    // una tarjeta de SELLOS sin fila en `recompensas` se caía a la rama
+    // genérica y el cliente veía «PUNTOS 0» en el teléfono. Desde el
+    // 1 sep 2026 la meta se saca del `beneficio` cuando la tabla vieja
+    // no dice nada, así que ya no hay ningún caso legítimo.
+    expect(etiquetas.filter((e) => e === "PUNTOS")).toHaveLength(1);
     for (const e of etiquetas) expect(e.trim()).not.toBe("");
+  });
+
+  it("una tarjeta de sellos SIN fila en recompensas sigue siendo de sellos", () => {
+    // El caso de los programas sembrados: `beneficio` dice «10 sellos,
+    // café gratis» y `recompensas` está vacía. El pase tiene que leer
+    // el beneficio, no rendirse y mostrar puntos.
+    // `meta` sin pasar = null, que es exactamente el caso.
+    const p = passDeLaFila(fila("sellos"));
+    expect(encabezado(p).label).toBe("SELLOS");
+    expect(encabezado(p).value).toContain("/");
+    expect(encabezado(p).label).not.toBe("PUNTOS");
   });
 });
 
