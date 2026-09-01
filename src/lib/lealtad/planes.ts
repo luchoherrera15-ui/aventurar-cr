@@ -569,9 +569,10 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
       // un plan sin costo quede con programas ilimitados.
       programas: 1,
       // UNA notificación por mes calendario, y es del NEGOCIO, no de la
-      // tarjeta (ver `LimitesPlan.notificacionesMes`). Mismo número que
-      // Starter: el paquete gratis alcanza para probar el botón, no
-      // para operar una campaña.
+      // tarjeta (ver `LimitesPlan.notificacionesMes`). El paquete gratis
+      // alcanza para PROBAR el botón, no para operar una campaña: con 1
+      // al mes, una campaña automática semanal (0226) se queda sin cupo
+      // el segundo martes. Es a propósito — ahí empieza Starter.
       notificacionesMes: 1,
       // CERO ubicaciones: Geo-Push arranca en Impulso (dueño, ago
       // 2026). La pantalla del panel no la esconde — la muestra
@@ -638,9 +639,15 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
       // cuenta de la 0142 eso ya no pasa —los 100 son 100 sumando las
       // dos— y el escalón puede ser lo que el dueño aprobó.
       programas: 2,
-      // DOS al mes (dueño, ago 2026): el paquete de $12 manda avisos
-      // puntuales; la campaña seguida está en Impulso (15).
-      notificacionesMes: 2,
+      // DIEZ al mes (dueño, 1 sep 2026 — antes eran 2).
+      //
+      // El número subió cuando llegaron las campañas automáticas
+      // (0226): un día de la semana marcado son ~4,3 envíos al mes, así
+      // que con 2 el paquete no aguantaba ni UNA campaña completa —
+      // salía dos semanas y las otras dos no, que es la peor versión de
+      // la función. Con 10 entran dos días por semana y sobra para un
+      // aviso suelto.
+      notificacionesMes: 10,
       // CERO: Geo-Push arranca en Impulso (dueño, ago 2026) — es el
       // gancho para subir de paquete. La sección se ve bloqueada, no
       // escondida.
@@ -671,9 +678,14 @@ export const PLANES: Record<PlanId, DefinicionPlan> = {
     limites: {
       clientesActivos: 1_000,
       programas: 5,
-      // QUINCE al mes (dueño, ago 2026): el salto real contra las dos
-      // de Starter, sin llegar al spam.
-      notificacionesMes: 15,
+      // CINCUENTA al mes (dueño, 1 sep 2026 — antes eran 15).
+      //
+      // Con campañas automáticas (0226), 50 son los siete días de la
+      // semana programados (~30 al mes) y todavía sobra margen para los
+      // avisos sueltos. El escalón contra los 10 de Starter sigue siendo
+      // claro: Starter programa un par de días, Impulso programa la
+      // semana entera.
+      notificacionesMes: 50,
       // TRES: el negocio con clientela suele tener más de un punto (el
       // local, la feria del sábado, el punto de retiro). IMPULSO ES EL
       // PRIMERO QUE TRAE UBICACIONES — decisión del dueño: Geo-Push es

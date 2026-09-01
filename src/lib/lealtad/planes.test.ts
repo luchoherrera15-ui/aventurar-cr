@@ -721,15 +721,28 @@ describe("no se promete lo que no existe", () => {
     }
   });
 
-  it("el cupo de notificaciones es 1/2/15/ilimitado", () => {
-    // Los números que fijó el dueño en ago 2026:
-    // Prueba: 1 por mes · Starter ($12): 2 · Impulso: 15
+  it("el cupo de notificaciones es 1/10/50/ilimitado", () => {
+    // Los números que fijó el dueño el 1 sep 2026 (antes 1/2/15):
+    // Prueba: 1 por mes · Starter ($12): 10 · Impulso: 50
     // Ilimitado: sin tope (null = «ilimitadas», ver
     // `etiquetaNotificacionesDe`).
+    //
+    // Subieron con las campañas automáticas (0226): un día de la
+    // semana programado son ~4,3 envíos al mes, así que con los 2 de
+    // antes Starter no aguantaba ni una campaña entera.
     expect(PLANES.prueba.limites.notificacionesMes).toBe(1);
-    expect(PLANES.arranque.limites.notificacionesMes).toBe(2);
-    expect(PLANES.impulso.limites.notificacionesMes).toBe(15);
+    expect(PLANES.arranque.limites.notificacionesMes).toBe(10);
+    expect(PLANES.impulso.limites.notificacionesMes).toBe(50);
     expect(PLANES.ilimitado.limites.notificacionesMes).toBeNull();
+  });
+
+  // La razón de ser de los números de arriba: que una campaña semanal
+  // quepa. Si alguien vuelve a bajar el cupo, esto se pone en rojo
+  // antes de que un cliente descubra que su promo dejó de salir.
+  it("Starter aguanta una campaña semanal; Impulso, la semana entera", () => {
+    const porMes = (dias: number) => Math.round(dias * (52 / 12));
+    expect(PLANES.arranque.limites.notificacionesMes!).toBeGreaterThanOrEqual(porMes(2));
+    expect(PLANES.impulso.limites.notificacionesMes!).toBeGreaterThanOrEqual(porMes(7));
   });
 
   it("Geo-Push (ubicaciones) arranca en Impulso", () => {
@@ -757,8 +770,8 @@ describe("no se promete lo que no existe", () => {
   it("mandar notificaciones lo puede hacer cualquier paquete — lo que cambia es el número", () => {
     for (const id of PLANES_OFRECIDOS) expect(puede(id, "notificaciones")).toBe(true);
     expect(etiquetaNotificacionesDe(PLANES.prueba)).toBe("1 notificación al mes");
-    expect(etiquetaNotificacionesDe(PLANES.arranque)).toBe("2 notificaciones al mes");
-    expect(etiquetaNotificacionesDe(PLANES.impulso)).toBe("15 notificaciones al mes");
+    expect(etiquetaNotificacionesDe(PLANES.arranque)).toBe("10 notificaciones al mes");
+    expect(etiquetaNotificacionesDe(PLANES.impulso)).toBe("50 notificaciones al mes");
     // Ilimitado ya no lleva número: `null` se traduce a la frase.
     expect(etiquetaNotificacionesDe(PLANES.ilimitado)).toBe(
       "Notificaciones ilimitadas al pase del cliente",

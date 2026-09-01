@@ -1,0 +1,46 @@
+name: Campañas de Lealtad — el barrido horario
+
+# LAS PROMOS QUE SE MANDAN SOLAS (0226).
+#
+# El negocio marca «los miércoles a las 9» en su panel y el aviso sale
+# sin que nadie se acuerde. Este job es el que lo hace salir.
+#
+# CADA HORA EN PUNTO, y no una vez al día, porque cada campaña elige su
+# hora: el «2×1 todo el día» avisa a las 9 de la mañana y el «happy hour
+# de 5 a 7» a las 3 de la tarde. Con un solo disparo diario habría que
+# mandarlas todas a la misma hora, que era justo lo que se descartó.
+#
+# POR QUÉ ACÁ Y NO EN vercel.json: el mismo motivo que los otros cuatro
+# crons de este repo — en el plan Hobby, Vercel solo acepta crons
+# DIARIOS y rechaza el deploy ENTERO si encuentra uno más frecuente, sin
+# dejar rastro en la lista de deployments.
+#
+# EL ENVÍO DOBLE NO ES UN RIESGO: la tabla `campanas_lealtad_envios`
+# tiene PK (campana_id, dia) y el barrido inserta ANTES de mandar. Si
+# este job se dispara dos veces —o alguien lo corre a mano mientras
+# corre solo—, el segundo choca contra la PK y no manda nada.
+#
+# SI UNA CORRIDA SE PIERDE, esa promo NO se recupera: mandarla dos horas
+# tarde es peor que no mandarla. Por eso importa que el fallo se vea acá.
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: campanas-lealtad
+  # Sin cancelar la que está corriendo: si una corrida se solapa con la
+  # siguiente, la que ya empezó está a mitad de hablar con Apple y
+  # cortarla dejaría el envío por la mitad. El candado de la base ya
+  # impide que la segunda repita nada.
+  cancel-in-progress: false
+
+jobs:
+  barrer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar a /api/lealtad/campanas
+        run: |
+          curl -sf --max-time 120 \
+            "https://www.bookea.lat/api/lealtad/campanas" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

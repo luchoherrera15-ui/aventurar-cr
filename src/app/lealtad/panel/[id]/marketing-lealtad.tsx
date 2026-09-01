@@ -10,6 +10,8 @@ import {
 } from "@/components/panel/sistema";
 import MarketingMensaje from "./marketing-mensaje";
 import TablaMarketing from "./marketing-tabla";
+import CampanasCalendario from "./campanas-calendario";
+import { resumenDeCampanas } from "./campanas-actions";
 
 /**
  * MARKETING — probar, contra un pase real, que el aviso de cambio
@@ -58,12 +60,47 @@ export default async function MarketingLealtad({
     );
   }
 
-  const resultado = await listarPasesDelPrograma(ranchoId, programaId);
+  // Las dos consultas van juntas: son tablas distintas y ninguna
+  // depende de la otra, así que encadenarlas solo sumaría espera.
+  const [resultado, campanas] = await Promise.all([
+    listarPasesDelPrograma(ranchoId, programaId),
+    resumenDeCampanas(ranchoId, programaId),
+  ]);
 
   return (
     <div className={`flex flex-col ${GAP_TABLERO}`}>
       {titulo}
       <MarketingMensaje ranchoId={ranchoId} programaId={programaId} />
+
+      {/* ── CAMPAÑAS AUTOMÁTICAS (0226) ─────────────────────────
+          Va DESPUÉS del envío manual y no antes: el manual es la
+          acción de hoy —«mandá esto ahora»— y esto es la regla que
+          queda puesta. Quien entra apurado a avisar algo lo
+          encuentra primero.
+
+          Si la 0226 no está corrida, `resumenDeCampanas` devuelve el
+          motivo con el número de migración y se pinta como aviso en
+          vez de tumbar la sección entera. */}
+      <div>
+        <p className={EYEBROW_NEUTRO}>Campañas automáticas</p>
+        <p className={`mt-1 ${BAJADA_PANTALLA}`}>
+          Marcá un día de la semana y el aviso sale solo, todas las semanas, a la hora que
+          elijas.
+        </p>
+        <div className="mt-3">
+          {campanas.ok ? (
+            <CampanasCalendario
+              ranchoId={ranchoId}
+              programaId={programaId}
+              inicial={campanas.datos}
+            />
+          ) : (
+            <p className={`${RADIO_TILE} px-4 py-3 text-[13px] font-bold ${ESTADO_AVISO.alerta}`}>
+              {campanas.motivo}
+            </p>
+          )}
+        </div>
+      </div>
       {!resultado.ok ? (
         /* El error usa el estado `alerta` del sistema en vez de un rojo
            propio: `text-red-200` sobre `bg-red-500/10` daba 5,0:1 pero
