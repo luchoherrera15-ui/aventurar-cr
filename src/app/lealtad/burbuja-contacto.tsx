@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useSyncExternalStore } from "react";
 import { enviarConsultaLanding } from "./contacto-actions";
 import { enlaceWhatsapp } from "@/lib/contacto-bookea";
@@ -293,23 +294,54 @@ export default function BurbujaContacto() {
         </div>
       )}
 
-      {/* ── El botón flotante ───────────────────────────────────── */}
+      {/* ── El botón flotante ─────────────────────────────────────
+          Pedido del dueño (31 ago 2026): acá había una burbuja con el
+          globito de chat de siempre, y nadie sabe qué hay del otro
+          lado de un globito. Ahora lleva la B de Bookea y dice para
+          qué es, que es lo único que hace que alguien lo toque.
+
+          El cuadro es NAVY y no del azul de acción: el icono de la
+          marca es una B navy sobre blanco, y sobre el azul de acción
+          quedaba un bloque azul dentro de otro. Sobre navy, el
+          cuadrito blanco del logo se recorta solo.
+
+          Abierto se encoge al círculo con la ✕: con el panel arriba,
+          un botón ancho que repite «ayuda personalizada» compite con
+          lo que la persona ya está leyendo. */}
       <button
         type="button"
         onClick={alternarBurbujaContacto}
-        aria-label={abierta ? "Cerrar el chat" : "Hablar con Bookea"}
+        aria-label={abierta ? "Cerrar el chat" : "Pedir ayuda personalizada a Bookea"}
         aria-expanded={abierta}
-        className="presionable fixed bottom-5 right-5 z-[70] flex h-14 w-14 items-center justify-center rounded-full border-2 shadow-2xl transition-transform hover:scale-105"
-        style={{ background: ACCION, color: ACCION_TINTA, borderColor: ARO_SOBRE_OSCURO }}
+        className={`presionable fixed bottom-5 right-5 z-[70] flex items-center justify-center border-2 shadow-2xl transition-transform hover:scale-105 ${
+          abierta ? "h-14 w-14 rounded-full" : "w-[104px] flex-col gap-1.5 rounded-2xl px-3 py-3"
+        }`}
+        style={{
+          background: abierta ? ACCION : "var(--navy)",
+          color: ACCION_TINTA,
+          borderColor: ARO_SOBRE_OSCURO,
+        }}
       >
         {abierta ? (
           <span aria-hidden className="text-[22px] font-bold">
             ✕
           </span>
         ) : (
-          <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
-            <path d="M12 2C6.48 2 2 5.94 2 10.8c0 2.76 1.44 5.22 3.7 6.83-.16 1.14-.6 2.63-1.55 3.9a.5.5 0 0 0 .5.77c2.02-.4 3.66-1.28 4.72-2 .84.2 1.72.3 2.63.3 5.52 0 10-3.94 10-8.8S17.52 2 12 2Z" />
-          </svg>
+          <>
+            <Image
+              src="/icono-bookea-v2.png"
+              alt=""
+              aria-hidden
+              width={40}
+              height={40}
+              className="h-9 w-9 rounded-[10px]"
+            />
+            <span className="text-[9.5px] font-extrabold uppercase leading-[1.15] tracking-[0.04em] text-white">
+              ¡Ayuda
+              <br />
+              personalizada!
+            </span>
+          </>
         )}
       </button>
     </>

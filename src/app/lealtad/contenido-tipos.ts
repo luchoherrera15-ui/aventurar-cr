@@ -77,7 +77,7 @@ export const FICHAS: Record<TipoTarjeta, FichaTipo> = {
       {
         icono: "sellos",
         titulo: "Vos ponés la meta",
-        texto: "De 1 a 100 sellos, y qué se gana al completarlos. La tarjeta muestra «7 de 10».",
+        texto: "De 1 a 15 sellos, y qué se gana al completarlos. La tarjeta muestra «7 de 10».",
       },
       {
         icono: "regalo",

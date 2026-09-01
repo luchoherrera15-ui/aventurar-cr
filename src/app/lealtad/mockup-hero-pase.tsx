@@ -53,6 +53,12 @@ type DemoTipo = {
   recompensa: string;
   popup: { titulo: string; sub: string; detalle: string };
   notificacion: { titulo: string; texto: (valor: number) => string };
+  /**
+   * La promo que el negocio manda desde su panel y cae al pase. Es lo
+   * que se ve en la pila de avisos de la izquierda del teléfono.
+   * `previa` es la promo anterior, la que asoma por detrás.
+   */
+  promo: { titulo: string; texto: string; previa: string };
 };
 
 const DEMOS: DemoTipo[] = [
@@ -78,6 +84,11 @@ const DEMOS: DemoTipo[] = [
       titulo: "✓ Nuevo sello agregado",
       texto: (v) => `Llevás ${v}/10 sellos en Café Aurora.`,
     },
+    promo: {
+      titulo: "Miércoles de 2×1 ☕",
+      texto: "En cualquier bebida caliente. Mostrá tu tarjeta en caja.",
+      previa: "Tu café número 10 va por la casa",
+    },
   },
   {
     negocio: FICHAS.puntos.negocio,
@@ -101,6 +112,11 @@ const DEMOS: DemoTipo[] = [
       titulo: "✓ Puntos actualizados",
       texto: (v) => `Llevás ${v} puntos en ${FICHAS.puntos.negocio}.`,
     },
+    promo: {
+      titulo: "20 % de descuento hoy 🛒",
+      texto: "Solo por hoy en frutas y verduras. Canjeá con tu tarjeta.",
+      previa: "Sumaste 40 puntos en tu última compra",
+    },
   },
   {
     negocio: FICHAS.cashback.negocio,
@@ -123,6 +139,11 @@ const DEMOS: DemoTipo[] = [
     notificacion: {
       titulo: "✓ Cashback acreditado",
       texto: (v) => `Llevás ₡${v.toLocaleString("es-CR")} en ${FICHAS.cashback.negocio}.`,
+    },
+    promo: {
+      titulo: "Tu saldo te alcanza 💧",
+      texto: "Ya podés usar tu cashback en el próximo lavado.",
+      previa: "5 % de vuelta en cada lavado",
     },
   },
 ];
@@ -193,7 +214,7 @@ export default function MockupHeroPase() {
       <MarcoIPhone
         ancho="w-[268px] sm:w-[287px]"
         fondoPantalla="#f7f8fb"
-        className="relative z-[4] rotate-[1.5deg]"
+        className="relative z-[4]"
         conBrillo={false}
       >
           <div className="flex justify-between px-5 pt-4 text-[11px] font-bold text-[#0d1733]">
@@ -300,6 +321,42 @@ export default function MockupHeroPase() {
           <div className="mx-4 mt-3 rounded-xl border border-[#e6e8ee] bg-white p-3 text-center text-[11px] font-bold text-[#0d1733]">
              Agregar a Apple Wallet
           </div>
+
+          {/* ── LOS AVISOS QUE LE LLEGAN AL CLIENTE ───────────────
+              Debajo de la isla dinámica (`z-[19]` contra su `z-20`),
+              como en un iPhone de verdad: el banner pasa por abajo
+              de la isla, nunca por encima.
+
+              Los dos se turnan —primero la promo del negocio, después
+              el aviso del sello— y el reparto de tiempos vive en el
+              CSS (`.notif-promo` / `.notif-sello`), no acá: es una
+              coreografía, y en JS serían dos temporizadores más que
+              mantener sincronizados con el ciclo del hero.
+
+              La `key` con `demoIdx` es lo que los hace VOLVER a
+              llegar en cada vuelta: sin ella React reusa el nodo, la
+              animación no se reinicia y el aviso se muestra una sola
+              vez en toda la visita. */}
+          <div aria-hidden className="pointer-events-none absolute inset-x-[9px] top-[40px] z-[19]">
+            <AvisoIOS
+              key={`promo-${demoIdx}`}
+              clase="notif-promo"
+              corriendo={vivo}
+              app={demo.negocio}
+              inicial={demo.negocio.trim().charAt(0)}
+              fondoIcono={`linear-gradient(140deg,${demo.colores[1]},${demo.colores[2]})`}
+              titulo={demo.promo.titulo}
+              texto={demo.promo.texto}
+            />
+            <AvisoIOS
+              key={`sello-${demoIdx}`}
+              clase="notif-sello"
+              corriendo={vivo}
+              app="Bookea Lealtad"
+              titulo={fase === "completa" || valor >= demo.meta ? demo.logrado : demo.notificacion.titulo}
+              texto={demo.notificacion.texto(valor)}
+            />
+          </div>
       </MarcoIPhone>
 
       {/* ── Puntitos de progreso: qué tipo se está mostrando ahora ──
@@ -323,9 +380,10 @@ export default function MockupHeroPase() {
         ))}
       </div>
 
+
       {/* ── Flotante: personalización (arriba derecha, solo desde sm) ── */}
       <div
-        className="absolute right-0 top-[68px] z-[7] hidden w-[176px] rounded-2xl border border-[#e6eaf3]/90 bg-white/95 p-4 backdrop-blur-xl sm:block lg:-right-3"
+        className="absolute right-0 top-[104px] z-[7] hidden w-[176px] rounded-2xl border border-[#e6eaf3]/90 bg-white/95 p-4 backdrop-blur-xl sm:block lg:-right-3"
         style={{ boxShadow: "0 22px 55px rgba(16,30,66,.15)" }}
       >
         <h4 className="text-[11px] font-extrabold text-[#0d1733]">Personalizá tu tarjeta</h4>
@@ -355,12 +413,22 @@ export default function MockupHeroPase() {
         </div>
       </div>
 
-      {/* ── Flotante inferior: notificación o FELICIDADES ────────────
+      {/* ── Flotante inferior: la FELICITACIÓN ───────────────────────
           Centrada bajo el teléfono en móvil (donde el panel de arriba
           está oculto): antes vivía pegada a `left-0`, y sin la tarjeta
           de la derecha para hacerle contrapeso la composición se leía
-          corrida — pedido explícito: "que el iPhone se vea centrado". */}
-      {canjeada ? (
+          corrida — pedido explícito: "que el iPhone se vea centrado".
+
+          Acá al lado vivía TAMBIÉN el aviso de «nuevo sello agregado»,
+          y se mudó adentro del teléfono (1 sep 2026). Era un aviso que
+          decía «Bookea Lealtad · Ahora» pero estaba quieto, afuera del
+          marco y visible desde que cargaba la página: tenía la forma de
+          una notificación sin ser una.
+
+          Esta tarjeta se queda afuera y a propósito: no es un push, es
+          el remate de la historia —la recompensa reclamada— y necesita
+          el tamaño que adentro de la pantalla no tendría. */}
+      {canjeada && (
         <div
           key="popup"
           className="entra-suave absolute bottom-[54px] left-1/2 z-[7] w-[240px] -translate-x-1/2 rounded-2xl border-2 bg-white px-4 py-4 sm:bottom-[44px] sm:left-2 sm:translate-x-0 lg:left-0"
@@ -379,23 +447,85 @@ export default function MockupHeroPase() {
           </p>
           <p className="mt-1 text-[10.5px] leading-relaxed text-[#667085]">{demo.popup.detalle}</p>
         </div>
-      ) : (
-        <div
-          key="notificacion"
-          className="absolute bottom-[64px] left-1/2 z-[7] w-[218px] -translate-x-1/2 rounded-2xl border border-[#e6eaf3]/90 bg-white/95 px-4 py-3.5 backdrop-blur-xl sm:bottom-[54px] sm:left-2 sm:translate-x-0 lg:left-0"
-          style={{ boxShadow: "0 22px 55px rgba(16,30,66,.15)" }}
-        >
-          <p className="text-[9.5px] font-bold uppercase tracking-wide text-[#8a91a4]">
-            Bookea Lealtad · Ahora
-          </p>
-          <p className="mt-1 text-[12px] font-extrabold text-[#0d1733]">
-            {fase === "completa" || valor >= demo.meta ? demo.logrado : demo.notificacion.titulo}
-          </p>
-          <p className="mt-1 text-[10px] leading-relaxed text-[#667085]">
-            {demo.notificacion.texto(valor)}
-          </p>
-        </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * UN AVISO DE iOS, DIBUJADO.
+ *
+ * Lo que hace que se lea como una notificación de verdad y no como una
+ * tarjeta blanca son cuatro cosas, y las cuatro están acá:
+ *
+ *   · el VIDRIO — fondo translúcido con `backdrop-blur`, no blanco
+ *     sólido: en un iPhone se ve lo que hay debajo, y acá debajo está
+ *     el pase, que es justo lo que no queremos tapar del todo;
+ *   · el ÍCONO CUADRADO redondeado a la izquierda, del tamaño exacto
+ *     que usa el sistema en proporción al texto;
+ *   · el RENGLÓN DE ARRIBA con el nombre de quien manda y la hora
+ *     («ahora»), en versalitas grises;
+ *   · el radio GRANDE (20px). Un radio chico lo devuelve a «card».
+ *
+ * `clase` es la que le toca su turno en la coreografía (ver
+ * `.notif-promo` / `.notif-sello` en globals.css). El componente no
+ * sabe cuándo entra ni cuánto se queda: eso es de la página.
+ */
+function AvisoIOS({
+  clase,
+  corriendo,
+  app,
+  inicial = "b",
+  fondoIcono = "var(--navy)",
+  titulo,
+  texto,
+}: {
+  clase: string;
+  /** false = el hero está fuera de pantalla: se congela donde está. */
+  corriendo: boolean;
+  app: string;
+  /** La letra del ícono. Por defecto la «b» de Bookea. */
+  inicial?: string;
+  /** El fondo del ícono. Por defecto el navy de la marca. */
+  fondoIcono?: string;
+  titulo: string;
+  texto: string;
+}) {
+  return (
+    <div
+      className={`${clase} absolute inset-x-0 top-0 flex items-start gap-2 rounded-[20px] px-2.5 py-2 backdrop-blur-xl`}
+      style={{
+        // Vidrio claro sobre lo que haya debajo, con el filo de luz de
+        // arriba que el sistema le pone al material. El alfa acá es
+        // DECORACIÓN (la superficie), no un estado: la regla de no usar
+        // alfa habla de marcar estados con opacidad.
+        background: "rgba(255,255,255,.86)",
+        boxShadow: "0 10px 30px rgba(10,20,50,.20), inset 0 1px 0 rgba(255,255,255,.9)",
+        animationPlayState: corriendo ? "running" : "paused",
+      }}
+    >
+      <span
+        aria-hidden
+        className="mt-[1px] grid h-[19px] w-[19px] shrink-0 place-items-center rounded-[6px] text-[9px] font-extrabold uppercase text-white"
+        style={{ background: fondoIcono }}
+      >
+        {inicial}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-baseline gap-1">
+          {/* El nombre se trunca en vez de partirse en dos renglones:
+              el alto del banner es fijo en iOS y un nombre largo no lo
+              estira, lo recorta. */}
+          <span className="min-w-0 flex-1 truncate text-[8px] font-bold uppercase tracking-[0.06em] text-[#8a91a4]">
+            {app}
+          </span>
+          <span className="shrink-0 text-[8px] font-bold text-[#a2a8b6]">ahora</span>
+        </span>
+        <span className="mt-[2px] block text-[10.5px] font-extrabold leading-tight text-[#0d1733]">
+          {titulo}
+        </span>
+        <span className="mt-[1px] block text-[9px] leading-snug text-[#667085]">{texto}</span>
+      </span>
     </div>
   );
 }

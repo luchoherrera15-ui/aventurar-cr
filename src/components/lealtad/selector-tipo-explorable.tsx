@@ -1,7 +1,7 @@
 "use client";
 
 import { TIPOS_TARJETA_LISTA, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
-import { planQueDesbloquea, tiposDelPlan } from "@/lib/lealtad/planes";
+import { planQueDesbloquea, tiposDelPlan, type PlanId } from "@/lib/lealtad/planes";
 import { Icono, type NombreIcono } from "@/app/lealtad/panel/[id]/iconos";
 
 /**
@@ -16,23 +16,39 @@ import { Icono, type NombreIcono } from "@/app/lealtad/panel/[id]/iconos";
  * de armar el badge escrita dos veces se desincroniza la primera vez
  * que alguien la retoque en un solo lado.
  *
- * A propósito NO es `SelectorTipo` (`./selector-tipo.tsx`): ese
- * componente bloquea con `aria-disabled` + un `onClick` que ignora el
- * tipo si está bloqueado — correcto en el panel post-firma, donde el
- * plan ya es real y pagado. Acá el plan todavía no existe: los ocho
- * tienen que poder elegirse siempre, porque este flujo entero es
- * "explorá gratis, pagá para activar" (el aviso de Modo 2/paquetes
- * existe precisamente para permitir ese vaivén). Bloquear un tipo acá
- * cerraría la exploración que el dueño pidió.
+ * ------------------------------------------------------------------
+ * ⚠️ EL `plan` MANDA CUANDO VIENE — Y NO SIEMPRE VIENE
+ * ------------------------------------------------------------------
+ * Sin `plan` los ocho se pueden elegir: es la vitrina de la landing,
+ * donde todavía no hay paquete y el flujo es «explorá gratis, pagá
+ * para activar». Ahí bloquear cerraría la exploración.
+ *
+ * PERO desde que el asistente arranca eligiendo el paquete (paso 1),
+ * cuando llega al tipo el plan YA está decidido, y dejar elegir uno
+ * que ese paquete no incluye es prometer algo que se cae al final:
+ * `validarTarjetaDeAlta` valida el tipo contra el paquete y rebota el
+ * alta después de que la persona armó la tarjeta entera (dueño, 31
+ * ago 2026: «si escojo el plan Starter me deja elegir algunos que son
+ * solo de Impulso»).
+ *
+ * Los bloqueados NO se esconden: se ven apagados con su badge, que es
+ * lo que convierte un «no puedo» en un «con qué paquete sí».
  */
 export default function SelectorTipoExplorable({
   valor,
   alElegir,
+  plan = null,
 }: {
   valor: TipoTarjeta;
   alElegir: (tipo: TipoTarjeta) => void;
+  /**
+   * El paquete ya elegido. `null` = la vitrina, sin paquete todavía:
+   * ahí los ocho se pueden tocar.
+   */
+  plan?: PlanId | null;
 }) {
   const tiposGratis = tiposDelPlan("prueba");
+  const incluidos = plan ? tiposDelPlan(plan) : null;
 
   return (
     <div role="radiogroup" aria-label="Tipo de tarjeta" className="grid grid-cols-4 gap-1.5">
@@ -40,17 +56,30 @@ export default function SelectorTipoExplorable({
         const elegido = t.id === valor;
         const gratis = tiposGratis.includes(t.id);
         const abre = !gratis ? planQueDesbloquea(t.id) : null;
+        // `incluidos === null` = vitrina sin paquete: nada se bloquea.
+        const bloqueado = incluidos !== null && !incluidos.includes(t.id);
         return (
           <button
             key={t.id}
             type="button"
             role="radio"
             aria-checked={elegido}
-            onClick={() => alElegir(t.id)}
+            disabled={bloqueado}
+            title={
+              bloqueado && abre
+                ? `Este tipo viene con el paquete ${abre.nombre}`
+                : undefined
+            }
+            onClick={() => {
+              if (bloqueado) return;
+              alElegir(t.id);
+            }}
             className={`presionable relative flex flex-col items-center gap-1 rounded-xl border px-1.5 py-2 text-center ${
-              elegido
-                ? "border-bookea-azul bg-bookea-azul-suave"
-                : "border-bookea-linea bg-white hover:border-bookea-azul/40"
+              bloqueado
+                ? "cursor-not-allowed border-bookea-linea bg-white opacity-45"
+                : elegido
+                  ? "border-bookea-azul bg-bookea-azul-suave"
+                  : "border-bookea-linea bg-white hover:border-bookea-azul/40"
             }`}
           >
             <span

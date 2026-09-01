@@ -1601,6 +1601,90 @@ body {
    Va con translate3d para que el compositor lo suba a la GPU: es una
    animación infinita en una página que además tiene scroll, y en
    celular la diferencia se siente. */
+/* ═══════════════════════════════════════════════════════════════════
+   LA FRANJA DE BANDERAS DE /lealtad
+   ═══════════════════════════════════════════════════════════════════
+
+   Mismo patrón que el desfile de invitaciones de acá abajo: la lista
+   va DUPLICADA en el JSX y el riel se corre -50%, así que al terminar
+   la primera copia la segunda está donde arrancó la primera y el
+   ciclo no pega el tirón de vuelta.
+
+   `translate3d` y no `translateX`: sube la capa al compositor, que en
+   un teléfono con el scroll activo es la diferencia entre una franja
+   que corre suave y una que tironea.
+
+   Lenta a propósito (38s): esto es fondo, no algo que haya que seguir
+   con la vista mientras se lee el texto de abajo. */
+/* ═══════════════════════════════════════════════════════════════════
+   EL FLUJO DE LA LÍNEA DE PROCESO (/lealtad, «Cómo trabajamos»)
+   ═══════════════════════════════════════════════════════════════════
+
+   Un destello que recorre la línea que une los cinco pasos, para que
+   se lea como un recorrido y no como cinco discos sueltos apoyados
+   sobre una raya.
+
+   Anima SOLO `transform`: el destello es un hijo con ancho fijo
+   dentro de un contenedor con `overflow: hidden`, así que basta con
+   desplazarlo. La alternativa —mover un `background-position` o
+   estirar un `width`— dispara layout o pintado en cada cuadro.
+
+   Va de -100% a 420% de SU PROPIO ancho: el destello mide el 24% de
+   la línea, así que 100/24 ≈ 417% es lo que necesita para cruzarla
+   entera y salir por el otro lado.
+
+   `linear` y no `--ease-bookea`: una corriente que acelera y frena
+   se lee como un objeto que va y viene, no como un flujo. La curva
+   del sistema es para entradas y estados, no para un loop de fondo
+   (mismo criterio que el desfile de banderas de acá arriba). */
+@keyframes flujo-proceso {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(420%, 0, 0);
+  }
+}
+.anim-flujo-proceso {
+  animation: flujo-proceso 3.2s linear infinite;
+}
+/* Se frena al pasar el mouse por la sección, como el resto de los
+   loops de fondo del módulo. */
+.grupo-proceso:hover .anim-flujo-proceso {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-flujo-proceso {
+    animation: none;
+    /* Sin movimiento el destello no aporta nada y encima deja una
+       mancha fija sobre la línea: se esconde. La línea y los discos
+       —que son la información— siguen intactos. */
+    opacity: 0;
+  }
+}
+
+@keyframes banderas-desfile {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+.anim-banderas {
+  animation: banderas-desfile 38s linear infinite;
+  width: max-content;
+}
+/* Se frena al pasar el mouse, para poder buscar un país con calma. */
+.anim-banderas:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-banderas {
+    animation: none;
+  }
+}
+
 @keyframes mini-inv-desfile {
   from {
     transform: translate3d(0, 0, 0);
@@ -2517,4 +2601,89 @@ body {
   /* El cuadro quieto muestra el acto 1: 6 clientes, sin popups extra. */
   .mock-cifra2-nueva { opacity: 0; }
   .mock-cifra2-vieja { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   LOS AVISOS QUE LE CAEN AL TELÉFONO DEL HERO DE /lealtad
+   ═══════════════════════════════════════════════════════════════════
+
+   Pedido del dueño (1 sep 2026): «que las notificaciones lleguen como
+   si fueran reales en el teléfono».
+
+   Antes eran dos tarjetitas flotando AFUERA del marco, quietas, como
+   post-its pegados al mockup. Un aviso que ya está ahí cuando la
+   página carga y nunca se va no se lee como un aviso: se lee como
+   decoración. Lo que lo vuelve real es la LLEGADA — entra deslizándose
+   desde arriba del borde de la pantalla, se queda unos segundos y se
+   va solo, igual que en un iPhone.
+
+   Una sola @keyframes para los dos avisos: las fracciones de entrada
+   (9 %) y de salida (88 %→97 %) son proporcionales, así que cada uno
+   ajusta su ritmo con `animation-duration` y su turno con
+   `animation-delay` en vez de tener su propia curva. Con dos keyframes
+   casi iguales, el día que se toque una la otra se queda atrás.
+
+   Solo `transform` y `opacity`: son las dos que el compositor resuelve
+   sin volver a maquetar la página. `translate3d` y no `translateY`
+   para que la capa suba a la GPU — el hero se anima mientras la
+   persona hace scroll. */
+@keyframes notif-ios {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -150%, 0);
+  }
+  9% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  88% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -150%, 0);
+  }
+}
+
+/* `both` es lo que los mantiene ESCONDIDOS durante su `delay`: sin él,
+   el aviso está a la vista desde el primer cuadro y baja después, que
+   es justo lo contrario de llegar. */
+.notif-promo,
+.notif-sello {
+  animation-name: notif-ios;
+  animation-timing-function: var(--ease-bookea, cubic-bezier(0.22, 1, 0.36, 1));
+  animation-fill-mode: both;
+}
+
+/* Los dos turnos, medidos contra el ciclo del hero (~11,7 s por tipo
+   de tarjeta): la promo del negocio abre, y cuando ya se fue entra el
+   aviso de los sellos, que acompaña el conteo hasta que la tarjeta se
+   completa. Nunca se pisan — un teléfono no muestra dos banners a la
+   vez. */
+.notif-promo {
+  animation-duration: 4.2s;
+  animation-delay: 0.4s;
+}
+.notif-sello {
+  animation-duration: 5.6s;
+  animation-delay: 5.2s;
+}
+
+/* Sin movimiento, los dos avisos se quedan QUIETOS y VISIBLES, uno
+   debajo del otro — no desaparecen. Son información (la promo que
+   manda el negocio y el sello que se acaba de acreditar), y la regla
+   de la casa es que el movimiento se apaga, el contenido no. El
+   `top` del segundo es lo único que cambia: sin él se montarían. */
+@media (prefers-reduced-motion: reduce) {
+  .notif-promo,
+  .notif-sello {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .notif-sello {
+    top: 4.6rem;
+  }
 }

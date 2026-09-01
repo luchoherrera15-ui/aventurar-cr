@@ -22,7 +22,14 @@ import { dataUriPlantillaIcono } from "@/lib/lealtad/plantillas-icono";
 import { PLANTILLAS_FRANJA } from "@/lib/lealtad/plantillas-franjas";
 import { subirImagenAlAlta } from "@/lib/lealtad/subida-alta";
 import { PALETAS, coloresDePaleta, paletaDeLosColores } from "@/lib/lealtad/paletas";
-import { PLANES, esPlanSinCosto, planQueDesbloquea, tiposDelPlan, type PlanId } from "@/lib/lealtad/planes";
+import {
+  PLANES,
+  esPlanOfrecido,
+  esPlanSinCosto,
+  planQueDesbloquea,
+  tiposDelPlan,
+  type PlanId,
+} from "@/lib/lealtad/planes";
 import type { SelloElegido } from "@/lib/lealtad/iconos-sello";
 import {
   TIPOS_TARJETA,
@@ -1031,7 +1038,11 @@ export default function TarjetaFormulario({
               >
                 <div>
                   {esPublico ? (
-                    <SelectorTipoExplorable valor={valor.tipo} alElegir={elegirTipo} />
+                    <SelectorTipoExplorable
+                      valor={valor.tipo}
+                      alElegir={elegirTipo}
+                      plan={esPlanOfrecido(plan) ? plan : null}
+                    />
                   ) : tipoLocked ? (
                     <TipoCerrado tipo={valor.tipo} motivo={candado?.motivo ?? null} />
                   ) : (

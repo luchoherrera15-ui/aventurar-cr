@@ -1,29 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
-import PasosSlider from "./pasos-slider";
+import SeccionTiposTarjeta from "./seccion-tipos-tarjeta";
 import SiteFooter from "@/components/site-footer";
-import { PLANES_VIGENTES } from "@/lib/lealtad/planes";
 import { IMAGEN_OG } from "@/lib/sitio";
 import NavLealtad from "./nav-lealtad";
 import BurbujaContacto from "./burbuja-contacto";
-import MockupCreacion from "./mockup-creacion";
-import MockupEscaneo from "./mockup-escaneo";
-import MockupFidelidad from "./mockup-fidelidad";
-import MockupAnuncios from "./mockup-anuncios";
-import MockupRescate from "./mockup-rescate";
-import MockupHitos from "./mockup-hitos";
-import MockupCercania from "./mockup-cercania";
 import MockupHeroPase from "./mockup-hero-pase";
-import MockupPanelNegocio from "./mockup-panel-negocio";
 import BotonCrearPase from "./boton-crear-pase";
-import DesfileRubros from "./desfile-rubros";
-import BotonAyudaPersonalizada from "./boton-ayuda-personalizada";
-import SelectorTiposLanding from "./selector-tipos-landing";
-import FlujoAutomatizaciones from "./flujo-automatizaciones";
-import SeccionWallets from "./seccion-wallets";
-import SeccionConfianza from "./seccion-confianza";
-import SeccionBeneficios from "./seccion-beneficios";
+import FranjaLatam from "./franja-latam";
+import SeccionPorQue from "./seccion-por-que";
+import SeccionComoTrabajamos from "./seccion-como-trabajamos";
 import PreciosLanding from "./precios-landing";
 import FaqAcordeon from "./faq-acordeon";
 
@@ -141,10 +128,6 @@ export const metadata: Metadata = {
   },
 };
 
-const CUPO_MAX_ANUNCIOS = PLANES_VIGENTES.reduce(
-  (max, p) => Math.max(max, p.limites.notificacionesMes ?? 0),
-  0,
-);
 
 const FAQ: { pregunta: string; respuesta: string }[] = [
   {
@@ -260,16 +243,27 @@ export default async function LealtadPage() {
               Sin apps. Sin tarjetas de cartón.
             </p>
 
-            <div className="mt-8">
-              <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-                <BotonCrearPase variante="primario" grande>
-                  ¡Creá tu tarjeta de fidelidad{" "}
-                  <span className="palabra-gratis">gratis</span>!{" "}
-                  <span aria-hidden>→</span>
-                </BotonCrearPase>
-                <BotonAyudaPersonalizada grande />
-              </div>
-            </div>
+            {/* Acá vivían los dos botones del hero. El de crear se
+                mudó a la barra de arriba (queda a la vista todo el
+                rato, no solo en la primera pantalla) y el de ayuda
+                ya vive en la burbuja flotante de la esquina.
+
+                En su lugar sube la línea de rubros, que estaba abajo
+                de las banderas: es la que contesta «¿esto sirve para
+                MI negocio?», y esa pregunta llega antes que cualquier
+                otra cosa. */}
+            <p className="mt-7 max-w-[54ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
+              Aumentamos las ventas de{" "}
+              <strong className="font-bold text-aventurea-navy">cafeterías</strong>,{" "}
+              <strong className="font-bold text-aventurea-navy">restaurantes</strong>,{" "}
+              <strong className="font-bold text-aventurea-navy">hoteles</strong>,{" "}
+              <strong className="font-bold text-aventurea-navy">barberías</strong>,{" "}
+              <strong className="font-bold text-aventurea-navy">estéticas</strong>,{" "}
+              <strong className="font-bold text-aventurea-navy">salones de belleza</strong>,{" "}
+              <strong className="font-bold text-aventurea-navy">spas</strong> y{" "}
+              <strong className="font-bold text-aventurea-navy">tiendas</strong> en toda
+              Latinoamérica.
+            </p>
 
             {/* ── ACÁ VIVÍAN TRES CARDS DE CIFRAS ────────────────────
                 «Gratis / primera tarjeta», «8 / tipos de tarjeta» y
@@ -290,345 +284,42 @@ export default async function LealtadPage() {
       </section>
 
       {/* ============================================================
-          4 · ¿CÓMO FUNCIONA? — TRES MOCKUPS ANIMADOS E INTERACTIVOS
+          LATINOAMÉRICA — las banderas y para qué negocios sirve.
 
-          Pedido del dueño (ago 2026), textual: «Pondremos 3 mockups
-          animados e interactivos: creación del pase, scan por parte de
-          los clientes, y fidelidad de los clientes y aumento de visitas
-          — QUEREMOS MOCKUPS PROFESIONALES ANIMADOS E INTERACTIVOS».
+          Pedido del dueño (31 ago 2026): «primero las banderas en la
+          parte superior yendo de un lado a otro, todas desde México
+          hasta Argentina, y luego un texto» con los rubros.
 
-          ── QUÉ SE FUE DE ACÁ, Y POR QUÉ ──────────────────────────────
-          Esta franja tenía dos piezas y las dos eran ESTÁTICAS:
-
-            · <AsiFunciona/>      — cuatro pasos de texto con un número
-                                    de fondo. Un folleto, no una demo.
-            · <MockupRecorrido/>  — tres aros conectados por una línea.
-                                    Un diagrama abstracto del escaneo,
-                                    sin un solo pixel de producto real.
-
-          Las dos EXPLICABAN el producto en vez de MOSTRARLO. Los tres
-          mockups nuevos lo muestran, y además se tocan: se elige el
-          tipo de tarjeta y el color, se sella una visita, se compara un
-          cliente con tarjeta contra uno sin ella.
-
-          Los dos componentes viejos siguen enteros en el repo —solo
-          dejaron de importarse acá—, igual que ya pasó con las franjas
-          de la portada. Borrarlos es otra pasada y necesita su visto
-          bueno.
-
-          ── EL ORDEN CUENTA UNA HISTORIA ──────────────────────────────
-          Armás la tarjeta → se la sellás a un cliente → ese cliente
-          vuelve más seguido. Es el ciclo entero del producto, en tres
-          pantallas y sin una línea de texto de más.
+          Va ACÁ, pegada al hero, y no más abajo: quien acaba de leer
+          la promesa grande lo primero que se pregunta es si esto es
+          para su país y para su tipo de negocio. Las dos respuestas
+          están en esta franja.
           ============================================================ */}
-      <section id="como-funciona" className="scroll-mt-20 px-5 py-12 sm:px-8 lg:py-16">
-        <div className="mx-auto w-full max-w-[1120px]">
-          <div data-reveal className="mx-auto max-w-[52ch] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              Paso a paso
-            </p>
-            {/* Titular y bajada más compactos (30 ago 2026): el
-                encabezado de la sección medía ~160px y empujaba el paso
-                fuera de la pantalla. Sigue diciendo lo mismo, ocupando
-                la mitad. */}
-            <h2 className="titulo mx-auto mt-3 max-w-[20ch] text-[clamp(26px,3.6vw,40px)] leading-[1.08] text-aventurea-navy">
-              ¿Cómo funciona?
-            </h2>
-            <p className="mx-auto mt-2.5 text-[15px] leading-relaxed text-aventurea-ink-soft">
-              Tres pantallas, y las tres se tocan. Probá el producto acá mismo, sin crear una
-              cuenta.
-            </p>
-          </div>
+      <FranjaLatam />
 
-          {/* Los tres pasos ya no van apilados: son UN slider (una sola
-              sección) que se pasa con flechas, puntos o deslizando, para
-              que no quede largo ni enredado. Los mockups siguen siendo
-              las mismas demos interactivas. */}
-          <PasosSlider
-            pasos={[
-              {
-                numero: 1,
-                eyebrow: "Creá tu pase",
-                titulo: "Armás la tarjeta y la ves al instante",
-                bajada:
-                  "Elegí el tipo, el color y qué se gana. La vista previa de la derecha es el pase que va a llevar tu cliente en el teléfono.",
-                mockup: <MockupCreacion />,
-              },
-              {
-                numero: 2,
-                eyebrow: "El escaneo",
-                titulo: "Le sellás la visita en dos segundos",
-                bajada:
-                  "Tu cliente muestra su pase, vos lo escaneás desde el panel, y el sello aparece solo en su teléfono. Tocá el botón para verlo.",
-                mockup: <MockupEscaneo />,
-              },
-              {
-                numero: 3,
-                eyebrow: "La fidelidad",
-                titulo: "Y por eso vuelve más seguido",
-                bajada:
-                  "Una tarjeta a medio llenar es una razón para volver a tu negocio y no al de al lado. Cambiá el interruptor para ver la diferencia.",
-                mockup: <MockupFidelidad />,
-              },
-            ]}
-          />
-        </div>
-      </section>
+      <SeccionPorQue />
+
+      <SeccionComoTrabajamos />
 
       {/* ============================================================
-          5 · APPLE WALLET + GOOGLE WALLET — dónde vive la tarjeta.
+          8 · TIPOS DE TARJETAS — el teléfono fijo, el pase que cambia.
+
+          ── ACÁ VIVÍA «¿CÓMO FUNCIONA?» (1 sep 2026) ─────────────────
+          Eran tres pasos en un slider —armás la tarjeta, la sellás, el
+          cliente vuelve— con un mockup interactivo cada uno. Contaban
+          el CICLO del producto.
+
+          El dueño pidió cambiarla por el CATÁLOGO: los ocho tipos de
+          tarjeta, con un teléfono fijo al lado que cambia el pase al
+          elegir. La pregunta que llega a esta altura de la página ya no
+          es «¿cómo se usa?» sino «¿sirve para lo mío?», y ocho pases
+          reales la contestan mejor que tres pasos.
+
+          `PasosSlider`, `MockupCreacion`, `MockupEscaneo` y
+          `MockupFidelidad` siguen enteros en el repo: solo dejaron de
+          importarse acá. Borrarlos es otra pasada.
           ============================================================ */}
-      <section className="bg-aventurea-sky-light/40 px-5 py-24 sm:px-8">
-        <div className="mx-auto w-full max-w-[1120px]">
-          <div data-reveal className="mx-auto max-w-[56ch] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              Apple Wallet · Google Wallet
-            </p>
-            <h2 className="titulo mx-auto mt-4 max-w-[22ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
-              Tu programa vive donde tus clientes ya están.
-            </h2>
-            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Nada de instalar una app aparte: la tarjeta entra directo a la
-              billetera que el teléfono ya trae instalada, junto a la del banco
-              y el pase de abordar.
-            </p>
-          </div>
-          <div data-reveal className="mt-14">
-            <SeccionWallets />
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================
-          6 · SOLUCIONES — elegí el tipo, la tarjeta y la explicación
-          cambian juntas. El único selector interactivo de la página
-          que decide qué mostrar, no solo cómo se ve.
-          ============================================================ */}
-      <section id="soluciones" className="scroll-mt-28 px-5 py-24 sm:px-8">
-        <div className="mx-auto w-full max-w-[1180px]">
-          <div data-reveal className="mx-auto max-w-[56ch] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              Soluciones
-            </p>
-            <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(30px,5vw,54px)] leading-[1.06] text-aventurea-navy">
-              Elegí qué guardan en el teléfono
-            </h2>
-            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Los ocho tipos de tarjeta que el producto arma de verdad. Elegí
-              cada uno y mirá cómo cambia la tarjeta en el teléfono.
-            </p>
-          </div>
-
-          <div data-reveal className="mt-12">
-            <SelectorTiposLanding />
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================
-          7 · TU PANEL — lo que ve el dueño del negocio: las cifras
-          reales (KPIs), la herramienta para escribirle a sus
-          clientes, y por qué se puede confiar en lo que el panel
-          dice. Antes eran tres secciones sueltas ("Resultados" con
-          una tarjetita de tres cifras, "Marketing" y "Confianza");
-          acá son un solo panel con tres pestañas de contenido, que es
-          justamente la metáfora correcta.
-          ============================================================ */}
-      <section id="panel" className="scroll-mt-28 px-5 py-24 sm:px-8">
-        <div className="mx-auto w-full max-w-[1120px]">
-          <div data-reveal className="mx-auto max-w-[56ch] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              El panel del negocio
-            </p>
-            <h2 className="titulo mx-auto mt-4 max-w-[24ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
-              Fidelizás clientes.{" "}
-              <TextoDegradado>Y ves exactamente cuánto compran.</TextoDegradado>
-            </h2>
-            <p className="mx-auto mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Cada sello queda respaldado por su compra: tu panel te dice cuánto
-              venden tus clientes con tarjeta, cuánto gastan por visita y
-              quiénes vuelven.
-            </p>
-          </div>
-
-          <div data-reveal className="mx-auto mt-12 max-w-[880px]">
-            <MockupPanelNegocio />
-            <p className="mt-3 text-center text-[11.5px] font-bold text-aventurea-ink-soft/70">
-              Vista de ejemplo del panel — no son cifras de un negocio real.
-            </p>
-          </div>
-
-          {/* Sub-movimiento: la misma pantalla también te deja
-              escribirle al cliente. Reusa la sección "Marketing"
-              anterior, ahora como parte del panel en vez de una
-              sección propia — es literalmente la misma pestaña. */}
-          <div
-            data-reveal
-            className="mt-20 border-t border-aventurea-line pt-16"
-          >
-            <div className="mx-auto max-w-[54ch] text-center">
-              <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-                Desde el mismo panel
-              </p>
-              <h3 className="titulo mx-auto mt-3 max-w-[20ch] text-[24px] leading-tight text-aventurea-navy sm:text-[30px]">
-                Escribís el anuncio. Les llega al teléfono.
-              </h3>
-              <p className="mx-auto mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">
-                Tus anuncios les llegan como notificación a los clientes que ya
-                tienen tu tarjeta en su Wallet — sin pedir números ni armar
-                listas de correo. Enviás hasta {CUPO_MAX_ANUNCIOS} al mes según
-                tu paquete.
-              </p>
-            </div>
-            <div className="mt-12">
-              <MockupAnuncios />
-            </div>
-          </div>
-
-          {/* Sub-movimiento: por qué se puede confiar en lo de arriba. */}
-          <div
-            data-reveal
-            className="mt-20 border-t border-aventurea-line pt-16"
-          >
-            <p className="mx-auto max-w-[54ch] text-center text-[13px] font-bold uppercase tracking-[0.14em] text-aventurea-ink-soft">
-              Y nada de esto depende de la palabra de nadie
-            </p>
-            <div className="mt-8">
-              <SeccionConfianza />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ============================================================
-          8 · LO QUE CORRE SOLO — automatizaciones reales, cada una
-          etiquetada según si corre sola o con ayuda de un asesor.
-          ============================================================ */}
-      <section className="px-5 pb-4 pt-16 sm:px-8">
-        <div className="mx-auto w-full max-w-[1120px]">
-          <p
-            data-reveal
-            className="mx-auto mb-8 max-w-[62ch] text-center text-[13px] leading-relaxed text-aventurea-ink-soft"
-          >
-            Vos seguís atendiendo tu negocio.{" "}
-            <strong className="text-aventurea-navy">
-              Bookea se encarga de que nadie se olvide de volver.
-            </strong>
-          </p>
-          <div data-reveal className="mx-auto max-w-[56ch] text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              Lo que corre solo
-            </p>
-            <h2 className="titulo mx-auto mt-4 max-w-[22ch] text-[clamp(28px,4.6vw,50px)] leading-[1.08] text-aventurea-navy">
-              Bookea se acuerda, aunque nadie esté pendiente.
-            </h2>
-          </div>
-          <div
-            data-reveal
-            className="mt-10"
-            style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
-          >
-            <FlujoAutomatizaciones />
-          </div>
-        </div>
-      </section>
-
-      {/* ── Franja 1: EL RESCATE (con tu asesor) — mockup de panel ── */}
-      <section className="px-5 pb-20 pt-10 sm:px-8">
-        <div className="mx-auto grid w-full max-w-[1120px] items-center gap-10 lg:grid-cols-2 lg:gap-14">
-          <div data-reveal>
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              Trabaja solo · Con tu asesor
-            </p>
-            <h3 className="titulo mt-4 max-w-[16ch] text-[clamp(26px,4vw,42px)] leading-[1.1] text-aventurea-navy">
-              El cliente que dejó de venir no se pierde solo.
-            </h3>
-            <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
-              La mayoría de los clientes no se van enojados: se van sin darse
-              cuenta. Tu panel te muestra quiénes tenían la tarjeta andando y
-              hace semanas no aparecen. Con tu asesor armás el anuncio que los
-              trae de vuelta, y les llega al teléfono donde ya tienen tus sellos
-              guardados.
-            </p>
-            <p className="mt-5 rounded-xl bg-[#f2f4f8] px-3.5 py-3 text-[12.5px] font-bold text-[#5a6478]">
-              Esta es la única de las tres que hoy hacés con ayuda, no sola — y
-              lo decimos así de claro.
-            </p>
-          </div>
-          <div
-            data-reveal
-            style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
-          >
-            <MockupRescate />
-          </div>
-        </div>
-      </section>
-
-      {/* ── Franja 2: LOS HITOS (automático) — teléfono, sellos + hito ── */}
-      <section className="px-5 py-20 sm:px-8">
-        <div className="mx-auto grid w-full max-w-[1120px] items-center gap-10 lg:grid-cols-2 lg:gap-14">
-          <div data-reveal className="order-2 lg:order-1">
-            <MockupHitos />
-          </div>
-          <div
-            data-reveal
-            className="order-1 lg:order-2"
-            style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
-          >
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              Trabaja solo · Automático
-            </p>
-            <h3 className="titulo mt-4 max-w-[15ch] text-[clamp(26px,4vw,42px)] leading-[1.1] text-aventurea-navy">
-              Los hitos que le importan, sin que nadie se acuerde.
-            </h3>
-            <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
-              El primer sello, el penúltimo y el premio alcanzado salen solos
-              por correo. Son los tres momentos en que un cliente decide si el
-              programa le importa, y ninguno depende de que alguien en tu
-              negocio se acuerde de escribirle.
-            </p>
-            <ul className="mt-5 flex flex-col gap-2 text-[13.5px] font-semibold text-aventurea-navy">
-              <li>
-                🎉 &ldquo;¡Tu tarjeta ya arrancó!&rdquo; — con el primer sello
-              </li>
-              <li>☕ &ldquo;¡Te falta uno!&rdquo; — con el penúltimo</li>
-              <li>
-                🏆 &ldquo;¡Premio desbloqueado!&rdquo; — al completar la meta
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Franja 3: CUANDO PASAN CERCA (automático) — teléfono + mapa ── */}
-      <section className="px-5 pb-24 pt-20 sm:px-8">
-        <div className="mx-auto grid w-full max-w-[1120px] items-center gap-10 lg:grid-cols-2 lg:gap-14">
-          <div data-reveal>
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[color:var(--accion)]">
-              Trabaja solo · Automático
-            </p>
-            <h3 className="titulo mt-4 max-w-[15ch] text-[clamp(26px,4vw,42px)] leading-[1.1] text-aventurea-navy">
-              Un recordatorio justo cuando puede entrar.
-            </h3>
-            <p className="mt-4 max-w-[48ch] text-[15px] leading-relaxed text-aventurea-ink-soft">
-              Con las ubicaciones activadas, el pase aparece en la pantalla del
-              teléfono cuando el cliente está a unas cuadras de tu local. No es
-              un correo que se lee en la noche: es un recordatorio en el momento
-              exacto en que puede entrar.
-            </p>
-            <p className="mt-5 text-[13px] font-bold text-aventurea-ink-soft">
-              📍 Disponible desde el paquete Impulso — mirá &ldquo;Elegí qué
-              guardan en el teléfono&rdquo; más arriba.
-            </p>
-          </div>
-          <div
-            data-reveal
-            style={{ "--reveal-delay": "80ms" } as React.CSSProperties}
-          >
-            <MockupCercania />
-          </div>
-        </div>
-      </section>
+      <SeccionTiposTarjeta />
 
       {/* ============================================================
           9 · PRECIOS — panel navy redondeado, los cuatro paquetes
@@ -747,64 +438,7 @@ export default async function LealtadPage() {
         </div>
       </section>
 
-      {/* ============================================================
-          RUBROS — «¿esto sirve para MI negocio?»
 
-          Pedido del dueño (30 ago 2026): pantallas de teléfono por
-          rubro desfilando solas hacia la derecha, y que la de abajo
-          del cursor se levante.
-
-          Va ACÁ y no más arriba a propósito: cuando alguien llega a
-          esta altura ya entendió QUÉ es el producto (lo contó «¿Cómo
-          funciona?»); lo que le falta saber es si aplica a lo suyo.
-          Seis rubros reconocibles contestan eso sin una línea de
-          venta.
-          ============================================================ */}
-      <section className="overflow-hidden px-0 py-14 sm:py-16">
-        <div className="mx-auto w-full max-w-[1120px] px-5 sm:px-8">
-          <p
-            data-reveal
-            className="text-center text-[13.5px] font-bold text-aventurea-ink-soft"
-          >
-            Funciona en cualquier negocio donde el cliente{" "}
-            <span className="text-aventurea-navy">vuelve</span>.
-          </p>
-          <h2
-            data-reveal
-            className="titulo mx-auto mt-3 max-w-[22ch] text-center text-[clamp(24px,3.2vw,34px)] leading-[1.1] text-aventurea-navy"
-          >
-            Así se le ve a tu cliente
-          </h2>
-        </div>
-
-        {/* El riel va FUERA del contenedor con ancho máximo: tiene que
-            poder salirse por los dos costados de la pantalla, o deja de
-            leerse como algo que sigue de largo. */}
-        <div data-reveal className="mt-8">
-          <DesfileRubros />
-        </div>
-      </section>
-
-      {/* ============================================================
-          BENEFICIOS — cierra el recorrido con cuatro capacidades reales
-          del producto (antes acá vivía el listado "Para qué rubros";
-          pedido del dueño, ago 2026: reemplazarlo por tarjetas con
-          mini-maqueta, ver seccion-beneficios.tsx).
-          ============================================================ */}
-      <section className="px-5 py-16 sm:px-8">
-        <div className="mx-auto w-full max-w-[1120px]">
-          <p
-            data-reveal
-            className="text-center text-[13.5px] font-bold text-aventurea-ink-soft"
-          >
-            Hecho para negocios donde el cliente{" "}
-            <span className="text-aventurea-navy">vuelve</span>.
-          </p>
-          <div data-reveal className="mt-8">
-            <SeccionBeneficios />
-          </div>
-        </div>
-      </section>
 
       <SiteFooter />
     </main>

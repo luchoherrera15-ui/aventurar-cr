@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icono } from "./panel/[id]/iconos";
+import BotonCrearPase from "./boton-crear-pase";
 import { INDUSTRIAS } from "./industrias/datos";
 import { iniciales } from "@/lib/iniciales";
 import { cerrarSesionLealtad } from "./sesion-actions";
@@ -38,6 +39,10 @@ import { createClient } from "@/lib/supabase/client";
  *    Con «/lealtad#soluciones» navega primero y después baja, así que
  *    el mismo menú sirve en todo el módulo.
  *
+ * Quedaron dos y no cuatro: «Soluciones» y «El panel» se fueron con
+ * sus secciones (31 ago 2026), y un ancla sin destino no avisa —
+ * simplemente no hace nada al tocarla.
+ *
  * Cada uno apunta a un `id` que existe en src/app/lealtad/page.tsx. Si
  * allá se renombra una sección, esto se rompe EN SILENCIO: un ancla
  * que no encuentra su id no avisa, simplemente no hace nada.
@@ -46,9 +51,8 @@ import { createClient } from "@/lib/supabase/client";
  * cuando quiere saber cuánto cuesta.
  */
 const ENLACES: { href: string; label: string }[] = [
-  { href: "/lealtad#como-funciona", label: "Cómo funciona" },
-  { href: "/lealtad#soluciones", label: "Soluciones" },
-  { href: "/lealtad#panel", label: "El panel" },
+  { href: "/lealtad#por-que", label: "¿Por qué implementarlo?" },
+  { href: "/lealtad#tipos-de-tarjeta", label: "Tipos de tarjetas" },
   { href: "/lealtad#planes", label: "Precios" },
 ];
 
@@ -242,8 +246,8 @@ export default function NavLealtad(props: {
       <div
         className={`pointer-events-auto mx-auto flex h-16 w-full max-w-[1180px] items-center justify-between gap-4 rounded-full border px-5 backdrop-blur-xl transition-[background-color,border-color,box-shadow,transform] duration-300 sm:px-7 motion-reduce:transition-none ${
           scrolleado
-            ? "-translate-y-0.5 border-aventurea-line bg-white/80 shadow-[0_18px_44px_-20px_rgba(16,38,88,.34)] motion-reduce:translate-y-0"
-            : "translate-y-0 border-transparent bg-white/45 shadow-none"
+            ? "-translate-y-0.5 border-aventurea-line bg-white/90 shadow-[0_18px_44px_-20px_rgba(16,38,88,.34)] motion-reduce:translate-y-0"
+            : "translate-y-0 border-aventurea-line bg-white/85 shadow-[0_10px_30px_-18px_rgba(16,38,88,.28)]"
         }`}
       >
         <Link href="/" className="flex shrink-0 items-center gap-2">
@@ -264,13 +268,13 @@ export default function NavLealtad(props: {
 
         <nav
           aria-label="Secciones de la página"
-          className="hidden items-center gap-7 lg:flex"
+          className="hidden items-center gap-8 lg:flex"
         >
           {ENLACES.map((e) => (
             <a
               key={e.href}
               href={e.href}
-              className="text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+              className="text-[15px] font-medium text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
             >
               {e.label}
             </a>
@@ -284,7 +288,7 @@ export default function NavLealtad(props: {
             <button
               type="button"
               aria-haspopup="true"
-              className="flex items-center gap-1 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+              className="flex items-center gap-1 text-[15px] font-medium text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
             >
               Industrias
               <span
@@ -318,12 +322,12 @@ export default function NavLealtad(props: {
                 onClick={() => setAbiertoCuenta((v) => !v)}
                 aria-haspopup="true"
                 aria-expanded={abiertoCuenta}
-                className="flex items-center gap-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+                aria-label={`Tu cuenta: ${etiquetaCuenta}`}
+                className="flex items-center gap-1.5 text-[15px] font-medium text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
               >
                 <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-aventurea-navy text-[9.5px] font-extrabold text-white">
                   {nombre ? iniciales(nombre) : "✓"}
                 </span>
-                <span className="max-w-[150px] truncate">{etiquetaCuenta}</span>
                 <span
                   aria-hidden
                   className={`text-[9px] transition-transform ${abiertoCuenta ? "rotate-180" : ""}`}
@@ -367,12 +371,16 @@ export default function NavLealtad(props: {
           ) : (
             <Link
               href="/lealtad/ingresar"
-              className="flex items-center gap-1.5 text-[13.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+              className="flex items-center gap-1.5 text-[15px] font-medium text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
             >
               <Icono nombre="perfil" className="h-4 w-4 shrink-0" />
               {etiquetaCuenta}
             </Link>
           )}
+
+          {/* La acción, siempre a la vista: antes vivía en el hero y
+              desaparecía apenas se hacía scroll. */}
+          <BotonCrearPase>¡Creá tu tarjeta ya!</BotonCrearPase>
         </div>
 
         <button
