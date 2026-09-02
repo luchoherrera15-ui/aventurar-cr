@@ -22,6 +22,9 @@ const RUTAS_REALES = [
   // Promos: pantalla propia, para TODO tipo de negocio. No es un
   // módulo justamente por eso — anunciar lo puede hacer cualquiera.
   `/mi-negocio/${ID}/promos`,
+  // Clientes: el módulo CRM (1 sep 2026) — cartera segmentada y ficha
+  // 360° en src/app/mi-negocio/[id]/clientes/.
+  `/mi-negocio/${ID}/clientes`,
 ];
 
 /** Las pestañas que `page.tsx` monta de verdad. */
@@ -84,11 +87,14 @@ describe("itemsMenuNegocio — ningún ítem lleva a un 404", () => {
     expect(menu.map((i) => i.id)).toContain("recetas");
   });
 
-  it("un negocio sin agenda del día no promete clientes ni reportes", () => {
-    // Un lugar de eventos tiene los dos módulos ENCENDIDOS, pero su
-    // única pantalla vive dentro de la agenda de citas, que no tiene.
+  it("un negocio sin agenda del día SÍ tiene clientes, pero no reportes", () => {
+    // Desde la transformación CRM (1 sep 2026) la cartera vive en su
+    // propia pantalla (/clientes) y se deriva de TODAS las reservas,
+    // con hora y sin hora: el cliente de un evento también es un
+    // cliente. Reportes sigue viviendo dentro de la agenda de citas,
+    // que este negocio no tiene.
     const menu = menuDe("eventos_lugar");
-    expect(menu.find((i) => i.id === "clientes")?.destino.clase).toBe("proximamente");
+    expect(menu.find((i) => i.id === "clientes")?.destino.clase).toBe("ruta");
     expect(menu.find((i) => i.id === "reportes")?.destino.clase).toBe("proximamente");
     // Y no duplica Inicio con un ítem de agenda: su calendario del mes
     // ES el cuerpo de Inicio.
@@ -140,7 +146,8 @@ describe("los cuatro negocios vivos (tipo_negocio en NULL)", () => {
       // Y lo que le faltaba: su gente y su equipo, con destino real.
       expect(menu.find((i) => i.id === "clientes")?.destino).toEqual({
         clase: "ruta",
-        href: `/mi-negocio/${ID}/citas#clientes`,
+        // Desde la transformación CRM: la cartera en su propia ruta.
+        href: `/mi-negocio/${ID}/clientes`,
       });
       expect(menu.find((i) => i.id === "equipo")?.destino).toEqual({
         clase: "ruta",

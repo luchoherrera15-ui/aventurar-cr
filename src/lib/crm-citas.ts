@@ -50,6 +50,10 @@ export type ClienteCRM = {
   cumplidas: number;
   noAsistio: number;
   canceladas: number;
+  /** Primera cita CUMPLIDA — desde cuándo es cliente de verdad.
+   *  La usa la segmentación (crm-segmentos.ts): «nuevo» y el ritmo
+   *  de visita se miden desde acá. */
+  primeraVisita: string | null;
   /** Última cita CUMPLIDA — la última vez que de verdad vino. */
   ultimaVisita: string | null;
   /** Próxima cita confirmada (>= hoy), si tiene. */
@@ -174,12 +178,16 @@ export function agruparClientes(
     let noAsistio = 0;
     let canceladas = 0;
     let gastoTotal = 0;
+    let primeraVisita: string | null = null;
     let ultimaVisita: string | null = null;
     let proximaCita: string | null = null;
     for (const c of citas) {
       if (c.estado === "cumplida") {
         cumplidas++;
         gastoTotal += Number(c.monto_total ?? 0);
+        // Las citas vienen en orden cronológico: la primera cumplida
+        // que aparece ES la primera visita.
+        if (primeraVisita === null) primeraVisita = c.fecha;
         ultimaVisita = c.fecha;
       } else if (c.estado === "no_asistio") {
         noAsistio++;
@@ -212,6 +220,7 @@ export function agruparClientes(
       cumplidas,
       noAsistio,
       canceladas,
+      primeraVisita,
       ultimaVisita,
       proximaCita,
       gastoTotal,

@@ -142,13 +142,14 @@ function resolverModulo(
       };
 
     case "clientes":
-      // La única lista de personas que existe hoy vive dentro de la
-      // agenda del día. Sin esa pantalla no hay a dónde mandar a nadie.
+      // El módulo de verdad (transformación CRM, 1 sep 2026): cartera
+      // segmentada + ficha 360° en /clientes. Ya no es el ancla dentro
+      // de la agenda, y ya no depende de la agenda por horas: el
+      // cliente de un evento también es un cliente, así que TODO
+      // negocio con el módulo activo tiene su cartera.
       return {
         label: persona.Plural,
-        destino: p.agendaPorHoras
-          ? { clase: "ruta", href: `${panel}/citas#clientes` }
-          : PROXIMAMENTE,
+        destino: { clase: "ruta", href: `${panel}/clientes` },
       };
 
     case "servicios":
