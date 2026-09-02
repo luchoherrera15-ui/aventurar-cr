@@ -34,6 +34,8 @@ import {
 import type { Reserva } from "@/app/admin/(dashboard)/eventos/types";
 import PanelSidebar, { type Tab } from "./panel-sidebar";
 import DashboardMetricas from "./dashboard-metricas";
+import AtencionClientes from "./atencion-clientes";
+import type { ReservaCliente } from "@/lib/crm-citas";
 import { calcularMetricas, actividadReciente, type ReservaAuditoria } from "./metricas";
 import HistoricoReservas from "./historico-reservas";
 import BarraAvisos, { type Aviso } from "./barra-avisos";
@@ -954,6 +956,16 @@ export default async function RanchoDetallePage({
             />
           </Card>
         )}
+
+        {/* (c½) El bloque CRM: quiénes necesitan atención HOY, con
+            nombre, porqué y link a su ficha. Deriva sobre las reservas
+            que esta página YA cargó — cero consultas nuevas. Si no hay
+            nada que atender, no se pinta. */}
+        <AtencionClientes
+          negocioId={rancho.id}
+          reservas={reservas as unknown as ReservaCliente[]}
+          hoy={hoyCR}
+        />
 
         {/* (d) Las herramientas de ESTE tipo de negocio. Es el bloque
             que hace que un consultorio no se vea como una barbería: lo
