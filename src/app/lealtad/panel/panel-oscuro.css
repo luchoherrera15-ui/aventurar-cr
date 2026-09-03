@@ -55,6 +55,17 @@
   color: var(--orange-claro);
 }
 
+/* Desde sep 2026 `EYEBROW` pinta `text-bookea-azul` (el naranja se fue
+   de los paneles): `--color-bookea-azul` es `--navy`, que dentro de
+   `.lealtad` vale #062653 — sobre la tarjeta oscura sería texto
+   invisible. El kicker usa el azul claro del módulo, el mismo papel
+   que los enlaces:
+     #9db4ff sobre lienzo  #0a1226 ......... 9,42:1 ✅ AAA
+     #9db4ff sobre tarjeta #151d30 .......... 8,32:1 ✅ AA */
+.lealtad-oscuro .text-bookea-azul {
+  color: var(--accion-claro);
+}
+
 /* ── 2 · LOS TÍTULOS ────────────────────────────────────────────────
    `TITULO_PANTALLA` y `TITULO_CARD` usan `text-aventurea-navy`, que
    `.lealtad-oscuro` ya aclara a #9db4ff para que los ENLACES sigan

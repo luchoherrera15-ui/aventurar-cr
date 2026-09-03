@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Sombras, Spacing } from "@/constants/theme";
 import { cargarContextoNegocio, type ModuloId } from "@/lib/business";
 
 /**
@@ -20,8 +20,10 @@ import { cargarContextoNegocio, type ModuloId } from "@/lib/business";
  * Todo lo demás (editar la página, precios, cobros, sincronizar
  * calendarios, equipo y horario) vive un escalón adentro, en
  * Configuración. Se ve formal a propósito: barra blanca con una línea
- * fina arriba y el navy de marca en lo activo, nada de dock de vidrio
- * — ese es el lenguaje del lado del cliente, no el del panel.
+ * fina arriba, y la sección activa lleva su propia card sólida (azul
+ * claro, esquinas cerradas, sombra de tarjeta) con el ícono relleno y
+ * el rótulo en navy — nada de dock de vidrio ni píldoras: ese es el
+ * lenguaje del lado del cliente, no el del panel.
  *
  * BOOKEA BUSINESS: qué destinos aparecen lo deciden los MÓDULOS que el
  * negocio tiene encendidos (src/lib/business.ts), igual que el menú
@@ -34,8 +36,13 @@ import { cargarContextoNegocio, type ModuloId } from "@/lib/business";
 
 export type SeccionPanel = "inicio" | "catalogo" | "finanzas" | "configuracion";
 
-/** Lo que cada pantalla del panel debe dejar libre al final del scroll. */
-export const ALTO_PANEL_NAV = 84;
+/**
+ * Lo que cada pantalla del panel debe dejar libre al final del scroll.
+ * 86 = 6 de paddingTop + 45 de card activa (4+20+3+14+4) + 34 del
+ * inset inferior de un iPhone con gesto, +1 de margen. Subió de 84
+ * cuando el rótulo pasó de 10pt a 11pt con su card detrás.
+ */
+export const ALTO_PANEL_NAV = 86;
 
 type Destino = {
   /** "mensajes" no es una `SeccionPanel`: no tiene pantalla propia
@@ -44,6 +51,9 @@ type Destino = {
    *  compartida (`/?tab=mensajes`), no una sección más para quedarse. */
   id: SeccionPanel | "mensajes";
   label: string;
+  /** Nombre completo para lectores de pantalla cuando `label` viene
+   *  abreviado para caber en su quinto de barra (p. ej. "Config."). */
+  a11y?: string;
   icono: keyof typeof Ionicons.glyphMap;
   iconoActivo: keyof typeof Ionicons.glyphMap;
   ruta: string;
@@ -115,7 +125,11 @@ export default function PanelNav({
       : []),
     {
       id: "configuracion",
-      label: "Configuración",
+      // Abreviado como en la doc de arriba ("… Finanzas · Config."):
+      // con el rótulo a 11pt, "Configuración" entero no cabe en un
+      // quinto de barra y quedaría cortado con puntos suspensivos.
+      label: "Config.",
+      a11y: "Configuración",
       icono: "settings-outline",
       iconoActivo: "settings",
       ruta: `/negocio/${negocioId}/configuracion`,
@@ -142,7 +156,7 @@ export default function PanelNav({
             key={d.id}
             accessibilityRole="button"
             accessibilityState={{ selected: esActiva }}
-            accessibilityLabel={d.label}
+            accessibilityLabel={d.a11y ?? d.label}
             disabled={esActiva}
             // navigate y no push: si la sección ya está en la pila, se
             // vuelve a ella en vez de apilar una copia — moverse entre
@@ -150,14 +164,20 @@ export default function PanelNav({
             onPress={() => router.navigate(d.ruta as never)}
             style={({ pressed }) => [styles.item, pressed && { opacity: 0.7 }]}
           >
-            <Ionicons
-              name={esActiva ? d.iconoActivo : d.icono}
-              size={20}
-              color={esActiva ? Colors.navy : "#8b8f9c"}
-            />
-            <Text style={[styles.label, esActiva && styles.labelActiva]} numberOfLines={1}>
-              {d.label}
-            </Text>
+            {/* La card del destino activo: superficie sólida azul claro
+                con sombra de tarjeta. El destino inactivo lleva la misma
+                caja transparente, así nada se mueve al cambiar de
+                sección — solo aparece la superficie. */}
+            <View style={[styles.caja, esActiva && styles.cajaActiva]}>
+              <Ionicons
+                name={esActiva ? d.iconoActivo : d.icono}
+                size={20}
+                color={esActiva ? Colors.navy : Colors.inkMuted}
+              />
+              <Text style={[styles.label, esActiva && styles.labelActiva]} numberOfLines={1}>
+                {d.label}
+              </Text>
+            </View>
           </Pressable>
         );
       })}
@@ -174,11 +194,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     left: 0,
     paddingHorizontal: Spacing.two,
-    paddingTop: 9,
+    // 6 y no 9: la card activa ya trae aire propio (paddingVertical 4),
+    // y así la barra cierra dentro de los 86pt de ALTO_PANEL_NAV con el
+    // rótulo a 11pt (6 + 45 de card + inset inferior).
+    paddingTop: 6,
     position: "absolute",
     right: 0,
   },
-  item: { alignItems: "center", flex: 1, gap: 3, paddingHorizontal: 2, paddingVertical: 2 },
-  label: { color: "#8b8f9c", fontFamily: Fonts.semiBold, fontSize: 10 },
+  item: { alignItems: "center", flex: 1 },
+  // Ícono + rótulo comparten una sola caja con esquinas cerradas; en
+  // reposo es invisible y en lo activo se vuelve la card sólida.
+  caja: {
+    alignItems: "center",
+    borderRadius: Radios.md,
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  cajaActiva: { backgroundColor: Colors.blueLight, ...Sombras.tarjeta },
+  label: { color: Colors.inkMuted, fontFamily: Fonts.semiBold, fontSize: 11, lineHeight: 14 },
   labelActiva: { color: Colors.navy, fontFamily: Fonts.extraBold },
 });

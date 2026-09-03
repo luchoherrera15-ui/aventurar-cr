@@ -19,7 +19,7 @@ const tarjetaCls = "rounded-2xl border border-aventurea-line bg-aventurea-surfac
 const botonPrimario =
   "rounded-xl bg-aventurea-sky px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-aventurea-sky-dark disabled:opacity-60";
 const botonChico =
-  "h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange disabled:opacity-40";
+  "h-[30px] rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-2.5 text-xs font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-navy disabled:opacity-40";
 
 const PREGUNTA_MAX = 160;
 const RESPUESTA_MAX = 700;
@@ -237,7 +237,7 @@ export default function AsistentePanel({
           <span
             className={`rounded-lg px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide ${
               !contratado
-                ? "bg-aventurea-sky-light text-aventurea-orange-dark"
+                ? "bg-aventurea-sky-light text-aventurea-navy"
                 : encendido
                   ? "bg-aventurea-green-light text-aventurea-green"
                   : "bg-zinc-100 text-zinc-500"
@@ -460,7 +460,7 @@ export default function AsistentePanel({
                     key={s}
                     type="button"
                     onClick={() => setPregunta(s)}
-                    className="rounded-lg border border-aventurea-line bg-aventurea-surface px-2.5 py-1.5 text-[12px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
+                    className="rounded-lg border border-aventurea-line bg-aventurea-surface px-2.5 py-1.5 text-[12px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-navy"
                   >
                     {s}
                   </button>
@@ -523,7 +523,7 @@ export default function AsistentePanel({
                 type="button"
                 onClick={limpiarFormulario}
                 disabled={pendiente}
-                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
+                className="rounded-xl border border-aventurea-line px-4 py-2.5 text-[13px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-navy"
               >
                 Cancelar
               </button>

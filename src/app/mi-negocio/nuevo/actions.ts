@@ -150,7 +150,7 @@ export async function crearRancho(
     .single();
 
   if (error) {
-    return { error: "No se pudo guardar tu rancho: " + error.message };
+    return { error: "No se pudo guardar tu negocio: " + error.message };
   }
 
   // La verificación se escribe con el cliente admin (server-only): la

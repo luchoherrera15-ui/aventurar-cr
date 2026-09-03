@@ -113,7 +113,7 @@ const ETIQUETA: Record<EstadoAddon, string> = {
  * Hasta la 0187 la base no tenía cómo distinguir los dos casos (los dos
  * nacían en "pendiente"), así que este badge mostraba el estado crudo
  * para los dos. La 0187 agregó `ranchos.en_marketplace` justo para esto
- * — mismo criterio que ya usan `/mi-negocio` y `/admin/ranchos`: un
+ * — mismo criterio que ya usan `/mi-negocio` y `/admin/negocios`: un
  * negocio de lealtad no está pendiente de nada, así que se dice "Lealtad"
  * y no "Pendiente de aprobación".
  *
@@ -1056,7 +1056,7 @@ function Advertencias({
   }
   if (negociosOcultosPorTope > 0) {
     avisos.push(
-      `Se están mostrando ${totalNegocios - negociosOcultosPorTope} de ${totalNegocios} negocios: la consulta tiene un techo. Los ${negociosOcultosPorTope} restantes NO están en esta lista — buscalos por nombre desde /admin/ranchos.`,
+      `Se están mostrando ${totalNegocios - negociosOcultosPorTope} de ${totalNegocios} negocios: la consulta tiene un techo. Los ${negociosOcultosPorTope} restantes NO están en esta lista — buscalos por nombre desde /admin/negocios.`,
     );
   }
   if (conteoTruncado) {

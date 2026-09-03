@@ -245,6 +245,20 @@ const nextConfig: NextConfig = {
         destination: "/eventos/:path*",
         permanent: true,
       },
+      // El admin de publicaciones vivía en /admin/ranchos (sep 2026):
+      // la carpeta se renombró a /admin/negocios, pero la app móvil
+      // instalada (admin.tsx) y los marcadores viejos siguen abriendo
+      // la URL vieja en el navegador.
+      {
+        source: "/admin/ranchos",
+        destination: "/admin/negocios",
+        permanent: true,
+      },
+      {
+        source: "/admin/ranchos/:path*",
+        destination: "/admin/negocios/:path*",
+        permanent: true,
+      },
       {
         source: "/mi-rancho",
         destination: "/mi-negocio",

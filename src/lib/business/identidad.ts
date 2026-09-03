@@ -134,30 +134,41 @@ export const ACENTOS_ID = [
 export type AcentoId = (typeof ACENTOS_ID)[number];
 
 /**
- * Ratios medidos con `ratioContraste` (tinta sobre blanco · letra sobre
- * sólido · tinta sobre suave):
+ * ════════════════════════════════════════════════════════════════════
+ *  DESDE SEP 2026 EL PANEL ES BLANCO + AZULES — pedido del dueño:
+ *  «no quiero que se use naranja; blancos y azules, varios azules».
+ * ════════════════════════════════════════════════════════════════════
  *
- *   naranja     6.22 · 5.46 · 5.62
- *   violeta     8.18 · 7.10 · 7.15
- *   rosa        6.88 · 6.11 · 6.05
- *   aguamarina  6.32 · 5.18 · 5.56
- *   verde       6.44 · 5.41 · 5.60
- *   azul        8.24 · 8.24 · 7.40
- *   carmesi     7.27 · 6.36 · 6.38
- *   navy       14.89 · 12.70 · 12.78
+ * Los IDs se quedan como NOMBRES HISTÓRICOS (los declaran 30+ tipos de
+ * negocio y renombrarlos tocaría cada identidad sin cambiar nada real);
+ * los VALORES son ahora una familia de ocho azules distinguibles, del
+ * celeste petróleo al navy. Cada tipo conserva SU acento — solo que su
+ * acento ahora es un azul.
  *
- * `naranja`, `azul` y `navy` no son colores nuevos: son los tokens que
- * globals.css ya usa (`--orange-fuerte`, `--accion`, `--navy`), para que
- * un panel con acento de marca se vea idéntico al resto del sitio.
+ * Ratios medidos con `ratioContraste` (mínimo tinta/fondos · tinta
+ * sobre suave · letra sobre sólido · mínimo sólido/fondos):
+ *
+ *   naranja→océano    7.52 · 6.94 · 7.02 · 6.49
+ *   violeta→cobalto   8.62 · 8.05 · 7.82 · 7.23
+ *   rosa→zafiro       6.92 · 6.59 · 7.48 · 6.92
+ *   aguamarina→celeste 6.32 · 5.87 · 6.83 · 6.32
+ *   verde→acero       7.22 · 6.74 · 6.60 · 6.10
+ *   azul (queda)      7.63 · 7.40 · 8.24 · 7.63
+ *   carmesi→medianoche 11.28 · 10.26 · 10.24 · 9.48
+ *   navy (queda)      13.78 · 12.78 · 12.70 · 11.75
+ *
+ * `azul` y `navy` siguen siendo los tokens de globals.css (`--accion`,
+ * `--navy`); el resto es la familia nueva, auditada por
+ * identidad.test.ts como siempre.
  */
 export const ACENTOS: Record<AcentoId, Acento> = {
-  naranja: { tinta: "#a83f00", solido: "#b4470a", sobreSolido: "#ffffff", suave: "#fff1e6" },
-  violeta: { tinta: "#6425c0", solido: "#6d28d9", sobreSolido: "#ffffff", suave: "#f3edff" },
-  rosa: { tinta: "#a91e63", solido: "#b52370", sobreSolido: "#ffffff", suave: "#fdecf4" },
-  aguamarina: { tinta: "#0e6b68", solido: "#0d7a75", sobreSolido: "#ffffff", suave: "#e2f4f2" },
-  verde: { tinta: "#146c46", solido: "#15794f", sobreSolido: "#ffffff", suave: "#e3f3ea" },
+  naranja: { tinta: "#0a5578", solido: "#0d5f85", sobreSolido: "#ffffff", suave: "#e3eff5" },
+  violeta: { tinta: "#2038b0", solido: "#2743c4", sobreSolido: "#ffffff", suave: "#eaeefc" },
+  rosa: { tinta: "#2f45c8", solido: "#2f45c8", sobreSolido: "#ffffff", suave: "#edf0fd" },
+  aguamarina: { tinta: "#0d5f93", solido: "#0d5f93", sobreSolido: "#ffffff", suave: "#e2f0f9" },
+  verde: { tinta: "#33547a", solido: "#3a5f8a", sobreSolido: "#ffffff", suave: "#e9eff5" },
   azul: { tinta: "#0f4c9e", solido: "#0f4c9e", sobreSolido: "#ffffff", suave: "#eef3fb" },
-  carmesi: { tinta: "#a81b3c", solido: "#b81e42", sobreSolido: "#ffffff", suave: "#fdecf0" },
+  carmesi: { tinta: "#1c2f77", solido: "#22398f", sobreSolido: "#ffffff", suave: "#e8ebf8" },
   navy: { tinta: "#062653", solido: "#0b3168", sobreSolido: "#ffffff", suave: "#e9eef6" },
 };
 

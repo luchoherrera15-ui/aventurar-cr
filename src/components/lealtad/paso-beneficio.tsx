@@ -530,7 +530,7 @@ export default function PasoBeneficio({
               id="b-ubi"
               value={config.ubicacion}
               onChange={(e) => alCambiar({ ...config, ubicacion: e.target.value })}
-              placeholder="Rancho Las Torres, Alajuela"
+              placeholder="Café Aroma, Alajuela"
               className={campo}
             />
           </div>

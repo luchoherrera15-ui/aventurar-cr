@@ -54,7 +54,7 @@ export const GRUPOS_ADMIN: GrupoAdmin[] = [
     titulo: "Operación",
     items: [
       {
-        href: "/admin/ranchos",
+        href: "/admin/negocios",
         etiqueta: "Publicaciones",
         icono: "negocio",
         badge: "publicaciones",

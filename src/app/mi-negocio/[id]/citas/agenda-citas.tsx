@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { etiquetaMinutos, horaBonita, minutosAHora, type HorarioSemana } from "@/app/citas/tipos";
 import {
@@ -1252,13 +1253,16 @@ export default function AgendaCitas({
             <strong>{reincidente.nombre ?? `Este ${persona.singular}`}</strong> faltó a sus
             últimas {reincidente.fallosSeguidos} {visita.plural} seguidas.
             {reincidente.correo
-              ? ` Podés mandarle una promoción para recuperarlo desde la sección ${persona.Plural}.`
+              ? ` Podés mandarle una promoción para recuperarlo desde la pestaña ${persona.Plural}.`
               : " No dejó correo — quizá valga un mensaje por WhatsApp."}
           </span>
           {reincidente.correo && (
-            <a href="#clientes" className={btnChico} onClick={() => setReincidente(null)}>
+            // `?tab=clientes`: la sección de clientes ya no es un ancla
+            // de esta misma columna sino una pestaña del rail — el Link
+            // actualiza el query y PanelSidebar la trae al frente.
+            <Link href="?tab=clientes" className={btnChico} onClick={() => setReincidente(null)}>
               Ir a {persona.Plural}
-            </a>
+            </Link>
           )}
           <button
             type="button"

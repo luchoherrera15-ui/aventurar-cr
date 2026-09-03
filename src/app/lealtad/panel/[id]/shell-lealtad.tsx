@@ -16,6 +16,8 @@ import "../panel-oscuro.css";
 import {
   ACCION,
   ACCION_TINTE,
+  RAIL_CARD_ACTIVA,
+  RAIL_DISCO_LEALTAD,
   RAIL_GRUPO_LEALTAD,
   RAIL_ITEM_ACTIVO,
   RAIL_ITEM_LEALTAD,
@@ -338,19 +340,27 @@ export default function ShellLealtad({
                             setActiva(item.id);
                             setMenuAbierto(false);
                           }}
-                          /* El activo es una PÍLDORA SÓLIDA (31 ago 2026).
-                             Antes era una barrita de 3px en el borde más
-                             un tinte translúcido: había que buscar cuál
-                             estaba encendido. Un bloque de color se ve de
-                             una, que es lo que se pidió — «más simple de
-                             usar». El relleno va en `style` porque el par
-                             sale de las variables del módulo. */
+                          /* El activo es una CARD blanca elevada
+                             (rediseño sep 2026; antes, píldora sólida
+                             azul del 31-ago). El azul del módulo se muda
+                             al disco del ícono con su par medido
+                             (`--accion-claro`/`--accion-claro-tinta`) —
+                             mismo lenguaje que el rail de /mi-negocio. */
                           className={`${RAIL_ITEM_LEALTAD} ${
                             esta ? RAIL_ITEM_ACTIVO : "text-aventurea-rail hover:bg-white/[0.06] hover:text-white"
                           }`}
-                          style={esta ? { background: ACCION } : undefined}
+                          style={esta ? RAIL_CARD_ACTIVA : undefined}
                         >
-                          <Icono nombre={item.icono} className="h-5 w-5 shrink-0" />
+                          {esta ? (
+                            <span
+                              className={RAIL_DISCO_LEALTAD}
+                              style={{ background: ACCION, color: "var(--accion-claro-tinta)" }}
+                            >
+                              <Icono nombre={item.icono} className="h-5 w-5" />
+                            </span>
+                          ) : (
+                            <Icono nombre={item.icono} className="h-5 w-5 shrink-0" />
+                          )}
                           <span className="min-w-0 truncate">{item.etiqueta}</span>
                         </a>
                       </li>
@@ -487,8 +497,11 @@ export default function ShellLealtad({
                           </p>
                           <p className="mt-0.5 text-[11.5px] text-aventurea-rail">{usuario.rol}</p>
                         </div>
+                        {/* `?modo=negocio`: quien sale de un panel es un
+                            dueño — sin el param, /cuenta abre en el último
+                            modo del localStorage (casi siempre cliente). */}
                         <Link
-                          href="/cuenta"
+                          href="/cuenta?modo=negocio"
                           role="menuitem"
                           className={`${RAIL_ITEM_LEALTAD} mx-1.5 mt-1 text-aventurea-rail hover:text-white`}
                           onClick={() => setMenuUsuarioAbierto(false)}

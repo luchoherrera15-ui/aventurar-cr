@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { Fragment, useMemo, useState, useTransition } from "react";
 import {
   alternarCampana,
   borrarCampana,
@@ -19,46 +19,40 @@ import {
 
 /**
  * ════════════════════════════════════════════════════════════════════
- *  EL CALENDARIO DE CAMPAÑAS — marcar un día y que salga sola
+ *  LA AGENDA DE CAMPAÑAS — siete filas, una por día de la semana
  * ════════════════════════════════════════════════════════════════════
  *
- * Pedido del dueño (1 sep 2026), con mockup: la grilla del mes, los
- * días marcados con su etiqueta corta, la leyenda abajo y «se programa
- * una vez y se repite sola».
+ * V2 (2 sep 2026, pedido del dueño mirando la V1: «esa agenda se ve
+ * horrible… hazla mucho mucho más pequeña y más fácil de usar»).
  *
  * ------------------------------------------------------------------
- * POR QUÉ EL MES ENTERO Y NO SOLO LOS SIETE DÍAS
+ * POR QUÉ SIETE FILAS Y NO EL MES ENTERO
  * ------------------------------------------------------------------
- * Lo que se configura es UN día de la semana; con siete casillas
- * alcanzaba. Pero la pregunta que el negocio se hace no es «¿qué día
- * marqué?» sino «¿cuántas veces va a salir esto?» — y esa se contesta
- * mirando el mes: cinco miércoles pintados dicen «cinco envíos» sin una
- * palabra. Es la misma cuenta que decide si el cupo alcanza.
+ * La V1 pintaba la grilla del mes completo — treinta celdas enormes
+ * para configurar algo que solo tiene SIETE estados posibles: la
+ * campaña es POR DÍA DE LA SEMANA (unique(programa, dia_semana), 0226)
+ * y se repite sola. El calendario de mes obligaba a deducir esa regla;
+ * la lista de días la MUESTRA: cada fila es un día, con su campaña o
+ * su «Programar…». La cuenta de envíos del mes —lo único que el mes
+ * entero aportaba— quedó dicha en una línea, junto al cupo.
  *
- * ------------------------------------------------------------------
- * LOS COLORES SALEN DEL SISTEMA, NO DE UNA PALETA NUEVA
- * ------------------------------------------------------------------
- * Dos tokens alternados por orden de creación: `--navy` y `--orange`,
- * los mismos del mockup. Alternar es suficiente para distinguir dos o
- * tres campañas de un vistazo, y no obliga a inventar siete colores que
- * después hay que auditar de contraste uno por uno.
+ * El editor se abre INLINE debajo del día tocado, no en un panel
+ * aparte al fondo: lo que editás queda pegado a donde tocaste.
+ *
+ * Cero naranja: los paneles son blancos y azules (rediseño CRM sep
+ * 2026) — la señal de encendida es el punto azul de acción, y el
+ * cupo que no alcanza avisa en el rojo de error del sistema.
  */
 
-/** Empieza en LUNES, como el mockup y como se lee un calendario acá. */
+/** Empieza en LUNES, como se lee la semana acá. */
 const DIAS = [
-  { n: 1, letra: "L", nombre: "Lunes" },
-  { n: 2, letra: "M", nombre: "Martes" },
-  { n: 3, letra: "M", nombre: "Miércoles" },
-  { n: 4, letra: "J", nombre: "Jueves" },
-  { n: 5, letra: "V", nombre: "Viernes" },
-  { n: 6, letra: "S", nombre: "Sábado" },
-  { n: 0, letra: "D", nombre: "Domingo" },
-] as const;
-
-/** El par fondo/letra de cada campaña, por orden. Ver la cabecera. */
-const COLORES = [
-  { fondo: "var(--orange)", tinta: "#fff" },
-  { fondo: "var(--navy)", tinta: "#fff" },
+  { n: 1, corto: "Lun", nombre: "Lunes" },
+  { n: 2, corto: "Mar", nombre: "Martes" },
+  { n: 3, corto: "Mié", nombre: "Miércoles" },
+  { n: 4, corto: "Jue", nombre: "Jueves" },
+  { n: 5, corto: "Vie", nombre: "Viernes" },
+  { n: 6, corto: "Sáb", nombre: "Sábado" },
+  { n: 0, corto: "Dom", nombre: "Domingo" },
 ] as const;
 
 const hora12 = (h: number) => {
@@ -89,34 +83,10 @@ export default function CampanasCalendario({
   const [ocupado, iniciar] = useTransition();
 
   const porDia = useMemo(() => {
-    const m = new Map<number, Campana & { color: (typeof COLORES)[number] }>();
-    resumen.campanas.forEach((c, i) => {
-      m.set(c.diaSemana, { ...c, color: COLORES[i % COLORES.length] });
-    });
+    const m = new Map<number, Campana>();
+    resumen.campanas.forEach((c) => m.set(c.diaSemana, c));
     return m;
   }, [resumen.campanas]);
-
-  // ── La grilla del mes en curso ────────────────────────────────────
-  // Se arma con fechas locales: es un calendario para mirar, no un
-  // cálculo de negocio — la hora exacta la decide el servidor.
-  const celdas = useMemo(() => {
-    const hoy = new Date();
-    const primero = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    const dias = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
-    // Cuántos huecos antes del día 1 para que caiga en su columna. El
-    // `+6) % 7` corre la semana para que empiece en lunes.
-    const huecos = (primero.getDay() + 6) % 7;
-    const salida: ({ dia: number; diaSemana: number } | null)[] = Array(huecos).fill(null);
-    for (let d = 1; d <= dias; d++) {
-      salida.push({
-        dia: d,
-        diaSemana: new Date(hoy.getFullYear(), hoy.getMonth(), d).getDay(),
-      });
-    }
-    return salida;
-  }, []);
-
-  const mes = new Date().toLocaleDateString("es-CR", { month: "long", year: "numeric" });
 
   function refrescar(cambio: (c: Campana[]) => Campana[]) {
     setResumen((r) => {
@@ -132,10 +102,14 @@ export default function CampanasCalendario({
   function abrir(diaSemana: number) {
     const ya = porDia.get(diaSemana);
     setError(null);
-    setBorrador(
-      ya
-        ? { diaSemana, hora: ya.hora, etiqueta: ya.etiqueta, mensaje: ya.mensaje }
-        : { diaSemana, hora: 9, etiqueta: "", mensaje: "" },
+    setBorrador((b) =>
+      // Tocar el día ya abierto lo cierra — el mismo gesto para las dos
+      // direcciones, sin buscar un botón de cerrar.
+      b?.diaSemana === diaSemana
+        ? null
+        : ya
+          ? { diaSemana, hora: ya.hora, etiqueta: ya.etiqueta, mensaje: ya.mensaje }
+          : { diaSemana, hora: 9, etiqueta: "", mensaje: "" },
     );
   }
 
@@ -177,146 +151,173 @@ export default function CampanasCalendario({
     });
   }
 
-  // El cupo: `restante` es null cuando el paquete no tiene tope.
+  // El cupo: `limite` es null cuando el paquete no tiene tope.
   const sinTope = resumen.cupo.limite === null;
   const alcanza = sinTope || resumen.enviosEstimados <= (resumen.cupo.limite ?? 0);
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* ── LA GRILLA ────────────────────────────────────────────── */}
-      <div className={`${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-3.5 sm:p-4`}>
-        <p className={`${DETALLE} text-center capitalize`}>{mes}</p>
-
-        <div className="mt-3 grid grid-cols-7 gap-1.5">
-          {DIAS.map((d) => (
-            <button
-              key={d.n}
-              type="button"
-              onClick={() => abrir(d.n)}
-              title={`Programar los ${d.nombre.toLowerCase()}`}
-              className="presionable rounded-md py-1 text-[11px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft transition-colors hover:bg-white"
-            >
-              {d.letra}
-            </button>
-          ))}
-
-          {celdas.map((c, i) =>
-            c === null ? (
-              <span key={`h${i}`} />
-            ) : (
-              (() => {
-                const camp = porDia.get(c.diaSemana);
-                const marcado = camp !== undefined && camp.activa;
-                return (
+    <div className="flex w-full max-w-[560px] flex-col gap-3">
+      {/* ── LA SEMANA, EN SIETE FILAS ────────────────────────────── */}
+      <div className={`${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-1.5`}>
+        {DIAS.map((d) => {
+          const camp = porDia.get(d.n);
+          const abierto = borrador?.diaSemana === d.n;
+          return (
+            <Fragment key={d.n}>
+              <div
+                className={`flex min-h-[44px] items-center gap-1.5 rounded-lg pr-1.5 transition-colors ${
+                  abierto ? "bg-white" : "hover:bg-white"
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() => abrir(d.n)}
+                  aria-expanded={abierto}
+                  className="flex min-w-0 flex-1 items-center gap-2.5 py-2 pl-2 text-left"
+                  title={camp ? camp.mensaje : `Programar los ${d.nombre.toLowerCase()}`}
+                >
+                  <span className="w-9 shrink-0 text-[11.5px] font-extrabold uppercase tracking-wide text-aventurea-ink-soft">
+                    {d.corto}
+                  </span>
+                  {camp ? (
+                    <>
+                      {/* El punto: azul = sale esta semana, gris = pausada. */}
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: camp.activa ? "var(--accion)" : "var(--line)" }}
+                      />
+                      <span className="min-w-0 truncate text-[13px] text-aventurea-ink">
+                        <b>{camp.etiqueta}</b>
+                        <span className={`ml-1.5 ${CUERPO_SUAVE}`}>
+                          {hora12(camp.hora)}
+                          {!camp.activa && " · pausada"}
+                        </span>
+                      </span>
+                    </>
+                  ) : (
+                    <span className={`text-[12.5px] ${CUERPO_SUAVE}`}>Programar…</span>
+                  )}
+                </button>
+                {camp && (
                   <button
-                    key={c.dia}
                     type="button"
-                    onClick={() => abrir(c.diaSemana)}
-                    aria-label={
-                      camp
-                        ? `${c.dia}: ${camp.etiqueta}, ${hora12(camp.hora)}`
-                        : `${c.dia}: sin campaña`
-                    }
-                    className="presionable grid aspect-square place-items-center rounded-lg border text-[11px] font-bold transition-colors"
-                    style={
-                      marcado
-                        ? {
-                            background: camp.color.fondo,
-                            color: camp.color.tinta,
-                            borderColor: "transparent",
-                          }
-                        : {
-                            background: "#fff",
-                            borderColor: "var(--line)",
-                            color: "var(--color-aventurea-ink-soft, #64748b)",
-                          }
-                    }
+                    onClick={() => alternar(camp)}
+                    disabled={ocupado}
+                    className={`${BOTON_PANEL} h-7 shrink-0 px-2.5 text-[11.5px]`}
                   >
-                    {marcado ? camp.etiqueta : c.dia}
+                    {camp.activa ? "Pausar" : "Activar"}
                   </button>
-                );
-              })()
-            ),
-          )}
-        </div>
-      </div>
+                )}
+              </div>
 
-      {/* ── LA LEYENDA ───────────────────────────────────────────── */}
-      {resumen.campanas.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {resumen.campanas.map((c) => {
-            const color = COLORES[resumen.campanas.indexOf(c) % COLORES.length];
-            const dia = DIAS.find((d) => d.n === c.diaSemana);
-            return (
-              <li key={c.id} className="flex items-center gap-2.5">
-                <span
-                  aria-hidden
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ background: c.activa ? color.fondo : "var(--line)" }}
-                />
-                <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-aventurea-ink">
-                  <b>{dia?.nombre}</b> · {c.etiqueta} — {c.mensaje}
-                  <span className={`ml-1 ${CUERPO_SUAVE}`}>({hora12(c.hora)})</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => alternar(c)}
-                  disabled={ocupado}
-                  className={`${BOTON_PANEL} shrink-0`}
-                >
-                  {c.activa ? "Pausar" : "Activar"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => abrir(c.diaSemana)}
-                  disabled={ocupado}
-                  className={`${BOTON_PANEL} shrink-0`}
-                >
-                  Editar
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+              {/* ── El editor, pegado al día que lo abrió ──────────── */}
+              {abierto && borrador && (
+                <div className="mx-1 mb-1.5 rounded-lg border border-aventurea-line bg-white p-3">
+                  <div className="grid gap-2.5 sm:grid-cols-[110px_1fr]">
+                    <label className="block">
+                      <span className={DETALLE}>Nombre corto</span>
+                      <input
+                        value={borrador.etiqueta}
+                        onChange={(e) => setBorrador({ ...borrador, etiqueta: e.target.value })}
+                        placeholder="2×1"
+                        maxLength={12}
+                        className="mt-1 w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[13px] text-aventurea-ink"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className={DETALLE}>Hora</span>
+                      <select
+                        value={borrador.hora}
+                        onChange={(e) => setBorrador({ ...borrador, hora: Number(e.target.value) })}
+                        className="mt-1 w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[13px] text-aventurea-ink"
+                      >
+                        {Array.from({ length: 24 }, (_, h) => (
+                          <option key={h} value={h}>
+                            {hora12(h)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <label className="mt-2.5 block">
+                    <span className={DETALLE}>El aviso que le llega a tus clientes</span>
+                    <textarea
+                      value={borrador.mensaje}
+                      onChange={(e) => setBorrador({ ...borrador, mensaje: e.target.value })}
+                      placeholder="Miércoles de 2×1 en cualquier bebida caliente. Mostrá tu tarjeta."
+                      maxLength={180}
+                      rows={2}
+                      className="mt-1 w-full resize-none rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[13px] leading-snug text-aventurea-ink"
+                    />
+                    <span className={DETALLE}>{borrador.mensaje.trim().length}/180</span>
+                  </label>
+
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={guardar}
+                      disabled={ocupado}
+                      className={BOTON_PANEL_PRIMARIO}
+                    >
+                      {ocupado ? "Guardando…" : "Guardar"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBorrador(null)}
+                      disabled={ocupado}
+                      className={BOTON_PANEL}
+                    >
+                      Cancelar
+                    </button>
+                    {porDia.get(borrador.diaSemana) && (
+                      <button
+                        type="button"
+                        onClick={() => borrar(porDia.get(borrador.diaSemana)!)}
+                        disabled={ocupado}
+                        className={`${BOTON_PANEL} ml-auto text-red-600`}
+                      >
+                        Borrar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </Fragment>
+          );
+        })}
+      </div>
 
       {/* ── LA CUENTA DEL CUPO, ANTES Y NO DESPUÉS ───────────────────
           Es lo único que impide la sorpresa del tercer miércoles: la
           promo no salió, el local lleno esperando el 2×1, y el cupo se
           había acabado dos semanas antes. */}
-      <div
-        className={`${RADIO_TILE} border px-3.5 py-3`}
-        style={{
-          borderColor: alcanza ? "var(--line)" : "var(--orange)",
-          background: alcanza ? "var(--accion-suave)" : "var(--hoja)",
-        }}
-      >
-        {resumen.campanas.length === 0 ? (
-          <p className={DETALLE}>
-            Tocá un día del calendario para programar tu primera campaña. Se escribe una vez y
-            se repite sola todas las semanas.
-          </p>
-        ) : (
-          <p className="text-[12.5px] leading-relaxed text-aventurea-ink">
-            {resumen.enviosEstimados} envío{resumen.enviosEstimados === 1 ? "" : "s"} al mes
-            {sinTope ? (
-              <> — tu paquete no tiene tope.</>
-            ) : (
-              <>
-                {" "}
-                contra los <b>{resumen.cupo.limite}</b> de tu paquete.{" "}
-                {alcanza ? (
-                  "Alcanza."
-                ) : (
-                  <b style={{ color: "var(--orange-fuerte)" }}>
-                    No alcanza: cuando se acabe el cupo del mes, las que sigan no salen.
-                  </b>
-                )}
-              </>
-            )}
-          </p>
-        )}
-      </div>
+      {resumen.campanas.length === 0 ? (
+        <p className={DETALLE}>
+          Tocá un día y escribí el aviso una vez — sale solo todas las semanas, a la hora
+          que elijas.
+        </p>
+      ) : (
+        <p className="text-[12.5px] leading-relaxed text-aventurea-ink">
+          {resumen.enviosEstimados} envío{resumen.enviosEstimados === 1 ? "" : "s"} al mes
+          {sinTope ? (
+            <> — tu paquete no tiene tope.</>
+          ) : (
+            <>
+              {" "}
+              contra los <b>{resumen.cupo.limite}</b> de tu paquete.{" "}
+              {alcanza ? (
+                "Alcanza."
+              ) : (
+                <b className="text-red-600">
+                  No alcanza: cuando se acabe el cupo del mes, las que sigan no salen.
+                </b>
+              )}
+            </>
+          )}
+        </p>
+      )}
 
       {/* ── LO QUE PASÓ LA ÚLTIMA VEZ ────────────────────────────── */}
       {resumen.ultimos.some((u) => u.estado !== "enviado") && (
@@ -338,86 +339,6 @@ export default function CampanasCalendario({
           {error}
         </p>
       )}
-
-      {/* ── EL EDITOR DEL DÍA ────────────────────────────────────── */}
-      {borrador && (
-        <div className={`${SUPERFICIE_HUNDIDA} ${RADIO_TILE} p-3.5 sm:p-4`}>
-          <p className="text-[13px] font-extrabold text-aventurea-navy">
-            Los {DIAS.find((d) => d.n === borrador.diaSemana)?.nombre.toLowerCase()}
-          </p>
-
-          <div className="mt-3 grid gap-3 sm:grid-cols-[110px_1fr]">
-            <label className="block">
-              <span className={DETALLE}>En el calendario</span>
-              <input
-                value={borrador.etiqueta}
-                onChange={(e) => setBorrador({ ...borrador, etiqueta: e.target.value })}
-                placeholder="2×1"
-                maxLength={12}
-                className="mt-1 w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-2 text-[13px] text-aventurea-ink"
-              />
-            </label>
-            <label className="block">
-              <span className={DETALLE}>Hora</span>
-              <select
-                value={borrador.hora}
-                onChange={(e) => setBorrador({ ...borrador, hora: Number(e.target.value) })}
-                className="mt-1 w-full rounded-lg border border-aventurea-line bg-white px-2.5 py-2 text-[13px] text-aventurea-ink"
-              >
-                {Array.from({ length: 24 }, (_, h) => (
-                  <option key={h} value={h}>
-                    {hora12(h)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <label className="mt-3 block">
-            <span className={DETALLE}>El aviso que le llega a tus clientes</span>
-            <textarea
-              value={borrador.mensaje}
-              onChange={(e) => setBorrador({ ...borrador, mensaje: e.target.value })}
-              placeholder="Miércoles de 2×1 en cualquier bebida caliente. Mostrá tu tarjeta."
-              maxLength={180}
-              rows={2}
-              className="mt-1 w-full resize-none rounded-lg border border-aventurea-line bg-white px-2.5 py-2 text-[13px] leading-snug text-aventurea-ink"
-            />
-            <span className={DETALLE}>{borrador.mensaje.trim().length}/180</span>
-          </label>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={guardar}
-              disabled={ocupado}
-              className={BOTON_PANEL_PRIMARIO}
-            >
-              {ocupado ? "Guardando…" : "Guardar"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setBorrador(null)}
-              disabled={ocupado}
-              className={BOTON_PANEL}
-            >
-              Cancelar
-            </button>
-            {porDia.get(borrador.diaSemana) && (
-              <button
-                type="button"
-                onClick={() => borrar(porDia.get(borrador.diaSemana)!)}
-                disabled={ocupado}
-                className={`${BOTON_PANEL} ml-auto text-red-600`}
-              >
-                Borrar
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      <p className={DETALLE}>Se programa una vez y se repite sola.</p>
     </div>
   );
 }

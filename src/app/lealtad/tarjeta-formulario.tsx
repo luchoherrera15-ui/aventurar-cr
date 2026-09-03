@@ -11,6 +11,7 @@ import SelectorImagenNegocio from "@/components/lealtad/selector-imagen-negocio"
 import PasoBeneficio from "@/components/lealtad/paso-beneficio";
 import ControlesTira from "@/components/lealtad/controles-tira";
 import { Apartado, PlacaPase, Portada } from "@/components/lealtad/ficha";
+import BotonVolver from "@/components/boton-volver";
 import { ROTULO } from "@/components/lealtad/ficha-tokens";
 import CampoColor from "@/components/campo-color";
 import SubirImagen from "@/components/subir-imagen";
@@ -830,6 +831,55 @@ export default function TarjetaFormulario({
         ? "Publicar tarjeta"
         : "Guardar cambios";
 
+  /**
+   * EL BOTÓN QUE CIERRA — uno solo, en dos lugares posibles.
+   *
+   * En el alta pública vive en el PIE del asistente (reemplaza al
+   * «Siguiente» en el último paso, 2 sep 2026); en el panel sigue en su
+   * barra de guardar. Extraído a una constante para que sea literalmente
+   * el mismo botón en los dos lados: duplicar el JSX era garantizar que
+   * un día el camino de pago se arreglara en uno y no en el otro.
+   */
+  const botonCerrar =
+    requierePago && planACobrar ? (
+      <span className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={irAlPlanPago}
+          disabled={guardando}
+          className="presionable rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40"
+          style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+        >
+          ¡Pagar y activar tarjeta! →
+        </button>
+        {/* La salida de emergencia SOLO cuando el pago viene del paquete
+            elegido y no del tipo: un clic curioso en «Impulso» no puede
+            dejar a nadie obligado a pagar por una tarjeta que el paquete
+            gratis ya cubre. Si el TIPO exige plan pago, no hay atajo —
+            eso sería regalar el paquete. */}
+        {planPagoElegido && esGratis && (
+          <button
+            type="button"
+            onClick={() => patch({ planElegido: "prueba" })}
+            disabled={guardando}
+            className="text-[11.5px] font-bold text-bookea-gris underline disabled:opacity-60"
+          >
+            Prefiero empezar con el paquete gratis y crear mi tarjeta ya
+          </button>
+        )}
+      </span>
+    ) : (
+      <button
+        type="button"
+        onClick={onGuardar}
+        disabled={!puedeGuardar}
+        className="presionable rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40"
+        style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+      >
+        {textoGuardar}
+      </button>
+    );
+
   /* ══════════════════════════════════════════════════════════════
      LA CUENTA VA SOLA, EN UN CUADRO (dueño, 31 ago 2026)
      ══════════════════════════════════════════════════════════════
@@ -926,10 +976,8 @@ export default function TarjetaFormulario({
             por delante sería la tercera vez que se empuja el campo
             fuera de la primera pantalla. */}
         <aside className="mt-6 lg:mt-0">
-          {/* Mismo criterio que la placa del asistente: chica y al
-              centro de la ventana, para que se vea entera sin scroll. */}
-          <div className="lg:sticky" style={{ top: "max(6rem, calc(50svh - 285px))" }}>
-            <PlacaPase datos={datosVista} derivados={[]} anchoTelefono={190} />
+          <div className="lg:sticky lg:top-24">
+            <PlacaPase datos={datosVista} derivados={[]} desnuda />
           </div>
         </aside>
       </div>
@@ -938,18 +986,32 @@ export default function TarjetaFormulario({
 
   return (
     <>
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
-        <div className="min-w-0">
-          {esPublico && alVolver && (
-            <button
-              type="button"
-              onClick={alVolver}
-              className="presionable mb-5 text-[12px] font-bold text-bookea-gris hover:text-bookea-tinta"
-            >
-              ← Volver a los paquetes
-            </button>
-          )}
+      {/* ── EL ASISTENTE ES UN RECTÁNGULO, NO UNA PÁGINA LARGA ────────
+          (dueño, 2 sep 2026: «que todo quede en un tipo de rectángulo y
+          que no se haya que hacer scrolls»).
 
+          En el alta pública la columna de la izquierda toma la altura
+          disponible y la reparte ADENTRO: cabecera y pie fijos, y el
+          cuerpo —lo único que cambia entre pasos— ocupando el resto. En
+          el panel nada de esto aplica: ahí la hoja sigue creciendo hacia
+          abajo como el documento que es. */}
+      {/* ⚠️ `lg:grid-rows-[minmax(0,1fr)]` NO ES DECORATIVO — sin eso el
+          rectángulo no cierra, y se midió en el navegador: una fila de
+          grid es `auto` por defecto, o sea que se estira con su
+          contenido. El `lg:h-full` de la columna se resolvía entonces
+          contra una fila YA estirada (883 px donde había 752), y el pie
+          con «Siguiente» volvía a quedar abajo del borde.
+
+          `minmax(0, 1fr)` fija la fila al alto disponible Y deja que el
+          contenido se encoja por debajo de su tamaño natural, que es lo
+          que habilita el scroll interno del cuerpo. Con `1fr` a secas el
+          mínimo sería `auto` y estaríamos igual. */}
+      <div
+        className={`lg:grid lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-6 ${
+          esPublico ? "lg:h-full lg:grid-rows-[minmax(0,1fr)]" : ""
+        }`}
+      >
+        <div className={`min-w-0 ${esPublico ? "lg:flex lg:min-h-0 lg:flex-col" : ""}`}>
           {esEditar && bloqueada && motivoBloqueada && (
             <p
               role="status"
@@ -969,7 +1031,7 @@ export default function TarjetaFormulario({
               Todos abiertos y todos a la vez: se puede empezar por los
               colores y volver al nombre después. El número al costado
               ordena la lectura sin encerrar a nadie en un paso. */}
-          <div>
+          <div className={esPublico ? "flex min-h-0 flex-1 flex-col" : undefined}>
             {/* «Tu cuenta» ya no vive acá: desde el 31 ago 2026 tiene
                 su propia pantalla, sola y sin el mockup al lado (ver el
                 return temprano de `trabadoPorCuenta` más arriba).
@@ -980,82 +1042,53 @@ export default function TarjetaFormulario({
                 capítulos se separan con una línea fina y aire; el número
                 cuelga en el margen.
 
-                ⚠️ SIN `overflow-hidden`, aunque el radio lo pida. Esa
-                clase mata el `sticky bottom-0` de la barra de guardar —
-                un contenedor que recorta deja de ser el ancestro contra
-                el que se pega— y además cortaría los números colgantes
-                del `lg:-ml-9`. El radio de abajo lo pinta la barra con
-                su propio `rounded-b-3xl`. */}
+                ⚠️ SIN `overflow-hidden` EN EL PANEL, aunque el radio lo
+                pida. Esa clase mata el `sticky bottom-0` de la barra de
+                guardar — un contenedor que recorta deja de ser el
+                ancestro contra el que se pega. El radio de abajo lo
+                pinta la barra con su propio `rounded-b-3xl`.
+
+                En el alta pública SÍ recorta, y es seguro: ahí la barra
+                de guardar no es pegajosa (se ve el ternario de su
+                className) y los números colgantes del `lg:-ml-9` caen
+                DENTRO del `lg:px-12` del capítulo, no fuera de la caja. */}
             <div
               id="hoja-tarjeta"
-              className="scroll-mt-24 rounded-3xl border border-bookea-linea bg-white shadow-elevado"
+              className={
+                esPublico
+                  ? "flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border border-bookea-linea bg-white shadow-elevado"
+                  : "scroll-mt-24 rounded-3xl border border-bookea-linea bg-white shadow-elevado"
+              }
             >
-              {/* ── PASO 1 · PASO 2 · PASO 3 · PASO 4 (sep 2026) ──────
-                  Los puntitos de abajo no decían ni dónde estabas ni
-                  cuánto faltaba sin contarlos. Pedido del dueño: que el
-                  recorrido se LEA — «Paso 1, Paso 2, Paso 3, Paso 4» —
-                  arriba de todo, y que cada paso sea un cuadro simple.
-                  El paso activo lleva también su nombre; los demás, solo
-                  el número, para que la fila no pese. Tocar uno ya
-                  visitado vuelve ahí (mismo `irAPaso` de siempre). */}
-              {esPublico && (
-                <nav
-                  aria-label="Pasos del asistente"
-                  className="flex flex-wrap items-center gap-1.5 px-5 pb-4 pt-5 sm:px-10 sm:pt-6 lg:px-12"
-                >
-                  {pasosVisibles.map((x, i) => {
-                    const activo = i === paso;
-                    const visitado = i < paso;
-                    // Con el premio incompleto no se salta hacia adelante
-                    // por los chips: el mismo candado del botón Siguiente.
-                    const trabado = i > paso && (trabadoPorCuenta || faltaElPremio);
-                    return (
-                      <button
-                        key={x.clave}
-                        type="button"
-                        onClick={() => irAPaso(i)}
-                        disabled={trabado}
-                        aria-current={activo ? "step" : undefined}
-                        aria-label={`Paso ${i + 1}: ${x.titulo}`}
-                        className={`presionable min-h-[44px] rounded-full px-3.5 py-1.5 text-[11.5px] font-extrabold transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
-                          activo
-                            ? ""
-                            : visitado
-                              ? "bg-bookea-azul-suave text-bookea-azul"
-                              : "border border-bookea-linea text-bookea-gris"
-                        }`}
-                        style={
-                          activo
-                            ? { background: "var(--accion)", color: "var(--accion-tinta)" }
-                            : undefined
-                        }
-                      >
-                        Paso {i + 1}
-                        {activo && <span className="font-bold"> · {x.corto}</span>}
-                      </button>
-                    );
-                  })}
-                </nav>
-              )}
-              {/* La portada —el nombre en 38 px— vive en el paso 1. En
-                  los demás pasos la hoja arranca directo en lo suyo: el
-                  nombre ya se ve en el teléfono de al lado, y repetirlo
-                  arriba de cada paso era la mitad del scroll de los
-                  pasos cortos. En el panel (crear/editar) queda siempre,
-                  como hasta hoy. */}
-              {(!esPublico || enPaso("identidad")) && (
+              {/* ── LA CABECERA DEL ASISTENTE (2 sep 2026) ────────────
+                  En el alta pública la portada con el nombre del negocio
+                  ocupaba ~250 px ARRIBA DE TODOS los pasos: se repetía en
+                  los cuatro y era la mitad del scroll que el dueño marcó
+                  en la captura. El nombre es un campo del paso 1, así que
+                  ahora vive ahí (ver `enPaso("identidad")` abajo) y acá
+                  queda una barra de una línea con el mapa de pasos.
+
+                  Los puntos anónimos del pie se volvieron esta barra con
+                  los NOMBRES: «Qué se gana» dice qué falta, «●» no. */}
+              {esPublico ? (
+                <CabeceraAsistente
+                  pasos={pasosVisibles}
+                  actual={paso}
+                  alIr={irAPaso}
+                  alVolver={alVolver}
+                  nombre={valor.nombre}
+                />
+              ) : (
               <Portada
-                rotulo={esPublico ? "Nombre de tu negocio" : undefined}
+                rotulo={undefined}
                 valor={valor.nombre}
                 alCambiar={(v) => patch({ nombre: v })}
                 bloqueada={esEditar && bloqueada}
                 acento={valor.colorSello}
                 placeholder={
-                  esPublico
-                    ? "Café Aroma"
-                    : esCrear
-                      ? `${TIPOS_TARJETA[valor.tipo].nombre} de ${negocioNombre}`
-                      : "Tu tarjeta"
+                  esCrear
+                    ? `${TIPOS_TARJETA[valor.tipo].nombre} de ${negocioNombre}`
+                    : "Tu tarjeta"
                 }
                 metadatos={metadatosDeLaPortada}
                 nota={
@@ -1078,6 +1111,11 @@ export default function TarjetaFormulario({
                   existe igual pero sin clase y sin `hidden`: la hoja
                   sigue siendo UNA superficie continua y el JSX de los
                   capítulos vive una sola vez. */}
+              {/* EL CUERPO: lo ÚNICO que puede correrse, y solo si un
+                  paso no entra. La cabecera y el pie quedan quietos, así
+                  el botón de seguir nunca se va abajo de la pantalla —
+                  que era la queja de la captura del paso 2. */}
+              <div className={esPublico ? "sin-barra min-h-0 flex-1 overflow-y-auto" : undefined}>
               <div className={esPublico ? "pasos" : undefined}>
                 <div
                   className={esPublico ? "paso" : undefined}
@@ -1085,14 +1123,36 @@ export default function TarjetaFormulario({
                   hidden={!enPaso("identidad")}
                 >
               {/* ── 1 · Identidad ─────────────────────────────────────
-                  El nombre se mudó a la portada: acá queda lo que de
-                  verdad decide cómo funciona la tarjeta. */}
+                  En el panel el nombre vive en la portada de la hoja. En
+                  el alta pública la portada se fue (repetía 250 px en los
+                  cuatro pasos), así que el nombre —que es un campo, no un
+                  encabezado— entra acá, que es donde se decide qué ES
+                  esta tarjeta. */}
               <Apartado
                 numero={1}
+                compacto={esPublico}
                 capitulo="Identidad"
-                titulo="Qué tipo de tarjeta es"
+                titulo={esPublico ? "Tu negocio y qué tipo de tarjeta es" : "Qué tipo de tarjeta es"}
                 nota="El tipo decide cómo suma el cliente y qué se lleva. Es lo único que queda fijo en cuanto se afilie el primero."
               >
+                {esPublico && (
+                  <div>
+                    <label className={etiqueta} htmlFor="nombre-negocio-alta">
+                      Nombre de tu negocio
+                    </label>
+                    <input
+                      id="nombre-negocio-alta"
+                      value={valor.nombre}
+                      onChange={(e) => patch({ nombre: e.target.value })}
+                      placeholder="Café Aroma"
+                      maxLength={80}
+                      className={CAMPO_BASE}
+                    />
+                    <p className="mt-1.5 text-[11.5px] leading-snug text-bookea-gris">
+                      Es el nombre que el cliente lee en el pase, arriba de los sellos.
+                    </p>
+                  </div>
+                )}
                 <div>
                   {esPublico ? (
                     <SelectorTipoExplorable
@@ -1129,6 +1189,7 @@ export default function TarjetaFormulario({
               {/* ── 2 · El premio ──────────────────────────────────── */}
               <Apartado
                 numero={2}
+                compacto={esPublico}
                 capitulo="El premio"
                 titulo="Qué se gana"
                 nota="Lo que el cliente se lleva, y cuánto le cuesta llegar. Es la promesa que va escrita en el pase."
@@ -1189,6 +1250,7 @@ export default function TarjetaFormulario({
               {/* ── 3 · Apariencia ─────────────────────────────────── */}
               <Apartado
                 numero={3}
+                compacto={esPublico}
                 capitulo="Apariencia"
                 titulo="Cómo se ve"
                 nota="El color es lo que se ve primero. Elegí un estilo terminado y después afiná lo que quieras."
@@ -1322,6 +1384,7 @@ export default function TarjetaFormulario({
                       alElegir={(i) => patch({ iconoSello: i })}
                       colorFondo={valor.colorFondo}
                       colorSello={valor.colorSello}
+                      ofrecerLogo={!esPublico}
                       {...(!esPublico || haySesion
                         ? {
                             iconoUrl: valor.iconoUrl || null,
@@ -1480,48 +1543,105 @@ export default function TarjetaFormulario({
               </div>
               </Apartado>
 
-                </div>
-
-                {/* ── Paso 4: dónde van los sellos ─────────────────── */}
-                <div
-                  className={esPublico ? "paso" : undefined}
-                  data-estado={enPaso("franja") ? "activo" : "saliendo"}
-                  hidden={!enPaso("franja")}
-                >
-
-              {/* ── 4 · La franja ──────────────────────────────────── */}
-              {hayTira && (
-                <Apartado
-                  numero={4}
-                  capitulo="La franja"
-                  titulo="Dónde van los sellos"
-                  nota="Los sellos y tu foto son la MISMA imagen en el teléfono. Por eso se acomodan acá y no encima de la foto."
-                >
-                  <ControlesTira
-                    valor={valor.diseno}
-                    alCambiar={(d) => patch({ diseno: d })}
-                    meta={metaSellos}
+              {/* ── EL CIERRE, DENTRO DEL ÚLTIMO PASO (2 sep 2026) ────
+                  El teléfono y el código de referido vivían en una CAJA
+                  APARTE debajo de la hoja: era el tercer rectángulo de la
+                  pantalla y el que obligaba a bajar para encontrar el
+                  botón de crear. Ahora son el final del último paso, y el
+                  botón está en el pie fijo. Un solo rectángulo. */}
+              {esPublico && (
+                <div className="border-t border-bookea-linea px-5 py-6 sm:px-10 lg:px-12">
+                  <CampoTelefono
+                    valor={valor.telefono}
+                    alCambiar={(t) => patch({ telefono: t })}
                   />
-                </Apartado>
-              )}
+
+                  {/* El código se escribe en el paso de paquetes, pero el
+                      servidor lo valida recién al crear: si no existe, el
+                      aviso salía acá con el campo una pantalla atrás.
+                      Aparece SOLO si ya hay algo escrito. */}
+                  {(valor.codigoReferido ?? "") !== "" && (
+                    <div className="mt-4">
+                      <label className={etiqueta} htmlFor="cierre-referido">
+                        Código de referido
+                      </label>
+                      <input
+                        id="cierre-referido"
+                        value={valor.codigoReferido ?? ""}
+                        onChange={(e) => patch({ codigoReferido: e.target.value.toUpperCase() })}
+                        maxLength={24}
+                        autoCapitalize="characters"
+                        className={CAMPO_BASE}
+                      />
+                    </div>
+                  )}
+
+                  {error && (
+                    <p
+                      role="alert"
+                      className="mt-4 rounded-xl bg-red-50 px-3.5 py-2.5 text-[12.5px] font-bold text-red-700"
+                    >
+                      {error}
+                    </p>
+                  )}
+
+                  {!puedeGuardar && !guardando && !requierePago && (
+                    <p className="mt-3 text-[11.5px] font-bold text-bookea-gris">
+                      {faltaParaGuardar({
+                        nombre,
+                        motivoBeneficio,
+                        telefonoListo,
+                        pideTelefono: true,
+                        bloqueada: false,
+                      })}
+                    </p>
+                  )}
                 </div>
+              )}
+
+                </div>
+
+                {/* ── 4 · La franja — SOLO EN EL PANEL ────────────────
+                    En el alta pública este capítulo ya no existe (ver el
+                    comentario largo junto a `PASOS_PUBLICOS`): los sellos
+                    quedan centrados por defecto y nadie tiene que decidir
+                    posición, tamaño y filas antes de ver su primera
+                    tarjeta funcionando. Acá sigue entero para el dueño
+                    que ya la tiene andando. */}
+                {!esPublico && hayTira && (
+                  <Apartado
+                    numero={4}
+                    compacto={esPublico}
+                    capitulo="La franja"
+                    titulo="Dónde van los sellos"
+                    nota="Los sellos y tu foto son la MISMA imagen en el teléfono. Por eso se acomodan acá y no encima de la foto."
+                  >
+                    <ControlesTira
+                      valor={valor.diseno}
+                      alCambiar={(d) => patch({ diseno: d })}
+                      meta={metaSellos}
+                    />
+                  </Apartado>
+                )}
+              </div>
               </div>
 
-              {/* ── LA NAVEGACIÓN DEL ASISTENTE ──────────────────────
-                  Vive DENTRO de la tarjeta blanca para que pasar de paso
-                  se lea como pasar la página de la misma ficha, no como
-                  irse a otro lado.
+              {/* ── EL PIE: QUIETO Y CON UNA SOLA ACCIÓN ──────────────
+                  (dueño, 2 sep 2026). Vive DENTRO de la tarjeta blanca
+                  para que pasar de paso se lea como pasar la página de la
+                  misma ficha, y `shrink-0` para que NUNCA se lo lleve el
+                  scroll: la captura del dueño mostraba «Siguiente» abajo
+                  del borde de la pantalla, que es la forma más rápida de
+                  que un asistente se sienta roto.
 
-                  Los puntos NO son decorativos: son el único lugar donde
-                  se ve cuántos pasos faltan. Y se puede tocar cualquiera
-                  para volver a uno ya visto — nada de obligar a pasar de
-                  a uno para corregir un color dos pasos atrás. */}
-              {/* Los puntitos que vivían acá se fueron: el recorrido se
-                  lee arriba, en los chips «Paso 1 · Paso 2 · …». Abajo
-                  quedan solo Atrás/Siguiente, que es lo que la mano
-                  busca al terminar un paso. */}
+                  Los puntos anónimos que vivían acá se fueron a la
+                  cabecera, con el NOMBRE de cada paso. Y en el último, el
+                  botón deja de decir «Siguiente» y pasa a ser el de
+                  crear: antes decía «Último paso ↓» y mandaba a buscar el
+                  botón de verdad más abajo — la flecha hacia abajo era,
+                  literalmente, el scroll que se quería eliminar. */}
               {esPublico && (
-                <div className="border-t border-bookea-linea px-5 py-5 sm:px-8">
+                <div className="shrink-0 border-t border-bookea-linea px-5 py-4 sm:px-8">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <button
                       type="button"
@@ -1532,43 +1652,29 @@ export default function TarjetaFormulario({
                       ← Atrás
                     </button>
 
-                    <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-bookea-gris">
-                      Paso {paso + 1} de {totalPasos}
+                    {/* El motivo de que el botón esté apagado va en el
+                        MEDIO y no debajo del botón: acá no empuja el pie
+                        hacia abajo cuando aparece. */}
+                    <span className="min-w-0 flex-1 text-center text-[11.5px] font-bold text-bookea-gris">
+                      {trabadoPorCuenta
+                        ? "Entrá con tu correo para seguir"
+                        : faltaElPremio
+                          ? motivoBeneficio
+                          : `Paso ${paso + 1} de ${totalPasos}`}
                     </span>
 
                     {paso < totalPasos - 1 ? (
-                      <span className="flex flex-col items-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => irAPaso(paso + 1)}
-                          disabled={trabadoPorCuenta || faltaElPremio}
-                          className="presionable min-h-[44px] rounded-xl px-5 py-3 text-[13px] font-extrabold disabled:cursor-not-allowed disabled:opacity-45"
-                          style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
-                        >
-                          Siguiente →
-                        </button>
-                        {/* Por qué está apagado. Un botón gris sin motivo es
-                            el peor final de un formulario: la persona no
-                            sabe si es un error nuestro o algo que le falta. */}
-                        {trabadoPorCuenta && (
-                          <span className="text-[11.5px] font-bold text-bookea-gris">
-                            Entrá con tu correo para seguir
-                          </span>
-                        )}
-                        {!trabadoPorCuenta && faltaElPremio && (
-                          <span className="text-[11.5px] font-bold text-bookea-gris">
-                            {motivoBeneficio}
-                          </span>
-                        )}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => irAPaso(paso + 1)}
+                        disabled={trabadoPorCuenta || faltaElPremio}
+                        className="presionable min-h-[44px] rounded-xl px-5 py-3 text-[13px] font-extrabold disabled:cursor-not-allowed disabled:opacity-45"
+                        style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+                      >
+                        Siguiente →
+                      </button>
                     ) : (
-                      // En el último paso el botón de crear ya está abajo:
-                      // dos llamados a la acción compitiendo en la misma
-                      // pantalla es la forma más rápida de que no se toque
-                      // ninguno.
-                      <span className="text-[12.5px] font-bold text-bookea-gris">
-                        Último paso ↓
-                      </span>
+                      botonCerrar
                     )}
                   </div>
                 </div>
@@ -1576,86 +1682,19 @@ export default function TarjetaFormulario({
             </div>
           </div>
 
-          {/* ── El cierre ────────────────────────────────────────────
+          {/* ── El cierre — SOLO EN EL PANEL ─────────────────────────
               Ni una sección numerada ni un paso: es la barra de guardar,
-              y vive donde termina el trabajo.
+              y vive donde termina el trabajo. Sigue pegada abajo para
+              poder guardar desde cualquier punto del scroll del editor.
 
-              EN EL ALTA PÚBLICA YA NO ES PEGAJOSA (pedido del dueño,
-              30 ago 2026): la caja del teléfono venía siguiendo el
-              scroll y en el celular tapaba el propio formulario que la
-              persona intentaba llenar. Ahí va al final, quieta, como
-              cualquier cierre de formulario. En el panel (crear/editar)
-              se conserva pegada abajo: ese editor no pide teléfono y
-              poder guardar desde cualquier punto del scroll sigue
-              valiendo. */}
-          {/* Es su propia tarjeta, separada de la hoja: la hoja termina
-              donde termina el diseño, y esto es la acción. Blanca en los
-              dos modos ahora que los capítulos viven sobre blanco.
-
-              EN EL ALTA PÚBLICA APARECE SOLO EN EL ÚLTIMO PASO (sep
-              2026): repetida bajo cada paso, era media pantalla de más
-              en pasos que tienen dos campos — y el motivo de que hasta
-              el paso más corto pidiera scroll. El «Último paso ↓» de la
-              navegación ya apunta acá. */}
-          {(!esPublico || paso >= totalPasos - 1) && (
-          <div
-            className={`mt-4 rounded-3xl border border-bookea-linea px-5 py-5 shadow-elevado sm:px-10 ${
-              esPublico ? "bg-white" : "sticky bottom-0 z-30 bg-white/95 backdrop-blur"
-            }`}
-          >
-            {/* Si el nombre quedó vacío en el paso 1, se corrige ACÁ y
-                no viajando dos pasos atrás — mismo criterio que el
-                código de referido, justo abajo. Es el MISMO dato del
-                estado, no una copia. */}
-            {esPublico && nombre.length === 0 && (
-              <div className="mb-4">
-                <label className={etiqueta} htmlFor="cierre-nombre">
-                  Nombre de tu negocio
-                  <Obligatorio />
-                </label>
-                <input
-                  id="cierre-nombre"
-                  required
-                  value={valor.nombre}
-                  onChange={(e) => patch({ nombre: e.target.value.slice(0, 80) })}
-                  maxLength={80}
-                  placeholder="Café Aroma"
-                  className={`${CAMPO_BASE} w-full`}
-                />
-              </div>
-            )}
-            {esPublico && (
-              <div className="mb-4">
-                <CampoTelefono valor={valor.telefono} alCambiar={(t) => patch({ telefono: t })} />
-              </div>
-            )}
-
-            {/* ── EL CÓDIGO DE REFERIDO, PARA CORREGIRLO ACÁ ─────────
-                Se escribe en el paso de paquetes, pero el servidor lo
-                valida recién al crear —o sea acá—: si el código no
-                existe, el aviso salía en esta barra mientras el campo
-                quedaba una pantalla atrás. Aparece SOLO si ya hay algo
-                escrito: quien no usó código no ve un campo de más, y
-                quien sí lo usó puede arreglar el typo sin volver.
-
-                Es el MISMO dato del estado (no una copia), así que
-                editarlo acá o allá es indistinto. */}
-            {esPublico && (valor.codigoReferido ?? "") !== "" && (
-              <div className="mb-4">
-                <label className={etiqueta} htmlFor="cierre-referido">
-                  Código de referido
-                </label>
-                <input
-                  id="cierre-referido"
-                  value={valor.codigoReferido ?? ""}
-                  onChange={(e) => patch({ codigoReferido: e.target.value.toUpperCase() })}
-                  maxLength={24}
-                  autoCapitalize="characters"
-                  className={CAMPO_BASE}
-                />
-              </div>
-            )}
-
+              EN EL ALTA PÚBLICA ESTA CAJA YA NO EXISTE (dueño, 2 sep
+              2026): era el tercer rectángulo apilado de la pantalla —el
+              que obligaba a bajar para encontrar el botón—. Su contenido
+              se repartió: el teléfono y el referido al final del último
+              paso, y el botón al pie fijo del asistente (`botonCerrar`,
+              el mismo de acá). */}
+          {!esPublico && (
+          <div className="sticky bottom-0 z-30 mt-4 rounded-3xl border border-bookea-linea bg-white/95 px-5 py-5 shadow-elevado backdrop-blur sm:px-10">
             {esEditar && emitidos > 0 && (
               <p className="mb-3 rounded-xl bg-amber-50 px-3.5 py-3 text-[12.5px] font-bold leading-relaxed text-amber-800">
                 Ya hay {emitidos} {emitidos === 1 ? "tarjeta" : "tarjetas"} en teléfonos de
@@ -1674,45 +1713,7 @@ export default function TarjetaFormulario({
             )}
 
             <div className="flex flex-wrap items-center gap-3">
-              {requierePago && planACobrar ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={irAlPlanPago}
-                    disabled={guardando}
-                    className="presionable rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40"
-                    style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
-                  >
-                    ¡Pagar y activar tarjeta! →
-                  </button>
-                  {/* La salida de emergencia SOLO cuando el pago viene del
-                      paquete elegido y no del tipo: un clic curioso en
-                      «Impulso» no puede dejar a nadie obligado a pagar por
-                      una tarjeta que el paquete gratis ya cubre. Si el
-                      TIPO exige plan pago, no hay atajo — eso sería
-                      regalar el paquete. */}
-                  {planPagoElegido && esGratis && (
-                    <button
-                      type="button"
-                      onClick={() => patch({ planElegido: "prueba" })}
-                      disabled={guardando}
-                      className="text-[11.5px] font-bold text-bookea-gris underline disabled:opacity-60"
-                    >
-                      Prefiero empezar con el paquete gratis y crear mi tarjeta ya
-                    </button>
-                  )}
-                </>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onGuardar}
-                  disabled={!puedeGuardar}
-                  className="presionable rounded-full px-5 py-3 text-[13.5px] font-extrabold disabled:opacity-40"
-                  style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
-                >
-                  {textoGuardar}
-                </button>
-              )}
+              {botonCerrar}
               {/* Por qué el botón está apagado. Sin esto el dueño se queda
                   mirando un botón gris sin saber qué le falta — que es lo
                   mismo que arreglaba el asterisco de los obligatorios. */}
@@ -1722,7 +1723,7 @@ export default function TarjetaFormulario({
                     nombre,
                     motivoBeneficio,
                     telefonoListo,
-                    pideTelefono: esPublico,
+                    pideTelefono: false,
                     bloqueada: esEditar && bloqueada,
                   })}
                 </span>
@@ -1738,22 +1739,8 @@ export default function TarjetaFormulario({
             RESULTADO de todo lo de la izquierda, y ocupa el lugar de un
             resultado. */}
         <aside className="mt-6 hidden lg:mt-0 lg:block">
-          {/* EN EL ALTA PÚBLICA LA PLACA SE ACHICA Y SE CENTRA (sep
-              2026, pedido del dueño): el teléfono baja a 190 px, la
-              ficha técnica del pie no se dibuja, y el `top` la deja
-              flotando al centro de la ventana — así el pase se ve
-              ENTERO, con QR y todo, sin scrollear, en cualquier paso.
-              En el panel (crear/editar) queda como estaba: placa
-              completa con sus derivados, pegada arriba. */}
-          <div
-            className="sticky"
-            style={{ top: esPublico ? "max(6rem, calc(50svh - 285px))" : "6rem" }}
-          >
-            <PlacaPase
-              datos={datosVista}
-              derivados={esPublico ? [] : derivadosDelPase}
-              anchoTelefono={esPublico ? 190 : undefined}
-            />
+          <div className="sticky top-24">
+            <PlacaPase datos={datosVista} derivados={derivadosDelPase} desnuda />
           </div>
         </aside>
       </div>
@@ -1814,15 +1801,144 @@ export default function TarjetaFormulario({
  * estado: es el guion de la pantalla. El `hayTira` que decide si «La
  * franja» entra o no se aplica al usarlo, no acá.
  */
-const PASOS_PUBLICOS: { clave: string; titulo: string; corto: string }[] = [
-  { clave: "cuenta", titulo: "Tu cuenta", corto: "Tu cuenta" },
-  { clave: "identidad", titulo: "Qué tipo de tarjeta es", corto: "La tarjeta" },
-  { clave: "premio", titulo: "Qué se gana", corto: "El premio" },
-  { clave: "apariencia", titulo: "Cómo se ve", corto: "Cómo se ve" },
-  { clave: "franja", titulo: "Dónde van los sellos", corto: "Los sellos" },
+const PASOS_PUBLICOS: { clave: string; titulo: string }[] = [
+  { clave: "cuenta", titulo: "Tu cuenta" },
+  { clave: "identidad", titulo: "Tu negocio" },
+  { clave: "premio", titulo: "El premio" },
+  { clave: "apariencia", titulo: "Cómo se ve" },
 ];
 
+/**
+ * ── «DÓNDE VAN LOS SELLOS» SE FUE DEL ALTA (dueño, 2 sep 2026) ──────
+ *
+ * «Esta selección de dónde van los sellos quitalo, dejalos por default
+ * centrados».
+ *
+ * Eran nueve botones en tres filas (posición, tamaño, filas) para
+ * afinar píxeles de una franja que quien está creando su primera
+ * tarjeta todavía no vio funcionando — y era, de lejos, el paso más
+ * alto del asistente.
+ *
+ * No hizo falta cambiar ningún valor por defecto: `CONFIG_CLASICA` ya
+ * nace con `alineacionH`/`alineacionV` en «centro», así que sacar los
+ * controles deja exactamente lo que se pidió. Las plantillas de franja
+ * solo aportan la imagen (`src`), nunca el layout, así que no hay forma
+ * de quedar descentrado sin control.
+ *
+ * Los controles NO se borraron: siguen vivos en el editor del panel
+ * (`esPublico === false`), que es donde un dueño con la tarjeta ya
+ * andando puede querer afinarla.
+ */
+
 // ── Piezas ─────────────────────────────────────────────────────────
+
+/**
+ * LA CABECERA DEL ASISTENTE PÚBLICO (dueño, 2 sep 2026).
+ *
+ * Reemplaza dos cosas a la vez:
+ *
+ *  · la PORTADA, que repetía el nombre del negocio en 38 px arriba de
+ *    los cuatro pasos (~250 px de alto por paso, y el nombre es un
+ *    campo del paso 1, no un encabezado);
+ *  · los PUNTOS del pie, que decían cuántos pasos faltan pero no CUÁL
+ *    es cada uno. «El premio» dice qué falta; «●» no dice nada.
+ *
+ * Es una sola línea de alto fijo, así que el rectángulo del asistente
+ * no cambia de tamaño al pasar de paso. Los pasos ya vistos se pueden
+ * tocar para volver — corregir un color dos pasos atrás no puede
+ * obligar a rehacer el camino— pero los que faltan NO: saltearse el
+ * premio dejaría la tarjeta sin la promesa que va escrita en el pase.
+ *
+ * En pantallas angostas la fila se corre en horizontal en vez de
+ * envolverse: envolver cambiaría la altura de la cabecera y con ella la
+ * del cuerpo, que es justo lo que este rediseño vino a evitar.
+ */
+function CabeceraAsistente({
+  pasos,
+  actual,
+  alIr,
+  alVolver,
+  nombre,
+}: {
+  pasos: { clave: string; titulo: string }[];
+  actual: number;
+  alIr: (i: number) => void;
+  alVolver?: () => void;
+  nombre: string;
+}) {
+  return (
+    <header className="shrink-0 border-b border-bookea-linea px-5 pb-3 pt-4 sm:px-8">
+      <div className="mb-2.5 flex items-center justify-between gap-3">
+        {alVolver ? (
+          <BotonVolver onClick={alVolver}>Volver a los paquetes</BotonVolver>
+        ) : (
+          <span />
+        )}
+        {/* El nombre, cuando ya se escribió: confirma de qué tarjeta se
+            está hablando sin gastar un encabezado entero en repetirlo. */}
+        {nombre.trim() !== "" && (
+          <span className="truncate text-[12px] font-extrabold text-bookea-tinta">
+            {nombre}
+          </span>
+        )}
+      </div>
+
+      <ol className="sin-barra -mx-1 flex items-center gap-1 overflow-x-auto px-1">
+        {pasos.map((x, i) => {
+          const esActual = i === actual;
+          const hecho = i < actual;
+          return (
+            <li key={x.clave} className="flex shrink-0 items-center">
+              <button
+                type="button"
+                onClick={() => alIr(i)}
+                disabled={i > actual}
+                aria-current={esActual ? "step" : undefined}
+                className="presionable flex min-h-[44px] items-center gap-2 rounded-xl px-2.5 text-left disabled:cursor-default"
+                style={{
+                  background: esActual ? "var(--accion-suave)" : "transparent",
+                }}
+              >
+                <span
+                  aria-hidden
+                  className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-extrabold transition-colors duration-200 ease-[var(--ease-bookea)]"
+                  style={
+                    esActual
+                      ? { background: "var(--accion)", color: "var(--accion-tinta)" }
+                      : hecho
+                        ? { background: "var(--accion-suave)", color: "var(--accion)" }
+                        : { background: "var(--line)", color: "var(--muted)" }
+                  }
+                >
+                  {hecho ? "✓" : i + 1}
+                </span>
+                <span
+                  className="whitespace-nowrap text-[12.5px] font-bold"
+                  style={{
+                    color: esActual
+                      ? "var(--accion)"
+                      : hecho
+                        ? "var(--text)"
+                        : "var(--muted)",
+                  }}
+                >
+                  {x.titulo}
+                </span>
+              </button>
+              {i < pasos.length - 1 && (
+                <span
+                  aria-hidden
+                  className="mx-0.5 h-px w-3 shrink-0"
+                  style={{ background: "var(--line)" }}
+                />
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </header>
+  );
+}
 
 /**
  * QUÉ LE FALTA AL BOTÓN PARA ENCENDERSE.

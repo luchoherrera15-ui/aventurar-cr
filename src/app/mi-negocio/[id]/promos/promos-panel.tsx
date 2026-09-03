@@ -155,7 +155,7 @@ function Fila({
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-[14.5px] font-bold text-aventurea-ink">{promo.titulo}</p>
           {gancho && (
-            <span className="rounded-md bg-aventurea-orange px-2 py-0.5 text-[11px] font-extrabold text-aventurea-ink">
+            <span className="rounded-md bg-aventurea-navy px-2 py-0.5 text-[11px] font-extrabold text-white">
               {gancho}
             </span>
           )}

@@ -303,6 +303,7 @@ export default function HistoricoReservas({
 }) {
   const [busqueda, setBusqueda] = useState("");
   const [estado, setEstado] = useState("todos");
+  const [mes, setMes] = useState("todos");
   const [visibles, setVisibles] = useState(PASO);
   const [abierta, setAbierta] = useState<string | null>(null);
 
@@ -311,16 +312,40 @@ export default function HistoricoReservas({
     [items],
   );
 
+  /**
+   * Los meses del EVENTO que existen de verdad en la lista (clave
+   * "YYYY-MM"), del más lejano al más viejo — «ver todo lo de
+   * diciembre» es la pregunta de quien planifica el calendario del
+   * local, así que se filtra por cuándo ES el evento, no por cuándo se
+   * reservó. Solo meses presentes: un selector con doce meses vacíos
+   * obliga a adivinar cuáles tienen algo.
+   */
+  const mesesPresentes = useMemo(() => {
+    const claves = new Set(items.map((i) => i.fechaEvento.slice(0, 7)).filter((m) => m.length === 7));
+    return Array.from(claves)
+      .sort()
+      .reverse()
+      .map((clave) => {
+        const [y, m] = clave.split("-").map(Number);
+        const nombre = new Date(y, m - 1, 1).toLocaleDateString("es-CR", {
+          month: "long",
+          year: "numeric",
+        });
+        return { clave, nombre: nombre.charAt(0).toUpperCase() + nombre.slice(1) };
+      });
+  }, [items]);
+
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return items.filter((i) => {
       if (estado !== "todos" && i.estado !== estado) return false;
+      if (mes !== "todos" && !i.fechaEvento.startsWith(mes)) return false;
       if (!q) return true;
       return [i.nombre, i.correo, i.whatsapp, i.contacto]
         .filter(Boolean)
         .some((campo) => String(campo).toLowerCase().includes(q));
     });
-  }, [items, busqueda, estado]);
+  }, [items, busqueda, estado, mes]);
 
   if (items.length === 0) {
     return (
@@ -354,6 +379,31 @@ export default function HistoricoReservas({
             className="h-11 w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 pl-9 pr-3 text-[13.5px] text-aventurea-ink outline-none placeholder:text-zinc-500 focus:border-aventurea-navy"
           />
         </label>
+        {/* El mes del EVENTO (pedido del dueño, 2 sep 2026): «ver todo
+            lo de diciembre, lo de noviembre…». Solo aparece si hay más
+            de un mes que elegir — un selector de una sola opción es un
+            botón que no hace nada. */}
+        {mesesPresentes.length > 1 && (
+          <label className="shrink-0">
+            <span className="sr-only">Filtrar por mes del evento</span>
+            <select
+              value={mes}
+              onChange={(e) => {
+                setMes(e.target.value);
+                setVisibles(PASO);
+              }}
+              title="Mes en que es el evento"
+              className="h-11 w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 text-[13.5px] font-bold text-aventurea-ink outline-none focus:border-aventurea-navy sm:w-auto"
+            >
+              <option value="todos">Todos los meses</option>
+              {mesesPresentes.map((m) => (
+                <option key={m.clave} value={m.clave}>
+                  {m.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="shrink-0">
           <span className="sr-only">Filtrar por estado</span>
           <select

@@ -14,7 +14,8 @@ export type PerfilRow = {
   id: string;
   email: string | null;
   nombre: string | null;
-  telefono: string | null;
+  /** El WhatsApp de la metadata de auth — null si nunca lo dio. */
+  whatsapp: string | null;
   rol: "admin" | "dueno_rancho" | "cliente";
   created_at: string;
   negocios: { nombre: string; categoria: string; vertical: string | null }[];
@@ -24,18 +25,6 @@ const inputCls =
   "w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:zinc-500";
 const labelCls =
   "mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft";
-
-/**
- * El número para wa.me. El teléfono se guarda tal cual se escribió
- * (onboarding web, /cuenta y la app móvil hacen `telefono.trim()`), así
- * que conviven «+506 8888 8888» y «88888888» a secas. wa.me exige el
- * código de país: a un número local de 8 dígitos se le antepone el 506
- * de Costa Rica — los que ya traen prefijo pasan tal cual.
- */
-function waDe(telefono: string): string {
-  const digitos = telefono.replace(/\D/g, "");
-  return digitos.length === 8 ? `506${digitos}` : digitos;
-}
 
 type Edicion = { perfil: PerfilRow; campo: "email" | "password" };
 
@@ -205,7 +194,7 @@ export default function UsuariosPanel({
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-aventurea-cream-2/60">
-              {["Correo", "Nombre", "Teléfono", "Negocio", "Rol", "Acciones"].map((h) => (
+              {["Correo", "Nombre", "WhatsApp", "Negocio", "Rol", "Acciones"].map((h) => (
                 <th
                   key={h}
                   className="whitespace-nowrap border-b border-aventurea-line px-4 py-3.5 text-left text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
@@ -239,19 +228,25 @@ export default function UsuariosPanel({
                 <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
                   {p.nombre ?? "—"}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3.5 text-[13px] text-aventurea-ink-soft">
-                  {p.telefono ? (
+                <td className="whitespace-nowrap px-4 py-3.5 text-[13px]">
+                  {p.whatsapp ? (
+                    /* Link directo al chat: el número se registró como
+                       WhatsApp, así que se abre como WhatsApp. Solo
+                       dígitos en el wa.me; +506 si vino pelado (8
+                       dígitos locales). */
                     <a
-                      href={`https://wa.me/${waDe(p.telefono)}`}
+                      href={`https://wa.me/${(() => {
+                        const d = p.whatsapp.replace(/\D/g, "");
+                        return d.length === 8 ? `506${d}` : d;
+                      })()}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title="Escribirle por WhatsApp"
-                      className="font-bold text-aventurea-ink hover:text-aventurea-orange"
+                      className="font-bold text-aventurea-navy tabular-nums hover:underline"
                     >
-                      {p.telefono}
+                      {p.whatsapp}
                     </a>
                   ) : (
-                    "—"
+                    <span className="text-aventurea-ink-soft">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3.5 text-[13px] text-aventurea-ink-soft">

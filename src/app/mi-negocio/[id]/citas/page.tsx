@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -15,16 +15,19 @@ import {
   type Termino,
   type Vocabulario,
 } from "@/lib/business/identidad";
-import SeccionPlegable from "@/components/seccion-plegable";
-import { IconChevronLeft } from "@/components/icons";
+import { IconClipboard, IconTagLine } from "@/components/icons";
 import { Card, CardVacia, FilaPanel, Metrica, PildoraEstado } from "@/components/panel/piezas";
 import {
+  BAJADA_PANTALLA,
   ESTADO_AVISO,
   GAP_TABLERO,
   RADIO_CARD,
   RADIO_PILDORA,
+  TITULO_CARD,
   type EstadoPanel,
 } from "@/components/panel/sistema";
+import PanelSidebar, { type Tab } from "../panel-sidebar";
+import { iconoModulo } from "../iconos-modulos";
 import EncabezadoCitas from "./encabezado-citas";
 import { metricasDelDia } from "./metricas-dia";
 import MembresiasPanel from "./membresias-panel";
@@ -73,12 +76,55 @@ const GIFTCARD_ESTADO: Record<Giftcard["estado"], { label: string; estado: Estad
 };
 
 /**
- * La pantalla de CITAS — solo la operación del día (pedido del dueño:
- * una sola pantalla donde las citas de la web entran solas y se
- * agenda, mueve o cancela todo). La agenda por colaborador va directa,
- * sin pestañas internas; lo que acompaña la operación (clientes,
- * reportes, lista de espera, giftcards) queda debajo en secciones
- * plegables CERRADAS. La configuración del negocio (equipo, horario
+ * El encabezado de una pestaña del menú lateral: el mismo título,
+ * descripción y resumen que antes llevaba cada acordeón
+ * (`SeccionPlegable`), ya sin chevron ni plegado — con el rail, cada
+ * sección muestra su contenido directo. Tipografía y píldora salen del
+ * sistema del panel; acá no hay un solo valor suelto.
+ */
+function Seccion({
+  titulo,
+  descripcion,
+  resumen,
+  children,
+}: {
+  titulo: string;
+  descripcion?: ReactNode;
+  /** Dato corto a la derecha del título, ej. "12" o "3 vendidas". */
+  resumen?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className={`flex flex-col ${GAP_TABLERO}`}>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className={TITULO_CARD}>{titulo}</h2>
+          {descripcion && <p className={`mt-1 max-w-[70ch] ${BAJADA_PANTALLA}`}>{descripcion}</p>}
+        </div>
+        {resumen && (
+          <span
+            className={`${RADIO_PILDORA} shrink-0 whitespace-nowrap bg-aventurea-cream-2 px-2.5 py-1 text-[11px] font-bold text-aventurea-ink-soft`}
+          >
+            {resumen}
+          </span>
+        )}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * La pantalla de CITAS, ordenada como CRM con menú lateral (pedido del
+ * dueño, sep 2026: «ordená TODO en el menú de la izquierda — demasiado
+ * scroll, demasiado confuso»). Reusa el MISMO `PanelSidebar` del panel
+ * principal: la agenda del día es la pestaña por defecto (esta pantalla
+ * sigue SIENDO la agenda) y lo que acompaña la operación —clientes,
+ * reportes, membresías, lista de espera, giftcards— pasa de acordeones
+ * apilados a pestañas del rail. Todo queda montado (`PanelSidebar`
+ * esconde con `hidden`), así que un formulario a medio llenar no se
+ * pierde al cambiar de sección y la carga de datos sigue siendo UNA
+ * sola, como siempre. La configuración del negocio (equipo, horario
  * semanal, bloqueos, depósito, productos) vive en la pestaña
  * Configuración de /mi-negocio/[id].
  */
@@ -349,65 +395,262 @@ export default async function CitasConfigPage({
     .filter((g) => g.estado === "activa")
     .reduce((s, g) => s + Number(g.saldo), 0);
 
-  return (
-    // El acento del tipo entra UNA sola vez, acá: todo lo de adentro
-    // —incluidos los componentes de cliente— lo lee como var(--acento…),
-    // así ninguna pantalla necesita saber de qué color es un spa.
-    /* El lienzo GRIS lo pone el layout de /mi-negocio; acá va el mismo
-       ancho de trabajo y el mismo padding que el contenido del panel
-       (1560px de tope de legibilidad, px-4 → lg:px-8), para que salir
-       del panel a la agenda no se sienta como salir del producto.
-       Esta pantalla todavía NO cuelga del rail del panel: es un
-       `page.tsx` propio, y meterla adentro de `PanelSidebar` es un
-       cambio de navegación, no de piel. */
-    <main
-      className="mx-auto w-full max-w-[1560px] px-4 pb-14 pt-6 sm:px-6 lg:px-8 lg:pt-8"
-      style={variablesAcento(identidad) as CSSProperties}
-    >
+  // ── LAS PESTAÑAS DEL MENÚ LATERAL ──────────────────────────────────
+  // Los íconos son los MISMOS que el menú del panel principal usa para
+  // cada módulo (iconos-modulos.tsx): el mismo "Clientes" no puede
+  // tener dos caras según la pantalla. Lista de espera y Giftcards no
+  // son módulos, así que eligen el suyo acá — sin repetir ninguno.
+  const tabs: Tab[] = [
+    {
+      // Lo operativo del día, y la pestaña por defecto: el encabezado
+      // con los números de hoy y la agenda por colaborador — que ya
+      // pinta adentro los bloqueos del día y el botón «Bloquear
+      // franja». Sin títulos de sección: esta pestaña ES la agenda.
+      id: "agenda",
+      label: "Agenda",
+      icon: iconoModulo("agenda"),
+      content: (
+        <>
+          <EncabezadoCitas
+            identidad={identidad}
+            tipoLabel={tieneTipo ? definicion.label : null}
+            hrefConfig={`/mi-negocio/${rancho.id}?tab=config`}
+            nombreNegocio={rancho.nombre}
+            fecha={hoy}
+            titulo={tituloAgenda}
+            metricas={metricas}
+            muestraPagos={negocio.modulos.has("pagos")}
+            personas={
+              negocio.modulos.has("clientes")
+                ? { total: clientes.length, inactivos: clientesInactivos }
+                : null
+            }
+            descripcion={
+              <>
+                Las {loQueEntra} de tu página entran solas acá. Agendá a mano lo que
+                te entre por teléfono, movélas, cancelálas y marcá quién vino — todo
+                desde esta pantalla. El equipo, horarios y demás se configuran en{" "}
+                <Link
+                  href={`/mi-negocio/${rancho.id}?tab=config`}
+                  className="font-bold text-aventurea-navy underline"
+                >
+                  Configuración
+                </Link>
+                .
+              </>
+            }
+          />
+          <div className="mt-6">
+            <AgendaCitas
+              ranchoId={rancho.id}
+              zona={zona}
+              equipo={equipo.map((m) => ({
+                id: m.id,
+                nombre: m.nombre,
+                tipo: m.tipo ?? "profesional",
+                activo: m.activo,
+                fotoUrl: m.foto_url,
+              }))}
+              servicios={servicios}
+              horario={horario}
+              horariosPorMiembro={horariosPorMiembro}
+              initialFecha={hoy}
+              initialCitas={citasHoy}
+              initialBloqueos={bloqueos}
+              vocabulario={vocabulario}
+            />
+          </div>
+        </>
+      ),
+    },
+  ];
+
+  if (negocio.modulos.has("clientes")) {
+    tabs.push({
+      id: "clientes",
+      label: persona.Plural,
+      icon: iconoModulo("clientes"),
+      content: (
+        <Seccion
+          titulo={persona.Plural}
+          descripcion={
+            tonoComercial
+              ? "Quién viene, quién dejó de venir y quién te está fallando — con la promoción de re-enganche a un clic."
+              : "Quién viene, quién dejó de venir y quién te está fallando — con el correo para escribirle a un clic."
+          }
+          resumen={clientes.length > 0 ? `${clientes.length}` : undefined}
+        >
+          <ClientesPanel
+            ranchoId={rancho.id}
+            nombreNegocio={rancho.nombre}
+            clientes={clientes}
+            vocabulario={vocabulario}
+            promociones={tonoComercial}
+          />
+        </Seccion>
+      ),
+    });
+  }
+
+  if (negocio.modulos.has("reportes")) {
+    tabs.push({
+      // El `?tab=` al que apunta el ítem "Reportes" del menú del panel
+      // (ver lib/business/menu.ts — el ancla `#reportes` murió con los
+      // acordeones). El título de la sección sigue siendo el suyo.
+      id: "reportes",
+      label: "Reportes",
+      icon: iconoModulo("reportes"),
+      content: (
+        <Seccion
+          titulo="Cómo va el negocio"
+          descripcion={`${visita.Plural}, asistencia, ingresos, quién atiende más y a qué horas — derivado de tu agenda real.`}
+        >
+          <ReportesCitas
+            ranchoId={rancho.id}
+            equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre }))}
+            vocabulario={vocabulario}
+          />
+        </Seccion>
+      ),
+    });
+  }
+
+  if (muestraMembresias) {
+    tabs.push({
+      id: "membresias",
+      label: tituloMembresias,
+      icon: iconoModulo("membresias"),
+      content: (
+        <Seccion
+          titulo={tituloMembresias}
+          descripcion={`Lo que el ${persona.singular} paga por adelantado: un plan con período, o un bono de ${visita.plural} que se van gastando.`}
+        >
+          <MembresiasPanel
+            ranchoId={rancho.id}
+            hoy={hoy}
+            planesIniciales={planes}
+            membresiasIniciales={membresias}
+            consumosIniciales={(consumosRes.data ?? []) as ConsumoMembresia[]}
+            faltaMigracion={!!planesRes.error}
+          />
+        </Seccion>
+      ),
+    });
+  }
+
+  tabs.push({
+    id: "espera",
+    label: "Lista de espera",
+    icon: <IconClipboard />,
+    content: (
+      <Seccion
+        titulo="Lista de espera"
+        descripcion={`Cuando un día está lleno, el ${persona.singular} deja su nombre; si se libera un espacio, se le avisa solo.`}
+      >
+        <ListaEsperaPanel ranchoId={rancho.id} vocabulario={vocabulario} />
+      </Seccion>
+    ),
+  });
+
+  if (muestraGiftcards) {
+    tabs.push({
+      id: "giftcards",
+      label: "Giftcards",
+      icon: <IconTagLine />,
+      content: (
+        <Seccion
+          titulo="Giftcards"
+          descripcion="Las giftcards vendidas de tu negocio: quién la compró, para quién es y cuánto saldo queda."
+          resumen={giftcards.length > 0 ? `${giftcards.length} vendidas` : undefined}
+        >
+          {giftcardsSinTabla ? (
+            <div className={`${RADIO_CARD} p-4 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}>
+              <strong>Falta la migración de giftcards.</strong> Corré{" "}
+              <code className="rounded bg-aventurea-surface px-1.5 py-0.5 font-mono text-[12px]">
+                supabase/migrations/0059_giftcards.sql
+              </code>{" "}
+              en el SQL Editor de Supabase y volvé a entrar.
+            </div>
+          ) : giftcards.length === 0 ? (
+            <CardVacia>Todavía no hay giftcards vendidas.</CardVacia>
+          ) : (
+            <>
+              {/* Los tres números salen de las mismas giftcards que se
+                  listan abajo — nada que no tenga tabla detrás. */}
+              <div className="mb-3.5 grid grid-cols-2 gap-3 lg:grid-cols-3">
+                <Metrica rotulo="Vendido" valor={fmtColones(giftVendido)} />
+                <Metrica rotulo="Por canjear" valor={fmtColones(giftPorCanjear)} />
+                <Metrica
+                  rotulo="Activas"
+                  valor={String(giftcards.filter((g) => g.estado === "activa").length)}
+                />
+              </div>
+
+              {/* La fila canónica del panel: contexto (la fecha de
+                  venta), la barrita del estado, quién la compró y el
+                  monto con su píldora a la derecha. */}
+              <Card sinPadding className="px-4 sm:px-5">
+                {giftcards.map((g, i) => (
+                  <FilaPanel
+                    key={g.id}
+                    separador={i < giftcards.length - 1}
+                    marca={GIFTCARD_ESTADO[g.estado].estado}
+                    titulo={
+                      <span className="flex flex-wrap items-center gap-2">
+                        <code
+                          className={`${RADIO_PILDORA} bg-aventurea-cream-2 px-2 py-0.5 font-mono text-[12px] font-bold text-aventurea-ink`}
+                        >
+                          {g.codigo}
+                        </code>
+                        <span className="min-w-0 truncate">
+                          {g.comprador_nombre ?? "Compra directa"}
+                          {g.beneficiario_nombre ? ` → para ${g.beneficiario_nombre}` : ""}
+                        </span>
+                      </span>
+                    }
+                    detalle={
+                      <>
+                        {fmtFechaCorta(g.created_at.slice(0, 10))}
+                        {g.vence_en ? ` · vence ${fmtFechaCorta(g.vence_en)}` : ""}
+                        {g.estado === "activa" && Number(g.saldo) !== Number(g.monto)
+                          ? ` · saldo ${fmtColones(Number(g.saldo))}`
+                          : ""}
+                      </>
+                    }
+                    derecha={
+                      <div className="flex shrink-0 items-center gap-2.5">
+                        <span className="text-[13.5px] font-extrabold tabular-nums text-aventurea-ink">
+                          {fmtColones(Number(g.monto))}
+                        </span>
+                        <PildoraEstado estado={GIFTCARD_ESTADO[g.estado].estado} colapsa>
+                          {GIFTCARD_ESTADO[g.estado].label}
+                        </PildoraEstado>
+                      </div>
+                    }
+                  />
+                ))}
+              </Card>
+            </>
+          )}
+        </Seccion>
+      ),
+    });
+  }
+
+  // Arriba del contenido de TODAS las pestañas (mismo lugar donde el
+  // panel principal pone su «volver»): la vuelta al panel y, si la
+  // carga falló, el aviso — porque falló para la pantalla entera, no
+  // para una pestaña.
+  const encabezado = (
+    <>
       <Link
         href={`/mi-negocio/${rancho.id}`}
-        className="inline-flex items-center gap-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-navy"
+        className="mb-4 inline-block text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
       >
-        <IconChevronLeft className="h-3.5 w-3.5" />
-        Volver al panel de {rancho.nombre}
+        ← Volver al panel de {rancho.nombre}
       </Link>
-
-      <div className="mt-5">
-        <EncabezadoCitas
-          identidad={identidad}
-          tipoLabel={tieneTipo ? definicion.label : null}
-          hrefConfig={`/mi-negocio/${rancho.id}?tab=config`}
-          nombreNegocio={rancho.nombre}
-          fecha={hoy}
-          titulo={tituloAgenda}
-          metricas={metricas}
-          muestraPagos={negocio.modulos.has("pagos")}
-          personas={
-            negocio.modulos.has("clientes")
-              ? { total: clientes.length, inactivos: clientesInactivos }
-              : null
-          }
-          descripcion={
-            <>
-              Las {loQueEntra} de tu página entran solas acá. Agendá a mano lo que
-              te entre por teléfono, movélas, cancelálas y marcá quién vino — todo
-              desde esta pantalla. El equipo, horarios y demás se configuran en{" "}
-              <Link
-                href={`/mi-negocio/${rancho.id}?tab=config`}
-                className="font-bold text-aventurea-navy underline"
-              >
-                Configuración
-              </Link>
-              .
-            </>
-          }
-        />
-      </div>
-
       {errorCarga && (
-        <div
-          className={`mt-6 ${RADIO_CARD} p-4 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}
-        >
+        <div className={`mb-6 ${RADIO_CARD} p-4 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}>
           <strong>Faltan las migraciones.</strong> No se pudo leer la
           configuración de citas: {errorCarga.message}. Corré{" "}
           <code className="rounded bg-aventurea-surface px-1.5 py-0.5 font-mono text-[12px]">
@@ -416,177 +659,25 @@ export default async function CitasConfigPage({
           en el SQL Editor de Supabase y volvé a entrar.
         </div>
       )}
+    </>
+  );
 
-      <div className={`mt-6 flex flex-col ${GAP_TABLERO}`}>
-        {/* La agenda va DIRECTA — sin pestañas internas ni títulos de
-            sección (pedido del dueño): esta pantalla ES la agenda. */}
-        <AgendaCitas
-          ranchoId={rancho.id}
-          zona={zona}
-          equipo={equipo.map((m) => ({
-            id: m.id,
-            nombre: m.nombre,
-            tipo: m.tipo ?? "profesional",
-            activo: m.activo,
-            fotoUrl: m.foto_url,
-          }))}
-          servicios={servicios}
-          horario={horario}
-          horariosPorMiembro={horariosPorMiembro}
-          initialFecha={hoy}
-          initialCitas={citasHoy}
-          initialBloqueos={bloqueos}
-          vocabulario={vocabulario}
-        />
-
-        {/* Lo que acompaña la operación, plegado y cerrado: se abre
-            cuando hace falta, sin agrandar la pantalla. */}
-        {negocio.modulos.has("clientes") && (
-          <SeccionPlegable
-            marco={false}
-            id="clientes"
-            titulo={persona.Plural}
-            descripcion={
-              tonoComercial
-                ? "Quién viene, quién dejó de venir y quién te está fallando — con la promoción de re-enganche a un clic."
-                : "Quién viene, quién dejó de venir y quién te está fallando — con el correo para escribirle a un clic."
-            }
-            resumen={clientes.length > 0 ? `${clientes.length}` : undefined}
-          >
-            <ClientesPanel
-              ranchoId={rancho.id}
-              nombreNegocio={rancho.nombre}
-              clientes={clientes}
-              vocabulario={vocabulario}
-              promociones={tonoComercial}
-            />
-          </SeccionPlegable>
-        )}
-
-        {negocio.modulos.has("reportes") && (
-          <SeccionPlegable
-            marco={false}
-            // El ancla a la que apunta el ítem "Reportes" del menú del
-            // panel (ver lib/business/menu.ts). Sin `id` ese ítem no
-            // tendría a dónde llevar y se pintaría como "próximamente".
-            id="reportes"
-            titulo="Cómo va el negocio"
-            descripcion={`${visita.Plural}, asistencia, ingresos, quién atiende más y a qué horas — derivado de tu agenda real.`}
-          >
-            <ReportesCitas
-              ranchoId={rancho.id}
-              equipo={equipo.map((m) => ({ id: m.id, nombre: m.nombre }))}
-              vocabulario={vocabulario}
-            />
-          </SeccionPlegable>
-        )}
-
-        {muestraMembresias && (
-          <SeccionPlegable
-            marco={false}
-            titulo={tituloMembresias}
-            descripcion={`Lo que el ${persona.singular} paga por adelantado: un plan con período, o un bono de ${visita.plural} que se van gastando.`}
-          >
-            <MembresiasPanel
-              ranchoId={rancho.id}
-              hoy={hoy}
-              planesIniciales={planes}
-              membresiasIniciales={membresias}
-              consumosIniciales={(consumosRes.data ?? []) as ConsumoMembresia[]}
-              faltaMigracion={!!planesRes.error}
-            />
-          </SeccionPlegable>
-        )}
-
-        <SeccionPlegable
-          marco={false}
-          titulo="Lista de espera"
-          descripcion={`Cuando un día está lleno, el ${persona.singular} deja su nombre; si se libera un espacio, se le avisa solo.`}
-        >
-          <ListaEsperaPanel ranchoId={rancho.id} vocabulario={vocabulario} />
-        </SeccionPlegable>
-
-        {muestraGiftcards && (
-          <SeccionPlegable
-            marco={false}
-            titulo="Giftcards"
-            descripcion="Las giftcards vendidas de tu negocio: quién la compró, para quién es y cuánto saldo queda."
-            resumen={giftcards.length > 0 ? `${giftcards.length} vendidas` : undefined}
-          >
-            {giftcardsSinTabla ? (
-              <div
-                className={`${RADIO_CARD} p-4 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}
-              >
-                <strong>Falta la migración de giftcards.</strong> Corré{" "}
-                <code className="rounded bg-aventurea-surface px-1.5 py-0.5 font-mono text-[12px]">
-                  supabase/migrations/0059_giftcards.sql
-                </code>{" "}
-                en el SQL Editor de Supabase y volvé a entrar.
-              </div>
-            ) : giftcards.length === 0 ? (
-              <CardVacia>Todavía no hay giftcards vendidas.</CardVacia>
-            ) : (
-              <>
-                {/* Los tres números salen de las mismas giftcards que se
-                    listan abajo — nada que no tenga tabla detrás. */}
-                <div className="mb-3.5 grid grid-cols-2 gap-3 lg:grid-cols-3">
-                  <Metrica rotulo="Vendido" valor={fmtColones(giftVendido)} />
-                  <Metrica rotulo="Por canjear" valor={fmtColones(giftPorCanjear)} />
-                  <Metrica
-                    rotulo="Activas"
-                    valor={String(giftcards.filter((g) => g.estado === "activa").length)}
-                  />
-                </div>
-
-                {/* La fila canónica del panel: contexto (la fecha de
-                    venta), la barrita del estado, quién la compró y el
-                    monto con su píldora a la derecha. */}
-                <Card sinPadding className="px-4 sm:px-5">
-                  {giftcards.map((g, i) => (
-                    <FilaPanel
-                      key={g.id}
-                      separador={i < giftcards.length - 1}
-                      marca={GIFTCARD_ESTADO[g.estado].estado}
-                      titulo={
-                        <span className="flex flex-wrap items-center gap-2">
-                          <code
-                            className={`${RADIO_PILDORA} bg-aventurea-cream-2 px-2 py-0.5 font-mono text-[12px] font-bold text-aventurea-ink`}
-                          >
-                            {g.codigo}
-                          </code>
-                          <span className="min-w-0 truncate">
-                            {g.comprador_nombre ?? "Compra directa"}
-                            {g.beneficiario_nombre ? ` → para ${g.beneficiario_nombre}` : ""}
-                          </span>
-                        </span>
-                      }
-                      detalle={
-                        <>
-                          {fmtFechaCorta(g.created_at.slice(0, 10))}
-                          {g.vence_en ? ` · vence ${fmtFechaCorta(g.vence_en)}` : ""}
-                          {g.estado === "activa" && Number(g.saldo) !== Number(g.monto)
-                            ? ` · saldo ${fmtColones(Number(g.saldo))}`
-                            : ""}
-                        </>
-                      }
-                      derecha={
-                        <div className="flex shrink-0 items-center gap-2.5">
-                          <span className="text-[13.5px] font-extrabold tabular-nums text-aventurea-ink">
-                            {fmtColones(Number(g.monto))}
-                          </span>
-                          <PildoraEstado estado={GIFTCARD_ESTADO[g.estado].estado} colapsa>
-                            {GIFTCARD_ESTADO[g.estado].label}
-                          </PildoraEstado>
-                        </div>
-                      }
-                    />
-                  ))}
-                </Card>
-              </>
-            )}
-          </SeccionPlegable>
-        )}
-      </div>
+  return (
+    /* El mismo shell de aplicación que el panel principal: `main` sin
+       medidas y `PanelSidebar` repartiendo el ancho — columna navy
+       pegada al borde izquierdo, contenido con su padding y su tope de
+       legibilidad (1560px, decidido allá). El acento del tipo entra UNA
+       sola vez, acá: el disco del ítem activo del menú y todo lo de
+       adentro —incluidos los componentes de cliente— lo leen como
+       var(--acento…), así ninguna pieza necesita saber de qué color es
+       un spa. */
+    <main className="w-full">
+      <PanelSidebar
+        tabs={tabs}
+        defaultTab="agenda"
+        encabezado={encabezado}
+        acento={variablesAcento(identidad)}
+      />
     </main>
   );
 }

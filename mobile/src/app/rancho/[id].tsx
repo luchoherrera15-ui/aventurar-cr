@@ -263,7 +263,10 @@ export default function RanchoDetalleScreen() {
             etiqueta="Compartir"
             onPress={() =>
               Share.share({
-                message: `Mirá ${rancho.nombre} en Bookea: ${SITIO_URL}/${rancho.slug ?? `ranchos-eventos/${rancho.id}`}`,
+                // Sin slug, la ficha web vive en /eventos/{id} — el
+                // fallback viejo decía «ranchos-eventos/…» y dependía
+                // de un 301 de next.config para resolver.
+                message: `Mirá ${rancho.nombre} en Bookea: ${SITIO_URL}/${rancho.slug ?? `eventos/${rancho.id}`}`,
               })
             }
           />
@@ -662,7 +665,14 @@ export default function RanchoDetalleScreen() {
         animationType="fade"
         onRequestClose={() => setModalFechas(false)}
       >
-        <BlurView intensity={28} tint="dark" style={styles.veloModal}>
+        {/* Sin `experimentalBlurMethod` este velo no difumina nada en
+            Android (el default de expo-blur es "none"). */}
+        <BlurView
+          intensity={28}
+          tint="dark"
+          experimentalBlurMethod="dimezisBlurView"
+          style={styles.veloModal}
+        >
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setModalFechas(false)} />
           <View style={styles.panelModal}>
             <View style={styles.panelModalHeader}>

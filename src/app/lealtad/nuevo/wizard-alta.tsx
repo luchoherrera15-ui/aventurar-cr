@@ -1129,10 +1129,13 @@ export default function WizardAlta({
                       alElegir={(i) => patch({ iconoSello: esIconoSello(i) ? i : null })}
                       colorFondo={estado.colorFondo}
                       colorSello={estado.colorSello}
+                      // «Mi logo» fuera del alta (dueño, 2 sep 2026): el
+                      // valor `null` sigue existiendo y sigue pintando el
+                      // logo, solo deja de ofrecerse como casilla acá.
+                      ofrecerLogo={false}
                     />
                     <p className="mt-1.5 text-[11.5px] leading-relaxed text-bookea-gris">
-                      Se llena cuando el cliente gana el sello. Con «Mi logo» va tu logo
-                      adentro del círculo.
+                      Se llena cuando el cliente gana el sello y queda en contorno el que le falta.
                     </p>
                   </div>
                 )}

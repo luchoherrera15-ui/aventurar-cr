@@ -67,6 +67,31 @@ export const Fonts = {
   extraBold: "Figtree_800ExtraBold",
 } as const;
 
+/**
+ * EL PESO, POR SI FIGTREE NO CARGA (3 sep 2026).
+ *
+ * `fontFamily` sola es suficiente MIENTRAS la fuente exista. Si no
+ * carga —y en Android eso pasa: es la plataforma donde el arranque en
+ * frío rompe más seguido— React Native cae al tipo del sistema, y como
+ * no había un solo `fontWeight` en toda la app, TODO se renderizaba en
+ * Roboto Regular: cada título, cada negrita y toda la jerarquía se
+ * perdían de golpe. Era una de las razones por las que las dos apps no
+ * se parecían.
+ *
+ * Emparejar cada familia con su peso numérico cuesta nada y convierte
+ * ese desastre en «se ve con otra tipografía»: si Figtree está, manda
+ * ella; si no, el sistema al menos respeta las negritas.
+ *
+ * Se usa como `...Peso.bold` junto a `fontFamily: Fonts.bold`.
+ */
+export const Peso = {
+  regular: { fontWeight: "400" },
+  medium: { fontWeight: "500" },
+  semiBold: { fontWeight: "600" },
+  bold: { fontWeight: "700" },
+  extraBold: { fontWeight: "800" },
+} as const;
+
 export const Spacing = {
   half: 2,
   one: 4,
@@ -128,17 +153,48 @@ export const Tipo = {
   micro: {
     color: Colors.inkMuted,
     fontFamily: Fonts.extraBold,
+    ...Peso.extraBold,
     fontSize: 10,
     letterSpacing: 1.7,
     textTransform: "uppercase",
   },
-  meta: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 12.5 },
-  cuerpo: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 13.5, lineHeight: 20 },
-  fila: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 14 },
-  titulo3: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 15.5, letterSpacing: -0.2 },
-  titulo2: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 18, letterSpacing: -0.35 },
-  titulo1: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 24, letterSpacing: -0.6 },
-  display: { color: Colors.ink, fontFamily: Fonts.extraBold, fontSize: 30, letterSpacing: -0.9 },
+  meta: { color: Colors.inkSoft, fontFamily: Fonts.medium, ...Peso.medium, fontSize: 12.5 },
+  cuerpo: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.medium,
+    ...Peso.medium,
+    fontSize: 13.5,
+    lineHeight: 20,
+  },
+  fila: { color: Colors.ink, fontFamily: Fonts.bold, ...Peso.bold, fontSize: 14 },
+  titulo3: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    ...Peso.extraBold,
+    fontSize: 15.5,
+    letterSpacing: -0.2,
+  },
+  titulo2: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    ...Peso.extraBold,
+    fontSize: 18,
+    letterSpacing: -0.35,
+  },
+  titulo1: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    ...Peso.extraBold,
+    fontSize: 24,
+    letterSpacing: -0.6,
+  },
+  display: {
+    color: Colors.ink,
+    fontFamily: Fonts.extraBold,
+    ...Peso.extraBold,
+    fontSize: 30,
+    letterSpacing: -0.9,
+  },
 } as const;
 
 /**

@@ -114,6 +114,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .from("ranchos")
       .select("slug, vertical, created_at")
       .eq("estado", "aprobado")
+      // ⚠️ `en_marketplace` FALTABA ACÁ (2 sep 2026). Sin este filtro el
+      // sitemap le entregaba a Google las ~99 fichas sembradas del
+      // `/demo-bookea`, que TODAS las demás superficies ya escondían: se
+      // estaban indexando negocios inventados como si fueran reales.
+      // Es el mismo filtro que usa el directorio (`home-datos.ts`), no
+      // una regla nueva.
+      .neq("en_marketplace", false)
       .not("slug", "is", null)
       .order("created_at", { ascending: false })
       .limit(MAX_FICHAS);

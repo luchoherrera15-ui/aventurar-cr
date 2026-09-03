@@ -58,6 +58,10 @@ type TarjetaNegocio = {
   miembros: number;
   /** 0129: creado pero sin aprobar por Bookea — todo en pausa. */
   enRevision: boolean;
+  /** true = publicación del directorio (en_marketplace !== false). Acá
+   *  aparece solo como upsell de Lealtad — su operación vive en
+   *  /mi-negocio, y la tarjeta lo dice para no mezclar los dos mundos. */
+  delMarketplace: boolean;
 };
 
 export default async function PanelLealtadPage() {
@@ -95,6 +99,7 @@ export default async function PanelLealtadPage() {
     slug: string | null;
     plan_lealtad: string | null;
     lealtad_aprobado_en?: string | null;
+    en_marketplace?: boolean | null;
   };
   const base = [
     ...new Map(
@@ -172,8 +177,13 @@ export default async function PanelLealtadPage() {
       estadoPrograma,
       miembros,
       enRevision: "lealtad_aprobado_en" in r && r.lealtad_aprobado_en === null,
+      // `!== false`: sin la 0187 corrida llega undefined y el negocio
+      // cuenta como del marketplace — el comportamiento de siempre.
+      delMarketplace: r.en_marketplace !== false,
     });
   }
+
+  const delMarketplace = negocios.filter((n) => n.delMarketplace).length;
 
   return (
     <main className={`relative min-h-svh overflow-hidden px-4 pb-12 sm:px-6 ${LIENZO_PANEL}`}>
@@ -210,8 +220,11 @@ export default async function PanelLealtadPage() {
               className="h-[26px] w-auto"
             />
           </Link>
+          {/* `?modo=negocio`: quien sale de acá es un dueño — sin el
+              param, /cuenta abre en el último modo del localStorage
+              (casi siempre la vista de cliente) y esconde el panel. */}
           <Link
-            href="/cuenta"
+            href="/cuenta?modo=negocio"
             className="text-[12.5px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
           >
             Tu cuenta →
@@ -223,6 +236,23 @@ export default async function PanelLealtadPage() {
         <p className={`mt-1.5 ${BAJADA_PANTALLA}`}>
           Elegí un negocio para administrar su programa de lealtad.
         </p>
+
+        {/* EL PUENTE ESPEJO. /mi-negocio ya avisa «Tenés N negocios en
+            Bookea Lealtad →»; este es el camino de vuelta — sin él, el
+            único link de salida de este mundo era «Tu cuenta». Solo
+            aparece si de verdad hay publicaciones del directorio. */}
+        {delMarketplace > 0 && (
+          <Link
+            href="/mi-negocio"
+            className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-bold hover:underline"
+            style={{ color: "var(--accion)" }}
+          >
+            {delMarketplace === 1
+              ? "Tenés 1 negocio en el marketplace — su panel es otro"
+              : `Tenés ${delMarketplace} negocios en el marketplace — su panel es otro`}
+            <span aria-hidden>→</span>
+          </Link>
+        )}
 
         <div className={`mt-6 grid ${GAP_TABLERO} sm:grid-cols-2`}>
           {/* Los trámites de alta esperando a Bookea: el negocio aún no
@@ -252,7 +282,9 @@ export default async function PanelLealtadPage() {
           {negocios.map((n) => (
             <Card
               key={n.id}
-              eyebrow="Negocio"
+              /* «Del marketplace» marca a los que viven en el otro
+                 producto: acá solo se les ofrece/administra Lealtad. */
+              eyebrow={n.delMarketplace ? "Del marketplace" : "Negocio"}
               titulo={n.nombre}
               /* El paquete como píldora del sistema: es un ESTADO —tiene
                  plan o no lo tiene— y así se ve igual acá que adentro

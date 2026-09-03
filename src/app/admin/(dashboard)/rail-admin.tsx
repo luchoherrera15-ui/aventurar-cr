@@ -71,27 +71,42 @@ export default function RailAdmin({
                     href={s.href}
                     onClick={() => setAbierto(false)}
                     aria-current={esActiva ? "page" : undefined}
-                    className={`flex items-center gap-2.5 border-l-[3px] py-2 pr-2.5 pl-[9px] text-[13.5px] transition-colors ${
+                    // Rediseño sep 2026: el activo pasa de relleno
+                    // navy-3 + barrita blanca a una CARD blanca elevada
+                    // con disco navy en el ícono — el mismo lenguaje de
+                    // los rails de /mi-negocio, /cuenta y Lealtad. La
+                    // letra sube de 13,5 a 14. El border-l se queda
+                    // transparente en los dos estados: reserva los 3px
+                    // para que el texto no salte.
+                    className={`flex min-h-[42px] items-center gap-2.5 rounded-xl border-l-[3px] border-transparent py-1.5 pr-2.5 pl-[9px] text-[14px] transition-colors ${
                       esActiva
-                        ? // Relleno navy-3 SÓLIDO y barrita BLANCA: una
-                          // barrita navy sobre relleno navy sería
-                          // invisible, que es justo lo que no puede
-                          // pasarle al indicador de "dónde estoy".
-                          "border-white bg-aventurea-navy-3 font-bold text-white"
-                        : "border-transparent font-medium text-aventurea-rail hover:bg-aventurea-navy-3 hover:text-white"
+                        ? "bg-white font-bold text-aventurea-navy shadow-elevado"
+                        : "font-medium text-aventurea-rail hover:bg-aventurea-navy-3 hover:text-white"
                     }`}
                   >
-                    {Icono && (
-                      <span
-                        aria-hidden="true"
-                        className="shrink-0 [&_svg]:h-[17px] [&_svg]:w-[17px]"
-                      >
-                        <Icono />
-                      </span>
-                    )}
+                    {Icono &&
+                      (esActiva ? (
+                        <span
+                          aria-hidden="true"
+                          className="grid h-[30px] w-[30px] shrink-0 place-items-center rounded-lg bg-aventurea-navy text-white [&_svg]:h-[16px] [&_svg]:w-[16px]"
+                        >
+                          <Icono />
+                        </span>
+                      ) : (
+                        <span
+                          aria-hidden="true"
+                          className="shrink-0 [&_svg]:h-[17px] [&_svg]:w-[17px]"
+                        >
+                          <Icono />
+                        </span>
+                      ))}
                     <span className="min-w-0 flex-1 truncate">{s.etiqueta}</span>
                     {s.chip && (
-                      <span className="shrink-0 rounded px-1.5 py-px text-[9.5px] font-bold tracking-wide text-white/40 uppercase">
+                      <span
+                        className={`shrink-0 rounded px-1.5 py-px text-[9.5px] font-bold tracking-wide uppercase ${
+                          esActiva ? "text-aventurea-ink-soft" : "text-white/40"
+                        }`}
+                      >
                         {s.chip}
                       </span>
                     )}

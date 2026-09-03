@@ -1,4 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  destinatariosDelNegocio,
+  type DestinatarioNegocio,
+} from "@/lib/destinatarios-negocio";
 import { fmtFechaCorta } from "@/lib/fechas";
 import { enviarPush } from "@/lib/push";
 import {
@@ -137,20 +141,24 @@ export async function notificarReservaCompletada(
       });
     }
 
-    // Al dueño del lugar, al correo de su cuenta.
+    // Al negocio: el dueño Y los colaboradores seteados (pedido del
+    // dueño, 2 sep 2026 — «que los correos le lleguen a los
+    // administradores de los ranchos»). El mismo correo para todos:
+    // quien atiende necesita exactamente la misma información.
+    let equipo: DestinatarioNegocio[] = [];
     if (reserva.ranchos?.owner_id && reserva.rancho_id) {
-      const { data: perfil } = await admin
-        .from("perfiles")
-        .select("nombre, email")
-        .eq("id", reserva.ranchos.owner_id)
-        .maybeSingle();
+      equipo = await destinatariosDelNegocio(
+        admin,
+        reserva.rancho_id,
+        reserva.ranchos.owner_id,
+      );
 
-      if (perfil?.email) {
+      for (const persona of equipo) {
         await enviarCorreo({
-          to: perfil.email,
+          to: persona.email,
           subject: `Nueva reserva en ${nombreRancho} — ${fmtFechaCorta(reserva.fecha)}`,
           html: plantillaReservaNuevaProveedor({
-            nombreProveedor: perfil.nombre || perfil.email,
+            nombreProveedor: persona.nombre || persona.email,
             nombreRancho,
             ranchoId: reserva.rancho_id,
             nombreCliente: reserva.nombre || reserva.correo || "Un cliente",
@@ -169,11 +177,15 @@ export async function notificarReservaCompletada(
       }
     }
 
-    // El push acompaña al correo: al dueño le suena el teléfono con la
-    // reserva nueva, y al cliente (si reservó con cuenta) le queda el
-    // aviso de "recibida". La misma bandera de arriba evita repetidos.
+    // El push acompaña al correo: al equipo del negocio le suena el
+    // teléfono con la reserva nueva, y al cliente (si reservó con
+    // cuenta) le queda el aviso de "recibida". La misma bandera de
+    // arriba evita repetidos. Si perfiles no devolvió a nadie (cuentas
+    // sin correo), el push igual va al owner — son canales distintos.
     await enviarPush({
-      usuarios: [reserva.ranchos?.owner_id],
+      usuarios: equipo.length
+        ? equipo.map((p) => p.id)
+        : [reserva.ranchos?.owner_id],
       titulo: `Nueva reserva en ${nombreRancho}`,
       cuerpo: `${reserva.nombre || "Un cliente"} reservó el ${fmtFechaCorta(reserva.fecha)} — revisá el comprobante.`,
       // Directo al panel del negocio en la app — "/?tab=reservas" es la

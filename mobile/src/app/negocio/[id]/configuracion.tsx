@@ -17,7 +17,7 @@ import {
   esCitas as esVerticalCitas,
   esLugarPorDia,
 } from "@/lib/agenda-negocio";
-import { Colors, Fonts, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radios, Spacing } from "@/constants/theme";
 
 /**
  * Configuración del negocio: TODO lo que antes andaba suelto como
@@ -207,7 +207,7 @@ export default function ConfiguracionNegocioScreen() {
                 }
               >
                 <View style={styles.burbuja}>
-                  <Ionicons name="person-outline" size={17} color={Colors.navy} />
+                  <Ionicons name="person-outline" size={18} color={Colors.navy} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.titulo}>Modo usuario</Text>
@@ -229,7 +229,7 @@ export default function ConfiguracionNegocioScreen() {
               <Lista>
                 <FilaLista primera>
                   <View style={styles.burbuja}>
-                    <Ionicons name="business-outline" size={17} color={Colors.navy} />
+                    <Ionicons name="business-outline" size={18} color={Colors.navy} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.titulo}>{TIPO_NEGOCIO_LABEL[negocio.tipo]}</Text>
@@ -269,7 +269,7 @@ function Bloque({ titulo, entradas }: { titulo: string; entradas: Entrada[] }) {
         {entradas.map((e, i) => (
           <FilaLista key={e.ruta} primera={i === 0} onPress={() => router.push(e.ruta as never)}>
             <View style={styles.burbuja}>
-              <Ionicons name={e.icono} size={17} color={Colors.navy} />
+              <Ionicons name={e.icono} size={18} color={Colors.navy} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.titulo}>{e.titulo}</Text>
@@ -289,13 +289,19 @@ const styles = StyleSheet.create({
   burbuja: {
     alignItems: "center",
     backgroundColor: Colors.blueLight,
-    borderRadius: 10,
-    height: 34,
+    borderRadius: Radios.md,
+    height: 38,
     justifyContent: "center",
-    width: 34,
+    width: 38,
   },
-  titulo: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 14 },
-  detalle: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 11.5, marginTop: 2 },
+  titulo: { color: Colors.ink, fontFamily: Fonts.bold, fontSize: 15.5 },
+  detalle: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.medium,
+    fontSize: 12.5,
+    lineHeight: 17,
+    marginTop: 2,
+  },
   pie: {
     color: Colors.inkMuted,
     fontFamily: Fonts.medium,

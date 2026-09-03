@@ -12,6 +12,17 @@ const DESTINOS: Record<string, string> = {
   mensajes: "/mensajes",
   proveedor: "/mi-negocio",
   invitaciones: "/cuenta/invitaciones",
+  // Estas dos existían como links en el tablero ANTES de existir acá:
+  // «Reservas» y «Favoritos» apuntaban a /cuenta/ir/{seccion}, el
+  // diccionario no las conocía y el fallback devolvía a /cuenta — un
+  // clic que recargaba la misma página. Las páginas destino siempre
+  // existieron (el menú de portada linkea directo).
+  reservas: "/cuenta/reservas",
+  favoritos: "/cuenta/favoritos",
+  // No hay una «Finanzas de la cuenta»: las finanzas viven en el panel
+  // de cada negocio. Sin `?negocio=`, el listado; con él, directo a la
+  // pestaña — mismo contrato que `lealtad` acá abajo.
+  finanzas: "/mi-negocio",
   // Sin un negocio único que ofrecer, cae en el listado «Mis negocios»
   // (/lealtad/entrar resuelve sesión y manda a /lealtad/panel). El
   // desvío directo a UN negocio se arma más abajo, con el query param
@@ -38,6 +49,10 @@ export async function GET(
   if (seccion === "lealtad") {
     const negocio = url.searchParams.get("negocio");
     if (negocio && RE_UUID.test(negocio)) destino = `/lealtad/panel/${negocio}`;
+  }
+  if (seccion === "finanzas") {
+    const negocio = url.searchParams.get("negocio");
+    if (negocio && RE_UUID.test(negocio)) destino = `/mi-negocio/${negocio}?tab=finanzas`;
   }
 
   const res = NextResponse.redirect(new URL(destino ?? "/cuenta", request.url));

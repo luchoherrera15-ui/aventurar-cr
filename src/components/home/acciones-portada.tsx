@@ -95,11 +95,26 @@ export default function AccionesPortada() {
         cerrarSesion={cerrarSesionPublica}
       />
       {/* Quien ya publicó no necesita que le ofrezcan publicar: el botón
-          naranja lo lleva a administrar lo que tiene. */}
+          lo lleva a administrar lo que tiene.
+
+          ── ERA NARANJA RELLENO (dueño, 2 sep 2026) ──────────────────
+          «Que se vea más azul que naranja». El cambio además corrige un
+          fallo de contraste medido: blanco sobre `--orange` (#f39200)
+          da 2,35:1, cuando un texto necesita 4,5:1 — ni siquiera
+          llegaba al 3:1 mínimo de un elemento de interfaz. Con
+          `--accion` queda en 8,24:1.
+
+          Es exactamente el bug que la fundación visual documenta como
+          ya corregido en otras pantallas: la ACCIÓN es azul y el
+          naranja es acento, nunca el relleno de un CTA.
+
+          ⚠️ `bg-aventurea-navy` y NO `var(--accion)`: ese token vive
+          DENTRO del bloque `.lealtad` de globals.css, así que en la
+          portada no existe y el botón se renderiza transparente. Se
+          probó y pasó — el navy del marketplace es el que aplica acá. */}
       <Link
         href={sesion.yaPublica ? "/mi-negocio" : "/publicar"}
-        className="presionable hidden items-center gap-1.5 rounded-full px-5 py-2.5 text-[13.5px] font-extrabold text-white transition-colors sm:inline-flex"
-        style={{ background: "var(--orange)" }}
+        className="presionable hidden items-center gap-1.5 rounded-full bg-aventurea-navy px-5 py-2.5 text-[13.5px] font-extrabold text-white transition-colors hover:bg-aventurea-navy-2 sm:inline-flex"
       >
         {sesion.yaPublica ? "Mi negocio" : "Publicá tu negocio"}
         <span aria-hidden>→</span>

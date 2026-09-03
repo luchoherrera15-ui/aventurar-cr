@@ -141,7 +141,7 @@ export async function aprobarReclamo(id: string): Promise<ResultadoReclamo> {
   }
 
   revalidatePath("/admin/reclamos");
-  revalidatePath("/admin/ranchos");
+  revalidatePath("/admin/negocios");
   return { error: null, aviso };
 }
 

@@ -228,7 +228,7 @@ export default async function AdminHubPage() {
                   <span className="text-[12.5px] text-aventurea-ink-soft">publicadas</span>
                   {d.publicaciones.pendientes > 0 && (
                     <Link
-                      href="/admin/ranchos"
+                      href="/admin/negocios"
                       className="ml-auto rounded-lg bg-aventurea-orange px-2.5 py-1 text-[11.5px] font-extrabold text-aventurea-ink"
                     >
                       {d.publicaciones.pendientes} por revisar

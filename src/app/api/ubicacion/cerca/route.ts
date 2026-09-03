@@ -90,6 +90,8 @@ export async function GET(req: Request) {
     .from("ranchos")
     .select("provincia, pais, latitud, longitud")
     .eq("estado", "aprobado")
+    // Faltaba (2 sep 2026): las demos inflaban el conteo por provincia.
+    .neq("en_marketplace", false)
     .not("latitud", "is", null)
     .not("longitud", "is", null);
 

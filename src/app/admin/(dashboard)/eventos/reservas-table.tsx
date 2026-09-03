@@ -479,7 +479,7 @@ export default function ReservasTable({
             <tr className="bg-aventurea-cream-2/60">
               {[
                 "Fecha",
-                ...(nombrePorRancho ? ["Rancho"] : []),
+                ...(nombrePorRancho ? ["Negocio"] : []),
                 "Cliente",
                 "Evento",
                 "Horario",

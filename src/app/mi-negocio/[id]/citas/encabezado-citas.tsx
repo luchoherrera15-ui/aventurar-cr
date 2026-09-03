@@ -105,9 +105,9 @@ export default function EncabezadoCitas({
           <Icono />
         </span>
         <div className="min-w-0">
-          {/* El kicker de la pantalla: la fecha de hoy, en el papel que
-              la maqueta le da al naranja de marca — con el único naranja
-              nuestro que se lee sobre claro (6,22:1). */}
+          {/* El kicker de la pantalla: la fecha de hoy. `EYEBROW` es
+              azul desde sep 2026 (pedido del dueño: blancos y azules) —
+              el par medido vive en components/panel/sistema.ts. */}
           <p className={EYEBROW}>{largoDelDia}</p>
           <h1 className={`mt-1.5 ${TITULO_PANTALLA}`}>
             {titulo} de {nombreNegocio}

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import BotonVolver from "@/components/boton-volver";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
@@ -158,12 +158,7 @@ export default async function EspacioEventoPage({
       <SiteHeader breadcrumb="Tu evento" />
 
       <section className="mx-auto max-w-[860px] px-4 py-6 sm:px-6">
-        <Link
-          href="/cuenta"
-          className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
-        >
-          ← Volver a tu cuenta
-        </Link>
+        <BotonVolver href="/cuenta">Volver a tu cuenta</BotonVolver>
 
         {/* El evento en grande: es SU espacio, no un listado más. El
             kicker deja la rayita decorativa y pasa al del sistema —el

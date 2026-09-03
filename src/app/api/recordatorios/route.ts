@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { autorizarCron } from "@/lib/cron-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  destinatariosDelNegocio,
+  type DestinatarioNegocio,
+} from "@/lib/destinatarios-negocio";
+import {
   enviarCorreo,
   plantillaAvisoAgenda,
   plantillaFindeLibre,
@@ -125,22 +129,21 @@ export async function GET(request: Request) {
       });
     }
 
-    // Al proveedor, al correo de su cuenta.
-    if (r.ranchos?.owner_id) {
-      const { data: perfil } = await admin
-        .from("perfiles")
-        .select("nombre, email")
-        .eq("id", r.ranchos.owner_id)
-        .maybeSingle();
-      if (perfil?.email) {
+    // Al negocio: el dueño Y los colaboradores seteados (pedido del
+    // dueño, 2 sep 2026) — quien va a atender mañana necesita el
+    // recordatorio igual que el owner.
+    let equipo: DestinatarioNegocio[] = [];
+    if (r.ranchos?.owner_id && r.rancho_id) {
+      equipo = await destinatariosDelNegocio(admin, r.rancho_id, r.ranchos.owner_id);
+      for (const persona of equipo) {
         await enviarCorreo({
-          to: perfil.email,
+          to: persona.email,
           subject: esCita
             ? `Mañana tenés una cita en ${nombreRancho}`
             : `Mañana tenés un evento en ${nombreRancho}`,
           html: esCita
             ? plantillaRecordatorioCita({
-                nombreDestinatario: perfil.nombre || perfil.email,
+                nombreDestinatario: persona.nombre || persona.email,
                 nombreNegocio: nombreRancho,
                 fecha: r.fecha,
                 hora: hora!,
@@ -148,7 +151,7 @@ export async function GET(request: Request) {
                 esProveedor: true,
               })
             : plantillaRecordatorioEvento({
-                nombreDestinatario: perfil.nombre || perfil.email,
+                nombreDestinatario: persona.nombre || persona.email,
                 nombreRancho,
                 fecha: r.fecha,
                 esProveedor: true,
@@ -185,7 +188,9 @@ export async function GET(request: Request) {
       : "/";
 
     await enviarPush({
-      usuarios: [r.ranchos?.owner_id],
+      // Si perfiles no devolvió a nadie (cuentas sin correo), el push
+      // igual va al owner — son canales distintos.
+      usuarios: equipo.length ? equipo.map((p) => p.id) : [r.ranchos?.owner_id],
       titulo: esCita
         ? `Mañana tenés una cita en ${nombreRancho}`
         : `Mañana tenés un evento en ${nombreRancho}`,
@@ -328,18 +333,19 @@ export async function GET(request: Request) {
     if (saldo <= 0 || !r.ranchos?.owner_id) continue;
 
     const nombreRancho = r.ranchos.nombre;
-    const { data: perfil } = await admin
-      .from("perfiles")
-      .select("nombre, email")
-      .eq("id", r.ranchos.owner_id)
-      .maybeSingle();
-
-    if (perfil?.email) {
+    // Dueño + colaboradores: el que está en el local el día del evento
+    // es muchas veces el administrador, no el owner.
+    const equipoCobro = await destinatariosDelNegocio(
+      admin,
+      r.rancho_id,
+      r.ranchos.owner_id,
+    );
+    for (const persona of equipoCobro) {
       await enviarCorreo({
-        to: perfil.email,
+        to: persona.email,
         subject: `Hoy cobrás en ${nombreRancho}`,
         html: plantillaRecordatorioCobro({
-          nombreProveedor: perfil.nombre || perfil.email,
+          nombreProveedor: persona.nombre || persona.email,
           nombreRancho,
           ranchoId: r.rancho_id,
           nombreEvento: r.nombre,
@@ -358,7 +364,9 @@ export async function GET(request: Request) {
     // dueño le abría una lista vacía en vez de la plata que tiene que
     // cobrar hoy.
     await enviarPush({
-      usuarios: [r.ranchos.owner_id],
+      usuarios: equipoCobro.length
+        ? equipoCobro.map((p) => p.id)
+        : [r.ranchos.owner_id],
       titulo: `Hoy cobrás — ${nombreRancho}`,
       cuerpo: `Faltan ${fmtColones(saldo)} por cobrar${r.nombre ? ` de ${r.nombre}` : ""}.`,
       data: { url: r.rancho_id ? `/negocio/${r.rancho_id}/finanzas` : "/" },
@@ -452,21 +460,21 @@ export async function GET(request: Request) {
         .insert({ rancho_id: ranchoId, fecha: hoy });
       if (yaAvisado) continue;
 
-      const { data: perfil } = await admin
-        .from("perfiles")
-        .select("nombre, email")
-        .eq("id", info.ownerId)
-        .maybeSingle();
-
-      if (perfil?.email) {
+      // Dueño + colaboradores: la agenda la cierra quien la atiende.
+      const equipoAgenda = await destinatariosDelNegocio(
+        admin,
+        ranchoId,
+        info.ownerId,
+      );
+      for (const persona of equipoAgenda) {
         await enviarCorreo({
-          to: perfil.email,
+          to: persona.email,
           subject:
             info.sinMarcar.length > 0
               ? `${info.nombre}: tenés ${info.sinMarcar.length} cita${info.sinMarcar.length === 1 ? "" : "s"} de ayer sin marcar`
               : `${info.nombre}: tenés clientes por recuperar`,
           html: plantillaAvisoAgenda({
-            nombreProveedor: perfil.nombre || perfil.email,
+            nombreProveedor: persona.nombre || persona.email,
             nombreNegocio: info.nombre,
             ranchoId,
             sinMarcar: info.sinMarcar.map((c) => ({
@@ -479,7 +487,9 @@ export async function GET(request: Request) {
         });
       }
       await enviarPush({
-        usuarios: [info.ownerId],
+        usuarios: equipoAgenda.length
+          ? equipoAgenda.map((p) => p.id)
+          : [info.ownerId],
         titulo:
           info.sinMarcar.length > 0
             ? `${info.sinMarcar.length} cita${info.sinMarcar.length === 1 ? "" : "s"} de ayer sin marcar`

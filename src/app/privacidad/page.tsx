@@ -54,7 +54,40 @@ export default function PrivacidadPage() {
         <strong className="text-aventurea-ink">Si publicás un negocio:</strong>{" "}
         los datos y fotos del negocio que vos mismo cargués, incluidas las
         fotos que subás desde tu teléfono. La app solo accede a las fotos que
-        vos elijás — nunca recorre tu galería.
+        vos elijás — nunca recorre tu galería. Para verificar que el negocio
+        es real te pedimos una foto de tu cédula por ambos lados: se guarda en
+        un depósito privado, la ve únicamente el equipo de Bookea y su único
+        uso es esa verificación. Si cobrás por SINPE o transferencia, también
+        guardamos el número y el titular de la cuenta para mostrárselos a
+        quien te reserva.
+      </P>
+
+      {/* Play y App Store exigen que la política diga qué hace la app con
+          cada permiso que pide, y que eso coincida con el formulario de
+          «Seguridad de los datos». Este bloque es el que lo hace cierto:
+          los dos permisos que más asustan —ubicación y cámara— no
+          recolectan nada, y decirlo por escrito es lo que evita el
+          rechazo por inconsistencia. */}
+      <H2>Qué hace la app con los permisos que pide</H2>
+      <P>
+        <strong className="text-aventurea-ink">Ubicación:</strong> solo
+        mientras usás la app y solo para centrar el mapa cerca tuyo. Tu
+        ubicación no se envía a nuestros servidores ni queda guardada en
+        ningún lado.
+      </P>
+      <P>
+        <strong className="text-aventurea-ink">Cámara:</strong> únicamente
+        para leer códigos QR de tarjetas de lealtad. No se guarda ninguna
+        foto ni se graba nada.
+      </P>
+      <P>
+        <strong className="text-aventurea-ink">Notificaciones:</strong> si las
+        aceptás, guardamos el identificador que tu teléfono le da a la app
+        para poder avisarte de tus reservas. Se borra cuando cerrás sesión.
+      </P>
+      <P>
+        No usamos publicidad, no hay rastreo de terceros y no compartimos tus
+        datos con nadie para marketing.
       </P>
 
       <H2>Para qué se usan</H2>

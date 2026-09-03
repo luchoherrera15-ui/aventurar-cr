@@ -212,6 +212,12 @@ export async function leerDatosHome(): Promise<DatosHome> {
       .from("ranchos")
       .select(COLUMNAS_CARD)
       .eq("estado", "aprobado")
+      // ⚠️ FALTABA (2 sep 2026): «Lo nuevo» ordena por fecha, y las
+      // fichas sembradas del `/demo-bookea` son justamente las más
+      // recientes — o sea que esta tira era la que MÁS demos mostraba,
+      // en la portada. Las otras consultas de este mismo archivo ya lo
+      // traían; a ésta se le pasó.
+      .neq("en_marketplace", false)
       // Los más nuevos primero: es el único orden que los datos
       // sostienen hoy. No hay reseñas (cero filas en `resenas`) ni
       // favoritos, así que «lo mejor valorado» no existe y «lo más

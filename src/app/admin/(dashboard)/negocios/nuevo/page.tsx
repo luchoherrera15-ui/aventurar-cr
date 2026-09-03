@@ -18,7 +18,7 @@ export default async function NuevoRanchoAdminPage() {
   return (
     <div>
       <Link
-        href="/admin/ranchos"
+        href="/admin/negocios"
         className="text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
       >
         ← Volver a los salones

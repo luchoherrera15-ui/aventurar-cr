@@ -126,7 +126,6 @@ import { itemsMenuNegocio } from "@/lib/business/menu";
 import { identidadDe, variablesAcento } from "@/lib/business/identidad";
 import ModulosPanel from "./modulos-panel";
 import { iconoModulo } from "./iconos-modulos";
-import AccesosModulos from "./accesos-modulos";
 import type { ResumenDelDia } from "./dashboard-metricas";
 // Los números del día se calculan con el MISMO motor que la pantalla de
 // la agenda (jornada real del equipo menos bloqueos), para que las dos
@@ -850,16 +849,20 @@ export default async function RanchoDetallePage({
   const hrefAgendaDia =
     itemAgendaDia?.destino.clase === "ruta" ? itemAgendaDia.destino.href : null;
 
-  // INICIO ES EL TABLERO, en el orden de la maqueta:
-  //   (a) la fila de números — cómo va HOY,
-  //   (b) lo que espera respuesta,
-  //   (c) lo del día: lo que viene, con el atajo a la agenda,
-  //   (d) las herramientas del tipo de negocio,
+  // INICIO ES EL TABLERO. El orden es EL TRABAJO PRIMERO, LOS NÚMEROS
+  // DESPUÉS (2 sep 2026, tras mirar cómo lo resuelven Fresha, Timely,
+  // Booksy, Mangomint y Square):
+  //   (a) lo que espera respuesta — lo único que no puede esperar,
+  //   (b) lo del día: lo que viene, con el atajo a la agenda,
+  //   (c) quiénes necesitan atención,
+  //   (d) la fila de números — cómo va hoy,
   //   (e) el calendario del mes y el histórico con auditoría.
   //
-  // Antes los números iban DESPUÉS de los avisos y "lo que viene" estaba
-  // enterrado debajo del calendario, así que la primera pantalla del
-  // panel era un mes entero de cuadritos.
+  // El patrón que comparten esos productos es el mismo: se aterriza en
+  // el trabajo de hoy, nunca en indicadores. Timely lo resuelve con
+  // tres bloques —lo que viene, lo pendiente de confirmar y la
+  // actividad reciente— y nada más; Fresha manda sus métricas a un
+  // cajón lateral que hay que abrir a propósito.
   const tabInicio: Tab = {
     id: "inicio",
     label: "Inicio",
@@ -884,36 +887,7 @@ export default async function RanchoDetallePage({
        * maqueta), no un `gap-6` elegido a ojo.
        */
       <div className={`flex flex-col ${GAP_TABLERO}`}>
-        {/* (a) Los números. Cada tarjeta se pinta solo si su dato sale
-            de la base: la de ocupación desaparece cuando el negocio no
-            tiene horario configurado, en vez de mostrar 0%.
-            La fila de métricas va SIN tarjeta contenedora: las métricas
-            YA son tarjetas, y meterlas en otra sería una caja dentro de
-            una caja. El rótulo va arriba, como el `.metrics` de la
-            maqueta, que tampoco tiene marco. */}
-        <div>
-          <p className={`mb-1.5 ${EYEBROW}`}>Cómo va hoy</p>
-          <h2 className={`mb-3 ${TITULO_CARD}`}>Tu negocio en números</h2>
-          <DashboardMetricas
-            metricas={metricas}
-            dia={resumenDelDia}
-            widgets={widgetsDashboard({
-              tipo: negocio.tipo,
-              modulos,
-              // La ocupación por día solo dice algo donde una fecha se
-              // reserva entera (Lugares); en una barbería el mismo día
-              // tiene veinte espacios.
-              ocupacionDisponible: metricas.ocupacionProximos30 !== null,
-              // La de HOY es otra cosa: minutos agendados sobre minutos
-              // de jornada. Solo existe si hubo jornada que medir.
-              ocupacionDeHoyDisponible: resumenDelDia?.ocupacion !== null &&
-                resumenDelDia?.ocupacion !== undefined,
-              vocabulario: identidadTipo.vocabulario,
-            })}
-          />
-        </div>
-
-        {/* (b) Lo que espera respuesta. Las solicitudes traen sus
+        {/* (a) Lo que espera respuesta. Las solicitudes traen sus
             propios botones: revisar el comprobante, confirmar (dispara
             el correo al cliente) o rechazar. */}
         <BarraAvisos avisos={avisos} haySolicitudes={reservasPendientes.length > 0}>
@@ -928,10 +902,8 @@ export default async function RanchoDetallePage({
           )}
         </BarraAvisos>
 
-        {/* (c) Lo del día: lo que viene, arriba de todo lo demás.
-            Es el «Próximas citas» de la maqueta: una tarjeta con su
-            encabezado, el enlace a la agenda completa a la derecha y
-            adentro la lista de filas. */}
+        {/* (b) EL TRABAJO DEL DÍA. Va segundo, apenas debajo de lo que
+            espera respuesta, y ANTES que los números. */}
         {modulos.has("agenda") && (
           <Card
             eyebrow="Agenda"
@@ -957,7 +929,7 @@ export default async function RanchoDetallePage({
           </Card>
         )}
 
-        {/* (c½) El bloque CRM: quiénes necesitan atención HOY, con
+        {/* (c) El bloque CRM: quiénes necesitan atención HOY, con
             nombre, porqué y link a su ficha. Deriva sobre las reservas
             que esta página YA cargó — cero consultas nuevas. Si no hay
             nada que atender, no se pinta. */}
@@ -967,27 +939,71 @@ export default async function RanchoDetallePage({
           hoy={hoyCR}
         />
 
-        {/* (d) Las herramientas de ESTE tipo de negocio. Es el bloque
-            que hace que un consultorio no se vea como una barbería: lo
-            que ya se puede abrir, y lo que su rubro trae y todavía
-            estamos construyendo (apagado, sin enlace). */}
-        {itemsMenu.some((i) => i.modulo !== null) && (
-          <Card
-            eyebrow={definicionTipo(negocio.tipo).label}
-            titulo="Tus herramientas"
-            accion={
-              <Link href="?tab=config&seccion=modulos" className={ENLACE_CARD}>
-                Cambiar tipo o módulos →
-              </Link>
-            }
-          >
-            <p className="mb-3.5 max-w-[70ch] text-[13px] text-aventurea-ink-soft">
-              {identidadTipo.descripcion}
-            </p>
-            <AccesosModulos items={itemsMenu} />
-          </Card>
-        )}
+        {/* ── (d) LOS NÚMEROS, DESPUÉS DEL TRABAJO (2 sep 2026) ───────
+            Esta fila abría el tablero. Ahora va acá abajo, y el motivo
+            no es de gusto: en los programas de citas del rubro no hay
+            un solo caso donde aterrizar en un tablero de indicadores
+            haya gustado, y sí hay un caso célebre al revés — cuando
+            Square cambió su pantalla de inicio por gráficos, sus
+            propios usuarios escribieron que «el tablero nuevo es
+            completamente inútil» y que les había dado MENOS información
+            básica en la pantalla principal.
 
+            Lo que esos productos ponen primero es el trabajo del día:
+            qué falta responder, quién viene y quién hay que recuperar.
+            Los indicadores son de revisar una vez al día, no de operar,
+            así que van después — y el detalle sigue plegado detrás de
+            «Ver más números», que ya funcionaba así.
+
+            Cada tarjeta se pinta solo si su dato sale de la base: la de
+            ocupación desaparece cuando el negocio no tiene horario
+            configurado, en vez de mostrar 0%. La fila va SIN tarjeta
+            contenedora: las métricas YA son tarjetas, y meterlas en
+            otra sería una caja dentro de una caja. */}
+        <div>
+          <p className={`mb-1.5 ${EYEBROW}`}>Cómo va hoy</p>
+          <h2 className={`mb-3 ${TITULO_CARD}`}>Tu negocio en números</h2>
+          <DashboardMetricas
+            metricas={metricas}
+            dia={resumenDelDia}
+            widgets={widgetsDashboard({
+              tipo: negocio.tipo,
+              modulos,
+              // La ocupación por día solo dice algo donde una fecha se
+              // reserva entera (Lugares); en una barbería el mismo día
+              // tiene veinte espacios.
+              ocupacionDisponible: metricas.ocupacionProximos30 !== null,
+              // La de HOY es otra cosa: minutos agendados sobre minutos
+              // de jornada. Solo existe si hubo jornada que medir.
+              ocupacionDeHoyDisponible: resumenDelDia?.ocupacion !== null &&
+                resumenDelDia?.ocupacion !== undefined,
+              vocabulario: identidadTipo.vocabulario,
+            })}
+          />
+        </div>
+
+        {/* ── (d) «TUS HERRAMIENTAS» SE FUE DEL TABLERO (2 sep 2026) ──
+            Este bloque repetía como tarjetas los mismos módulos que
+            ahora viven en el rail —Citas, Clientes, Servicios, Equipo,
+            Finanzas, Reportes— y también los «Pronto». Desde que la
+            columna izquierda los lista todos, era el mismo menú dos
+            veces en la misma pantalla, y de los dos el de abajo obliga
+            a hacer scroll.
+
+            Ningún CRM del rubro pone en su tablero una copia de su
+            propia navegación: el tablero es para lo que pasa HOY (los
+            números, la agenda, quién necesita atención) y la navegación
+            vive fija a la izquierda.
+
+            Lo que este bloque hacía y NO se perdió:
+              · abrir cada módulo → el rail, siempre a un clic;
+              · anunciar lo que el rubro trae y todavía no existe → el
+                rail los pinta apagados con su pastilla «Pronto»;
+              · «Cambiar tipo o módulos» → sigue en Configuración, y el
+                enlace de la tarjeta de identidad del rail lleva ahí.
+
+            `AccesosModulos` sigue existiendo como componente: lo usa
+            quien quiera volver a montar este grid en otra pantalla. */}
         {/* (e) El calendario del mes y el histórico — SOLO si el negocio
             tiene el módulo (0108). Un negocio que existe para su
             programa de lealtad no toma reservas: mostrarle un calendario
@@ -1083,6 +1099,7 @@ export default async function RanchoDetallePage({
           onAgregarGasto={agregarGasto.bind(null, rancho.id)}
           onBorrarGasto={borrarGasto.bind(null, rancho.id)}
           onMarcarAdelantoDevuelto={marcarAdelantoDevuelto.bind(null, rancho.id)}
+          onVerComprobante={obtenerUrlComprobanteRancho.bind(null, rancho.id)}
         />
       </div>
     ),
@@ -1359,7 +1376,7 @@ export default async function RanchoDetallePage({
           contesta al instante con los datos de {rancho.nombre} — a cualquier
           hora, sin que vos tengás que estar pendiente. Sus respuestas salen
           con el ícono{" "}
-          <IconSparkles className="inline h-3.5 w-3.5 align-[-2px] text-aventurea-orange" />{" "}
+          <IconSparkles className="inline h-3.5 w-3.5 align-[-2px] text-bookea-azul" />{" "}
           para que el cliente sepa que todavía no hablaste vos. Podés meterte
           en la conversación cuando querás desde{" "}
           <Link href="/mensajes" className="font-bold text-aventurea-navy underline">
@@ -1581,49 +1598,63 @@ export default async function RanchoDetallePage({
 
   /**
    * ════════════════════════════════════════════════════════════════
-   *  EL MENÚ LATERAL QUEDA EN TRES (pedido del dueño, ago 2026)
+   *  LOS MÓDULOS VUELVEN AL MENÚ (pedido del dueño, 2 sep 2026)
    * ════════════════════════════════════════════════════════════════
    *
-   * «Necesitamos ser una plataforma fácil de usar. A la izquierda vas a
-   * dejar solo: Inicio, Configuración y Promos.»
+   * «Siento que esto no parece un verdadero CRM. Investigá CRMs de
+   * citas/servicios, cómo están diseñados y organizados, y replicá el
+   * estilo y el orden.»
    *
-   * ── POR QUÉ SE FILTRA ACÁ Y NO EN `itemsMenuNegocio` ─────────────
+   * ⚠️ ESTO REVIERTE UNA DECISIÓN EXPLÍCITA DE AGOSTO 2026, y hay que
+   * saberlo antes de tocarlo de nuevo. Entonces se pidió lo contrario:
+   * «a la izquierda vas a dejar solo Inicio, Configuración y Promos»,
+   * y los módulos se mudaron a la tarjeta «Tus herramientas» del
+   * tablero. No fue un descuido: se buscaba una columna simple.
    *
-   * Ese generador (src/lib/business/menu.ts) es el motor del sistema de
-   * módulos: decide qué tiene un consultorio y qué tiene una barbería,
-   * de dónde salen los nombres («Pacientes» vs «Miembros») y qué se
-   * anuncia como «Pronto». Lo cubren ocho pruebas.
+   * Lo que cambió es el objetivo. Un rail de tres ítems con el trabajo
+   * real escondido en tarjetas del cuerpo no se parece a ningún
+   * programa del rubro: en Fresha, Booksy, Square Appointments o
+   * Vagaro la agenda, los clientes, los servicios, el equipo y los
+   * pagos son ítems FIJOS de la columna izquierda, siempre a un clic.
+   * Esconderlos obliga a volver al inicio para cambiar de tarea, que es
+   * justo lo que un panel de trabajo no debe pedir.
    *
-   * Recortarlo a tres habría tirado todo eso para conseguir un cambio
-   * que es de PRESENTACIÓN: lo que el dueño pidió es ver tres cosas en
-   * la columna, no que el negocio deje de tener módulos. La tarjeta
-   * «Tus herramientas» del tablero sigue mostrándolos todos.
+   * ── LO QUE NO HIZO FALTA TOCAR ──────────────────────────────────
+   * Nada del motor. `itemsMenuNegocio` (src/lib/business/menu.ts) ya
+   * devolvía la lista completa, ordenada por grupo y con los nombres
+   * por rubro («Pacientes» vs «Miembros»); y el rail ya sabe pintar
+   * encabezados de grupo solo cuando hay más de cuatro ítems
+   * (panel-sidebar.tsx). El recorte era esta línea y nada más — por eso
+   * el arreglo es quitarla, no escribir un menú nuevo.
    *
-   * ── Y POR QUÉ `oculto` EN VEZ DE BORRARLOS DEL ARREGLO ───────────
-   *
-   * ⚠️ Finanzas TIENE que seguir siendo alcanzable. Los avisos del
-   * tablero enlazan a `?tab=finanzas` (ver `avisos`, más arriba: los
-   * depósitos sin validar y los saldos por cobrar). Sacarla del arreglo
-   * dejaría esos avisos mudos — el clic no haría nada, sin error y sin
-   * nada que lo delate. Igual con `?tab=catalogo`, que reciben links
-   * viejos y las redirecciones de `/mi-negocio/[id]/precios`.
-   *
-   * `oculto` las saca del menú y deja su contenido montado.
+   * `oculto` sigue existiendo, pero ya no lo decide una lista blanca:
+   * lo usa el rescate del final de este bloque para montar una pestaña
+   * que tiene que ser ALCANZABLE sin ser navegación (el `?tab=catalogo`
+   * de un negocio nacido en Lealtad).
    */
-  const EN_EL_MENU = new Set(["inicio", "config", "promos"]);
-
   const tabs: Tab[] = itemsMenu.flatMap((item): Tab[] => {
     const comun = {
       grupo: item.grupo,
       icon: iconoModulo(item.id),
-      oculto: !EN_EL_MENU.has(item.id),
     };
 
     if (item.destino.clase === "proximamente") {
-      // Un módulo «Pronto» que además está oculto no aporta nada: no se
-      // puede abrir Y no se ve. Se cae del arreglo directamente.
-      if (comun.oculto) return [];
-      return [{ id: item.id, label: item.label, proximamente: true, ...comun }];
+      // ── LOS «PRONTO» NO VAN EN EL RAIL ──────────────────────────
+      // Un ítem de navegación que no navega a ningún lado es deuda: en
+      // los programas del rubro donde existe (Zenoti, Vagaro) es la
+      // queja constante — se busca algo, se toca, no pasa nada.
+      //
+      // Y hay un número detrás: los productos de citas mejor valorados
+      // tienen 7±2 ítems de primer nivel; los que pasan de ahí son
+      // exactamente los que acumulan reseñas de «cluttered». Con los
+      // «Pronto» adentro este rail llegaba a 12, y tres no se podían
+      // abrir.
+      //
+      // Lo que anuncian —que el rubro trae más— no se pierde: vive en
+      // Configuración → módulos, que es donde se elige el tipo de
+      // negocio y se prenden. Ahí es una decisión; en el rail era un
+      // botón roto.
+      return [];
     }
 
     if (item.destino.clase === "ruta") {
@@ -1638,6 +1669,17 @@ export default async function RanchoDetallePage({
     if (!base) return [];
     return [{ ...base, label: item.label, ...comun }];
   });
+
+  // Un negocio NACIDO EN LEALTAD tiene el módulo `servicios` apagado
+  // (apagarModulosOperativos) y por eso el flatMap de arriba no monta
+  // la pestaña del catálogo — pero «Mi página» de su panel de Lealtad
+  // linkea a ?tab=catalogo para editar el MENÚ público (/r/<slug> lee
+  // rancho_items). Sin este rescate, ese link aterrizaba en Inicio sin
+  // editor ni aviso. `oculto`: la pestaña vive para el deep-link, no
+  // para el menú del rail.
+  if (rancho.en_marketplace === false && !tabs.some((t) => t.id === tabCatalogo.id)) {
+    tabs.push({ ...tabCatalogo, oculto: true });
+  }
 
   const urlPublica = rancho.slug ? `/${rancho.slug}` : `/eventos/${rancho.id}`;
 
@@ -1762,12 +1804,25 @@ export default async function RanchoDetallePage({
           cualquier cosa por encima de la grilla empujaba la columna navy
           hacia abajo y le abría una franja crema entre el header y el
           menú — justo lo que este cambio venía a sacar. */}
-      <Link
-        href="/mi-negocio"
-        className="mb-4 inline-block text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
-      >
-        ← Todas tus publicaciones
-      </Link>
+      {/* Un negocio nacido en Lealtad no está en la grilla de
+          /mi-negocio (0187 la filtra): mandarlo «a todas tus
+          publicaciones» era mandarlo a una lista donde no aparece. Su
+          casa es el panel de Lealtad. */}
+      {rancho.en_marketplace === false ? (
+        <Link
+          href={`/lealtad/panel/${rancho.id}`}
+          className="mb-4 inline-block text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
+        >
+          ← Tu panel de Lealtad
+        </Link>
+      ) : (
+        <Link
+          href="/mi-negocio"
+          className="mb-4 inline-block text-[13px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
+        >
+          ← Todas tus publicaciones
+        </Link>
+      )}
 
       {/* EL `.heading` DE LA MAQUETA: kicker con la fecha, titular,
           bajada y los botones pegados al borde derecho. A 560px la
@@ -1807,12 +1862,26 @@ export default async function RanchoDetallePage({
           (`ESTADO_AVISO`), los mismos pares medidos que las píldoras del
           tablero: así un aviso se reconoce como aviso en todo el panel
           y no hay dos azules ni dos rojos distintos. */}
-      {rancho.estado === "pendiente" && (
-        <p className={`mb-4 rounded-xl p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.info}`}>
-          Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
-          directorio.
-        </p>
-      )}
+      {/* Un negocio de Lealtad queda «pendiente» PARA SIEMPRE (nace
+          fuera del directorio, nadie lo va a aprobar): prometerle una
+          revisión que no existe era mentirle. Se le dice la verdad y se
+          le da la puerta a su panel de verdad. */}
+      {rancho.estado === "pendiente" &&
+        (rancho.en_marketplace === false ? (
+          <p className={`mb-4 rounded-xl p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.info}`}>
+            Este negocio vive en Bookea Lealtad y no se publica en el directorio. Su día a
+            día se administra desde{" "}
+            <Link href={`/lealtad/panel/${rancho.id}`} className="font-bold underline">
+              su panel de Lealtad
+            </Link>
+            .
+          </p>
+        ) : (
+          <p className={`mb-4 rounded-xl p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.info}`}>
+            Bookea está revisando tu publicación. Te avisamos apenas quede publicada en el
+            directorio.
+          </p>
+        ))}
       {rancho.estado === "rechazado" && (
         <p className={`mb-4 rounded-xl p-3 text-[13px] leading-relaxed ${ESTADO_AVISO.alerta}`}>
           Tu publicación no fue aprobada todavía. Escribinos si querés más información.

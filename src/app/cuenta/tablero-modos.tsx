@@ -121,10 +121,18 @@ interface TableroModosProps {
   correo: string;
   telefono: string;
   tieneNegocio: boolean;
+  /** "negocio" = llegó con `?modo=negocio` (desde un panel): pisa el
+   *  último modo guardado por esta visita y queda como preferencia. */
+  modoInicial: "negocio" | null;
   resenasCount: number;
   reservasNuevasNegocio: number;
   vecesContratado: number;
-  negociosLength: number;
+  /** Solo las del MARKETPLACE (en_marketplace !== false): los negocios
+   *  nacidos en Lealtad no son publicaciones del directorio. */
+  publicaciones: number;
+  /** El id de la única publicación del marketplace, para que «Finanzas»
+   *  caiga directo en su pestaña; null con 0 o 2+. */
+  negocioFinanzasUnico: string | null;
   lealtadActiva: boolean;
   /** El id del único negocio con lealtad activa, o null si son 0 o 2+. */
   lealtadNegocioUnico: string | null;
@@ -158,10 +166,12 @@ export default function TableroModos({
   correo,
   telefono,
   tieneNegocio,
+  modoInicial,
   resenasCount,
   reservasNuevasNegocio,
   vecesContratado,
-  negociosLength,
+  publicaciones,
+  negocioFinanzasUnico,
   lealtadActiva,
   lealtadNegocioUnico,
   confirmacionesNuevas,
@@ -181,9 +191,22 @@ export default function TableroModos({
     // Lectura única de una preferencia guardada en el navegador — no hay
     // forma de saberla antes de montar en el cliente (SSR no tiene
     // localStorage), así que el efecto es necesario, no evitable.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    //
+    // `modoInicial` pisa la preferencia: los «Tu cuenta» de los paneles
+    // de negocio llegan con `?modo=negocio`, y aterrizar en la vista de
+    // cliente porque el localStorage decía otra cosa era el bug — el
+    // dueño salía de su panel y perdía sus herramientas. Se persiste:
+    // venir de un panel ES elegir el modo.
+    if (modoInicial === "negocio" && tieneNegocio) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setModoNegocio(true);
+      localStorage.setItem("cuenta_modo_negocio", "true");
+      return;
+    }
+    // (la regla solo reporta el PRIMER setState síncrono del efecto —
+    // el de arriba, ya suprimido — así que acá no hace falta directiva)
     setModoNegocio(localStorage.getItem("cuenta_modo_negocio") === "true" && tieneNegocio);
-  }, [tieneNegocio]);
+  }, [tieneNegocio, modoInicial]);
 
   const toggleModo = () => {
     const nuevoModo = !modoNegocio;
@@ -206,6 +229,12 @@ export default function TableroModos({
     : lealtadNegocioUnico
       ? `/cuenta/ir/lealtad?negocio=${lealtadNegocioUnico}`
       : "/cuenta/ir/lealtad";
+
+  // «Finanzas» con el mismo atajo: una sola publicación → directo a su
+  // pestaña; varias → el listado de /mi-negocio, donde se elige.
+  const hrefFinanzas = negocioFinanzasUnico
+    ? `/cuenta/ir/finanzas?negocio=${negocioFinanzasUnico}`
+    : "/cuenta/ir/finanzas";
 
   return (
     <main className="mx-auto w-full max-w-[1320px] px-4 py-5 sm:px-6 sm:py-7">
@@ -271,16 +300,27 @@ export default function TableroModos({
                   <ItemNavOscuro actual icono={<IconHome className="h-[16px] w-[16px]" />}>
                     Resumen
                   </ItemNavOscuro>
-                  <ItemNavOscuro
-                    href="/cuenta/ir/proveedor"
-                    icono={<IconStore className="h-[16px] w-[16px]" />}
-                    badge={reservasNuevasNegocio}
-                  >
-                    Panel de proveedor
-                  </ItemNavOscuro>
-                  <ItemNavOscuro href="/cuenta/ir/finanzas" icono={<IconChartBars className="h-[16px] w-[16px]" />}>
-                    Finanzas
-                  </ItemNavOscuro>
+                  {/* ── DOS PRODUCTOS, DOS GRUPOS ──────────────────
+                      Marketplace y Lealtad comparten la cuenta pero son
+                      secciones separadas — y quien solo tiene Lealtad no
+                      ve un «Panel de proveedor» que lo rebota ni una
+                      «Finanzas» que no es suya. */}
+                  {publicaciones > 0 && (
+                    <>
+                      <p className={`mt-3 ${RAIL_GRUPO}`}>Marketplace</p>
+                      <ItemNavOscuro
+                        href="/cuenta/ir/proveedor"
+                        icono={<IconStore className="h-[16px] w-[16px]" />}
+                        badge={reservasNuevasNegocio}
+                      >
+                        Panel de proveedor
+                      </ItemNavOscuro>
+                      <ItemNavOscuro href={hrefFinanzas} icono={<IconChartBars className="h-[16px] w-[16px]" />}>
+                        Finanzas
+                      </ItemNavOscuro>
+                    </>
+                  )}
+                  <p className={`mt-3 ${RAIL_GRUPO}`}>Lealtad</p>
                   <ItemNavOscuro href={hrefLealtad} icono={<IconStar className="h-[16px] w-[16px]" />}>
                     Programa de lealtad
                   </ItemNavOscuro>
@@ -434,35 +474,56 @@ export default function TableroModos({
                 </GrillaTablero>
               </>
             ) : (
-              <SeccionActividad
-                eyebrow="Tu operación"
-                titulo="Tu negocio"
-                filas={[
-                  {
-                    href: "/cuenta/ir/proveedor",
-                    icono: <IconStore className="h-[17px] w-[17px]" />,
-                    titulo: "Panel de proveedor",
-                    detalle: `${negociosLength} publicación${negociosLength !== 1 ? "es" : ""}`,
-                    numero: negociosLength,
-                    badge: reservasNuevasNegocio,
-                  },
-                  {
-                    href: "/cuenta/ir/finanzas",
-                    icono: <IconChartBars className="h-[17px] w-[17px]" />,
-                    titulo: "Finanzas",
-                    detalle: `${vecesContratado} reservas confirmadas`,
-                    numero: vecesContratado,
-                  },
-                  {
-                    href: hrefLealtad,
-                    icono: <IconStar className="h-[17px] w-[17px]" />,
-                    titulo: "Programa de lealtad",
-                    detalle: lealtadActiva
-                      ? "Sellos, puntos y tarjeta en el Wallet de tus clientes"
-                      : "Hacé que tus clientes vuelvan — ver cómo funciona",
-                  },
-                ]}
-              />
+              <>
+                {/* ── EL MODO NEGOCIO SON DOS SECCIONES, NO UNA ──────
+                    Marketplace (publicaciones del directorio, con sus
+                    reservas y finanzas) y Bookea Lealtad (las tarjetas
+                    para los clientes) comparten la cuenta y nada más.
+                    Antes iban revueltas bajo «Tu operación» — y a quien
+                    solo tiene Lealtad se le prometía un «Panel de
+                    proveedor · N publicaciones» que contaba negocios que
+                    no son publicaciones y lo rebotaba en dos saltos. */}
+                {publicaciones > 0 && (
+                  <SeccionActividad
+                    id="actividad-marketplace"
+                    eyebrow="Marketplace"
+                    titulo="Tus publicaciones"
+                    filas={[
+                      {
+                        href: "/cuenta/ir/proveedor",
+                        icono: <IconStore className="h-[17px] w-[17px]" />,
+                        titulo: "Panel de proveedor",
+                        detalle:
+                          publicaciones === 1 ? "1 publicación" : `${publicaciones} publicaciones`,
+                        numero: publicaciones,
+                        badge: reservasNuevasNegocio,
+                      },
+                      {
+                        href: hrefFinanzas,
+                        icono: <IconChartBars className="h-[17px] w-[17px]" />,
+                        titulo: "Finanzas",
+                        detalle: `${vecesContratado} reservas confirmadas`,
+                        numero: vecesContratado,
+                      },
+                    ]}
+                  />
+                )}
+                <SeccionActividad
+                  id="actividad-lealtad"
+                  eyebrow="Bookea Lealtad"
+                  titulo="Tarjetas para tus clientes"
+                  filas={[
+                    {
+                      href: hrefLealtad,
+                      icono: <IconStar className="h-[17px] w-[17px]" />,
+                      titulo: "Programa de lealtad",
+                      detalle: lealtadActiva
+                        ? "Sellos, puntos y tarjeta en el Wallet de tus clientes"
+                        : "Hacé que tus clientes vuelvan — ver cómo funciona",
+                    },
+                  ]}
+                />
+              </>
             )}
 
             <BannerNegocio
@@ -500,7 +561,7 @@ function capitalizar(texto: string): string {
    no tiene tipo de negocio, así que esos 3px serían un margen sin
    significado. Lo demás (alto 38, radio 12, 13px/bold) es idéntico. */
 const RAIL_ITEM =
-  "flex min-h-[38px] w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-bold transition-colors";
+  "flex min-h-[46px] w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-[14px] font-bold transition-colors";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -597,12 +658,25 @@ function ItemNavOscuro({
 }) {
   const contenido = (
     <>
-      <span aria-hidden="true">{icono}</span>
+      {/* El activo lleva su ícono en un disco navy: la card blanca
+          elevada + disco es el lenguaje del rediseño de rails (sep
+          2026), el mismo de /mi-negocio y del panel de Lealtad. */}
+      {actual ? (
+        <span
+          aria-hidden="true"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-aventurea-navy text-white"
+        >
+          {icono}
+        </span>
+      ) : (
+        <span aria-hidden="true">{icono}</span>
+      )}
       <span className="min-w-0 flex-1 truncate">{children}</span>
-      {/* El contador: letra #a83f00 sobre #fdeee1 = 5,42:1. Era blanco
-          sobre el naranja del logo (3,44:1) en letra de 10px. */}
+      {/* El contador, en el par azul del panel (blanco sólido con letra
+          navy, 13,88:1 — el mismo del contador del rail de negocio):
+          el naranja se fue de los paneles en sep 2026. */}
       {badge != null && badge > 0 && (
-        <span className="rounded-lg bg-aventurea-orange-light px-1.5 py-0.5 text-[10.5px] font-extrabold tabular-nums text-bookea-naranja-fuerte">
+        <span className="rounded-lg bg-white px-1.5 py-0.5 text-[10.5px] font-extrabold tabular-nums text-aventurea-navy">
           {badge > 99 ? "99+" : badge}
         </span>
       )}
@@ -610,7 +684,7 @@ function ItemNavOscuro({
   );
   if (actual) {
     return (
-      <div aria-current="page" className={`${RAIL_ITEM} bg-white text-aventurea-navy`}>
+      <div aria-current="page" className={`${RAIL_ITEM} bg-white text-aventurea-navy shadow-elevado`}>
         {contenido}
       </div>
     );
@@ -645,28 +719,47 @@ type FilaActividad = {
  * comparte es cada decisión visual (superficie, disco, escala), que
  * sale del sistema y no de esta pantalla.
  */
+/** Columnas según cuántas filas hay — clases LITERALES porque Tailwind
+ *  lee el archivo como texto y un template `sm:grid-cols-${n}` no
+ *  genera nada (mismo motivo que grillaDePaquetes). Con 3+ se queda en
+ *  3; con 1 o 2, la fila llena el ancho en vez de dejar huecos. */
+const COLS_ACTIVIDAD: Record<number, string> = {
+  1: "",
+  2: "sm:grid-cols-2",
+  3: "sm:grid-cols-3",
+};
+
 function SeccionActividad({
+  id,
   eyebrow,
   titulo,
   filas,
 }: {
+  /** Ancla del encabezado. En modo Negocio se montan DOS secciones a la
+   *  vez: con el id fijo de antes quedaban dos `#actividad-titulo` en el
+   *  DOM y el lector de pantalla anunciaba la segunda con el título de
+   *  la primera. */
+  id?: string;
   eyebrow: string;
   titulo: string;
   filas: FilaActividad[];
 }) {
+  const idTitulo = id ?? "actividad-titulo";
   return (
-    <section aria-labelledby="actividad-titulo">
+    <section aria-labelledby={idTitulo}>
       <div className="mb-3.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
         <div className="min-w-0">
           <p className={`mb-1.5 ${EYEBROW_NEUTRO}`}>{eyebrow}</p>
-          <h2 id="actividad-titulo" className="titulo text-[18px] tracking-[-0.02em] text-aventurea-navy">
+          <h2 id={idTitulo} className="titulo text-[18px] tracking-[-0.02em] text-aventurea-navy">
             {titulo}
           </h2>
         </div>
         <span className={DETALLE}>Vista general</span>
       </div>
 
-      <div className={`grid ${GAP_METRICAS} sm:grid-cols-3`}>
+      <div
+        className={`grid ${GAP_METRICAS} ${COLS_ACTIVIDAD[Math.min(filas.length, 3)] ?? "sm:grid-cols-3"}`}
+      >
         {filas.map((f) => (
           <Link
             key={f.titulo}

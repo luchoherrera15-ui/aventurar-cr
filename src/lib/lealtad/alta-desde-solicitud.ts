@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generarSlugUnico } from "@/lib/slug";
 import { apagarModulosOperativos } from "./solo-lealtad";
+import { crearPaginaDelNegocio } from "./pagina-negocio";
 
 /**
  * CONVERTIR UNA SOLICITUD DE ALTA EN UN NEGOCIO DE VERDAD.
@@ -119,6 +120,9 @@ export async function crearNegocioDesdeSolicitud(
   // el dueño enciende lo que quiera después.
   await apagarModulosOperativos(db, ranchoId);
   await armarProgramaInicial(db, ranchoId, solicitud);
+  // «Mi página» (0229): las DOS puertas de alta crean la página — ver
+  // el porqué en pagina-negocio.ts. No-fatal a propósito.
+  await crearPaginaDelNegocio(db, ranchoId);
 
   return { ok: true, ranchoId };
 }

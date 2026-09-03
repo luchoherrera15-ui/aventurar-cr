@@ -121,7 +121,7 @@ export const contarPendientes = cache(async function contarPendientes(
       cuenta: publicacionesPorAprobar,
       singular: "publicación esperando aprobación",
       plural: "publicaciones esperando aprobación",
-      href: "/admin/ranchos",
+      href: "/admin/negocios",
       urgente: true,
       seccion: "Publicaciones",
     },

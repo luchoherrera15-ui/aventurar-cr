@@ -186,14 +186,31 @@ export const RAIL_ITEM_LEALTAD =
   "relative flex min-h-[48px] items-center gap-3 rounded-xl px-3.5 text-[14.5px] font-bold transition-colors";
 
 /**
- * El ítem ENCENDIDO: píldora sólida con el azul de acción.
- *
- * ⚠️ El par es `--accion-claro` sobre el navy del rail, no `--accion`:
- * el azul de acción sobre fondo oscuro da 1,44:1 y el ítem activo se
- * tragaría el texto. Es el mismo par que ya usa el resto del módulo
- * sobre superficies oscuras.
+ * El ítem ENCENDIDO como CARD (rediseño sep 2026): superficie blanca
+ * elevada con tinta navy — se lee de una, caiga donde caiga en la
+ * columna, y es el mismo lenguaje que estrenó el rail de /mi-negocio.
+ * El azul del módulo no se pierde: pinta el DISCO del ícono
+ * (`RAIL_DISCO_LEALTAD`), con el par `--accion-claro` /
+ * `--accion-claro-tinta` que ya está medido para superficies del
+ * módulo (⚠️ nunca `--accion` sobre el rail: 1,44:1).
  */
-export const RAIL_ITEM_ACTIVO = "text-[color:var(--accion-claro-tinta)]";
+export const RAIL_ITEM_ACTIVO = "shadow-elevado";
+
+/** El PAR de la card activa, por `style` y no por clase: dentro de
+ *  `.lealtad-oscuro`, globals.css traduce `.bg-white` a un tinte
+ *  translúcido y `.text-aventurea-navy` a azul claro — la card blanca
+ *  del rediseño nunca se veía. Los valores explícitos no pasan por esa
+ *  traducción; `var(--navy)` dentro de `.lealtad` es #062653 (14,9:1
+ *  sobre blanco). */
+export const RAIL_CARD_ACTIVA = {
+  background: "#ffffff",
+  color: "var(--navy)",
+} as const;
+
+/** El disco del ícono del ítem activo (relleno por `style` con ACCION
+ *  y tinta `--accion-claro-tinta` — el par medido del módulo). */
+export const RAIL_DISCO_LEALTAD =
+  "grid h-8 w-8 shrink-0 place-items-center rounded-lg";
 
 /** El rótulo de un grupo del menú (`.nav-label` de la maqueta). */
 export const RAIL_GRUPO_LEALTAD =

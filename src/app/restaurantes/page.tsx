@@ -200,6 +200,8 @@ async function ContenidoRestaurantes({
           .select(columnas)
           .eq("vertical", "restaurantes")
           .eq("estado", "aprobado")
+          // Faltaba (2 sep 2026): las demos sembradas se colaban acá.
+          .neq("en_marketplace", false)
           .order("created_at", { ascending: false }),
       COLUMNAS_RESTAURANTES_DIRECTORIO,
       COLUMNAS_PAIS,

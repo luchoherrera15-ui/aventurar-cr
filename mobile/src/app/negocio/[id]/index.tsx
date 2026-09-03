@@ -850,7 +850,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.two,
     padding: Spacing.three,
-    ...Sombras.tarjeta,
+    // `elevada` y no `tarjeta`: es la puerta a un producto entero, que
+    // se despegue un poco más del lienzo que las cards de todos los días.
+    ...Sombras.elevada,
   },
   lealtadIcono: {
     alignItems: "center",
@@ -868,7 +870,7 @@ const styles = StyleSheet.create({
   lealtadTitulo: {
     color: Colors.ink,
     fontFamily: Fonts.bold,
-    fontSize: 15,
+    fontSize: 15.5,
   },
   contenedor: { backgroundColor: Colors.canvas, flex: 1 },
   centro: { alignItems: "center", flex: 1, justifyContent: "center" },

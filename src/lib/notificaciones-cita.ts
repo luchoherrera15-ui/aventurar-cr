@@ -1,5 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  destinatariosDelNegocio,
+  type DestinatarioNegocio,
+} from "@/lib/destinatarios-negocio";
+import {
   enlacesCalendario,
   enviarCorreo,
   plantillaCitaConfirmada,
@@ -142,18 +146,18 @@ export async function notificarCitaConfirmada(
     });
   }
 
-  if (r.ranchos?.owner_id) {
-    const { data: perfil } = await admin
-      .from("perfiles")
-      .select("nombre, email")
-      .eq("id", r.ranchos.owner_id)
-      .maybeSingle();
-    if (perfil?.email) {
+  // Al negocio: el dueño Y los colaboradores seteados (pedido del
+  // dueño, 2 sep 2026) — el administrador que atiende la agenda tiene
+  // que enterarse igual que el owner.
+  let equipo: DestinatarioNegocio[] = [];
+  if (r.ranchos?.owner_id && r.rancho_id) {
+    equipo = await destinatariosDelNegocio(admin, r.rancho_id, r.ranchos.owner_id);
+    for (const persona of equipo) {
       await enviarCorreo({
-        to: perfil.email,
+        to: persona.email,
         subject: `Cita nueva en ${nombreNegocio}: ${fechaLarga}, ${hora}`,
         html: plantillaCitaNuevaProveedor({
-          nombreProveedor: perfil.nombre || perfil.email,
+          nombreProveedor: persona.nombre || persona.email,
           nombreNegocio,
           nombreCliente: r.nombre || "Un cliente",
           servicio: r.tipo_evento ?? "un servicio",
@@ -187,7 +191,9 @@ export async function notificarCitaConfirmada(
     : "/";
 
   await enviarPush({
-    usuarios: [r.ranchos?.owner_id],
+    // Si perfiles no devolvió a nadie (cuentas sin correo), el push
+    // igual va al owner — son canales distintos.
+    usuarios: equipo.length ? equipo.map((p) => p.id) : [r.ranchos?.owner_id],
     titulo: `Cita nueva en ${nombreNegocio}`,
     cuerpo: `${r.nombre || "Un cliente"} — ${r.tipo_evento ?? "un servicio"}, ${fechaLarga}, ${hora}.`,
     data: { url: agendaDelNegocio },

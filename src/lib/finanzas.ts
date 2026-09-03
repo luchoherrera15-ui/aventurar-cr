@@ -40,6 +40,27 @@ export type ReservaFinanzas = {
    *  plata deja de contar como ingreso. Opcional: tolera una base sin
    *  la migración corrida (undefined = no devuelto). */
   adelanto_devuelto?: boolean;
+
+  /* -- PARA REVISAR UN ADELANTO ANTES DE CONFIRMARLO --------------
+     Pedido del dueno (3 sep 2026): «necesito que estas cosas sean
+     extendibles para poder ver la fecha, ver el comprobante, revisar
+     mas minuciosamente».
+
+     Estos campos YA LLEGABAN: la consulta del panel es un
+     `select("*")` (page.tsx), asi que estaban en el objeto y no en
+     el tipo — o sea invisibles para quien escribe la pantalla.
+     Marcarlos opcionales es lo honesto: describen lo que la base
+     puede no tener (una reserva sin comprobante, un evento sin
+     hora), no algo que este por llegar. */
+  /** Ruta en el bucket `comprobantes`, para pedir la URL firmada. */
+  deposito_comprobante_url?: string | null;
+  /** Con que datos reservo — para cotejar contra el comprobante. */
+  correo?: string | null;
+  whatsapp?: string | null;
+  /** Cuando entro la reserva, no cuando es el evento. */
+  created_at?: string | null;
+  /** La franja del evento, si la vertical la usa. */
+  horario_bloque?: string | null;
 };
 
 export type Gasto = {

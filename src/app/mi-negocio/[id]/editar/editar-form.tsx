@@ -293,7 +293,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             )}
           </div>
           <div className="flex-1">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2.5 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-navy">
               <IconCamera className="h-4 w-4" /> {fotoPreview ? "Cambiar foto" : "Subir foto"}
               <input
                 type="file"
@@ -303,7 +303,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
               />
             </label>
             {fotoAviso && (
-              <p className="flex items-start gap-1.5 mt-2.5 max-w-[46ch] text-[12px] leading-relaxed text-aventurea-orange">
+              <p className="flex items-start gap-1.5 mt-2.5 max-w-[46ch] text-[12px] leading-relaxed text-bookea-azul">
                 <IconWarning className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {fotoAviso}
               </p>
             )}
@@ -373,7 +373,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
             />
           ))}
           {espacioLibre > 0 && (
-            <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange">
+            <label className="flex aspect-[4/3] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-navy">
               <IconCamera className="h-5 w-5" />
               <span className="text-[11.5px] font-bold">Agregar</span>
               <span className="text-[10.5px]">quedan {espacioLibre}</span>
@@ -742,7 +742,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                         aria-pressed={activo}
                         className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
                           activo
-                            ? "border-aventurea-sky bg-aventurea-sky/10 text-aventurea-orange"
+                            ? "border-aventurea-sky bg-aventurea-sky/10 text-bookea-azul"
                             : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky"
                         }`}
                       >
@@ -768,7 +768,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                         key={a}
                         type="button"
                         onClick={() => toggleAmenidad(a)}
-                        className="flex items-center gap-1.5 rounded-lg border border-aventurea-sky bg-aventurea-sky/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
+                        className="flex items-center gap-1.5 rounded-lg border border-aventurea-sky bg-aventurea-sky/10 px-3 py-1.5 text-[12.5px] font-bold text-bookea-azul"
                       >
                         {a}
                         <span aria-hidden>×</span>
@@ -799,7 +799,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 <button
                   type="button"
                   onClick={agregarAmenidad}
-                  className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
+                  className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-navy"
                 >
                   Agregar
                 </button>
@@ -832,7 +832,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                     aria-pressed={activo}
                     className={`rounded-lg border px-3 py-1.5 text-[12.5px] font-bold transition-colors ${
                       activo
-                        ? "border-aventurea-sky bg-aventurea-sky/10 text-aventurea-orange"
+                        ? "border-aventurea-sky bg-aventurea-sky/10 text-bookea-azul"
                         : "border-aventurea-line text-aventurea-ink-soft hover:border-aventurea-sky"
                     }`}
                   >
@@ -856,7 +856,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                         key={a}
                         type="button"
                         onClick={() => toggleAmenidad(a)}
-                        className="flex items-center gap-1.5 rounded-lg border border-aventurea-sky bg-aventurea-sky/10 px-3 py-1.5 text-[12.5px] font-bold text-aventurea-orange"
+                        className="flex items-center gap-1.5 rounded-lg border border-aventurea-sky bg-aventurea-sky/10 px-3 py-1.5 text-[12.5px] font-bold text-bookea-azul"
                       >
                         {a}
                         <span aria-hidden>×</span>
@@ -887,7 +887,7 @@ export default function EditarRanchoForm({ rancho }: { rancho: Rancho }) {
                 <button
                   type="button"
                   onClick={agregarAmenidad}
-                  className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-orange"
+                  className="shrink-0 rounded-lg border border-aventurea-line px-3 py-1.5 text-[12.5px] font-bold text-aventurea-ink-soft hover:border-aventurea-sky hover:text-aventurea-navy"
                 >
                   Agregar
                 </button>

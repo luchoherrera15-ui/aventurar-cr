@@ -175,11 +175,13 @@ function resolverModulo(
       return { label: "Finanzas", destino: { clase: "seccion", tab: "finanzas" } };
 
     case "reportes":
-      // "Cómo va el negocio" es una sección de la pantalla de citas.
+      // "Cómo va el negocio": una pestaña de la pantalla de citas. El
+      // rail de esa pantalla resuelve `?tab=` (mismo PanelSidebar del
+      // panel); el ancla `#reportes` murió con los acordeones, sep 2026.
       return {
         label: "Reportes",
         destino: p.agendaPorHoras
-          ? { clase: "ruta", href: `${panel}/citas#reportes` }
+          ? { clase: "ruta", href: `${panel}/citas?tab=reportes` }
           : PROXIMAMENTE,
       };
 

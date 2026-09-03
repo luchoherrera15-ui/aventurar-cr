@@ -133,7 +133,7 @@ export async function crearRanchoComoAdmin(
 
   if (error) return { error: "No se pudo guardar el negocio: " + error.message };
 
-  revalidatePath("/admin/ranchos");
+  revalidatePath("/admin/negocios");
   revalidatePath("/");
-  redirect("/admin/ranchos");
+  redirect("/admin/negocios");
 }

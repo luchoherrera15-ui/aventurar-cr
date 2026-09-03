@@ -84,11 +84,20 @@ export default function SelectorTipo({
   }
 
   return (
+    /* `@container` + `@2xl:` y NO `lg:` (2 sep 2026, sobre captura del
+       dueño: «esos box están mal alineados»): el breakpoint de viewport
+       mentía dentro del panel de edición — a 1440px de pantalla el
+       contenedor mide ~660px y `lg:grid-cols-4` metía cuatro tarjetas
+       flacas con textos envueltos a alturas dispares. Con la consulta
+       de CONTENEDOR, 4 columnas solo cuando el propio bloque mide
+       ≥672px (el creador público); en el panel quedan 2, anchas y
+       parejas. */
+    <div className="@container">
     <div
       role="radiogroup"
       aria-label="Tipo de tarjeta"
       onKeyDown={alTeclado}
-      className="grid grid-cols-2 gap-2.5 lg:grid-cols-4"
+      className="grid grid-cols-2 gap-2.5 @2xl:grid-cols-4"
     >
       {TIPOS_TARJETA_LISTA.map((tipo, i) => {
         const bloqueado = !permitidos.includes(tipo.id);
@@ -182,7 +191,11 @@ export default function SelectorTipo({
             <span className="mt-3 block text-[14px] font-extrabold text-bookea-tinta">
               {tipo.nombre}
             </span>
-            <span className="mt-1 block text-[11.5px] leading-snug text-bookea-gris">
+            {/* `flex-1`: la descripción absorbe el alto sobrante para
+                que la insignia de paquete quede ANCLADA abajo — sin
+                esto, cada píldora flotaba a una altura distinta según
+                cuánto envolvía el texto de arriba. */}
+            <span className="mt-1 block flex-1 text-[11.5px] leading-snug text-bookea-gris">
               {tipo.descripcion}
             </span>
 
@@ -225,6 +238,7 @@ export default function SelectorTipo({
           </button>
         );
       })}
+    </div>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
+import BotonVolver from "@/components/boton-volver";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import SiteHeader from "@/components/site-header";
@@ -64,12 +65,7 @@ export default async function CuentaFavoritosPage() {
     <div className={`min-h-screen ${LIENZO_PANEL}`}>
       <SiteHeader breadcrumb="Tus favoritos" ancho="max-w-[960px]" />
       <main className="mx-auto max-w-[960px] px-4 py-6 sm:px-6">
-        <Link
-          href="/cuenta"
-          className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink"
-        >
-          ← Volver a tu cuenta
-        </Link>
+        <BotonVolver href="/cuenta">Volver a tu cuenta</BotonVolver>
 
         {/* El contador se CUENTA de la lista: si mañana hay uno más, el
             kicker lo sigue solo. */}

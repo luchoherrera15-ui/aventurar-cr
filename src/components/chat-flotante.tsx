@@ -929,7 +929,11 @@ async function buscarNegocios(termino: string): Promise<NegocioExplorar[]> {
   let query = supabase
     .from("ranchos")
     .select("id, nombre, foto_url, categoria, subcategoria, vertical, canton, owner_id, detalles")
-    .eq("estado", "aprobado");
+    .eq("estado", "aprobado")
+    // ⚠️ FALTABA (2 sep 2026): el buscador devolvía las fichas sembradas
+    // del `/demo-bookea` que el directorio sí escondía, así que buscar
+    // «barbería» sacaba negocios inventados. Mismo filtro que el resto.
+    .neq("en_marketplace", false);
 
   if (esBusqueda) {
     const norm = normalizarTexto(limpio);

@@ -11,7 +11,7 @@ import { enConfiguracion } from "@/app/mi-negocio/types";
  * LOS «SÚPER DESTACADOS» (migración 0169)
  * ============================================================
  *
- * Hasta 10 negocios que el admin elige a mano desde /admin/ranchos para
+ * Hasta 10 negocios que el admin elige a mano desde /admin/negocios para
  * que roten en la vitrina de arriba. Es una vitrina de TODO el
  * marketplace, no de una vertical: por eso la consulta no filtra por
  * `vertical` y por eso `hrefDeNegocio` (en el carrusel) manda a cada uno

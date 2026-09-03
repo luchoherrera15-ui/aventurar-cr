@@ -34,7 +34,7 @@ type Seccion = {
 // El mismo orden que las cards de la web.
 const SECCIONES: Seccion[] = [
   {
-    ruta: "/admin/ranchos",
+    ruta: "/admin/negocios",
     titulo: "Publicaciones",
     detalle: "Aprobá, editá o dá de alta negocios",
     icono: "storefront-outline",

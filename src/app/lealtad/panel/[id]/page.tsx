@@ -30,6 +30,9 @@ import { estadoCupoNotificaciones } from "@/lib/lealtad/cupo-notificaciones";
 import { estadoDePrueba } from "@/lib/lealtad/prueba";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
 import { minutoISOCR } from "@/lib/fechas";
+import { toString as qrATexto } from "qrcode";
+import { paginaDelNegocio, urlDePagina } from "@/lib/lealtad/pagina-negocio";
+import SeccionMiPagina from "./seccion-mi-pagina";
 import SeccionProgramas, { type ProgramaEnLista } from "./seccion-programas";
 import SelectorTarjetaActiva from "./selector-tarjeta-activa";
 import { estadoVisible, operaAhora } from "@/lib/lealtad/programas";
@@ -637,6 +640,20 @@ export default async function PanelNegocioLealtad({
 
   const slug = rancho.slug as string | null;
 
+  // ── «Mi página» (0229): la página pública y su QR ───────────────
+  // Solo quien puede diseñar la ve; sin llave de servicio o sin la
+  // 0229 aplicada, `paginaMia` queda null y la sección lo explica.
+  const paginaMia = puedeDisenar && admin ? await paginaDelNegocio(admin, id) : null;
+  const urlPaginaPublica = slug ? urlDePagina(slug) : null;
+  const svgQrPagina = urlPaginaPublica
+    ? await qrATexto(urlPaginaPublica, {
+        type: "svg",
+        errorCorrectionLevel: "M",
+        margin: 1,
+        color: { dark: "#0a1226", light: "#ffffff" },
+      })
+    : null;
+
   // ── Geo-Push (0196): las ubicaciones del negocio ────────────────
   // `null` = la consulta falló (típicamente: la tabla no existe porque
   // la migración se aplica aparte). La sección se pinta con su aviso
@@ -721,6 +738,11 @@ export default async function PanelNegocioLealtad({
           ? [{ id: "dashboard", etiqueta: "Dashboard", icono: "inicio" as const }]
           : []),
         { id: "programas", etiqueta: "Tarjetas", icono: "tarjeta" as const },
+        // «Mi página» (0229): la página pública /r/<slug> con el menú.
+        // Solo dueño/admin — un empleado de mostrador no edita la calle.
+        ...(puedeDisenar
+          ? [{ id: "mi-pagina", etiqueta: "Mi página", icono: "pagina" as const }]
+          : []),
         { id: "clientes", etiqueta: "Clientes", icono: "clientes" as const },
         ...(permisos.auditoria
           ? [{ id: "metricas", etiqueta: "Métricas", icono: "metricas" as const }]
@@ -982,6 +1004,28 @@ export default async function PanelNegocioLealtad({
 
     marketing: <MarketingLealtad ranchoId={id} programaId={p?.id ?? null} />,
 
+    // «Mi página» (0229): el editor de la página pública. Va gateado
+    // igual que su ítem del rail — mismo criterio que `configuracion`.
+    ...(puedeDisenar
+      ? {
+          "mi-pagina": (
+            <Seccion
+              eyebrow="Tu página pública"
+              titulo="Mi página"
+              bajada="Lo que abre el QR de la mesa: tu menú, tu tarjeta de lealtad y tu información — con tu marca, no la nuestra."
+            >
+              <SeccionMiPagina
+                ranchoId={id}
+                slug={slug}
+                pagina={paginaMia}
+                svgQr={svgQrPagina}
+                urlPublica={urlPaginaPublica}
+              />
+            </Seccion>
+          ),
+        }
+      : {}),
+
     poster: (
       <Seccion
         eyebrow="Repartí tu tarjeta"
@@ -1125,9 +1169,17 @@ export default async function PanelNegocioLealtad({
                         />
                         <Campo etiqueta="Plan de lealtad" valor={def ? def.nombre : "Sin plan"} />
                         <div className="mt-4 flex flex-wrap gap-2">
-                          <Link href={`/mi-negocio/${id}`} className={BOTON_LEALTAD}>
-                            Editar en tu panel de negocio →
-                          </Link>
+                          {/* Solo para negocios DEL MARKETPLACE: uno
+                              nacido en Lealtad (en_marketplace = false)
+                              no tiene panel en /mi-negocio — ese link lo
+                              metía al chrome del directorio con un aviso
+                              de «estamos revisando tu publicación» que
+                              nunca iba a llegar. */}
+                          {(rancho.en_marketplace as boolean | null | undefined) !== false && (
+                            <Link href={`/mi-negocio/${id}`} className={BOTON_LEALTAD}>
+                              Editar en tu panel de negocio →
+                            </Link>
+                          )}
                           {slug && (
                             <Link href={`/tarjeta/${slug}`} className={BOTON_LEALTAD}>
                               Ver la tarjeta del cliente →

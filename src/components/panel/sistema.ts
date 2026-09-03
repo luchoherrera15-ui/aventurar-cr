@@ -211,8 +211,11 @@ export const GRILLA_METRICAS = `grid grid-cols-2 ${GAP_METRICAS} lg:grid-cols-4`
  *  único lugar donde el naranja de marca sigue vivo en el panel, y va
  *  en `--orange-fuerte` porque el naranja del logo no se lee sobre
  *  claro (2,61:1). 6,22:1 sobre blanco. */
+// Azul y no naranja desde sep 2026 (pedido del dueño: «el panel es
+// blancos y azules — un CRM»). `bookea-azul` es var(--navy), así que
+// dentro de `.lealtad` hereda el navy del módulo solo.
 export const EYEBROW =
-  "text-[11px] font-extrabold uppercase leading-none tracking-[0.14em] text-bookea-naranja-fuerte";
+  "text-[11px] font-extrabold uppercase leading-none tracking-[0.14em] text-bookea-azul";
 
 /** El mismo kicker cuando NO habla de marca sino de contexto (la fecha
  *  de hoy, «3 pendientes»): gris de texto, para no tener media pantalla
@@ -408,9 +411,31 @@ export const TILE_PANEL_APAGADO = `flex min-h-[72px] items-center gap-2.5 ${RADI
 // ───────────────────────────────────────────────────────────────────
 
 /** El ítem del menú en reposo. `text-aventurea-rail` es el sólido de
- *  4,93-6,33:1 que reemplaza al `text-white/60` de antes. */
+ *  4,93-6,33:1 que reemplaza al `text-white/60` de antes.
+ *
+ *  Rediseño sep 2026 (pedido del dueño: «textos más grandes, y el
+ *  activo como una card mejor elaborada»): 38→46px de alto, 13→14px de
+ *  letra — la misma escala que el rail de Lealtad ya estrenó el 31-ago
+ *  (48px/14.5) para que pasar de un panel a otro no se sienta un
+ *  salto. El `border-l-[3px]` transparente se queda: reserva los 3px
+ *  para que el texto no se corra entre reposo y activo. */
 export const RAIL_ITEM =
-  "flex min-h-[38px] items-center gap-2.5 rounded-xl border-l-[3px] border-transparent px-3 py-2 text-[13px] font-bold transition-colors";
+  "flex min-h-[46px] items-center gap-3 rounded-xl border-l-[3px] border-transparent px-3 py-2 text-[14px] font-bold transition-colors";
+
+/** El ítem ACTIVO del rail, como CARD: superficie blanca elevada con
+ *  la tinta navy — un par que no hay que medir (es el par base del
+ *  sistema) — y la sombra azul del vocabulario (`shadow-elevado`). El
+ *  color del rubro no desaparece: se muda al DISCO del ícono
+ *  (`RAIL_DISCO_ITEM`), donde `--acento-solido`/`--acento-sobre` ya
+ *  están medidos ≥5,18:1 (identidad.test.ts). Antes el relleno entero
+ *  era el acento; la card blanca se ve más «panel profesional» y deja
+ *  de teñir 40px de columna con el color del rubro. */
+export const RAIL_ITEM_ACTIVO = "bg-white text-aventurea-navy shadow-elevado";
+
+/** El disco del ícono del ítem activo (el acento del rubro lo pinta
+ *  el llamador por `style`, con su par medido). */
+export const RAIL_DISCO_ITEM =
+  "grid h-8 w-8 shrink-0 place-items-center rounded-lg";
 
 /** El rótulo de un grupo del menú (`.nav-label`). */
 export const RAIL_GRUPO =

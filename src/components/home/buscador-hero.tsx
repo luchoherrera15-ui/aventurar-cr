@@ -8,7 +8,6 @@ import {
   urlBusqueda,
   type PestanaBuscador,
 } from "@/components/buscador-home-datos";
-import LogoGooglePlay from "@/components/logo-google-play";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -302,59 +301,12 @@ export default function BuscadorHero() {
         </p>
       )}
 
-      <InsigniasTiendas />
-    </div>
-  );
-}
-
-/**
- * ── «PRONTO EN LAS TIENDAS» ─────────────────────────────────────────
- *
- * Dos insignias que anuncian la app, sin enlace: todavía no hay ficha a
- * la que mandar. Son `<span>` y no `<a href="#">` a propósito — un
- * enlace que no lleva a ningún lado es peor que un aviso quieto, porque
- * el cursor promete un destino y el teclado lo enfoca para nada.
- *
- * Los logos se dibujan a mano en SVG. No se usan los oficiales de Apple
- * y Google: los dos tienen guías de marca que exigen tamaños, márgenes y
- * el texto exacto («Download on the App Store»), y usarlos recortados o
- * traducidos es justamente lo que esas guías prohíben. Una silueta
- * propia dice lo mismo sin apropiarse de una marca ajena.
- *
- * El día que la app salga, esto pasa a ser dos `<a>` con las URLs
- * reales — y ahí sí corresponde usar las insignias oficiales.
- */
-function InsigniasTiendas() {
-  const marco =
-    "flex items-center gap-2.5 rounded-xl border border-aventurea-line bg-white/80 px-4 py-2.5 text-left";
-
-  return (
-    <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-      <span className={marco}>
-        <svg aria-hidden viewBox="0 0 24 24" className="h-6 w-6 shrink-0 fill-current text-[color:var(--navy)]">
-          <path d="M16.5 12.6c0-2 1.6-3 1.7-3.1-.9-1.4-2.4-1.5-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7-1.3 0-2.6.8-3.3 2C4.9 12.4 6 16 7.4 18c.7 1 1.5 2 2.5 2 1 0 1.4-.6 2.6-.6s1.5.6 2.6.6 1.7-.9 2.4-1.9c.7-1.1 1-2.1 1-2.2 0 0-1.9-.7-2-2.9zM14.6 6.3c.5-.7.9-1.6.8-2.5-.8 0-1.8.5-2.4 1.2-.5.6-1 1.6-.8 2.5.9.1 1.8-.4 2.4-1.2z" />
-        </svg>
-        <span className="min-w-0">
-          <span className="block text-[10.5px] font-bold uppercase tracking-[0.08em] text-aventurea-ink-soft">
-            Pronto en
-          </span>
-          <span className="block text-[13.5px] font-extrabold text-aventurea-ink">
-            App Store
-          </span>
-        </span>
-      </span>
-
-      <span className={marco}>
-        <LogoGooglePlay />
-        <span className="min-w-0">
-          <span className="block text-[10.5px] font-bold uppercase tracking-[0.08em] text-aventurea-ink-soft">
-            Pronto en
-          </span>
-          <span className="block text-[13.5px] font-extrabold text-aventurea-ink">
-            Google Play
-          </span>
-        </span>
-      </span>
+      {/* ⚠️ ACÁ VIVÍAN LAS INSIGNIAS «PRONTO EN App Store / Google
+          Play». El dueño las sacó del héroe el 2 sep 2026 (tachadas
+          sobre las capturas, dos veces): ocupaban la línea entre el
+          buscador y los rubros sin llevar a ningún lado. El día que
+          la app salga, vuelven como dos <a> con las insignias
+          oficiales — el diseño viejo queda en el historial. */}
     </div>
   );
 }

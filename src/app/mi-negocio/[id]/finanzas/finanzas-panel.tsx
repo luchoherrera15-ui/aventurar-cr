@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import {
   IconChartBars,
   IconCheck,
+  IconChevronDown,
   IconClock,
   IconTrash,
   IconWarning,
@@ -19,6 +20,7 @@ import {
   type ReservaFinanzas,
   type ResumenFinanzas,
 } from "@/lib/finanzas";
+import { fechaLargaCR } from "@/lib/fechas";
 import SeccionPlegable from "@/components/seccion-plegable";
 import {
   Card,
@@ -188,6 +190,7 @@ export default function FinanzasPanel({
   onAgregarGasto,
   onBorrarGasto,
   onMarcarAdelantoDevuelto,
+  onVerComprobante,
 }: {
   resumen: ResumenFinanzas;
   gastos: Gasto[];
@@ -212,6 +215,9 @@ export default function FinanzasPanel({
     id: string,
     devuelto: boolean,
   ) => Promise<{ error: string | null }>;
+  /** URL firmada del comprobante de un adelanto. Opcional a propósito:
+   *  sin esto las filas se abren igual, solo sin el botón. */
+  onVerComprobante?: (path: string) => Promise<{ url: string | null; error: string | null }>;
 }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -255,6 +261,7 @@ export default function FinanzasPanel({
           reservas={resumen.depositosSinValidar}
           pending={pending}
           onConfirmar={(id) => correr(() => onMarcarDeposito(id, true))}
+          onVerComprobante={onVerComprobante}
         />
       )}
 
@@ -497,15 +504,49 @@ function CobrosVencidos({
   );
 }
 
+/**
+ * ADELANTOS POR CONFIRMAR — CADA FILA SE ABRE (dueño, 3 sep 2026).
+ *
+ * «Necesito que estas cosas sean extendibles para poder ver la fecha,
+ * ver el comprobante, revisar más minuciosamente».
+ *
+ * Lo que estaba mal no era el diseño de la fila, era lo que pedía:
+ * marcar «recibido» es afirmar «esta plata entró», y la fila daba tres
+ * datos para decidirlo — un día sin año, un nombre y un monto. Para
+ * cotejar contra el comprobante había que irse a otra pantalla, volver,
+ * y acordarse de cuál era.
+ *
+ * Ahora la fila se despliega en el lugar con todo lo que hace falta
+ * para decidir: la fecha completa, cuándo entró la reserva, con qué
+ * datos reservó, el desglose del dinero y el comprobante.
+ *
+ * ── POR QUÉ `desplegable` Y NO UN MODAL ────────────────────────────
+ * Un modal tapa la lista, y confirmar adelantos es una tarea en SERIE:
+ * se revisan tres o cuatro seguidos. Abriendo en el lugar, la lista no
+ * se mueve y no hay que volver a encontrar dónde se estaba. Es el
+ * mismo criterio que la agenda usa para el panel del día.
+ *
+ * `desplegable` (globals.css) anima `grid-template-rows` de 0fr a 1fr,
+ * que el navegador interpola sin medir el contenido: sin `max-height`
+ * inventado y sin animar `height`, que dispararía layout.
+ */
 function DepositosSinValidar({
   reservas,
   onConfirmar,
+  onVerComprobante,
   pending,
 }: {
   reservas: ReservaFinanzas[];
   onConfirmar: (id: string) => void;
+  /** Devuelve la URL firmada del comprobante. Sin esto la fila se abre
+   *  igual pero sin el botón — no se finge un enlace muerto. */
+  onVerComprobante?: (path: string) => Promise<{ url: string | null; error: string | null }>;
   pending: boolean;
 }) {
+  // Una sola abierta a la vez: dos paneles abiertos empujan la lista y
+  // se pierde la referencia de cuál se estaba mirando.
+  const [abierta, setAbierta] = useState<string | null>(null);
+
   return (
     <Card
       eyebrow="Conciliación"
@@ -514,38 +555,172 @@ function DepositosSinValidar({
     >
       <p className={`mb-2 ${DETALLE}`}>
         El cliente subió el comprobante pero todavía no confirmaste que la plata llegó.
-        Hasta que lo marqués, no se cuenta como ingreso.
+        Tocá una fila para revisarla antes de marcarla.
       </p>
 
       <div>
         {reservas.map((r, i) => {
           const { dia, mes } = partesFecha(r.fecha);
+          const estaAbierta = abierta === r.id;
           return (
-            <FilaPanel
-              key={r.id}
-              contexto={<ContextoFila fuerte={dia} suave={mes} />}
-              marca="aviso"
-              titulo={r.nombre ?? "Sin nombre"}
-              detalle="Adelanto pendiente de confirmar"
-              separador={i < reservas.length - 1}
-              derecha={
-                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <Monto fuerte>{fmtColones(Number(r.deposito_monto ?? 0))}</Monto>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => onConfirmar(r.id)}
-                    className={BOTON_FILA}
-                  >
-                    Marcar recibido
-                  </button>
+            <div key={r.id}>
+              {/* La fila entera es el disparador. `w-full` y `text-left`
+                  porque un <button> centra y encoge por defecto. */}
+              <button
+                type="button"
+                onClick={() => setAbierta(estaAbierta ? null : r.id)}
+                aria-expanded={estaAbierta}
+                className="presionable w-full text-left"
+              >
+                <FilaPanel
+                  contexto={<ContextoFila fuerte={dia} suave={mes} />}
+                  marca="aviso"
+                  titulo={r.nombre ?? "Sin nombre"}
+                  detalle={estaAbierta ? "Cerrar" : "Ver detalle y comprobante"}
+                  separador={i < reservas.length - 1 && !estaAbierta}
+                  derecha={
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Monto fuerte>{fmtColones(Number(r.deposito_monto ?? 0))}</Monto>
+                      <span
+                        aria-hidden
+                        className="text-aventurea-ink-soft transition-transform duration-200"
+                        style={{ transform: estaAbierta ? "rotate(180deg)" : "none" }}
+                      >
+                        <IconChevronDown className="h-4 w-4" />
+                      </span>
+                    </div>
+                  }
+                />
+              </button>
+
+              <div className="desplegable" data-abierto={estaAbierta}>
+                <div>
+                  <DetalleAdelanto
+                    reserva={r}
+                    onConfirmar={onConfirmar}
+                    onVerComprobante={onVerComprobante}
+                    pending={pending}
+                    separador={i < reservas.length - 1}
+                  />
                 </div>
-              }
-            />
+              </div>
+            </div>
           );
         })}
       </div>
     </Card>
+  );
+}
+
+/** El panel que se abre bajo un adelanto: todo lo que hace falta para
+ *  decidir si la plata entró, sin salir de la lista. */
+function DetalleAdelanto({
+  reserva: r,
+  onConfirmar,
+  onVerComprobante,
+  pending,
+  separador,
+}: {
+  reserva: ReservaFinanzas;
+  onConfirmar: (id: string) => void;
+  onVerComprobante?: (path: string) => Promise<{ url: string | null; error: string | null }>;
+  pending: boolean;
+  separador: boolean;
+}) {
+  const [abriendo, setAbriendo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const adelanto = Number(r.deposito_monto ?? 0);
+  const total = totalEvento(r);
+  const resto = Math.max(0, total - adelanto);
+
+  const datos: { rotulo: string; valor: string }[] = [
+    { rotulo: "Fecha del evento", valor: fechaLargaCR(r.fecha) },
+  ];
+  if (r.horario_bloque) datos.push({ rotulo: "Horario", valor: r.horario_bloque });
+  if (r.tipo_evento) datos.push({ rotulo: "Tipo", valor: r.tipo_evento });
+  if (r.invitados) datos.push({ rotulo: "Invitados", valor: String(r.invitados) });
+  if (r.created_at) {
+    datos.push({ rotulo: "Reservó el", valor: fechaLargaCR(r.created_at.slice(0, 10)) });
+  }
+  if (r.correo) datos.push({ rotulo: "Correo", valor: r.correo });
+  if (r.whatsapp) datos.push({ rotulo: "WhatsApp", valor: r.whatsapp });
+
+  // El comprobante se pide al TOCAR, no al abrir: la URL firmada dura
+  // 60 segundos, así que precargarla la vencería antes de usarla.
+  async function verComprobante() {
+    if (!onVerComprobante || !r.deposito_comprobante_url) return;
+    setAbriendo(true);
+    setError(null);
+    const res = await onVerComprobante(r.deposito_comprobante_url);
+    setAbriendo(false);
+    if (res.url) window.open(res.url, "_blank", "noopener,noreferrer");
+    else setError(res.error ?? "No se pudo abrir el comprobante.");
+  }
+
+  return (
+    <div className={`mb-2 ${separador ? "border-b border-aventurea-line pb-3" : ""}`}>
+      <div className={`${SUPERFICIE_HUNDIDA} ${RADIO_METRICA} p-3.5`}>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
+          {datos.map((d) => (
+            <div key={d.rotulo} className="min-w-0">
+              <dt className={ROTULO_CAMPO}>{d.rotulo}</dt>
+              <dd className="truncate text-[13px] font-bold text-aventurea-ink">{d.valor}</dd>
+            </div>
+          ))}
+        </dl>
+
+        {/* El desglose va aparte y con línea propia: es la plata, y es
+            exactamente lo que se está confirmando. */}
+        <dl className="mt-3 grid grid-cols-3 gap-x-4 border-t border-aventurea-line pt-3">
+          <div>
+            <dt className={ROTULO_CAMPO}>Adelanto</dt>
+            <dd className="text-[13.5px] font-extrabold tabular-nums text-aventurea-ink">
+              {fmtColones(adelanto)}
+            </dd>
+          </div>
+          <div>
+            <dt className={ROTULO_CAMPO}>Total del evento</dt>
+            <dd className="text-[13.5px] font-bold tabular-nums text-aventurea-ink">
+              {fmtColones(total)}
+            </dd>
+          </div>
+          <div>
+            <dt className={ROTULO_CAMPO}>Queda por cobrar</dt>
+            <dd className="text-[13.5px] font-bold tabular-nums text-aventurea-ink">
+              {fmtColones(resto)}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      {error && <p className={`mt-2 ${ESTADO_AVISO}`}>{error}</p>}
+
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        {onVerComprobante && r.deposito_comprobante_url ? (
+          <button
+            type="button"
+            onClick={verComprobante}
+            disabled={abriendo}
+            className={BOTON_PANEL}
+          >
+            {abriendo ? "Abriendo…" : "Ver comprobante"}
+          </button>
+        ) : (
+          /* Sin comprobante NO se pinta un botón muerto: se dice que no
+             hay, que es un dato relevante para decidir. */
+          <span className={CUERPO_SUAVE}>El cliente no subió comprobante.</span>
+        )}
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => onConfirmar(r.id)}
+          className={BOTON_PANEL_PRIMARIO}
+        >
+          Marcar recibido
+        </button>
+      </div>
+    </div>
   );
 }
 

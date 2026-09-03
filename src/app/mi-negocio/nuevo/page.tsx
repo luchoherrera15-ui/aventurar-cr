@@ -19,7 +19,7 @@ const VERTICALES = [
       "Salones y fincas, catering, música, decoración — todo lo que se contrata para un evento.",
     pide: "Te pedimos el rubro, tu zona y (si es un lugar) la capacidad.",
     icono: <IconRancho />,
-    color: "bg-aventurea-sky-light text-aventurea-orange",
+    color: "bg-aventurea-sky-light text-bookea-azul",
     borde: "hover:border-aventurea-sky",
   },
   {
@@ -68,7 +68,7 @@ export default async function NuevoRanchoPage() {
           ← Todas tus publicaciones
         </Link>
       )}
-      <p className="mt-3 flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
+      <p className="mt-3 flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-bookea-azul before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
         Publicá tu negocio
       </p>
       <h1 className="titulo mt-2.5 text-[28px] text-aventurea-ink sm:text-[34px]">
@@ -101,7 +101,7 @@ export default async function NuevoRanchoPage() {
             <span className="mt-auto border-t border-aventurea-line/70 pt-3 text-[11.5px] leading-relaxed text-zinc-500">
               {v.pide}
             </span>
-            <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-aventurea-orange">
+            <span className="flex items-center gap-1.5 text-[13px] font-extrabold text-bookea-azul">
               Empezar mi registro
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M13 6l6 6-6 6" />

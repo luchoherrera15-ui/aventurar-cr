@@ -269,13 +269,26 @@ function MarcoTelefono({
     "linear-gradient(150deg,#6b7280,#2a2f38 20%,#171b22 50%,#3f454f 76%,#6b7280)";
 
   return (
-    // 224px y no los 262 de antes (pedido del dueño, 30 ago 2026:
-    // «más pequeño, de mejor calidad»). El pase adentro es fluido
-    // (max-w + truncate), así que solo se encoge, no se rompe; los
-    // radios y la isla bajan en proporción para que el dibujo no se
-    // vea inflado a la escala nueva. `ancho` deja bajarlo más todavía
-    // (el alta pública lo usa para que la placa entre en la ventana).
-    <div className="mx-auto mt-4 w-full" style={{ maxWidth: ancho ?? 224 }}>
+    // 208px. Viene bajando a pedido: 262 → 224 (30 ago 2026, «más
+    // pequeño, de mejor calidad») → 208 (3 sep 2026, «ajustar tamaños,
+    // hacer más pequeño las cosas tipo el mockup, que no haya que hacer
+    // scroll»). El teléfono es la pieza MÁS ALTA del asistente, así que
+    // es donde cada píxel que se recorta se nota en el scroll.
+    //
+    // ⚠️ 208 ES EL PISO, no un número redondo. Se probó 196 y el pase se
+    // salía 9 px por abajo: el teléfono escala con el ancho, pero
+    // adentro hay piezas en píxeles fijos que no —la barra de «Wallet»
+    // (`h-[32px]`) y el indicador inferior (`h-[4px]`)—, así que al
+    // achicar, el contenido deja de caber antes que el marco. Se veía
+    // como un teléfono sin borde de abajo. Si alguien lo quiere más
+    // chico todavía, primero hay que volver proporcionales esas dos.
+    //
+    // El pase adentro es fluido (max-w + truncate), así que solo se
+    // encoge, no se rompe; los radios y la isla van en porcentaje o en
+    // proporción, por eso el dibujo no se ve inflado a la escala nueva.
+    // `ancho` (remoto, 2 sep) deja pedir OTRO tamaño desde fuera; el
+    // default es este piso de 208 y no 224, por lo de arriba.
+    <div className="mx-auto mt-3 w-full" style={{ maxWidth: ancho ?? 208 }}>
       <div
         className="relative rounded-[36px] p-[3px]"
         style={{

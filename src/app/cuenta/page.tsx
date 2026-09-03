@@ -15,7 +15,7 @@ import { LIENZO_PANEL } from "@/components/panel/sistema";
 import TableroModos, { type ProximaExperiencia, type LealtadPrincipal } from "./tablero-modos";
 
 /** Lo mínimo de cada publicación para el resumen del tablero. */
-type NegocioResumen = { id: string; estado: string };
+type NegocioResumen = { id: string; estado: string; en_marketplace?: boolean | null };
 
 /**
  * Desde cuándo contar "lo nuevo" de una card: la marca de su cookie
@@ -47,11 +47,28 @@ export default async function CuentaPage({
   // FOOD.BOOKEA y se logueaba a mitad de camino. FOOD se eliminó el 30
   // ago 2026 y con él su destino: un `volver=food:...` viejo ahora
   // cae al tablero, que es lo correcto.)
-  searchParams: Promise<{ volver?: string }>;
+  // `modo=negocio`: quien llega desde un panel de negocio («Tu cuenta»
+  // del mundo Lealtad) no debería aterrizar en la vista de cliente por
+  // culpa del último modo guardado en localStorage — el query param
+  // pisa la preferencia por esta visita.
+  searchParams: Promise<{ volver?: string; modo?: string }>;
 }) {
-  const { volver } = await searchParams;
+  const { volver, modo } = await searchParams;
   const destinoLealtad = volver === "lealtad" ? "/lealtad/entrar" : null;
-  const destino = destinoLealtad;
+  // `lealtad/developers` es el único otro valor emitido por el sitio
+  // (formulario-developer.tsx): sin reconocerlo acá, quien se logueaba
+  // desde ese formulario caía al tablero y perdía la página que estaba
+  // llenando. Whitelist, no passthrough: `volver` viene de la URL.
+  // volver=solutions (3 sep 2026): quien llega a /solutions/crear o al
+  // panel sin sesion vuelve a Solutions, no al tablero de cliente.
+  // Misma whitelist, un valor mas.
+  const destino =
+    destinoLealtad ??
+    (volver === "lealtad/developers"
+      ? "/lealtad/developers"
+      : volver === "solutions"
+        ? "/solutions/panel"
+        : null);
 
   const supabase = await createClient();
   const {
@@ -185,7 +202,7 @@ export default async function CuentaPage({
       .from("favoritos")
       .select("rancho_id", { count: "exact", head: true })
       .eq("cliente_id", user.id),
-    supabase.from("ranchos").select("id, estado").eq("owner_id", user.id),
+    supabase.from("ranchos").select("id, estado, en_marketplace").eq("owner_id", user.id),
     supabase
       .from("resenas")
       .select("reserva_id", { count: "exact", head: true })
@@ -231,7 +248,7 @@ export default async function CuentaPage({
   if (idsColaborados.length > 0) {
     const { data: extra } = await supabase
       .from("ranchos")
-      .select("id, estado")
+      .select("id, estado, en_marketplace")
       .in("id", idsColaborados);
     colaborados = (extra ?? []) as NegocioResumen[];
   }
@@ -239,6 +256,18 @@ export default async function CuentaPage({
   const negocios = [...propios, ...colaborados];
   const invitacionIds = ((invitacionesData ?? []) as { id: string }[]).map((i) => i.id);
   const tieneNegocio = negocios.length > 0;
+
+  // Marketplace y Lealtad son productos separados con la misma cuenta:
+  // los negocios nacidos en Lealtad (en_marketplace === false, 0187) NO
+  // son publicaciones del directorio, así que no cuentan como tales en
+  // el modo Negocio ni les corresponde la fila «Finanzas» del
+  // marketplace. `!== false` y no `=== true`: sin la 0187 corrida la
+  // propiedad llega undefined y todo queda como estaba (mismo criterio
+  // que /mi-negocio/page.tsx).
+  const publicaciones = negocios.filter((n) => n.en_marketplace !== false);
+  // Con UNA sola publicación, «Finanzas» cae directo en su pestaña — el
+  // mismo atajo que ya usa la tarjeta de Lealtad con `?negocio=`.
+  const negocioFinanzasUnico = publicaciones.length === 1 ? publicaciones[0].id : null;
 
   // ¿Alguno de sus negocios tiene el programa de lealtad contratado?
   // Si ninguno lo tiene, la tarjeta igual aparece pero invitando a
@@ -429,10 +458,12 @@ export default async function CuentaPage({
         correo={user.email ?? ""}
         telefono={telefono}
         tieneNegocio={tieneNegocio}
+        modoInicial={modo === "negocio" && tieneNegocio ? "negocio" : null}
         resenasCount={resenasCount ?? 0}
         reservasNuevasNegocio={reservasNuevasNegocio}
         vecesContratado={vecesContratado}
-        negociosLength={negocios.length}
+        publicaciones={publicaciones.length}
+        negocioFinanzasUnico={negocioFinanzasUnico}
         lealtadActiva={lealtadActiva}
         lealtadNegocioUnico={lealtadNegocioUnico}
         confirmacionesNuevas={confirmacionesNuevas}

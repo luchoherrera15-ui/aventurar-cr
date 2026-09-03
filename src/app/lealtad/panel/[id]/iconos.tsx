@@ -25,6 +25,7 @@ export type NombreIcono =
   | "negocio"
   | "recompensas"
   | "tarjeta"
+  | "pagina"
   | "poster"
   | "plan"
   | "perfil"
@@ -140,6 +141,16 @@ const TRAZOS: Record<NombreIcono, ReactNode> = {
       <rect x="2" y="5" width="20" height="14" rx="2.6" />
       <path d="M2 10h20" />
       <path d="M6 14.5h4" />
+    </>
+  ),
+  // Una ventana de navegador con su barra: la página pública /r/<slug>.
+  pagina: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="2.6" />
+      <path d="M3 9h18" />
+      <circle cx="6.2" cy="6.5" r="0.4" />
+      <path d="M7 13.5h6" />
+      <path d="M7 16.5h9" />
     </>
   ),
   poster: (

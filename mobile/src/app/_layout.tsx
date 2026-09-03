@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack, useRootNavigationState, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -16,6 +16,7 @@ import {
 } from "@expo-google-fonts/figtree";
 import { AuthProvider } from "@/lib/auth-context";
 import { rutaDeNotificacion } from "@/lib/abrir-notificacion";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Colors } from "@/constants/theme";
 
 SplashScreen.preventAutoHideAsync();
@@ -118,7 +119,31 @@ export default function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  const [fontsLoaded] = useFonts({
+  /**
+   * ⚠️ `...Ionicons.font` NO ES OPCIONAL — ES LA CAUSA DE «NO SE VEN
+   * LOS ICONOS» (dueño, 3 sep 2026).
+   *
+   * Toda la app dibuja con Ionicons (117 nombres distintos en 60
+   * archivos) y esta lista cargaba SOLO las Figtree. Sin la fuente de
+   * iconos precargada, cada `<Ionicons>` se monta y hace su propio
+   * `Font.loadAsync` por dentro; mientras tanto —y esto es literal, se
+   * puede leer en @expo/vector-icons/build/createIconSet.js— devuelve:
+   *
+   *     if (!this.state.fontIsLoaded) { return <Text />; }
+   *
+   * Un `<Text/>` vacío. O sea: nada. Y esa carga interna no tiene
+   * `try/catch`, así que si la promesa se rompe —arranque en frío, unos
+   * cuantos iconos montando a la vez, memoria justa en Android— el
+   * icono se queda vacío PARA SIEMPRE, sin reintento y sin error que
+   * lo delate.
+   *
+   * Eso explica los dos síntomas juntos: que falten iconos, y que
+   * falten DISTINTO en iOS y en Android — la carrera entre cargar la
+   * fuente y pintar se resuelve distinto en cada plataforma. Cargarla
+   * acá, junto al resto, la vuelve determinista.
+   */
+  const [fontsLoaded, errorDeFuentes] = useFonts({
+    ...Ionicons.font,
     Figtree_400Regular,
     Figtree_500Medium,
     Figtree_600SemiBold,
@@ -126,15 +151,38 @@ export default function RootLayout() {
     Figtree_800ExtraBold,
   });
 
+  /**
+   * LA APP ARRANCA AUNQUE LAS FUENTES FALLEN.
+   *
+   * Antes esto era `if (!fontsLoaded) return null;` con el error de
+   * `useFonts` descartado. Bastaba que UNA fuente fallara para que
+   * `fontsLoaded` quedara en false para siempre: el árbol no montaba
+   * nunca y el splash no se ocultaba nunca. La app se quedaba en la
+   * pantalla de arranque, sin mensaje y sin salida.
+   *
+   * Ahora hay dos salidas: si `useFonts` reporta error se sigue igual
+   * —la letra cae al tipo del sistema, que es feo pero es una app que
+   * funciona— y además un tope de 4 segundos por si no resuelve ni
+   * falla. Una app con la tipografía equivocada es infinitamente mejor
+   * que una app que no abre.
+   */
+  const [seAgotoLaEspera, setSeAgotoLaEspera] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSeAgotoLaEspera(true), 4000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const puedeArrancar = fontsLoaded || errorDeFuentes !== null || seAgotoLaEspera;
+
   const alListo = useCallback(async () => {
-    if (fontsLoaded) await SplashScreen.hideAsync();
-  }, [fontsLoaded]);
+    if (puedeArrancar) await SplashScreen.hideAsync();
+  }, [puedeArrancar]);
 
   useEffect(() => {
     alListo();
   }, [alListo]);
 
-  if (!fontsLoaded) return null;
+  if (!puedeArrancar) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

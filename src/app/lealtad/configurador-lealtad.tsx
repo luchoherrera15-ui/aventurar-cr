@@ -6,6 +6,7 @@ import PanelPaquetesLealtad from "./panel-paquetes-lealtad";
 import TarjetaFormulario, { type ValorFormulario } from "./tarjeta-formulario";
 import { REGLAS_VACIAS } from "./panel/[id]/paso-reglas";
 import { solicitarAltaConPlan } from "./nuevo/actions";
+import { pedirPersonalizacion } from "./personalizar-actions";
 import {
   configPorDefecto,
   esTipoTarjeta,
@@ -458,11 +459,31 @@ export default function ConfiguradorLealtad({
   // los otros dos modos a propósito — un ancestro con `overflow-hidden`
   // le quita a `position: sticky` dónde pegarse, y el pase fijo de la
   // columna derecha necesita ese espacio.
+  // ── ESTA CAJA YA NO ENVUELVE AL ASISTENTE (2 sep 2026) ───────────
+  //
+  // Era una tarjeta blanca con borde, sombra y 32 px de padding
+  // ALREDEDOR de la hoja, que también es blanca con borde y sombra: dos
+  // rectángulos concéntricos, uno dentro del otro, gastando 64 px de
+  // alto en no decir nada. El dueño pidió «un tipo de rectángulo», y el
+  // rectángulo es la hoja.
+  //
+  // Además rompía el alto: siendo un bloque sin altura crecía con su
+  // contenido, así que el `lg:h-full` de adentro se medía contra la
+  // caja YA estirada en vez de contra la pantalla — el asistente se
+  // pasaba de largo igual que antes (medido en el navegador: la caja
+  // daba 968 px donde había 752 disponibles).
+  //
+  // Para la pantalla de ÉXITO la caja se queda: ahí no hay hoja que
+  // haga de superficie, y el mensaje sí necesita una.
   if (estado.vista === "editor") {
     return (
       <div
         id="configurador-lealtad"
-        className="scroll-mt-20 rounded-3xl border border-[#e6eaf3] bg-white p-5 shadow-[0_28px_70px_-30px_rgba(16,38,88,0.35)] sm:p-8"
+        className={
+          exito
+            ? "scroll-mt-20 rounded-3xl border border-[#e6eaf3] bg-white p-5 shadow-[0_28px_70px_-30px_rgba(16,38,88,0.35)] sm:p-8"
+            : "scroll-mt-20 lg:h-full"
+        }
       >
         {exito ? (
           <PantallaExito ranchoId={exito.ranchoId} slug={exito.slug} nombre={estado.nombreNegocio.trim()} />
@@ -563,6 +584,72 @@ function PantallaExito({
           </a>
         )}
       </div>
+
+      <PedirPersonalizacion ranchoId={ranchoId} />
+    </div>
+  );
+}
+
+/**
+ * «¿QUERÉS PERSONALIZAR AÚN MÁS TU TARJETA?» (dueño, 2 sep 2026).
+ *
+ * Va DESPUÉS de los dos botones de arriba y con menos peso visual que
+ * ellos, a propósito: lo que casi todo el mundo quiere al terminar es
+ * entrar a su panel. Esto es la salida para el que quiere algo que el
+ * creador no da — y para el equipo, un cliente que se identificó solo.
+ *
+ * El pedido viaja con la sesión (ver `pedirPersonalizacion`), así que
+ * acá no se manda ni un dato de contacto: el servidor ya sabe quién es.
+ */
+function PedirPersonalizacion({ ranchoId }: { ranchoId: string }) {
+  const [estado, setEstado] = useState<"listo" | "enviando" | "enviado">("listo");
+  const [error, setError] = useState<string | null>(null);
+
+  if (estado === "enviado") {
+    return (
+      <p
+        role="status"
+        className="mx-auto mt-6 max-w-[440px] rounded-2xl border border-bookea-linea bg-white px-4 py-3.5 text-[13px] font-bold leading-relaxed text-bookea-tinta"
+      >
+        ✓ Listo — le llegó a nuestro equipo con tus datos. Te escribimos para armarla con vos, y
+        la respuesta te va a llegar en el bloque de ayuda de tu panel.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mx-auto mt-6 max-w-[460px] rounded-2xl border border-bookea-linea bg-white px-4 py-4">
+      <p className="text-[13px] font-extrabold text-bookea-tinta">
+        ¿Querés personalizarla aún más?
+      </p>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-bookea-gris">
+        Si querés algo que el creador no ofrece —otra tipografía, un fondo propio, los sellos
+        acomodados distinto— tocá acá y lo vemos con vos.
+      </p>
+      <button
+        type="button"
+        disabled={estado === "enviando"}
+        onClick={async () => {
+          setEstado("enviando");
+          setError(null);
+          const res = await pedirPersonalizacion(ranchoId);
+          if (res.ok) {
+            setEstado("enviado");
+          } else {
+            setEstado("listo");
+            setError(res.motivo);
+          }
+        }}
+        className="presionable mt-3 min-h-[44px] rounded-xl border px-4 py-2.5 text-[13px] font-extrabold disabled:opacity-45"
+        style={{ borderColor: "var(--accion)", color: "var(--accion)" }}
+      >
+        {estado === "enviando" ? "Enviando…" : "Quiero ayuda para personalizarla"}
+      </button>
+      {error && (
+        <p role="alert" className="mt-2 text-[11.5px] font-bold text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

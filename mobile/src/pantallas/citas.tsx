@@ -668,7 +668,10 @@ const styles = StyleSheet.create({
   rubroDiscoActivo: { backgroundColor: Colors.navy },
   // Apagado = todavía no hay negocios de ese rubro. Se ve, pero no se
   // toca: es la vitrina de lo que Bookea cubre.
-  rubroApagado: { opacity: 0.4, shadowOpacity: 0 },
+  // `elevation: 0` ADEMÁS de `shadowOpacity`: la primera apaga la
+  // sombra en Android y la segunda en iOS. Con solo una, el disco
+  // apagado quedaba plano en iPhone y todavía levantado en Android.
+  rubroApagado: { opacity: 0.4, shadowOpacity: 0, elevation: 0 },
   rubroTexto: {
     color: Colors.navy,
     fontFamily: Fonts.bold,

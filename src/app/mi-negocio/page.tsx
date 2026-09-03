@@ -153,6 +153,26 @@ export default async function MiRanchoHubPage() {
   // del marketplace sería mandarlo a un lugar que no le sirve.
   if (ranchos.length === 0 && deLealtad.length > 0) redirect("/lealtad/panel");
 
+  // ¿Alguna publicación DEL MARKETPLACE contrató el addon de Lealtad?
+  // El puente naranja de abajo solo contaba los negocios NACIDOS en
+  // Lealtad — un negocio del directorio con el addon activo no tenía
+  // ninguna puerta hacia /lealtad/panel en todo este mundo (el menú del
+  // panel la excluye a propósito). Una consulta de ids, nada más.
+  let marketplaceConLealtad = 0;
+  if (ranchos.length > 0) {
+    const { data: addons } = await db
+      .from("addons_negocio")
+      .select("rancho_id")
+      .in(
+        "rancho_id",
+        ranchos.map((r) => r.id),
+      )
+      .eq("addon", "lealtad")
+      .eq("activo", true);
+    marketplaceConLealtad = (addons ?? []).length;
+  }
+  const negociosEnLealtad = deLealtad.length + marketplaceConLealtad;
+
   return (
     <main className="mx-auto max-w-[1000px] px-5 py-12">
       <RevealOnScroll />
@@ -165,12 +185,12 @@ export default async function MiRanchoHubPage() {
           {/* `soloLealtad` se cayó con la lista: quien solo tiene
               Lealtad ya no llega hasta acá — lo manda al panel el
               redirect de arriba. Lo que queda es siempre marketplace. */}
-          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-aventurea-orange before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
-            Marketplace de ranchos
+          <p className="flex items-center gap-2 text-[11px] font-light uppercase tracking-[0.16em] text-bookea-azul before:block before:h-[1.5px] before:w-[18px] before:bg-aventurea-sky">
+            Tus negocios en el marketplace
           </p>
           <h1 className="titulo mt-2.5 text-[28px] text-aventurea-ink">Tus servicios y espacios</h1>
           <p className="mt-1.5 max-w-[52ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
-            Una misma cuenta puede ofrecer varias cosas — tu rancho, tu catering, un coffee bar.
+            Una misma cuenta puede ofrecer varias cosas — tu salón, tu catering, un coffee bar.
             Cada uno con sus propias reservas y finanzas.
           </p>
           {/* EL PUENTE HACIA EL OTRO PANEL.
@@ -180,14 +200,14 @@ export default async function MiRanchoHubPage() {
               Lealtad en esta grilla. Sin este enlace, sacarlos de acá
               sería esconderlos: no hay ninguna otra pista en esta
               pantalla de que existen ni de dónde se administran. */}
-          {deLealtad.length > 0 && (
+          {negociosEnLealtad > 0 && (
             <Link
               href="/lealtad/panel"
-              className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-aventurea-orange hover:underline"
+              className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-bold text-bookea-azul hover:underline"
             >
-              {deLealtad.length === 1
+              {negociosEnLealtad === 1
                 ? "Tenés 1 negocio en Bookea Lealtad"
-                : `Tenés ${deLealtad.length} negocios en Bookea Lealtad`}
+                : `Tenés ${negociosEnLealtad} negocios en Bookea Lealtad`}
               <span aria-hidden>→</span>
             </Link>
           )}
@@ -195,7 +215,7 @@ export default async function MiRanchoHubPage() {
         <form action={logoutDueno}>
           <button
             type="submit"
-            className="whitespace-nowrap rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-orange"
+            className="whitespace-nowrap rounded-xl border border-aventurea-line bg-aventurea-surface px-4 py-2 text-[13px] font-bold text-aventurea-ink hover:border-aventurea-sky hover:text-aventurea-navy"
           >
             Cerrar sesión
           </button>
@@ -259,7 +279,7 @@ export default async function MiRanchoHubPage() {
                   Colaborás acá
                 </span>
               )}
-              <span className="text-[11px] font-bold uppercase tracking-wide text-aventurea-orange">
+              <span className="text-[11px] font-bold uppercase tracking-wide text-bookea-azul">
                 {etiquetaCategoria}
               </span>
               {rancho.provincia && (
@@ -274,7 +294,7 @@ export default async function MiRanchoHubPage() {
           href="/mi-negocio/nuevo"
           data-reveal
           style={{ "--reveal-delay": `${ranchos.length * 70}ms` } as React.CSSProperties}
-          className="group flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-aventurea-line p-6 text-center text-aventurea-ink-soft transition-all duration-300 hover:border-aventurea-sky hover:bg-aventurea-sky/5 hover:text-aventurea-orange"
+          className="group flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-aventurea-line p-6 text-center text-aventurea-ink-soft transition-all duration-300 hover:border-aventurea-sky hover:bg-aventurea-sky/5 hover:text-aventurea-navy"
         >
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-aventurea-cream-2 transition-transform duration-300 group-hover:scale-110 group-hover:bg-aventurea-sky/10">
             <IconPlus className="h-5 w-5" />

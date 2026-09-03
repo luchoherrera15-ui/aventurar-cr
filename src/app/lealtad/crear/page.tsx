@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import BotonVolver from "@/components/boton-volver";
 import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 import { esPlanOfrecido } from "@/lib/lealtad/planes";
 import { createClient } from "@/lib/supabase/server";
@@ -115,12 +115,7 @@ export default async function CrearPaseLealtadPage({
       <section className="relative px-4 pb-6 pt-3 sm:px-6">
         <div className="mx-auto w-full max-w-[1560px]">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <Link
-              href="/lealtad"
-              className="text-[13px] font-bold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
-            >
-              ← Volver a Lealtad
-            </Link>
+            <BotonVolver href="/lealtad">Volver a Lealtad</BotonVolver>
             <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[color:var(--accion)]">
               Armá tu pase
             </p>

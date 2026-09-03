@@ -60,7 +60,7 @@ const DURACION_CRUCE_MS = 260;
 /**
  * El carrusel "Súper destacados" de arriba de la portada: hasta 10
  * negocios (migración 0169) que el admin elige a mano desde
- * /admin/ranchos, rotando cada 4 segundos.
+ * /admin/negocios, rotando cada 4 segundos.
  *
  * TRES FORMAS DE FRENARLO, y las tres hacen falta:
  *  · el mouse encima o el foco adentro (pausa mientras dure),

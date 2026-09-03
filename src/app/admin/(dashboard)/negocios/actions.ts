@@ -78,7 +78,7 @@ export async function setEstadoRancho(id: string, estado: EstadoRancho) {
     return { error: error.message };
   }
 
-  revalidatePath("/admin/ranchos");
+  revalidatePath("/admin/negocios");
   reventarCatalogo();
   revalidatePath("/");
   // ⚠️ Acá decía `revalidatePath("/")` DOS VECES, y el comentario de
@@ -122,7 +122,7 @@ export async function setDestacado(id: string, destacar: boolean) {
     };
   }
 
-  revalidatePath("/admin/ranchos");
+  revalidatePath("/admin/negocios");
   reventarCatalogo();
   revalidatePath("/");
   return { error: null, cambios: [{ id, destacado_orden: nuevoOrden }] };
@@ -156,7 +156,7 @@ export async function moverDestacado(id: string, direccion: -1 | 1) {
     if (error) return { error: error.message };
   }
 
-  revalidatePath("/admin/ranchos");
+  revalidatePath("/admin/negocios");
   reventarCatalogo();
   revalidatePath("/");
   return { error: null, cambios };
@@ -211,7 +211,7 @@ export async function setSuperDestacado(id: string, valor: boolean) {
     };
   }
 
-  revalidatePath("/admin/ranchos");
+  revalidatePath("/admin/negocios");
   reventarCatalogo();
   // El carrusel vive en la portada, y la portada responde en DOS
   // direcciones: `/` (src/app/page.tsx monta el mismo componente) y
@@ -255,7 +255,7 @@ export async function setVerificado(id: string, valor: boolean) {
     };
   }
 
-  revalidatePath("/admin/ranchos");
+  revalidatePath("/admin/negocios");
   reventarCatalogo();
   // La insignia sale en las tarjetas de la portada Y del directorio.
   revalidatePath("/");
@@ -270,7 +270,7 @@ export async function borrarRancho(id: string) {
   const { error } = await supabase.from("ranchos").delete().eq("id", id);
   if (error) return { error: error.message };
 
-  revalidatePath("/admin/ranchos");
+  revalidatePath("/admin/negocios");
   reventarCatalogo();
   revalidatePath("/");
   return { error: null };

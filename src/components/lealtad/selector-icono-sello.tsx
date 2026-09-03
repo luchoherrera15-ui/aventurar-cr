@@ -67,6 +67,7 @@ export default function SelectorIconoSello({
   colorSello,
   iconoUrl = null,
   alSubirIcono,
+  ofrecerLogo = true,
 }: {
   valor: SelloElegido | null;
   alElegir: (icono: SelloElegido | null) => void;
@@ -77,6 +78,20 @@ export default function SelectorIconoSello({
   iconoUrl?: string | null;
   /** Sin esto no se ofrece «Mi ícono»: no habría dónde subir el archivo. */
   alSubirIcono?: (url: string) => void;
+  /**
+   * ¿Se ofrece «Mi logo» (el sello con el logo del negocio, `null`)?
+   *
+   * El alta pública lo APAGA (dueño, 2 sep 2026: «quitá eso de ahí que
+   * dice Mi logo a la hora de configurar»): con «Mi ícono» al lado, dos
+   * casillas con dibujo punteado a elegir se leían como la misma cosa
+   * dos veces, y quien recién arranca todavía no subió ningún logo.
+   *
+   * ⚠️ Apagar la OPCIÓN no cambia el VALOR: `null` sigue significando
+   * «el logo» en la base y sigue siendo lo que pinta todo lo emitido
+   * hasta hoy. Por eso el editor del panel lo deja prendido — un dueño
+   * con la tarjeta andando tiene que poder volver a su logo.
+   */
+  ofrecerLogo?: boolean;
 }) {
   // La caja de subida se abre al tocar «Mi ícono» y se queda abierta
   // mientras haya un archivo: es la única forma de reemplazarlo o
@@ -126,19 +141,21 @@ export default function SelectorIconoSello({
           </Opcion>
         )}
 
-        <Opcion
-          etiqueta="Mi logo"
-          puesto={valor === null}
-          alElegir={() => alElegir(null)}
-          colorFondo={colorFondo}
-        >
-          <span
-            className="grid h-8 w-8 place-items-center rounded-full border border-dashed"
-            style={{ borderColor: colorSello, color: colorSello }}
+        {ofrecerLogo && (
+          <Opcion
+            etiqueta="Mi logo"
+            puesto={valor === null}
+            alElegir={() => alElegir(null)}
+            colorFondo={colorFondo}
           >
-            <Icono nombre="camara" className="h-4 w-4" />
-          </span>
-        </Opcion>
+            <span
+              className="grid h-8 w-8 place-items-center rounded-full border border-dashed"
+              style={{ borderColor: colorSello, color: colorSello }}
+            >
+              <Icono nombre="camara" className="h-4 w-4" />
+            </span>
+          </Opcion>
+        )}
 
         {ICONOS_SELLO_LISTA.map((i) => (
           <Opcion

@@ -327,7 +327,7 @@ export default async function AdminComplementosPage() {
         // 0187: un negocio de Lealtad nunca se postuló al directorio, así
         // que su `estado` (pendiente/aprobado/rechazado) es del marketplace
         // y no le aplica — mismo criterio que ya usan /mi-negocio y
-        // /admin/ranchos.
+        // /admin/negocios.
         enMarketplace: r.en_marketplace !== false,
         addons: porRancho.get(r.id) ?? [],
         // El plan EFECTIVO, con la misma función que usa el resto del

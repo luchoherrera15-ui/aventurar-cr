@@ -64,7 +64,9 @@ export default async function HospedajesPage({
     // no de uno (ver el comentario grande de @/lib/ranchos-publicos).
     .select(COLUMNAS_CARD)
     .eq("vertical", "hospedajes")
-    .eq("estado", "aprobado");
+    .eq("estado", "aprobado")
+    // Faltaba (2 sep 2026): las demos sembradas se colaban acá.
+    .neq("en_marketplace", false);
 
   const consultaHospedajes = (categoria
     ? consultaBase.eq("categoria", categoria)

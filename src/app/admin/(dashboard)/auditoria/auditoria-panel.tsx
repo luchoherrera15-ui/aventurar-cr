@@ -139,7 +139,7 @@ export default function AuditoriaPanel({
                 setBusqueda(e.target.value);
                 setVisibles(PASO);
               }}
-              placeholder="María Rojas, Rancho El Guayabo…"
+              placeholder="María Rojas, Salón El Guayabo…"
               className="w-full rounded-lg border border-aventurea-line bg-aventurea-cream-2 px-3 py-2 text-[13.5px] text-aventurea-ink outline-none focus:border-aventurea-navy"
             />
           </label>

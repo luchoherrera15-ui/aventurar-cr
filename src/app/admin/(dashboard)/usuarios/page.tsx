@@ -5,34 +5,12 @@ import AccesoDemo from "./acceso-demo";
 
 export default async function AdminUsuariosPage() {
   const supabase = await createClient();
-  const admin = createAdminClient();
 
   const [{ data: userData }, perfilesRes, ranchosRes] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("perfiles").select("*").order("created_at", { ascending: false }),
     supabase.from("ranchos").select("owner_id, nombre, categoria, vertical"),
   ]);
-
-  // El teléfono de la cuenta no vive en perfiles: siempre fue metadata de
-  // auth bajo la llave `whatsapp` (la escriben el onboarding web, /cuenta y
-  // la app móvil). Leerla requiere la llave de servicio; si falta, la
-  // columna queda vacía y la página ya avisa que falta configurarla.
-  const telefonosPorId = new Map<string, string>();
-  if (admin) {
-    const perPage = 1000;
-    for (let page = 1; ; page++) {
-      const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
-      if (error || !data) break;
-      data.users.forEach((u) => {
-        const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
-        const whatsapp = meta.whatsapp;
-        if (typeof whatsapp === "string" && whatsapp.trim() !== "") {
-          telefonosPorId.set(u.id, whatsapp.trim());
-        }
-      });
-      if (data.users.length < perPage) break;
-    }
-  }
 
   // Una cuenta puede tener más de un negocio, y no necesariamente todos
   // de la misma categoría (podría tener un rancho y además un catering) —
@@ -55,11 +33,34 @@ export default async function AdminUsuariosPage() {
     negociosPorDueno.set(r.owner_id as string, lista);
   });
 
+  /**
+   * Los TELÉFONOS (pedido del dueño, 2 sep 2026). El WhatsApp nunca
+   * vivió en `perfiles`: es metadata de auth desde el primer registro
+   * (formulario-codigo-acceso.tsx la escribe). Se lee con la llave de
+   * servicio paginando el listado de auth — 200 por página con tope de
+   * 20 páginas (4.000 cuentas) para que un crecimiento raro no vuelva
+   * esta pantalla un ciclo infinito. Sin llave de servicio, la columna
+   * simplemente queda vacía y el resto del panel sigue igual.
+   */
+  const admin = createAdminClient();
+  const telefonos = new Map<string, string>();
+  if (admin) {
+    for (let pagina = 1; pagina <= 20; pagina++) {
+      const { data, error } = await admin.auth.admin.listUsers({ page: pagina, perPage: 200 });
+      if (error || !data?.users?.length) break;
+      for (const u of data.users) {
+        const w = (u.user_metadata as Record<string, unknown> | null)?.whatsapp;
+        if (typeof w === "string" && w.trim()) telefonos.set(u.id, w.trim());
+      }
+      if (data.users.length < 200) break;
+    }
+  }
+
   const perfiles: PerfilRow[] = (perfilesRes.data ?? []).map((p) => ({
     id: p.id as string,
     email: p.email as string | null,
     nombre: p.nombre as string | null,
-    telefono: telefonosPorId.get(p.id as string) ?? null,
+    whatsapp: telefonos.get(p.id as string) ?? null,
     rol: p.rol as PerfilRow["rol"],
     created_at: p.created_at as string,
     negocios: negociosPorDueno.get(p.id as string) ?? [],
@@ -88,7 +89,7 @@ export default async function AdminUsuariosPage() {
 
       <UsuariosPanel
         initialPerfiles={perfiles}
-        puedeCrearCuentas={admin !== null}
+        puedeCrearCuentas={createAdminClient() !== null}
         miId={userData.user?.id ?? null}
       />
     </div>

@@ -1,0 +1,90 @@
+/* ════════════════════════════════════════════════════════════════════
+   LA HOJA DE QRs POR MESA — CSS de pantalla e impresión.
+
+   Los TRES rescates de impresión son obligatorios y vienen del taller
+   del póster (poster.css): (1) @page sin margen, repetido DENTRO de
+   @media print porque globals.css declara `@page { margin: 13mm }`
+   (tabla de RSVPs) y le ganaría; (2) globals.css apaga `body *` con
+   visibility al imprimir — la hoja se rescata a mano; (3) todo lo que
+   no es hoja lleva .no-imprimir.
+   ════════════════════════════════════════════════════════════════════ */
+
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
+.hoja-mesas {
+  width: 210mm;
+  max-width: 100%;
+  margin: 0 auto;
+  background: #ffffff;
+  color: #0a1226;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 10mm;
+  gap: 6mm;
+}
+
+.hoja-mesas .mesa-card {
+  border: 1.5px dashed #b9c0d1; /* línea de corte */
+  border-radius: 10px;
+  padding: 7mm 5mm;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 3mm;
+  break-inside: avoid;
+}
+
+.hoja-mesas .mesa-negocio {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hoja-mesas .mesa-numero {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.hoja-mesas .mesa-qr {
+  width: 34mm;
+  height: 34mm;
+}
+
+.hoja-mesas .mesa-qr svg {
+  width: 100%;
+  height: 100%;
+}
+
+.hoja-mesas .mesa-pie {
+  font-size: 10.5px;
+  color: #5b6478;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  .no-imprimir {
+    display: none !important;
+  }
+
+  /* globals.css esconde body * al imprimir; la hoja se rescata. */
+  .hoja-mesas,
+  .hoja-mesas * {
+    visibility: visible;
+  }
+
+  .hoja-mesas {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 210mm;
+  }
+}

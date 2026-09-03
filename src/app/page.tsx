@@ -165,24 +165,43 @@ export default async function Home({
           aurora termina pintada detrás del fondo de este mismo div —
           invisible. Es exactamente el bug que tuvo /lealtad/ingresar.
 
-          El degradado arranca en `#fff4e6` y toca el blanco recién al
-          final: con tres paradas el empalme con el catálogo es continuo
-          y no se lee como un corte. */}
+          El degradado toca el blanco recién al final: con cinco paradas
+          el empalme con el catálogo es continuo y no se lee como un
+          corte.
+
+          ── DE CREMA A AZUL (dueño, 2 sep 2026) ──────────────────────
+          «Ese header necesito que sea más azul, un poco más fuerte, que
+          se vea más azul que naranja».
+
+          El 2 de septiembre las manchas ya habían pasado a azul, pero
+          el header se seguía viendo tibio: el degradado de ABAJO seguía
+          arrancando en `#fff4e6`, un crema anaranjado. Tres manchas
+          azules translúcidas sobre una base cálida dan un resultado
+          cálido — la base manda. Cambiarla es lo que de verdad vuelve
+          azul la zona, no subirle opacidad a la aurora.
+
+          El azul de arranque (`#d8e6fb`) se eligió medido, no a ojo: el
+          navy del titular queda en 10,99:1 y hasta el gris descriptor
+          —el texto más débil que se apoya acá— da 4,70:1, así que pasa
+          AA sin depender de dónde caiga la mancha en su recorrido. */}
       <div
         className="relative isolate"
         style={{
           background:
-            "linear-gradient(180deg,#fff4e6 0%,#fff6ea 22%,#fffaf3 58%,#fffdfa 82%,#ffffff 100%)",
+            "linear-gradient(180deg,#d8e6fb 0%,#e3edfc 22%,#eff5fd 58%,#f8fbfe 82%,#ffffff 100%)",
         }}
       >
         <div aria-hidden className="aurora-caja -z-10">
-          {/* Las LENTAS, no las del héroe original: recorren 18-26 % en
-              48-67 s en vez de 6-9 % en 23-31 s. Ahora la aurora cruza
-              una superficie más alta (header + héroe), y con el viaje
-              corto el movimiento se perdía contra ese tamaño. */}
-          <div className="aurora-mancha-lenta aurora-lenta-1" />
-          <div className="aurora-mancha-lenta aurora-lenta-2" />
-          <div className="aurora-mancha-lenta aurora-lenta-3" />
+          {/* El viaje LARGO (18-26 %) porque la aurora cruza header +
+              héroe — con el viaje corto del héroe original (6-9 %) el
+              movimiento se perdía contra ese tamaño. Y desde el 2 sep
+              2026 es AZUL y un tercio más rápida (pedido del dueño):
+              la variante `aurora-azul-*` de globals.css, 31/41/47 s.
+              La lenta naranja sigue viva para el login de Lealtad y
+              /negocios, que la pidieron lenta a propósito. */}
+          <div className="aurora-mancha-lenta aurora-azul-1" />
+          <div className="aurora-mancha-lenta aurora-azul-2" />
+          <div className="aurora-mancha-lenta aurora-azul-3" />
         </div>
 
         <HeaderSimple />

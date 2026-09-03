@@ -7,6 +7,7 @@ import type { TarjetaAltaValidada } from "@/lib/lealtad/tarjeta-alta";
 import { finDePrueba } from "@/lib/lealtad/prueba";
 import { generarSlugUnico } from "@/lib/slug";
 import { apagarModulosOperativos } from "@/lib/lealtad/solo-lealtad";
+import { crearPaginaDelNegocio } from "@/lib/lealtad/pagina-negocio";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
 // El escapador de la casa. Este archivo llegó con una copia propia de
 // siete líneas; dos escapadores de HTML es uno de más — el día que a
@@ -287,6 +288,11 @@ export async function crearNegocioDeLealtadCompleto(d: {
     { onConflict: "rancho_id,addon" },
   );
   if (eAddon) console.error("[alta-gratis] El addon no se pudo activar:", eAddon.message);
+
+  // «Mi página» (0229): la página pública /r/<slug> nace CON el negocio
+  // — no-fatal, igual que el addon: sin página el alta sigue y el panel
+  // la crea con el primer «Guardar».
+  await crearPaginaDelNegocio(admin, ranchoId);
 
   // El registro: la solicitud queda ATENDIDA por el sistema, con todo
   // lo que la persona armó — auditoría y finanzas la ven igual. Con la

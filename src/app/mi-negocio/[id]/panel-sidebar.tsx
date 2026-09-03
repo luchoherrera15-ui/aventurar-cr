@@ -4,7 +4,14 @@ import Link from "next/link";
 import { Fragment, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { IconChevronDown } from "@/components/icons";
-import { RADIO_PILDORA, RAIL_GRUPO, RAIL_ITEM, RAIL_TARJETA } from "@/components/panel/sistema";
+import {
+  RADIO_PILDORA,
+  RAIL_DISCO_ITEM,
+  RAIL_GRUPO,
+  RAIL_ITEM,
+  RAIL_ITEM_ACTIVO,
+  RAIL_TARJETA,
+} from "@/components/panel/sistema";
 import { GRUPO_LABEL, type GrupoId } from "@/lib/business/modulos";
 
 /** Con `href` el ítem es un link a otra pantalla (sin contenido acá). */
@@ -197,45 +204,38 @@ export default function PanelSidebar({
           // volver a un alfa. `--color-aventurea-rail` da 7,06:1 sobre
           // el fondo plano y `navy-3` con letra blanca da 8,31:1.
           const base = RAIL_ITEM;
+          // El ACTIVO es una card (rediseño sep 2026): superficie
+          // blanca elevada con tinta navy (RAIL_ITEM_ACTIVO) — antes
+          // era un relleno sólido del acento del rubro. El color del
+          // rubro NO se pierde: se muda al disco del ícono, donde el
+          // par `--acento-solido`/`--acento-sobre` ya está medido
+          // ≥5,18:1 (identidad.test.ts). Ningún alfa marca estado y la
+          // card se lee igual caiga donde caiga en la columna.
           const cls = t.proximamente
             ? `${base} cursor-default text-aventurea-rail`
             : `${base} ${
                 activa
-                  ? "text-white"
+                  ? RAIL_ITEM_ACTIVO
                   : "text-aventurea-rail hover:bg-aventurea-navy-3 hover:text-white"
               }`;
-          // El acento pinta el ítem activo. Sin `acento` (o si alguien
-          // reusa este componente sin pasarlo) cae al navy elevado, que
-          // también es sólido: nunca queda un ítem sin fondo.
-          //
-          // La maqueta marca el activo con `rgba(255,255,255,.12)` +
-          // una barrita `inset 3px 0 var(--accent)`. Acá el relleno
-          // ENTERO es el acento, y no es un descuido: (a) ese blanco al
-          // 12% es un alfa marcando estado, justo lo que la auditoría
-          // dejó afuera; (b) con el relleno sólido, una barrita del
-          // mismo color sería invisible, y con un relleno navy la
-          // barrita desaparecería para los acentos azul y navy, que
-          // caen encima del propio fondo del rail. Un relleno sólido
-          // del rubro se ve de lejos, se mide una vez (≥5,18:1 en los
-          // ocho acentos, `identidad.test.ts`) y no depende de dónde
-          // caiga en la columna.
-          //
-          // El `border-l-[3px] border-transparent` de `RAIL_ITEM` se
-          // queda igual: reserva los 3px para que el texto no se corra
-          // al pasar de reposo a activo.
-          const estilo: CSSProperties | undefined = activa
-            ? {
-                background: "var(--acento-solido, var(--color-aventurea-navy-3))",
-                color: "var(--acento-sobre, #ffffff)",
-              }
-            : undefined;
+          const estiloDisco: CSSProperties = {
+            background: "var(--acento-solido, var(--color-aventurea-navy-3))",
+            color: "var(--acento-sobre, #ffffff)",
+          };
           const contenidoItem = (
             <>
-              {t.icon && <span className="shrink-0 [&_svg]:h-[17px] [&_svg]:w-[17px]">{t.icon}</span>}
-              {/* text-center explícito: los <button> centran su texto
-                  por defecto pero los <Link> no — sin esto, el único
-                  ítem con href (Citas) quedaba corrido a la izquierda. */}
-              <span className="flex-1 truncate text-center">{t.label}</span>
+              {t.icon &&
+                (activa ? (
+                  <span className={RAIL_DISCO_ITEM} style={estiloDisco}>
+                    <span className="[&_svg]:h-[17px] [&_svg]:w-[17px]">{t.icon}</span>
+                  </span>
+                ) : (
+                  <span className="shrink-0 [&_svg]:h-[18px] [&_svg]:w-[18px]">{t.icon}</span>
+                ))}
+              {/* text-left explícito: los <button> centran su texto por
+                  defecto y los <Link> no — sin esto el menú quedaba
+                  desalineado entre ítems con y sin href. */}
+              <span className="flex-1 truncate text-left">{t.label}</span>
               {t.proximamente && (
                 <span
                   className={`${RADIO_PILDORA} shrink-0 border border-aventurea-navy-3 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-aventurea-rail`}
@@ -248,9 +248,14 @@ export default function PanelSidebar({
                   para 10,5px— y encima el celeste sobre la columna navy
                   casi no se despegaba del fondo. El contador es lo único
                   que tiene que saltar del menú. */}
+              {/* Sobre la card blanca del activo, el contador se
+                  invierte (navy con letra blanca) — blanco sobre blanco
+                  desaparecería. */}
               {!!t.badge && t.badge > 0 && (
                 <span
-                  className={`${RADIO_PILDORA} shrink-0 bg-white px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none text-aventurea-navy`}
+                  className={`${RADIO_PILDORA} shrink-0 px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none ${
+                    activa ? "bg-aventurea-navy text-white" : "bg-white text-aventurea-navy"
+                  }`}
                 >
                   {t.badge}
                 </span>
@@ -265,11 +270,11 @@ export default function PanelSidebar({
               {contenidoItem}
             </span>
           ) : t.href ? (
-            <Link href={t.href} className={cls} style={estilo} onClick={alCerrar}>
+            <Link href={t.href} className={cls} onClick={alCerrar}>
               {contenidoItem}
             </Link>
           ) : (
-            <button type="button" onClick={() => cambiar(t.id)} className={cls} style={estilo}>
+            <button type="button" onClick={() => cambiar(t.id)} className={cls}>
               {contenidoItem}
             </button>
           );

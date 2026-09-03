@@ -93,3 +93,8 @@ bookea-assist/**/appsettings.*.json
 /referencia/videos/
 /referencia/images/
 /referencia/logobookeafoods.png
+
+# Binarios de tienda: el .aab pesa 61 MB y no tiene por que viajar
+# en el repo ni en el deploy (se baja de EAS cuando se necesita).
+*.aab
+*.ipa

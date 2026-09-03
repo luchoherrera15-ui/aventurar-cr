@@ -42,16 +42,36 @@ export function Apartado({
   capitulo,
   titulo,
   nota,
+  compacto = false,
   children,
 }: {
   numero: number;
   capitulo: string;
   titulo: string;
   nota?: React.ReactNode;
+  /**
+   * MENOS AIRE, PARA QUE EL PASO ENTRE (dueño, 3 sep 2026: «ajustar
+   * tamaños, hacer más pequeño las cosas… que no haya que hacer
+   * scroll»).
+   *
+   * El respiro normal —32 px arriba y abajo, 44 en pantalla grande— es
+   * lo que hace que el EDITOR DEL PANEL se lea como un documento, y ahí
+   * se queda: ese editor crece hacia abajo y puede permitírselo.
+   *
+   * El asistente de alta no: tiene un alto fijo y cada paso tiene que
+   * caber entero. Acá el mismo aire es lo que empuja el contenido fuera
+   * del marco, así que se recorta a la mitad. No cambia ni la
+   * tipografía ni la grilla: solo el espacio.
+   */
+  compacto?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-bookea-linea px-5 py-8 sm:px-10 sm:py-11 lg:px-12">
+    <section
+      className={`border-t border-bookea-linea ${
+        compacto ? "px-5 py-5 sm:px-8 sm:py-6 lg:px-10" : "px-5 py-8 sm:px-10 sm:py-11 lg:px-12"
+      }`}
+    >
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_190px] lg:gap-x-10">
         <div className="min-w-0 lg:col-start-1 lg:row-start-1">
           <div className="flex items-baseline gap-3">
@@ -86,7 +106,13 @@ export function Apartado({
         {/* 24 px entre campos y no 16: la mitad del efecto «documento»
             está en este salto. Apretados, vuelven a leerse como una
             planilla. */}
-        <div className="mt-6 min-w-0 space-y-6 lg:col-start-1 lg:row-start-2">{children}</div>
+        <div
+          className={`min-w-0 lg:col-start-1 lg:row-start-2 ${
+            compacto ? "mt-4 space-y-4" : "mt-6 space-y-6"
+          }`}
+        >
+          {children}
+        </div>
       </div>
     </section>
   );
@@ -192,6 +218,7 @@ export function PlacaPase({
   datos,
   derivados,
   anchoTelefono,
+  desnuda = false,
 }: {
   datos: DatosVista;
   /** Los cuatro datos al pie: meta, filas, tamaño y contraste. */
@@ -199,7 +226,49 @@ export function PlacaPase({
   /** Ancho del teléfono en px. Ausente = el de siempre (224). El alta
    *  pública lo baja para que la placa entre entera en la ventana. */
   anchoTelefono?: number;
+  /**
+   * SIN LA CAJA NAVY (dueño, 3 sep 2026: «eliminar ese rectángulo
+   * azul»).
+   *
+   * La placa nació como una pieza con presencia: fondo navy profundo,
+   * sombra flotante y la ficha técnica al pie. Funciona en una pantalla
+   * que respira — pero en el asistente de alta compite con la hoja
+   * blanca de al lado y, sobre todo, ALTO: la caja suma su rótulo, su
+   * padding y su tabla de datos alrededor de un teléfono que ya es la
+   * pieza más alta de la pantalla. Ese alto es el que obligaba a
+   * hacer scroll.
+   *
+   * Desnuda, el teléfono flota sobre el fondo de la página y ocupa
+   * exactamente lo que mide. La ficha técnica se sigue mostrando si
+   * llega, pero en tinta normal sobre claro.
+   */
+  desnuda?: boolean;
 }) {
+  if (desnuda) {
+    return (
+      <div>
+        <p className="mb-3 text-[11px] font-extrabold uppercase leading-none tracking-[0.16em] text-bookea-gris">
+          Así le llega al cliente
+        </p>
+        <VistaPase datos={datos} superficie="clara" marco="telefono" />
+        {derivados.length > 0 && (
+          <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-bookea-linea pt-3.5">
+            {derivados.map((d) => (
+              <div key={d.rotulo}>
+                <dt className="text-[10.5px] font-bold uppercase leading-none tracking-[0.12em] text-bookea-gris">
+                  {d.rotulo}
+                </dt>
+                <dd className="mt-1 text-[12.5px] font-bold tabular-nums text-bookea-tinta">
+                  {d.valor}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       className="sobre-oscuro rounded-3xl p-5 shadow-flotante"

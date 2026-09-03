@@ -49,7 +49,17 @@ export function BotonFlotante({
       style={styles.boton}
       hitSlop={6}
     >
-      <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+      {/* `experimentalBlurMethod` o en Android NO HAY BLUR: el default
+          de expo-blur es "none", así que sin esto el botón se veía
+          esmerilado en iPhone y plano en Android. Los otros tres
+          BlurView de la app ya lo pasaban; a este y al del modal de
+          fechas se les había pasado (3 sep 2026). */}
+      <BlurView
+        intensity={40}
+        tint="light"
+        experimentalBlurMethod="dimezisBlurView"
+        style={StyleSheet.absoluteFill}
+      />
       <View style={styles.velo} />
       <Ionicons name={icono} size={20} color={color} />
     </Pressable>
