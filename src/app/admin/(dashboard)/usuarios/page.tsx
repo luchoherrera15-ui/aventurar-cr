@@ -5,12 +5,34 @@ import AccesoDemo from "./acceso-demo";
 
 export default async function AdminUsuariosPage() {
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const [{ data: userData }, perfilesRes, ranchosRes] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from("perfiles").select("*").order("created_at", { ascending: false }),
     supabase.from("ranchos").select("owner_id, nombre, categoria, vertical"),
   ]);
+
+  // El teléfono de la cuenta no vive en perfiles: siempre fue metadata de
+  // auth bajo la llave `whatsapp` (la escriben el onboarding web, /cuenta y
+  // la app móvil). Leerla requiere la llave de servicio; si falta, la
+  // columna queda vacía y la página ya avisa que falta configurarla.
+  const telefonosPorId = new Map<string, string>();
+  if (admin) {
+    const perPage = 1000;
+    for (let page = 1; ; page++) {
+      const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+      if (error || !data) break;
+      data.users.forEach((u) => {
+        const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+        const whatsapp = meta.whatsapp;
+        if (typeof whatsapp === "string" && whatsapp.trim() !== "") {
+          telefonosPorId.set(u.id, whatsapp.trim());
+        }
+      });
+      if (data.users.length < perPage) break;
+    }
+  }
 
   // Una cuenta puede tener más de un negocio, y no necesariamente todos
   // de la misma categoría (podría tener un rancho y además un catering) —
@@ -37,6 +59,7 @@ export default async function AdminUsuariosPage() {
     id: p.id as string,
     email: p.email as string | null,
     nombre: p.nombre as string | null,
+    telefono: telefonosPorId.get(p.id as string) ?? null,
     rol: p.rol as PerfilRow["rol"],
     created_at: p.created_at as string,
     negocios: negociosPorDueno.get(p.id as string) ?? [],
@@ -65,7 +88,7 @@ export default async function AdminUsuariosPage() {
 
       <UsuariosPanel
         initialPerfiles={perfiles}
-        puedeCrearCuentas={createAdminClient() !== null}
+        puedeCrearCuentas={admin !== null}
         miId={userData.user?.id ?? null}
       />
     </div>
