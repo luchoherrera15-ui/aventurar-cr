@@ -191,10 +191,14 @@ export function Portada({
 export function PlacaPase({
   datos,
   derivados,
+  anchoTelefono,
 }: {
   datos: DatosVista;
   /** Los cuatro datos al pie: meta, filas, tamaño y contraste. */
   derivados: readonly { rotulo: string; valor: string }[];
+  /** Ancho del teléfono en px. Ausente = el de siempre (224). El alta
+   *  pública lo baja para que la placa entre entera en la ventana. */
+  anchoTelefono?: number;
 }) {
   return (
     <div
@@ -205,7 +209,7 @@ export function PlacaPase({
       <p className="mb-4 text-[11px] font-extrabold uppercase leading-none tracking-[0.16em] text-aventurea-rail">
         Así le llega al cliente
       </p>
-      <VistaPase datos={datos} superficie="oscura" marco="telefono" />
+      <VistaPase datos={datos} superficie="oscura" marco="telefono" anchoTelefono={anchoTelefono} />
       {derivados.length > 0 && (
         <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-white/10 pt-4">
           {derivados.map((d) => (

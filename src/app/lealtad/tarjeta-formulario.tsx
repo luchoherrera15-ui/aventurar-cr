@@ -926,8 +926,10 @@ export default function TarjetaFormulario({
             por delante sería la tercera vez que se empuja el campo
             fuera de la primera pantalla. */}
         <aside className="mt-6 lg:mt-0">
-          <div className="lg:sticky lg:top-24">
-            <PlacaPase datos={datosVista} derivados={[]} />
+          {/* Mismo criterio que la placa del asistente: chica y al
+              centro de la ventana, para que se vea entera sin scroll. */}
+          <div className="lg:sticky" style={{ top: "max(6rem, calc(50svh - 285px))" }}>
+            <PlacaPase datos={datosVista} derivados={[]} anchoTelefono={190} />
           </div>
         </aside>
       </div>
@@ -988,6 +990,60 @@ export default function TarjetaFormulario({
               id="hoja-tarjeta"
               className="scroll-mt-24 rounded-3xl border border-bookea-linea bg-white shadow-elevado"
             >
+              {/* ── PASO 1 · PASO 2 · PASO 3 · PASO 4 (sep 2026) ──────
+                  Los puntitos de abajo no decían ni dónde estabas ni
+                  cuánto faltaba sin contarlos. Pedido del dueño: que el
+                  recorrido se LEA — «Paso 1, Paso 2, Paso 3, Paso 4» —
+                  arriba de todo, y que cada paso sea un cuadro simple.
+                  El paso activo lleva también su nombre; los demás, solo
+                  el número, para que la fila no pese. Tocar uno ya
+                  visitado vuelve ahí (mismo `irAPaso` de siempre). */}
+              {esPublico && (
+                <nav
+                  aria-label="Pasos del asistente"
+                  className="flex flex-wrap items-center gap-1.5 px-5 pb-4 pt-5 sm:px-10 sm:pt-6 lg:px-12"
+                >
+                  {pasosVisibles.map((x, i) => {
+                    const activo = i === paso;
+                    const visitado = i < paso;
+                    // Con el premio incompleto no se salta hacia adelante
+                    // por los chips: el mismo candado del botón Siguiente.
+                    const trabado = i > paso && (trabadoPorCuenta || faltaElPremio);
+                    return (
+                      <button
+                        key={x.clave}
+                        type="button"
+                        onClick={() => irAPaso(i)}
+                        disabled={trabado}
+                        aria-current={activo ? "step" : undefined}
+                        aria-label={`Paso ${i + 1}: ${x.titulo}`}
+                        className={`presionable min-h-[44px] rounded-full px-3.5 py-1.5 text-[11.5px] font-extrabold transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+                          activo
+                            ? ""
+                            : visitado
+                              ? "bg-bookea-azul-suave text-bookea-azul"
+                              : "border border-bookea-linea text-bookea-gris"
+                        }`}
+                        style={
+                          activo
+                            ? { background: "var(--accion)", color: "var(--accion-tinta)" }
+                            : undefined
+                        }
+                      >
+                        Paso {i + 1}
+                        {activo && <span className="font-bold"> · {x.corto}</span>}
+                      </button>
+                    );
+                  })}
+                </nav>
+              )}
+              {/* La portada —el nombre en 38 px— vive en el paso 1. En
+                  los demás pasos la hoja arranca directo en lo suyo: el
+                  nombre ya se ve en el teléfono de al lado, y repetirlo
+                  arriba de cada paso era la mitad del scroll de los
+                  pasos cortos. En el panel (crear/editar) queda siempre,
+                  como hasta hoy. */}
+              {(!esPublico || enPaso("identidad")) && (
               <Portada
                 rotulo={esPublico ? "Nombre de tu negocio" : undefined}
                 valor={valor.nombre}
@@ -1011,6 +1067,7 @@ export default function TarjetaFormulario({
                   ) : undefined
                 }
               />
+              )}
 
               {/* ── LA HOJA EN DOS PARTES (30 ago 2026) ──────────────
                   En el alta pública los capítulos van de dos en dos:
@@ -1459,38 +1516,13 @@ export default function TarjetaFormulario({
                   se ve cuántos pasos faltan. Y se puede tocar cualquiera
                   para volver a uno ya visto — nada de obligar a pasar de
                   a uno para corregir un color dos pasos atrás. */}
+              {/* Los puntitos que vivían acá se fueron: el recorrido se
+                  lee arriba, en los chips «Paso 1 · Paso 2 · …». Abajo
+                  quedan solo Atrás/Siguiente, que es lo que la mano
+                  busca al terminar un paso. */}
               {esPublico && (
                 <div className="border-t border-bookea-linea px-5 py-5 sm:px-8">
-                  <div className="flex items-center justify-center gap-2">
-                    {pasosVisibles.map((x, i) => {
-                        const activo = i === paso;
-                        return (
-                          <button
-                            key={x.clave}
-                            type="button"
-                            onClick={() => irAPaso(i)}
-                            aria-current={activo ? "step" : undefined}
-                            aria-label={`Paso ${i + 1}: ${x.titulo}`}
-                            className="presionable grid h-11 w-11 place-items-center rounded-full"
-                          >
-                            <span
-                              className="block rounded-full transition-all duration-200 ease-[var(--ease-bookea)]"
-                              style={{
-                                width: activo ? 26 : 9,
-                                height: 9,
-                                background: activo
-                                  ? "var(--accion)"
-                                  : i < paso
-                                    ? "var(--accion-suave)"
-                                    : "var(--line)",
-                              }}
-                            />
-                          </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                     <button
                       type="button"
                       onClick={() => irAPaso(Math.max(0, paso - 1))}
@@ -1558,12 +1590,40 @@ export default function TarjetaFormulario({
               valiendo. */}
           {/* Es su propia tarjeta, separada de la hoja: la hoja termina
               donde termina el diseño, y esto es la acción. Blanca en los
-              dos modos ahora que los capítulos viven sobre blanco. */}
+              dos modos ahora que los capítulos viven sobre blanco.
+
+              EN EL ALTA PÚBLICA APARECE SOLO EN EL ÚLTIMO PASO (sep
+              2026): repetida bajo cada paso, era media pantalla de más
+              en pasos que tienen dos campos — y el motivo de que hasta
+              el paso más corto pidiera scroll. El «Último paso ↓» de la
+              navegación ya apunta acá. */}
+          {(!esPublico || paso >= totalPasos - 1) && (
           <div
             className={`mt-4 rounded-3xl border border-bookea-linea px-5 py-5 shadow-elevado sm:px-10 ${
               esPublico ? "bg-white" : "sticky bottom-0 z-30 bg-white/95 backdrop-blur"
             }`}
           >
+            {/* Si el nombre quedó vacío en el paso 1, se corrige ACÁ y
+                no viajando dos pasos atrás — mismo criterio que el
+                código de referido, justo abajo. Es el MISMO dato del
+                estado, no una copia. */}
+            {esPublico && nombre.length === 0 && (
+              <div className="mb-4">
+                <label className={etiqueta} htmlFor="cierre-nombre">
+                  Nombre de tu negocio
+                  <Obligatorio />
+                </label>
+                <input
+                  id="cierre-nombre"
+                  required
+                  value={valor.nombre}
+                  onChange={(e) => patch({ nombre: e.target.value.slice(0, 80) })}
+                  maxLength={80}
+                  placeholder="Café Aroma"
+                  className={`${CAMPO_BASE} w-full`}
+                />
+              </div>
+            )}
             {esPublico && (
               <div className="mb-4">
                 <CampoTelefono valor={valor.telefono} alCambiar={(t) => patch({ telefono: t })} />
@@ -1669,6 +1729,7 @@ export default function TarjetaFormulario({
               )}
             </div>
           </div>
+          )}
         </div>
 
         {/* ── Vista previa: pegada en escritorio ─────────────────── */}
@@ -1677,8 +1738,22 @@ export default function TarjetaFormulario({
             RESULTADO de todo lo de la izquierda, y ocupa el lugar de un
             resultado. */}
         <aside className="mt-6 hidden lg:mt-0 lg:block">
-          <div className="sticky top-24">
-            <PlacaPase datos={datosVista} derivados={derivadosDelPase} />
+          {/* EN EL ALTA PÚBLICA LA PLACA SE ACHICA Y SE CENTRA (sep
+              2026, pedido del dueño): el teléfono baja a 190 px, la
+              ficha técnica del pie no se dibuja, y el `top` la deja
+              flotando al centro de la ventana — así el pase se ve
+              ENTERO, con QR y todo, sin scrollear, en cualquier paso.
+              En el panel (crear/editar) queda como estaba: placa
+              completa con sus derivados, pegada arriba. */}
+          <div
+            className="sticky"
+            style={{ top: esPublico ? "max(6rem, calc(50svh - 285px))" : "6rem" }}
+          >
+            <PlacaPase
+              datos={datosVista}
+              derivados={esPublico ? [] : derivadosDelPase}
+              anchoTelefono={esPublico ? 190 : undefined}
+            />
           </div>
         </aside>
       </div>
@@ -1739,12 +1814,12 @@ export default function TarjetaFormulario({
  * estado: es el guion de la pantalla. El `hayTira` que decide si «La
  * franja» entra o no se aplica al usarlo, no acá.
  */
-const PASOS_PUBLICOS: { clave: string; titulo: string }[] = [
-  { clave: "cuenta", titulo: "Tu cuenta" },
-  { clave: "identidad", titulo: "Qué tipo de tarjeta es" },
-  { clave: "premio", titulo: "Qué se gana" },
-  { clave: "apariencia", titulo: "Cómo se ve" },
-  { clave: "franja", titulo: "Dónde van los sellos" },
+const PASOS_PUBLICOS: { clave: string; titulo: string; corto: string }[] = [
+  { clave: "cuenta", titulo: "Tu cuenta", corto: "Tu cuenta" },
+  { clave: "identidad", titulo: "Qué tipo de tarjeta es", corto: "La tarjeta" },
+  { clave: "premio", titulo: "Qué se gana", corto: "El premio" },
+  { clave: "apariencia", titulo: "Cómo se ve", corto: "Cómo se ve" },
+  { clave: "franja", titulo: "Dónde van los sellos", corto: "Los sellos" },
 ];
 
 // ── Piezas ─────────────────────────────────────────────────────────

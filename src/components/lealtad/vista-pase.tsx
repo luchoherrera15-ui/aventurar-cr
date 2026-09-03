@@ -97,6 +97,7 @@ export default function VistaPase({
   datos,
   superficie = "oscura",
   marco = "ninguno",
+  anchoTelefono,
 }: {
   datos: DatosVista;
   /**
@@ -115,6 +116,10 @@ export default function VistaPase({
    * pasa a leerse como un dibujo raro.
    */
   marco?: "ninguno" | "telefono";
+  /** Ancho del marco de teléfono en px (solo con marco="telefono").
+   *  Ausente = 224, el de siempre. El pase adentro es fluido, así que
+   *  solo se encoge — no se rompe. */
+  anchoTelefono?: number;
 }) {
   const [plataforma, setPlataforma] = useState<Plataforma>("apple");
   const clara = superficie === "clara";
@@ -193,7 +198,7 @@ export default function VistaPase({
       </div>
 
       {marco === "telefono" ? (
-        <MarcoTelefono plataforma={plataforma}>
+        <MarcoTelefono plataforma={plataforma} ancho={anchoTelefono}>
           {plataforma === "apple" ? (
             <TarjetaApple
               datos={datos}
@@ -246,9 +251,12 @@ export default function VistaPase({
 function MarcoTelefono({
   plataforma,
   children,
+  ancho,
 }: {
   plataforma: Plataforma;
   children: React.ReactNode;
+  /** Ancho máximo en px. Ausente = 224 (ver el comentario de abajo). */
+  ancho?: number;
 }) {
   // Wallet de Apple es negro; el de Google, claro. La barra de estado
   // se invierte con él — en un teléfono real la hora no se queda
@@ -265,8 +273,9 @@ function MarcoTelefono({
     // «más pequeño, de mejor calidad»). El pase adentro es fluido
     // (max-w + truncate), así que solo se encoge, no se rompe; los
     // radios y la isla bajan en proporción para que el dibujo no se
-    // vea inflado a la escala nueva.
-    <div className="mx-auto mt-4 w-full max-w-[224px]">
+    // vea inflado a la escala nueva. `ancho` deja bajarlo más todavía
+    // (el alta pública lo usa para que la placa entre en la ventana).
+    <div className="mx-auto mt-4 w-full" style={{ maxWidth: ancho ?? 224 }}>
       <div
         className="relative rounded-[36px] p-[3px]"
         style={{
