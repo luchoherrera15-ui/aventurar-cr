@@ -172,9 +172,17 @@ export function puedeActivarse(programa: {
 }
 
 /**
- * Las transiciones permitidas. Archivado es terminal hacia atrás: se
- * puede volver a borrador solo si NUNCA tuvo movimientos — con
- * historial, archivar es para siempre (el historial no se borra).
+ * Las transiciones permitidas.
+ *
+ * Una archivada se RESTAURA a `pausado`: no se borra nada al archivar
+ * —el historial y los sellos quedan— así que tampoco hay nada que
+ * impida volver. Que el destino sea `pausado` y no `activo` es
+ * deliberado: la activación tiene que volver a pasar por
+ * `puedeActivarse` (y el que llama debe comprobar el cupo del paquete,
+ * porque restaurar re-ocupa un lugar — ver `cambiarEstadoPrograma`).
+ *
+ * A borrador solo se vuelve sin movimientos: con historial encima, el
+ * historial no se borra ni se "resetea".
  */
 export function transicionValida(
   de: EstadoPrograma,
@@ -182,7 +190,7 @@ export function transicionValida(
   tieneMovimientos: boolean,
 ): boolean {
   if (de === a) return false;
-  if (de === "archivado") return !tieneMovimientos && a === "borrador";
+  if (de === "archivado") return a === "pausado" || (!tieneMovimientos && a === "borrador");
   if (a === "borrador") return de === "pausado" && !tieneMovimientos;
   return true; // borrador→activo (validado aparte), activo↔pausado, *→archivado
 }

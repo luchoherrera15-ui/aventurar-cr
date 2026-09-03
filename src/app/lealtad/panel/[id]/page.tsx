@@ -828,7 +828,14 @@ export default async function PanelNegocioLealtad({
               }
             : null
         }
-        tarjetas={{ vivas: vivas.length, operan }}
+        tarjetas={{
+          vivas: vivas.length,
+          operan,
+          // Por resta y no con otro filtro: `lasQueOcupanCupo` excluye
+          // EXACTAMENTE las archivadas, así que la resta es el mismo
+          // criterio sin un segundo recorrido que se despegue.
+          archivadas: programasEnLista.length - vivas.length,
+        }}
         regalia={meta ? { nombre: meta.nombre, costo: meta.costo_puntos } : null}
         resumen={datosLealtad?.resumen ?? null}
         paquete={paquete}

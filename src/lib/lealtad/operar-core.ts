@@ -22,6 +22,7 @@ import {
 import { contextoDeCuenta } from "./cuenta";
 import { personasActivasDe } from "./cupo";
 import { definicionDe } from "./planes";
+import { estadoDelPrograma } from "./reglas";
 import type { PermisosLealtad } from "./permisos";
 
 /**
@@ -217,7 +218,58 @@ type MiembroResuelto = {
   programaId: string;
   modo: string | null;
   beneficio: unknown;
+  /** El programa está ARCHIVADO: se dice con nombre, antes del RPC. */
+  archivado: boolean;
+  /** El nombre de la tarjeta, para poder nombrarla en el rechazo. */
+  nombrePrograma: string | null;
 };
+
+/**
+ * LA FRASE DE LA TARJETA ARCHIVADA — la que ve el escáner.
+ *
+ * El RPC contesta «El programa está en estado archivado y no acumula.»,
+ * que es cierto pero no le dice al dueño ni CUÁL tarjeta es ni cómo
+ * salir — el caso Café Oscuro: archivó su tarjeta, el escaneo «dejó de
+ * funcionar» y nadie le dijo que la salida era restaurarla. Esta frase
+ * se devuelve ANTES del RPC (el RPC sigue siendo la autoridad y
+ * revalida bajo lock; esto solo mejora lo que se lee) y les sirve a las
+ * tres puertas de una vez: el escáner web, /[slug]/scan y la app móvil
+ * pintan `motivo` tal cual.
+ */
+function motivoTarjetaArchivada(nombre: string | null): string {
+  const cual = nombre && nombre.trim() ? `La tarjeta «${nombre.trim()}»` : "Esta tarjeta";
+  return (
+    `${cual} está archivada — los sellos de tus clientes siguen guardados. ` +
+    "Restaurala desde el panel, en Tarjetas → Archivadas."
+  );
+}
+
+/**
+ * Arma el `MiembroResuelto` desde la fila cruda del programa.
+ *
+ * La fila llega de un `select *` A PROPÓSITO: `estado` es de la 0125 y
+ * contra una base sin migrar una lista explícita de columnas fallaría
+ * entera (mismo criterio que `revisarReglas`). Sin la columna,
+ * `estadoDelPrograma` deriva del booleano `activo` de la 0060 — y una
+ * fila vieja nunca se lee como archivada.
+ */
+function miembroResuelto(
+  miembro: { id: string; programa_id: string },
+  programa: Record<string, unknown>,
+): MiembroResuelto {
+  return {
+    miembroId: miembro.id,
+    programaId: miembro.programa_id,
+    modo: typeof programa.modo === "string" ? programa.modo : null,
+    beneficio: programa.beneficio,
+    archivado:
+      estadoDelPrograma({
+        estado: typeof programa.estado === "string" ? programa.estado : null,
+        activo: !!programa.activo,
+      }) === "archivado",
+    nombrePrograma: typeof programa.nombre === "string" ? programa.nombre : null,
+  };
+}
 
 /**
  * De un serial de QR al miembro, comprobando la cadena de tenencia
@@ -248,21 +300,20 @@ async function miembroDesdeSerial(
 
   const { data: programa } = await db
     .from("programa_lealtad")
-    .select("rancho_id, modo, beneficio")
+    .select("*")
     .eq("id", miembro.programa_id)
     .maybeSingle();
-  if (!programa || programa.rancho_id !== ranchoId) {
+  const fila = (programa ?? null) as Record<string, unknown> | null;
+  if (!fila || fila.rancho_id !== ranchoId) {
     return { ok: false, motivo: "Esa tarjeta es de otro negocio." };
   }
 
   return {
     ok: true,
-    miembro: {
-      miembroId: miembro.id as string,
-      programaId: miembro.programa_id as string,
-      modo: programa.modo as string | null,
-      beneficio: programa.beneficio,
-    },
+    miembro: miembroResuelto(
+      { id: miembro.id as string, programa_id: miembro.programa_id as string },
+      fila,
+    ),
   };
 }
 
@@ -398,21 +449,20 @@ async function miembroDeEsteNegocio(
 
   const { data: programa } = await db
     .from("programa_lealtad")
-    .select("rancho_id, modo, beneficio")
+    .select("*")
     .eq("id", miembro.programa_id)
     .maybeSingle();
-  if (!programa || programa.rancho_id !== ranchoId) {
+  const fila = (programa ?? null) as Record<string, unknown> | null;
+  if (!fila || fila.rancho_id !== ranchoId) {
     return { ok: false, motivo: "Esa membresía es de otro negocio." };
   }
 
   return {
     ok: true,
-    miembro: {
-      miembroId: miembro.id as string,
-      programaId: miembro.programa_id as string,
-      modo: programa.modo as string | null,
-      beneficio: programa.beneficio,
-    },
+    miembro: miembroResuelto(
+      { id: miembro.id as string, programa_id: miembro.programa_id as string },
+      fila,
+    ),
   };
 }
 
@@ -451,6 +501,19 @@ async function acreditarResuelto(args: {
   via: ViaOperacion;
 }): Promise<ResultadoAcreditar> {
   const { db, ranchoId, quien, monto, miembro, referencia, via } = args;
+
+  // ── LA ARCHIVADA SE DICE CON NOMBRE, ANTES DEL RPC ──────────────
+  // El RPC sigue siendo la autoridad (revalida el estado bajo lock);
+  // esto solo cambia la frase que le llega al mostrador: sin este
+  // corte, el escáner leía «El programa está en estado archivado y no
+  // acumula.» — sin el nombre de la tarjeta y sin la salida.
+  if (miembro.archivado) {
+    return {
+      ok: false,
+      codigo: "programa_archivado",
+      motivo: motivoTarjetaArchivada(miembro.nombrePrograma),
+    };
+  }
 
   // `tipoDe` tolera lo desconocido y cae a 'puntos', igual que en el
   // resto del módulo: un `modo` que este código no conoce no puede

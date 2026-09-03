@@ -139,6 +139,20 @@ export function autorizarCanje(ctx: ContextoCanje): Veredicto {
         motivo: `Esta tarjeta empieza a valer el ${p.vigente_desde ?? "—"}.`,
       };
     }
+    // La archivada se explica con la salida adelante: acá decía «está
+    // archivado y no acepta canjes» (además con el género cambiado), y
+    // el empleado no tenía nada útil que decirle al cliente ni al dueño.
+    // Es la MISMA frase que devuelve el escáner (operar-core.ts) — dos
+    // textos distintos para el mismo problema mandan a dos lugares.
+    if (estado === "archivado") {
+      return {
+        ok: false,
+        codigo: "programa_no_opera",
+        motivo:
+          "Esta tarjeta está archivada — los sellos de tus clientes siguen guardados. " +
+          "Restaurala desde el panel, en Tarjetas → Archivadas.",
+      };
+    }
     return {
       ok: false,
       codigo: "programa_no_opera",

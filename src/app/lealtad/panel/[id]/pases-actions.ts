@@ -23,8 +23,10 @@ import {
   type SelloElegido,
 } from "@/lib/lealtad/iconos-sello";
 import { comprobarImagenSubida } from "@/lib/media/comprobar-imagen-subida";
-import { planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
+import { definicionDe, planIncluyeTipo, planQueDesbloquea } from "@/lib/lealtad/planes";
 import { contextoDeCuenta } from "@/lib/lealtad/cuenta";
+import { minutoISOCR } from "@/lib/fechas";
+import { cupoLleno, lasQueOcupanCupo, tarjetaDelCupo } from "./cupo-tarjetas";
 import { pideRecompensa, puedeCambiarTipo, puedeEditarse } from "@/lib/lealtad/editable";
 import { esColumnaAusente, traducirError, type ErrorBase } from "@/lib/lealtad/errores-base";
 import {
@@ -1169,8 +1171,11 @@ export async function eliminarRecompensa(
  *
  *   · activar exige reglas que otorguen algo y ≥1 recompensa activa
  *     (una tarjeta que nunca avanza ni promete nada no se publica);
- *   · con historial, archivado es para siempre y no se vuelve a
- *     borrador — el historial no se borra ni se "resetea".
+ *   · una archivada se RESTAURA a pausado —los sellos y el historial
+ *     nunca se borraron— pero restaurar re-ocupa un lugar del paquete,
+ *     así que el cupo se comprueba acá con el MISMO criterio que al
+ *     crear (`cupo-tarjetas.ts`); a borrador solo vuelve la que nunca
+ *     tuvo miembros, y a activo no se salta nunca directo.
  *
  * También se mantiene el booleano `activo` de la 0060 espejado, porque
  * la política de afiliación de miembros (0060) y el flujo de citas lo
@@ -1214,9 +1219,18 @@ export async function cambiarEstadoPrograma(
     return {
       error:
         actual === "archivado"
-          ? "Un programa archivado con historial no se reactiva: se crea la etapa nueva con otro programa."
+          ? "Una tarjeta archivada no pasa directo a ese estado: restaurala primero — queda en Pausado, con los sellos de todos intactos — y desde ahí activala."
           : `No se puede pasar de ${actual} a ${estadoNuevo}.`,
     };
+  }
+
+  // ── SALIR DE ARCHIVADO RE-OCUPA UN LUGAR DEL PAQUETE ──────────────
+  // Archivar libera el cupo (cupo-tarjetas.ts), así que el camino de
+  // vuelta tiene que volver a pedirlo — si no, restaurar sería la
+  // puerta de atrás del tope que el creador sí cobra.
+  if (actual === "archivado") {
+    const sinCampo = await cupoParaSalirDeArchivado(supabase, ranchoId);
+    if (sinCampo) return { error: sinCampo };
   }
 
   if (estadoNuevo === "activo") {
@@ -1267,4 +1281,76 @@ export async function cambiarEstadoPrograma(
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   revalidatePath(`/admin/lealtad/${ranchoId}`);
   return { programa: data as ProgramaFila };
+}
+
+/**
+ * ¿HAY CAMPO EN EL PAQUETE PARA RESTAURAR UNA ARCHIVADA?
+ *
+ * Devuelve el motivo del rechazo, o null si hay lugar. El criterio es
+ * LITERALMENTE el del creador (`crear-actions.ts`): mismo
+ * `lasQueOcupanCupo` + `cupoLleno` de `cupo-tarjetas.ts`, mismo scope
+ * por cuenta si la 0134 está pegada (y por rancho si no), y `select *`
+ * con el filtro en código — en SQL, `estado <> 'archivado'` descartaría
+ * también las filas con `estado` NULL, que están vivas.
+ *
+ * El plan se resuelve con la cadena de siempre (`contextoDeCuenta`,
+ * que necesita el cliente de servicio). Sin llave de servicio se cae
+ * al `plan_lealtad` del rancho, que el dueño sí puede leer — nunca a
+ * «sin tope»: un fallo de configuración no puede regalar cupo.
+ */
+async function cupoParaSalirDeArchivado(
+  supabase: Awaited<ReturnType<typeof verificarAccesoRancho>>["supabase"],
+  ranchoId: string,
+): Promise<string | null> {
+  const admin = createAdminClient();
+
+  const { data: rancho } = await supabase
+    .from("ranchos")
+    .select("plan_lealtad")
+    .eq("id", ranchoId)
+    .maybeSingle();
+  const planRancho = (rancho?.plan_lealtad as string | null) ?? null;
+
+  let cuentaId: string | null = null;
+  let plan: string | null = planRancho;
+  if (admin) {
+    // `maybeSingle` porque sin la 0134 la tabla no existe: ahí el plan
+    // sale del rancho, como salía antes.
+    const { data: cuenta } = await admin
+      .from("cuentas")
+      .select("id")
+      .eq("rancho_id", ranchoId)
+      .maybeSingle();
+    cuentaId = (cuenta?.id as string | undefined) ?? null;
+    ({ plan } = await contextoDeCuenta(
+      admin,
+      cuentaId ? { cuenta_id: cuentaId } : {},
+      { planRancho },
+    ));
+  }
+
+  const tope = definicionDe(plan)?.limites.programas ?? null;
+  if (tope === null) return null;
+
+  const consulta = supabase.from("programa_lealtad").select("*");
+  const { data: ocupan } = cuentaId
+    ? await consulta.eq("cuenta_id", cuentaId)
+    : await consulta.eq("rancho_id", ranchoId);
+
+  const existentes = lasQueOcupanCupo(
+    ((ocupan ?? []) as Record<string, unknown>[]).map(tarjetaDelCupo),
+    minutoISOCR(),
+  );
+  if (!cupoLleno({ ocupadas: existentes.length, tope })) return null;
+
+  const nombres = existentes
+    .map((p) => `«${p.nombre}»${p.estado === "borrador" ? " (en borrador)" : ""}`)
+    .join(", ");
+  // La MISMA salida que el aviso de tope del creador: abrir la tarjeta
+  // desde «Tarjetas» y archivarla desde su Estado — el camino existe.
+  return (
+    `Tu paquete permite ${tope} tarjeta${tope === 1 ? "" : "s"} y ya tenés ${nombres}. ` +
+    `Para restaurar esta, archivá primero otra desde Tarjetas —el cupo se libera al ` +
+    `instante— o subí de paquete.`
+  );
 }

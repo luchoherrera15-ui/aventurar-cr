@@ -57,8 +57,9 @@ export function puedeEditarse(s: SituacionTarjeta): Veredicto {
     return {
       puede: false,
       motivo:
-        "Esta tarjeta está archivada: ya no emite pases y su historial no se toca. " +
-        "Para volver a emitir, creá una nueva.",
+        "Esta tarjeta está archivada: no emite pases y su historial no se toca. " +
+        "Restaurala desde Tarjetas —queda en Pausado, con los sellos de todos intactos— " +
+        "y de ahí la editás y la activás.",
     };
   }
   return { puede: true };

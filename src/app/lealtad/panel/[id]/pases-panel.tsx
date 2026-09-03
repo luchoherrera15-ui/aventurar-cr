@@ -460,7 +460,8 @@ export function BloqueEstado() {
       <h3 className={TITULO_CARD}>Estado del programa</h3>
       <p className={ayudaCls}>
         Solo el <strong>activo</strong> acumula y canjea. Pausar conserva todo; archivar
-        con historial es para siempre — el historial nunca se borra.
+        deja de emitir pases y libera el cupo del paquete — se restaura desde Tarjetas
+        (vuelve en Pausado) si el cupo lo permite, y el historial nunca se borra.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {(

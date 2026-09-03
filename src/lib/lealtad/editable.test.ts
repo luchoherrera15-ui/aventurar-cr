@@ -23,10 +23,13 @@ describe("puedeEditarse", () => {
     expect(puedeEditarse({ ...base, estado: "borrador" }).puede).toBe(true);
   });
 
-  it("una archivada NO, y el motivo dice qué hacer en su lugar", () => {
+  it("una archivada NO, y el motivo dice cómo salir (restaurar)", () => {
     const v = puedeEditarse({ ...base, estado: "archivado" });
     expect(v.puede).toBe(false);
-    if (!v.puede) expect(v.motivo).toContain("creá una nueva");
+    // Desde sep 2026 archivar ya no es terminal: la salida que el
+    // motivo tiene que enseñar es RESTAURAR (archivado→pausado en
+    // reglas.ts), no crear otra tarjeta.
+    if (!v.puede) expect(v.motivo).toContain("Restaurala");
   });
 });
 

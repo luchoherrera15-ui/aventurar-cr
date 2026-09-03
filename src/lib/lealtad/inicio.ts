@@ -121,9 +121,9 @@ export const CONSEJO_TARJETA: Record<EstadoVisible, ConsejoTarjeta> = {
   archivado: {
     titulo: "Tu tarjeta está archivada",
     consejo:
-      "Archivar con historial es para siempre — el historial nunca se borra. Para volver a emitir pases hay que crear otra tarjeta.",
-    ir: "crear",
-    boton: "Crear otra tarjeta",
+      "No emite pases ni acepta el escáner, pero nada se borró: los sellos de tus clientes siguen guardados. Restaurala desde Tarjetas —queda en Pausado y de ahí la activás— o creá otra.",
+    ir: "programas",
+    boton: "Ver mis tarjetas",
   },
   activo: {
     titulo: "Tu tarjeta está activa",

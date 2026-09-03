@@ -31,10 +31,12 @@ import { resumenDeFila, type FilaElegible } from "@/lib/wallet/programa-principa
 /**
  * ¿Esta tarjeta le ocupa un lugar al negocio?
  *
- * Archivada = no. Para volver a emitir hay que crear otra, no reanimar
- * la archivada (`transicionValida` en reglas.ts: con historial, archivar
- * es para siempre). Todo lo demás —borrador, pausada, programada,
- * vencida— sí ocupa: existe, se puede editar y se puede reactivar.
+ * Archivada = no. Restaurarla es posible (`transicionValida` en
+ * reglas.ts: archivado→pausado), pero justamente por eso el camino de
+ * vuelta comprueba este mismo cupo (`cupoParaSalirDeArchivado` en
+ * pases-actions.ts): salir de archivado re-ocupa el lugar que archivar
+ * liberó. Todo lo demás —borrador, pausada, programada, vencida— sí
+ * ocupa: existe, se puede editar y se puede reactivar.
  */
 export function ocupaCupo(fila: FilaPrograma, ahoraCR: string): boolean {
   return estadoVisible(fila, ahoraCR) !== "archivado";

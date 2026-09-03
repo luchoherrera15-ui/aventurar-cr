@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { cambiarEstadoPrograma } from "./pases-actions";
 import {
   conteoPorFiltro,
   estadoVisible,
@@ -291,15 +293,35 @@ function TarjetaDeLista({
      pide atención. */
   const tonoPildora = ESTADO_DE_TONO[TONO_ESTADO[estado]];
 
+  // ── RESTAURAR UNA ARCHIVADA (sep 2026, caso Café Oscuro) ──────────
+  // Archivar era un callejón sin salida: la tarjeta desaparecía del
+  // escáner y del Inicio y ninguna pantalla ofrecía el camino de
+  // vuelta. Ahora la archivada trae su botón acá mismo — vuelve a
+  // Pausado (la activación sigue pasando por sus propias reglas) y el
+  // cupo del paquete se comprueba en el servidor, que es quien manda.
+  const esArchivada = estado === "archivado";
+  const router = useRouter();
+  const [restaurando, iniciarRestauracion] = useTransition();
+  const [errorRestaurar, setErrorRestaurar] = useState<string | null>(null);
+  function restaurar() {
+    setErrorRestaurar(null);
+    iniciarRestauracion(async () => {
+      const res = await cambiarEstadoPrograma(ranchoId, programa.id, "pausado");
+      if (res.error) setErrorRestaurar(res.error);
+      else router.refresh();
+    });
+  }
+
   return (
-    // ── CADA TARJETA A **SU** EDITOR ────────────────────────────────
-    // Esto apuntaba a `#tarjeta`, la sección del panel — que cuelga de
-    // la tarjeta PRINCIPAL. O sea que con dos tarjetas, tocar la B
-    // abría la A, y el dueño editaba la que no quería sin que nada se
-    // lo dijera. Ahora el id viaja en la ruta.
+    <div className="flex h-full flex-col gap-2">
+    {/* ── CADA TARJETA A **SU** EDITOR ────────────────────────────────
+        Esto apuntaba a `#tarjeta`, la sección del panel — que cuelga de
+        la tarjeta PRINCIPAL. O sea que con dos tarjetas, tocar la B
+        abría la A, y el dueño editaba la que no quería sin que nada se
+        lo dijera. Ahora el id viaja en la ruta. */}
     <Link
       href={`/lealtad/panel/${ranchoId}/editar/${programa.id}`}
-      className={`elevar flex h-full items-start gap-3 ${RADIO_TILE} border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy`}
+      className={`elevar flex flex-1 items-start gap-3 ${RADIO_TILE} border border-aventurea-line bg-aventurea-surface p-4 transition-colors hover:border-aventurea-navy`}
     >
       {/* El disco lleva el color REAL de la tarjeta del cliente: es lo
           que hace que la lista se reconozca de un vistazo cuando el
@@ -335,5 +357,33 @@ function TarjetaDeLista({
         )}
       </span>
     </Link>
+
+    {esArchivada && (
+      <div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <button
+            type="button"
+            onClick={restaurar}
+            disabled={restaurando}
+            className="presionable min-h-[44px] rounded-lg px-3.5 text-[12.5px] font-extrabold"
+            style={{ background: ACCION, color: ACCION_TINTA }}
+          >
+            {restaurando ? "Restaurando…" : "Restaurar tarjeta"}
+          </button>
+          <span className="text-[11.5px] leading-snug text-aventurea-ink-soft">
+            Queda en Pausado; los sellos de tus clientes siguen guardados.
+          </span>
+        </div>
+        {errorRestaurar && (
+          <p
+            role="alert"
+            className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-[12px] font-bold leading-snug text-red-700"
+          >
+            {errorRestaurar}
+          </p>
+        )}
+      </div>
+    )}
+    </div>
   );
 }

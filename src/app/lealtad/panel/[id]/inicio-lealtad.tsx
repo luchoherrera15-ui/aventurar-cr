@@ -189,8 +189,11 @@ export default function InicioLealtad({
   nombre: string;
   /** La tarjeta que manda en el tablero. null = no hay ninguna viva. */
   tarjeta: TarjetaPrincipal | null;
-  /** Cuántas tarjetas sin archivar tiene, y cuántas emiten pases hoy. */
-  tarjetas: { vivas: number; operan: number };
+  /** Cuántas tarjetas sin archivar tiene, y cuántas emiten pases hoy.
+   *  `archivadas` existe para que el Inicio no mienta: con todo
+   *  archivado, «no tenés ninguna tarjeta» era falso — caso Café
+   *  Oscuro, sep 2026. */
+  tarjetas: { vivas: number; operan: number; archivadas?: number };
   /** La recompensa que marca la meta. null = todavía no hay ninguna. */
   regalia: { nombre: string; costo: number } | null;
   /** Lo que dice el ledger. null = no hay programa que mirar. */
@@ -226,6 +229,53 @@ export default function InicioLealtad({
   });
 
   if (momento === "sin-tarjeta") {
+    const archivadas = tarjetas.archivadas ?? 0;
+    // Con TODO archivado, la bienvenida de «no tenés ninguna tarjeta»
+    // miente — el negocio SÍ tiene, solo que guardada. El caso real
+    // (Café Oscuro, sep 2026): archivó su única tarjeta, el panel le
+    // mostró el onboarding de cero y nadie le dijo dónde estaba lo suyo.
+    if (archivadas > 0) {
+      return (
+        <div
+          className="rounded-2xl border border-amber-300 bg-amber-50 p-5"
+          role="status"
+        >
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-amber-800">
+            Tarjetas archivadas
+          </p>
+          <h2 className="titulo mt-1.5 text-[19px] leading-tight text-aventurea-ink">
+            {archivadas === 1
+              ? "Tenés una tarjeta archivada"
+              : `Tenés ${archivadas} tarjetas archivadas`}
+          </h2>
+          <p className="mt-1.5 max-w-[62ch] text-[13px] leading-relaxed text-aventurea-ink-soft">
+            No está borrada: los sellos y el historial de tus clientes siguen guardados,
+            pero mientras esté archivada el escáner la rechaza y no emite pases nuevos.
+            Restaurala desde <strong className="font-bold text-aventurea-ink">Tarjetas</strong>{" "}
+            — queda en Pausado y de ahí la activás — o creá una nueva.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            {enlaces.programas && (
+              <a
+                href={enlaces.programas}
+                className="presionable inline-flex min-h-[44px] items-center rounded-xl px-4 text-[13px] font-extrabold"
+                style={{ background: "var(--accion)", color: "var(--accion-tinta)" }}
+              >
+                Ver mis tarjetas →
+              </a>
+            )}
+            {enlaces.crear && (
+              <a
+                href={enlaces.crear}
+                className="presionable inline-flex min-h-[44px] items-center rounded-xl border border-aventurea-line bg-white px-4 text-[13px] font-bold text-aventurea-ink-soft"
+              >
+                Crear una nueva
+              </a>
+            )}
+          </div>
+        </div>
+      );
+    }
     return <Bienvenida nombre={nombre} enlaces={enlaces} />;
   }
 
