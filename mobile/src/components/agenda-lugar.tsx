@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
@@ -20,11 +20,17 @@ import { fmtColones } from "@/lib/types";
  * nada útil. `agenda.tsx` ahora bifurca: `categoria === "lugares"`
  * entra acá.
  *
- * ALCANCE DE ESTA PRIMERA VERSIÓN: confirmar y cancelar, que son las
- * dos acciones del día a día. La web además permite editar los datos,
- * mover la fecha, cargar una reserva nueva desde el calendario y
- * validar el depósito — eso queda para cuando haga falta, no se
- * construyó acá para no inflar el primer corte.
+ * ALCANCE: confirmar, cancelar, bloquear un día libre (y liberarlo) y
+ * cargar una reserva manual desde el calendario — las acciones del día
+ * a día del anfitrión. La web además permite editar los datos, mover
+ * la fecha y validar el depósito — eso queda para cuando haga falta,
+ * no se construyó acá para no inflar el corte.
+ *
+ * Bloquear y cargar reserva usan el MISMO baile de dos pasos que
+ * `guardarWalkIn` en la agenda de citas: la política de INSERT (0109)
+ * solo deja nacer una fila en 'pendiente' o 'temporal', y la de UPDATE
+ * del dueño (0077) es la que después permite pasarla a 'bloqueada' o
+ * 'confirmada'. Un insert directo en esos estados rebota contra la RLS.
  */
 
 const SITIO_URL = process.env.EXPO_PUBLIC_SITE_URL ?? "https://bookea.lat";
@@ -46,6 +52,25 @@ type ReservaLugar = {
   monto_total: number | null;
   deposito_monto: number | null;
   horario_bloque: string | null;
+};
+
+/** El borrador de la reserva manual, todo en texto (viene de TextInputs). */
+type BorradorReserva = {
+  nombre: string;
+  tipoEvento: string;
+  invitados: string;
+  monto: string;
+  adelanto: string;
+  notas: string;
+};
+
+const RESERVA_VACIA: BorradorReserva = {
+  nombre: "",
+  tipoEvento: "",
+  invitados: "",
+  monto: "",
+  adelanto: "",
+  notas: "",
 };
 
 const ETIQUETA: Record<string, { texto: string; tono: TonoEstado }> = {
@@ -104,6 +129,10 @@ export default function AgendaLugar({ id }: { id: string }) {
   const [filas, setFilas] = useState<ReservaLugar[] | null>(null);
   const [seleccion, setSeleccion] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
+  // Las acciones del día LIBRE: bloquear o cargar una reserva manual.
+  const [creando, setCreando] = useState(false);
+  const [borrador, setBorrador] = useState<BorradorReserva>(RESERVA_VACIA);
+  const [guardando, setGuardando] = useState(false);
 
   const cargar = useCallback(async () => {
     const primerDia = iso(viewYear, viewMonth, 1);
@@ -136,7 +165,15 @@ export default function AgendaLugar({ id }: { id: string }) {
     if (m > 11) { m = 0; y += 1; }
     setViewMonth(m);
     setViewYear(y);
-    setSeleccion(null);
+    elegirDia(null);
+  }
+
+  /** Cambia el día elegido y descarta el formulario a medio llenar:
+   *  un borrador del martes no puede terminar guardado en el jueves. */
+  function elegirDia(fecha: string | null) {
+    setSeleccion(fecha);
+    setCreando(false);
+    setBorrador(RESERVA_VACIA);
   }
 
   const porFecha = new Map<string, ReservaLugar[]>();
@@ -225,6 +262,199 @@ export default function AgendaLugar({ id }: { id: string }) {
     await cargar();
   }
 
+  function confirmarBloqueo() {
+    if (!seleccion) return;
+    Alert.alert(
+      "Bloquear este día",
+      `¿Bloqueás el ${fechaLarga(seleccion)}? Nadie va a poder reservarlo hasta que lo liberes.`,
+      [
+        { text: "Mejor no", style: "cancel" },
+        {
+          text: "Sí, bloquear",
+          onPress: () => {
+            void bloquearDia();
+          },
+        },
+      ],
+    );
+  }
+
+  /**
+   * Tapa un día libre (mantenimiento, un evento propio, una reserva por
+   * fuera). Dos pasos por la RLS — ver el comentario de arriba del
+   * archivo. 'bloqueada' no consume el cupo del día (el trigger de 0049
+   * solo cuenta 'confirmada') pero sí ocupa la disponibilidad pública,
+   * igual que los bloqueos que llegan del sync de agendas externas.
+   */
+  async function bloquearDia() {
+    if (!seleccion) return;
+    setGuardando(true);
+    const { data: creada, error: errorInsert } = await supabase
+      .from("reservas")
+      .insert({
+        rancho_id: id,
+        fecha: seleccion,
+        estado: "pendiente",
+        origen: "manual",
+        nombre: "Bloqueado por el anfitrión",
+      })
+      .select("id")
+      .single();
+    if (errorInsert || !creada) {
+      setGuardando(false);
+      Alert.alert("No se pudo", "No se pudo bloquear: " + (errorInsert?.message ?? "error"));
+      return;
+    }
+    const reservaId = (creada as { id: string }).id;
+    const { error: errorBloquear } = await supabase
+      .from("reservas")
+      .update({ estado: "bloqueada" })
+      .eq("id", reservaId)
+      .eq("rancho_id", id);
+    if (errorBloquear) {
+      // Borrarla no se puede (la RLS de DELETE es solo del admin): el
+      // borrador pendiente se rechaza para que no tape el día.
+      await supabase
+        .from("reservas")
+        .update({ estado: "rechazada", cancelada_en: new Date().toISOString() })
+        .eq("id", reservaId)
+        .eq("rancho_id", id);
+      setGuardando(false);
+      Alert.alert("No se pudo", "No se pudo bloquear: " + errorBloquear.message);
+      return;
+    }
+    setGuardando(false);
+    await cargar();
+  }
+
+  /**
+   * Carga una reserva que llegó por teléfono o en persona — espejo de
+   * `crearReservaManual` de la web: mismos campos obligatorios (nombre,
+   * invitados, monto) y mismo insert 'pendiente' → update 'confirmada'.
+   * El chequeo de cupo de antes es el aviso amable; el índice único y
+   * el trigger de la base (23505) son la red contra dos a la vez.
+   */
+  async function guardarReserva() {
+    if (!seleccion) return;
+    const nombre = borrador.nombre.trim().slice(0, 120);
+    if (!nombre) {
+      Alert.alert("Falta el nombre", "Escribí el nombre de quien reserva.");
+      return;
+    }
+    const invitados = Number(borrador.invitados.trim());
+    if (!borrador.invitados.trim() || !Number.isInteger(invitados) || invitados <= 0) {
+      Alert.alert("Revisá los invitados", "Indicá para cuántas personas es la reserva.");
+      return;
+    }
+    const monto = Number(borrador.monto.trim());
+    if (!borrador.monto.trim() || !Number.isFinite(monto) || monto <= 0) {
+      Alert.alert("Revisá el monto", "El monto va en colones, sin puntos ni comas.");
+      return;
+    }
+    const adelanto = borrador.adelanto.trim() === "" ? 0 : Number(borrador.adelanto.trim());
+    if (!Number.isFinite(adelanto) || adelanto < 0) {
+      Alert.alert("Revisá el adelanto", "El adelanto va en colones, sin puntos ni comas.");
+      return;
+    }
+    if (adelanto > monto) {
+      Alert.alert("Revisá el adelanto", "El adelanto no puede ser mayor que el total del evento.");
+      return;
+    }
+
+    setGuardando(true);
+
+    // Chequeo suave de capacidad y cupo, igual que la web: no frena
+    // condiciones de carrera (eso lo hace la base al confirmar), pero
+    // da el mensaje bueno antes del error críptico del trigger.
+    const { data: negocio } = await supabase
+      .from("ranchos")
+      .select("eventos_por_dia, capacidad_max")
+      .eq("id", id)
+      .maybeSingle();
+    const capacidad = (negocio?.capacidad_max as number | null) ?? null;
+    if (capacidad && invitados > capacidad) {
+      setGuardando(false);
+      Alert.alert("Demasiadas personas", `Este lugar recibe hasta ${capacidad} personas.`);
+      return;
+    }
+    // Un lugar sin `eventos_por_dia` configurado atiende 1 evento por
+    // día — el mismo default que usa la web para la categoría.
+    const cupo = (negocio?.eventos_por_dia as number | null) ?? 1;
+    const { count } = await supabase
+      .from("reservas")
+      .select("id", { count: "exact", head: true })
+      .eq("rancho_id", id)
+      .eq("fecha", seleccion)
+      .in("estado", ["pendiente", "confirmada"]);
+    if ((count ?? 0) >= cupo) {
+      setGuardando(false);
+      Alert.alert(
+        "Fecha ocupada",
+        cupo === 1
+          ? "Esa fecha ya tiene una reserva pendiente o confirmada."
+          : `Esa fecha ya tiene ${cupo} reservas — es tu cupo del día.`,
+      );
+      return;
+    }
+
+    const { data: creada, error: errorInsert } = await supabase
+      .from("reservas")
+      .insert({
+        rancho_id: id,
+        fecha: seleccion,
+        estado: "pendiente",
+        origen: "manual",
+        nombre,
+        tipo_evento: borrador.tipoEvento.trim().slice(0, 60) || null,
+        invitados,
+        notas: borrador.notas.trim().slice(0, 500) || null,
+        monto_total: monto,
+        deposito_monto: adelanto,
+      })
+      .select("id")
+      .single();
+    if (errorInsert || !creada) {
+      setGuardando(false);
+      if (errorInsert?.code === "23505") {
+        Alert.alert("Fecha ocupada", "Esa fecha ya está tomada.");
+      } else {
+        Alert.alert("No se pudo", "No se pudo crear la reserva: " + (errorInsert?.message ?? "error"));
+      }
+      return;
+    }
+    const reservaId = (creada as { id: string }).id;
+
+    const { error: errorConfirmar } = await supabase
+      .from("reservas")
+      .update({ estado: "confirmada" })
+      .eq("id", reservaId)
+      .eq("rancho_id", id);
+    if (errorConfirmar) {
+      // Igual que el bloqueo: sin DELETE, el borrador se rechaza.
+      await supabase
+        .from("reservas")
+        .update({ estado: "rechazada", cancelada_en: new Date().toISOString() })
+        .eq("id", reservaId)
+        .eq("rancho_id", id);
+      setGuardando(false);
+      if (errorConfirmar.code === "23505") {
+        Alert.alert("Fecha ocupada", "Esa fecha ya está tomada.");
+      } else {
+        Alert.alert("No se pudo", "No se pudo confirmar la reserva: " + errorConfirmar.message);
+      }
+      return;
+    }
+
+    setGuardando(false);
+    setCreando(false);
+    setBorrador(RESERVA_VACIA);
+    await cargar();
+  }
+
+  function cambiarBorrador(cambio: Partial<BorradorReserva>) {
+    setBorrador((b) => ({ ...b, ...cambio }));
+  }
+
   const delDia = seleccion ? (porFecha.get(seleccion) ?? []) : [];
 
   return (
@@ -270,7 +500,7 @@ export default function AgendaLugar({ id }: { id: string }) {
                 return (
                   <Pressable
                     key={i}
-                    onPress={() => setSeleccion(elegida ? null : fecha)}
+                    onPress={() => elegirDia(elegida ? null : fecha)}
                     accessibilityLabel={`${fechaLarga(fecha)}${lista ? ` — ${lista.length} reserva${lista.length === 1 ? "" : "s"}` : " — libre"}`}
                     style={[
                       styles.celda,
@@ -317,13 +547,121 @@ export default function AgendaLugar({ id }: { id: string }) {
         <Tarjeta style={styles.panelDia}>
           <View style={styles.encabezadoDia}>
             <Text style={styles.tituloDia}>{fechaLarga(seleccion)}</Text>
-            <Pressable onPress={() => setSeleccion(null)} hitSlop={8}>
+            <Pressable onPress={() => elegirDia(null)} hitSlop={8}>
               <Text style={styles.cerrarDia}>Cerrar</Text>
             </Pressable>
           </View>
 
           {delDia.length === 0 ? (
-            <Text style={styles.libreTexto}>Este día está libre.</Text>
+            <View style={{ gap: Spacing.two + 2 }}>
+              <Text style={styles.libreTexto}>Este día está libre.</Text>
+
+              <View style={styles.accionesLibre}>
+                <Boton
+                  texto="Bloquear este día"
+                  tono="contorno"
+                  icono="lock-closed-outline"
+                  compacto
+                  cargando={guardando && !creando}
+                  deshabilitado={guardando && creando}
+                  onPress={confirmarBloqueo}
+                />
+                <Boton
+                  texto={creando ? "Cerrar" : "Cargar reserva"}
+                  tono="navy"
+                  icono={creando ? "close" : "add"}
+                  compacto
+                  deshabilitado={guardando}
+                  onPress={() => setCreando(!creando)}
+                />
+              </View>
+
+              {creando && (
+                <View style={styles.formulario}>
+                  <Micro>Nueva reserva — {seleccion}</Micro>
+
+                  <Text style={styles.campoEtiqueta}>Cliente</Text>
+                  <TextInput
+                    value={borrador.nombre}
+                    onChangeText={(v) => cambiarBorrador({ nombre: v })}
+                    placeholder="Nombre (obligatorio)"
+                    placeholderTextColor={Colors.inkMuted}
+                    maxLength={120}
+                    style={styles.input}
+                  />
+
+                  <Text style={styles.campoEtiqueta}>Tipo de evento</Text>
+                  <TextInput
+                    value={borrador.tipoEvento}
+                    onChangeText={(v) => cambiarBorrador({ tipoEvento: v })}
+                    placeholder="Ej. Boda, cumpleaños"
+                    placeholderTextColor={Colors.inkMuted}
+                    maxLength={60}
+                    style={styles.input}
+                  />
+
+                  <View style={styles.filaCampos}>
+                    <View style={styles.campo}>
+                      <Text style={styles.campoEtiqueta}>Invitados</Text>
+                      <TextInput
+                        value={borrador.invitados}
+                        onChangeText={(v) => cambiarBorrador({ invitados: v })}
+                        placeholder="50"
+                        placeholderTextColor={Colors.inkMuted}
+                        keyboardType="number-pad"
+                        maxLength={5}
+                        style={styles.input}
+                      />
+                    </View>
+                    <View style={styles.campo}>
+                      <Text style={styles.campoEtiqueta}>Monto en ₡</Text>
+                      <TextInput
+                        value={borrador.monto}
+                        onChangeText={(v) => cambiarBorrador({ monto: v })}
+                        placeholder="250000"
+                        placeholderTextColor={Colors.inkMuted}
+                        keyboardType="number-pad"
+                        maxLength={9}
+                        style={styles.input}
+                      />
+                    </View>
+                    <View style={styles.campo}>
+                      <Text style={styles.campoEtiqueta}>Adelanto en ₡</Text>
+                      <TextInput
+                        value={borrador.adelanto}
+                        onChangeText={(v) => cambiarBorrador({ adelanto: v })}
+                        placeholder="0"
+                        placeholderTextColor={Colors.inkMuted}
+                        keyboardType="number-pad"
+                        maxLength={9}
+                        style={styles.input}
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={styles.campoEtiqueta}>Notas (solo las ves vos)</Text>
+                  <TextInput
+                    value={borrador.notas}
+                    onChangeText={(v) => cambiarBorrador({ notas: v })}
+                    placeholder="Ej. Pagan el resto el día del evento"
+                    placeholderTextColor={Colors.inkMuted}
+                    maxLength={500}
+                    style={styles.input}
+                  />
+
+                  <Boton
+                    texto="Guardar reserva"
+                    tono="reservar"
+                    icono="checkmark"
+                    cargando={guardando}
+                    onPress={() => {
+                      void guardarReserva();
+                    }}
+                    style={{ marginTop: Spacing.one }}
+                  />
+                </View>
+              )}
+            </View>
           ) : (
             <View style={{ gap: Spacing.two + 2 }}>
               {delDia.map((r) => (
@@ -470,6 +808,35 @@ const styles = StyleSheet.create({
   tituloDia: { color: Colors.ink, flex: 1, fontFamily: Fonts.extraBold, fontSize: 14, textTransform: "capitalize" },
   cerrarDia: { color: Colors.inkSoft, fontFamily: Fonts.bold, fontSize: 12.5 },
   libreTexto: { color: Colors.inkSoft, fontFamily: Fonts.medium, fontSize: 13 },
+  accionesLibre: { flexDirection: "row", flexWrap: "wrap", gap: Spacing.two },
+  // El formulario inline de la reserva manual — mismos huesos que el
+  // walk-in de la agenda de citas (`agenda.tsx`).
+  formulario: {
+    backgroundColor: Colors.cream,
+    borderRadius: Radios.md,
+    gap: Spacing.two + 2,
+    padding: Spacing.two + 4,
+  },
+  campoEtiqueta: {
+    color: Colors.inkSoft,
+    fontFamily: Fonts.semiBold,
+    fontSize: 10.5,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  filaCampos: { flexDirection: "row", gap: Spacing.two },
+  campo: { flex: 1, gap: 4 },
+  input: {
+    backgroundColor: "#ffffff",
+    borderColor: Colors.lineFuerte,
+    borderRadius: Radios.sm,
+    borderWidth: 1,
+    color: Colors.ink,
+    fontFamily: Fonts.medium,
+    fontSize: 14,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 10,
+  },
   filaReserva: {
     backgroundColor: Colors.cream,
     borderRadius: Radios.md,
