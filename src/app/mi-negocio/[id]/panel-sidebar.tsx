@@ -6,10 +6,15 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { IconChevronDown } from "@/components/icons";
 import {
   RADIO_PILDORA,
+  RAIL_DISCO_AMPLIO,
   RAIL_DISCO_ITEM,
   RAIL_GRUPO,
   RAIL_ITEM,
   RAIL_ITEM_ACTIVO,
+  RAIL_ITEM_AMPLIO,
+  RAIL_ITEM_AMPLIO_REPOSO,
+  RAIL_ITEM_BLOQUEADO,
+  RAIL_ITEM_PIE,
   RAIL_TARJETA,
 } from "@/components/panel/sistema";
 import { GRUPO_LABEL, type GrupoId } from "@/lib/business/modulos";
@@ -59,6 +64,24 @@ export type Tab = {
    * avisar.
    */
   alias?: string[];
+  /**
+   * UNA línea que dice qué hay adentro («Diseño, portada y contacto»).
+   *
+   * Con esto presente en algún tab, el rail entero pasa a MODO AMPLIO
+   * (Solutions, sep 2026): cada sección es una card más grande con su
+   * ícono en disco, el nombre y esta línea. Pedido del dueño: «cards
+   * más grandes, más claro, más entendible». Los paneles que no la
+   * pasan siguen con el ítem compacto de siempre.
+   */
+  descripcion?: string;
+  /**
+   * La sección existe pero el negocio no la tiene prendida (un add-on
+   * apagado). Se pinta como card punteada con su etiqueta y, al
+   * tocarla, lleva a la pestaña donde se agrega (`destino`) — no a una
+   * pantalla vacía. Se muestra en vez de esconderse por lo mismo que
+   * `proximamente`: el rail explica qué falta.
+   */
+  bloqueado?: { etiqueta: string; pie: string; destino: string };
 };
 
 /** El id de pestaña real detrás de un `?tab=` (propio o heredado). */
@@ -98,6 +121,7 @@ export default function PanelSidebar({
   identidad,
   encabezado,
   acento,
+  pie,
 }: {
   tabs: Tab[];
   defaultTab: string;
@@ -117,6 +141,8 @@ export default function PanelSidebar({
    * medido en identidad.ts.
    */
   acento?: Record<string, string>;
+  /** Lo que va al pie de la columna, debajo del menú (atajos). Solo en escritorio. */
+  pie?: ReactNode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -167,7 +193,9 @@ export default function PanelSidebar({
   // una sección de Configuración llevan `?query` en el href y por eso
   // nunca matchean: el activo en ese caso es la pestaña a la que caen.
   const esActivo = (t: Tab) =>
-    !t.proximamente && (t.href ? !t.href.includes("?") && pathname.startsWith(t.href) : activo === t.id);
+    !t.proximamente &&
+    !t.bloqueado &&
+    (t.href ? !t.href.includes("?") && pathname.startsWith(t.href) : activo === t.id);
 
   // Los encabezados de bloque (AGENDA, GESTIÓN, CLÍNICO, FITNESS…) solo
   // aparecen cuando el menú de verdad los necesita: con cuatro ítems
@@ -178,11 +206,14 @@ export default function PanelSidebar({
   const tabsVisibles = tabs.filter((t) => !t.oculto);
   const gruposDistintos = new Set(tabsVisibles.map((t) => t.grupo).filter(Boolean)).size;
   const conEncabezados = gruposDistintos > 1 && tabsVisibles.length > 4;
+  // Modo amplio: lo decide el llamador con los datos, no con una prop
+  // aparte — si describe sus secciones, quiere que se lean.
+  const amplio = tabsVisibles.some((t) => !!t.descripcion);
 
   function itemsNav(alCerrar: () => void) {
     let grupoPintado: GrupoId | undefined;
     return (
-      <nav className="flex flex-col gap-1">
+      <nav className={`flex flex-col ${amplio ? "gap-2" : "gap-1"}`}>
         {tabsVisibles.map((t) => {
           const activa = esActivo(t);
           const abreGrupo = conEncabezados && !!t.grupo && t.grupo !== grupoPintado;
@@ -203,7 +234,8 @@ export default function PanelSidebar({
           // quedan igual: son más simples de medir y no hay motivo para
           // volver a un alfa. `--color-aventurea-rail` da 7,06:1 sobre
           // el fondo plano y `navy-3` con letra blanca da 8,31:1.
-          const base = RAIL_ITEM;
+          const bloq = t.bloqueado;
+          const base = amplio ? RAIL_ITEM_AMPLIO : RAIL_ITEM;
           // El ACTIVO es una card (rediseño sep 2026): superficie
           // blanca elevada con tinta navy (RAIL_ITEM_ACTIVO) — antes
           // era un relleno sólido del acento del rubro. El color del
@@ -211,23 +243,44 @@ export default function PanelSidebar({
           // par `--acento-solido`/`--acento-sobre` ya está medido
           // ≥5,18:1 (identidad.test.ts). Ningún alfa marca estado y la
           // card se lee igual caiga donde caiga en la columna.
+          //
+          // En modo AMPLIO el reposo también es una card (tenue) y una
+          // sección bloqueada es una card punteada: tres estados, tres
+          // superficies, ningún color de texto a medias.
           const cls = t.proximamente
             ? `${base} cursor-default text-aventurea-rail`
-            : `${base} ${
-                activa
-                  ? RAIL_ITEM_ACTIVO
-                  : "text-aventurea-rail hover:bg-aventurea-navy-3 hover:text-white"
-              }`;
+            : bloq
+              ? `${base} ${RAIL_ITEM_BLOQUEADO}`
+              : `${base} ${
+                  activa
+                    ? RAIL_ITEM_ACTIVO
+                    : amplio
+                      ? RAIL_ITEM_AMPLIO_REPOSO
+                      : "text-aventurea-rail hover:bg-aventurea-navy-3 hover:text-white"
+                }`;
           const estiloDisco: CSSProperties = {
             background: "var(--acento-solido, var(--color-aventurea-navy-3))",
             color: "var(--acento-sobre, #ffffff)",
           };
+          const disco = amplio ? RAIL_DISCO_AMPLIO : RAIL_DISCO_ITEM;
           const contenidoItem = (
             <>
               {t.icon &&
                 (activa ? (
-                  <span className={RAIL_DISCO_ITEM} style={estiloDisco}>
-                    <span className="[&_svg]:h-[17px] [&_svg]:w-[17px]">{t.icon}</span>
+                  <span className={disco} style={estiloDisco}>
+                    <span className="[&_svg]:h-[18px] [&_svg]:w-[18px]">{t.icon}</span>
+                  </span>
+                ) : amplio ? (
+                  // En reposo el disco también existe, sin el acento:
+                  // navy-3 con el ícono blanco (8,31:1). Así todas las
+                  // cards tienen la misma anatomía y la activa se
+                  // distingue por la superficie, no por tener disco.
+                  <span
+                    className={`${disco} ${
+                      bloq ? "border border-dashed border-white/25 text-aventurea-rail" : "bg-aventurea-navy-3 text-white"
+                    }`}
+                  >
+                    <span className="[&_svg]:h-[18px] [&_svg]:w-[18px]">{t.icon}</span>
                   </span>
                 ) : (
                   <span className="shrink-0 [&_svg]:h-[18px] [&_svg]:w-[18px]">{t.icon}</span>
@@ -235,7 +288,14 @@ export default function PanelSidebar({
               {/* text-left explícito: los <button> centran su texto por
                   defecto y los <Link> no — sin esto el menú quedaba
                   desalineado entre ítems con y sin href. */}
-              <span className="flex-1 truncate text-left">{t.label}</span>
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block truncate">{t.label}</span>
+                {amplio && (bloq || t.descripcion) && (
+                  <span className={`${RAIL_ITEM_PIE} ${activa ? "text-aventurea-ink-soft" : "text-aventurea-rail"}`}>
+                    {bloq ? bloq.pie : t.descripcion}
+                  </span>
+                )}
+              </span>
               {t.proximamente && (
                 <span
                   className={`${RADIO_PILDORA} shrink-0 border border-aventurea-navy-3 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-aventurea-rail`}
@@ -243,14 +303,20 @@ export default function PanelSidebar({
                   Pronto
                 </span>
               )}
+              {bloq && (
+                <span
+                  className={`${RADIO_PILDORA} shrink-0 border border-white/25 px-1.5 py-0.5 text-[9px] font-extrabold uppercase leading-none tracking-wide text-aventurea-rail`}
+                >
+                  {bloq.etiqueta}
+                </span>
+              )}
               {/* Blanco sólido con letra navy (13,88:1) y no el celeste
                   con letra blanca de antes: ese par daba 4,42:1 —bajo AA
                   para 10,5px— y encima el celeste sobre la columna navy
                   casi no se despegaba del fondo. El contador es lo único
-                  que tiene que saltar del menú. */}
-              {/* Sobre la card blanca del activo, el contador se
-                  invierte (navy con letra blanca) — blanco sobre blanco
-                  desaparecería. */}
+                  que tiene que saltar del menú. Sobre la card blanca del
+                  activo se invierte (navy con letra blanca) — blanco
+                  sobre blanco desaparecería. */}
               {!!t.badge && t.badge > 0 && (
                 <span
                   className={`${RADIO_PILDORA} shrink-0 px-1.5 py-0.5 text-[10.5px] font-extrabold leading-none ${
@@ -269,6 +335,12 @@ export default function PanelSidebar({
             <span className={cls} title={`${t.label} viene en camino — todavía no se puede abrir.`}>
               {contenidoItem}
             </span>
+          ) : bloq ? (
+            // Lleva a donde se agrega, no a la sección: la card existe
+            // para explicar qué falta, no para abrir una pantalla vacía.
+            <button type="button" onClick={() => cambiar(bloq.destino)} className={cls} title={bloq.pie}>
+              {contenidoItem}
+            </button>
           ) : t.href ? (
             <Link href={t.href} className={cls} onClick={alCerrar}>
               {contenidoItem}
@@ -361,6 +433,7 @@ export default function PanelSidebar({
         {/* Desktop: el menú, ya sin tarjeta propia — la columna entera es
             la tarjeta. */}
         <aside className="hidden lg:block">{itemsNav(() => {})}</aside>
+        {pie && <div className="mt-4 hidden lg:block">{pie}</div>}
 
         {/* EL MENÚ EN EL TELÉFONO: botón con la sección activa que
             despliega la lista justo debajo — mismo patrón que el
@@ -468,7 +541,7 @@ export default function PanelSidebar({
           {/* Los `href` navegan a otra pantalla y los `proximamente` no
               tienen contenido: ninguno de los dos monta nada acá. */}
           {tabs
-            .filter((t) => !t.href && !t.proximamente)
+            .filter((t) => !t.href && !t.proximamente && !t.bloqueado)
             .map((t) => (
               <div key={t.id} className={activo === t.id ? "" : "hidden"}>
                 {t.content}

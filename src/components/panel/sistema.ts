@@ -437,6 +437,36 @@ export const RAIL_ITEM_ACTIVO = "bg-white text-aventurea-navy shadow-elevado";
 export const RAIL_DISCO_ITEM =
   "grid h-8 w-8 shrink-0 place-items-center rounded-lg";
 
+/**
+ * ── EL RAIL EN MODO AMPLIO (Solutions, sep 2026) ──────────────────
+ * Pedido del dueño: «cards más grandes, más claro, más entendible».
+ * Cada sección es una CARD con su ícono en disco, el nombre y UNA
+ * línea que dice qué hay adentro. Se prende solo cuando algún tab
+ * trae `descripcion` (ver panel-sidebar.tsx); los paneles que no la
+ * pasan —mi-negocio— siguen con `RAIL_ITEM`, sin cambios.
+ *
+ * El reposo lleva `bg-white/[0.06]` y NO viola la regla de «cero
+ * alfa para marcar estado»: no marca un estado, es la superficie de
+ * una card decorativa sobre un fondo sólido y conocido (el rail), el
+ * mismo caso ya admitido para `RAIL_TARJETA`. El texto sigue siendo
+ * blanco sólido, y el estado activo se marca con la card blanca
+ * (`RAIL_ITEM_ACTIVO`), que es un par medido.
+ */
+export const RAIL_ITEM_AMPLIO =
+  "flex min-h-[64px] items-center gap-3.5 rounded-2xl border border-transparent px-3.5 py-3 text-[14.5px] font-extrabold transition-colors";
+export const RAIL_ITEM_AMPLIO_REPOSO =
+  "border-white/10 bg-white/[0.06] text-white hover:bg-aventurea-navy-3";
+/** Una sección que existe pero el negocio no tiene prendida (un
+ *  add-on): borde punteado, sin relleno, tinta del rail. Lleva a
+ *  donde se agrega, no a una pantalla vacía. */
+export const RAIL_ITEM_BLOQUEADO =
+  "border-dashed border-white/25 bg-transparent text-aventurea-rail hover:bg-aventurea-navy-3 hover:text-white";
+/** La línea bajo el nombre de la sección. El color lo decide el estado
+ *  (ink-soft sobre la card blanca; rail sobre el navy). */
+export const RAIL_ITEM_PIE = "mt-0.5 block truncate text-[11.5px] font-medium leading-snug";
+/** El disco del ícono en modo amplio: 40px, un escalón más que el compacto. */
+export const RAIL_DISCO_AMPLIO = "grid h-10 w-10 shrink-0 place-items-center rounded-xl";
+
 /** El rótulo de un grupo del menú (`.nav-label`). */
 export const RAIL_GRUPO =
   "px-3 pb-1 text-[10.5px] font-bold uppercase tracking-[0.14em] text-aventurea-rail";

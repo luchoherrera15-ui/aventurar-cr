@@ -20,6 +20,15 @@ import {
 } from "@/components/icons";
 import MockupsHero from "./mockups-hero";
 import { CLASES_FUENTES } from "./fuentes";
+import Telefono from "@/components/solutions/telefono";
+import VistaPagina from "@/components/solutions/vista-pagina";
+import {
+  MockupCarta,
+  MockupPase,
+  MockupPedidoWhatsapp,
+  MUESTRA_PAGINA,
+} from "@/components/solutions/mockup-pantallas";
+import { PRESETS } from "@/lib/solutions/temas";
 
 /**
  * /solutions — LOS PRODUCTOS DE BOOKEA PARA NEGOCIOS.
@@ -140,6 +149,72 @@ const PRODUCTOS = [
     Icono: IconStar,
   },
 ] as const;
+
+/**
+ * EL HEADER DE CADA CARD: el producto de verdad, en un teléfono.
+ *
+ * Pedido del dueño (4 sep 2026): «cards de lujo, profesionales, con
+ * imágenes en el header, uno de cada cosa». No son imágenes: es el
+ * MISMO renderizador que sirve /s/<slug> y las mismas maquetas del
+ * héroe, recortados por el header. Así la card muestra lo que el
+ * negocio va a tener —no una foto de stock de otro producto— y cambia
+ * sola cuando el producto cambia.
+ *
+ * Cada una con un vestido distinto a propósito: cuatro teléfonos
+ * iguales con distinto contenido se leen como una sola cosa; cuatro
+ * con tema, cara y acabado propios se leen como cuatro productos.
+ */
+function VisualProducto({ id }: { id: (typeof PRODUCTOS)[number]["id"] }) {
+  const ancho = 212;
+  if (id === "linkhub") {
+    return (
+      <Telefono ancho={ancho}>
+        <VistaPagina
+          inerte
+          className="min-h-full"
+          datos={{
+            ...MUESTRA_PAGINA,
+            colorAcento: PRESETS.noche.acentoSugerido,
+            tema: "noche",
+            estiloLinks: "grilla",
+            redondeo: "redondo",
+            fuente: "redonda",
+            efecto: "vidrio",
+            estiloPortada: "card",
+          }}
+        />
+      </Telefono>
+    );
+  }
+  if (id === "menu") {
+    return (
+      <Telefono ancho={ancho} tinta="#101828">
+        <MockupCarta tema="claro" redondeo="suave" acento={PRESETS.claro.acentoSugerido} fuente="editorial" />
+      </Telefono>
+    );
+  }
+  if (id === "pedidos") {
+    return (
+      <Telefono ancho={ancho}>
+        <MockupPedidoWhatsapp />
+      </Telefono>
+    );
+  }
+  return (
+    <Telefono ancho={ancho} tinta="#3b2c1c">
+      <MockupPase tema="crema" acento={PRESETS.crema.acentoSugerido} fuente="condensada" />
+    </Telefono>
+  );
+}
+
+/** El fondo del header de cada card: azules de la marca, y el crema
+ *  del pase para la tarjeta. Cero naranja, como en todo el panel. */
+const FONDO_HEADER: Record<(typeof PRODUCTOS)[number]["id"], string> = {
+  linkhub: "linear-gradient(135deg, #16295e 0%, #2f4a94 100%)",
+  menu: "linear-gradient(135deg, #dfe7f5 0%, #f4f6fb 100%)",
+  pedidos: "linear-gradient(135deg, #0b2447 0%, #1e4d8c 100%)",
+  lealtad: "linear-gradient(135deg, #efe4d3 0%, #f6efe4 100%)",
+};
 
 const PASOS = [
   {
@@ -291,47 +366,76 @@ export default function SolutionsPage() {
 
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {PRODUCTOS.map((p, i) => (
+            /* La card es una columna: header con el producto, cuerpo que
+               crece, y el botón pegado abajo con `mt-auto`. Es lo que
+               deja los cuatro botones a la MISMA altura aunque una card
+               tenga tres puntos y otra cuatro — antes cada botón caía
+               donde terminaba su texto. */
             <article
               key={p.id}
               id={p.id}
               data-reveal
               style={retraso(i)}
-              className="elevar flex flex-col rounded-[18px] border border-aventurea-line bg-white p-6 shadow-plano"
+              className="elevar flex flex-col overflow-hidden rounded-[18px] border border-aventurea-line bg-white shadow-plano"
             >
-              <span
-                aria-hidden
-                className="grid h-12 w-12 place-items-center rounded-2xl"
-                style={{ background: "var(--accion-suave)", color: "var(--accion)" }}
-              >
-                <p.Icono className="h-[22px] w-[22px]" />
-              </span>
-              <p
-                className="mt-5 text-[11px] font-extrabold uppercase tracking-[0.16em]"
-                style={{ color: "var(--accion)" }}
-              >
-                {p.kicker} · <span className="text-aventurea-ink">{p.precio}</span>
-              </p>
-              <h3 className="titulo mt-1.5 text-[22px] leading-tight text-aventurea-navy">
-                {p.titulo}
-              </h3>
-              <p className="mt-3 text-[14.5px] leading-relaxed text-aventurea-ink-soft">{p.bajada}</p>
-              <ul className="mt-4 flex flex-col gap-2 text-[13.5px] text-aventurea-ink">
-                {p.puntos.map((punto) => (
-                  <li key={punto} className="flex gap-2">
-                    <span aria-hidden style={{ color: "var(--accion)" }}>
-                      ✓
-                    </span>
-                    <span>{punto}</span>
-                  </li>
-                ))}
-              </ul>
-              <Link
-                href={p.cta.href}
-                className="presionable mt-6 inline-flex min-h-[44px] items-center justify-center rounded-xl px-5 text-[14px] font-extrabold text-white"
-                style={{ background: NAVY }}
-              >
-                {p.cta.label} →
-              </Link>
+              <div className="relative h-[236px] overflow-hidden" style={{ background: FONDO_HEADER[p.id] }}>
+                {/* El teléfono asoma desde abajo, apenas girado: lo que
+                    se ve es la parte alta de la pantalla, que es donde
+                    cada producto muestra lo suyo. */}
+                <div
+                  aria-hidden
+                  className="absolute left-1/2 top-7"
+                  style={{ transform: "translateX(-50%) rotate(-4deg)" }}
+                >
+                  <VisualProducto id={p.id} />
+                </div>
+                {/* El «logo» del producto, sobre el header, como una
+                    marca sobre su portada. */}
+                <span
+                  aria-hidden
+                  className="absolute bottom-4 left-5 grid h-12 w-12 place-items-center rounded-2xl bg-white text-aventurea-navy shadow-elevado"
+                >
+                  <p.Icono className="h-[22px] w-[22px]" />
+                </span>
+                <span className="absolute right-4 top-4 rounded-full bg-white px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-[0.1em] text-aventurea-navy shadow-plano">
+                  {p.precio}
+                </span>
+              </div>
+
+              <div className="flex flex-1 flex-col p-6">
+                <p
+                  className="text-[11px] font-extrabold uppercase tracking-[0.16em]"
+                  style={{ color: "var(--accion)" }}
+                >
+                  {p.kicker}
+                </p>
+                <h3 className="titulo mt-1.5 text-[21px] leading-tight text-aventurea-navy">
+                  {p.titulo}
+                </h3>
+                <p className="mt-3 text-[14px] leading-relaxed text-aventurea-ink-soft">{p.bajada}</p>
+                <ul className="mt-4 flex flex-col gap-2 text-[13.5px] text-aventurea-ink">
+                  {p.puntos.map((punto) => (
+                    <li key={punto} className="flex gap-2">
+                      <span aria-hidden style={{ color: "var(--accion)" }}>
+                        ✓
+                      </span>
+                      <span>{punto}</span>
+                    </li>
+                  ))}
+                </ul>
+                {/* `mt-auto` en el envoltorio y no en el botón: el
+                    envoltorio absorbe el aire sobrante y el `pt-6` deja
+                    la separación mínima con la lista. */}
+                <div className="mt-auto pt-6">
+                  <Link
+                    href={p.cta.href}
+                    className="presionable flex min-h-[46px] w-full items-center justify-center rounded-xl px-5 text-[14px] font-extrabold text-white"
+                    style={{ background: NAVY }}
+                  >
+                    {p.cta.label} →
+                  </Link>
+                </div>
+              </div>
             </article>
           ))}
         </div>

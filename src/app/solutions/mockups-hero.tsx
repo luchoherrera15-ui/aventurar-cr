@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Telefono from "@/components/solutions/telefono";
-import VistaPagina, { type DatosPagina } from "@/components/solutions/vista-pagina";
-import { MockupCarta, MockupPase } from "@/components/solutions/mockup-pantallas";
+import VistaPagina from "@/components/solutions/vista-pagina";
+import { MockupCarta, MockupPase, MUESTRA_PAGINA as MUESTRA } from "@/components/solutions/mockup-pantallas";
 import {
   PRESETS,
   paletaDelTema,
@@ -39,29 +39,6 @@ import {
  * componente que sirve /s/<slug>. Los de los lados sí son maquetas, y
  * el porqué de cada una está en `mockup-pantallas.tsx`.
  */
-
-const MUESTRA: Omit<
-  DatosPagina,
-  "tema" | "estiloLinks" | "redondeo" | "colorAcento" | "fuente" | "efecto" | "estiloPortada"
-> = {
-  nombre: "Casa Nostra",
-  bajada: "Pastas caseras, horno de leña y vinos de la casa.",
-  logoUrl: null,
-  fotoPortadaUrl: null,
-  whatsapp: "88887777",
-  direccion: "Av. Principal 123",
-  colorFondo: "#0a1226",
-  links: [
-    { id: "1", etiqueta: "Reservar con descuento", url: "#", icono: "reservar" },
-    { id: "2", etiqueta: "Pedir para recoger", url: "#", icono: "tienda" },
-    { id: "3", etiqueta: "Cómo llegar", url: "#", icono: "mapa" },
-    { id: "4", etiqueta: "Escribinos", url: "#", icono: "whatsapp" },
-  ],
-  seccionesMenu: ["Entradas", "Pastas", "Postres"],
-  hayMenu: true,
-  aceptaPedidos: true,
-  mesa: null,
-};
 
 /**
  * Los tres del abanico: el del medio manda, los de los lados acompañan.

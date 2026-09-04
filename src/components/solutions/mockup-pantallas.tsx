@@ -1,4 +1,5 @@
 import { IconCheck, IconCloche, IconStar } from "@/components/icons";
+import type { DatosPagina } from "./vista-pagina";
 import {
   paletaDelTema,
   pilaFuente,
@@ -37,6 +38,36 @@ import {
  * tres igual que a /s/<slug> — y por eso una cara nueva en la 0232
  * aparece acá sola, sin tocar este archivo.
  */
+
+/**
+ * EL NEGOCIO DE MUESTRA — «Casa Nostra».
+ *
+ * Una sola muestra para el héroe y para las cards de la landing: si
+ * cambia el nombre o un enlace, cambia en todos lados a la vez. Lo que
+ * cada pantalla decide aparte es el vestido (tema, cara, acabado).
+ */
+export const MUESTRA_PAGINA: Omit<
+  DatosPagina,
+  "tema" | "estiloLinks" | "redondeo" | "colorAcento" | "fuente" | "efecto" | "estiloPortada"
+> = {
+  nombre: "Casa Nostra",
+  bajada: "Pastas caseras, horno de leña y vinos de la casa.",
+  logoUrl: null,
+  fotoPortadaUrl: null,
+  whatsapp: "88887777",
+  direccion: "Av. Principal 123",
+  colorFondo: "#0a1226",
+  links: [
+    { id: "1", etiqueta: "Reservar con descuento", url: "#", icono: "reservar" },
+    { id: "2", etiqueta: "Pedir para recoger", url: "#", icono: "tienda" },
+    { id: "3", etiqueta: "Cómo llegar", url: "#", icono: "mapa" },
+    { id: "4", etiqueta: "Escribinos", url: "#", icono: "whatsapp" },
+  ],
+  seccionesMenu: ["Entradas", "Pastas", "Postres"],
+  hayMenu: true,
+  aceptaPedidos: true,
+  mesa: null,
+};
 
 const PLATOS = [
   { n: "Tagliatelle al ragú", d: "Ocho horas de cocción lenta", p: "₡8 900" },
@@ -256,6 +287,72 @@ export function MockupPase({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * EL PEDIDO EN EL CHAT — cómo le llega al negocio por WhatsApp (0233).
+ *
+ * Los colores son los de WhatsApp (fondo, cabecera, burbuja saliente)
+ * y no los del sistema, a propósito: la card vende «te llega por
+ * WhatsApp», y para que eso se lea de un vistazo tiene que PARECER
+ * WhatsApp. Es la única pantalla de Solutions con colores de un
+ * tercero, y solo vive en la vitrina.
+ *
+ * El mensaje es el mismo formato que arma `whatsapp.ts`: título en
+ * negrita, modalidad, renglones, total, datos del cliente en orden
+ * fijo. Si aquello cambia, esto debería cambiar igual.
+ */
+export function MockupPedidoWhatsapp({ nombre = "Casa Nostra" }: { nombre?: string }) {
+  const inicial = nombre.trim().charAt(0).toUpperCase();
+  return (
+    <div className="flex min-h-full flex-col pt-11" style={{ background: "#0b141a", color: "#e9edef" }}>
+      <div className="flex items-center gap-2.5 px-3 py-2" style={{ background: "#1f2c34" }}>
+        <span
+          aria-hidden
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-extrabold"
+          style={{ background: "#25d366", color: "#0b141a" }}
+        >
+          {inicial}
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[12.5px] font-extrabold leading-tight">{nombre}</span>
+          <span className="block text-[9.5px] opacity-70">en línea</span>
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-2 px-3 pb-4 pt-3">
+        <div
+          className="ml-auto w-[94%] rounded-2xl rounded-tr-sm px-3 py-2 text-[10.5px] leading-[1.45]"
+          style={{ background: "#005c4b" }}
+        >
+          <p className="font-extrabold">Pedido #A1B2 · {nombre}</p>
+          <p className="opacity-90">Exprés</p>
+          <p className="mt-1.5">
+            2× Tagliatelle al ragú — ₡17 800
+            <br />
+            1× Burrata con tomate — ₡6 400
+            <br />
+            Envío — ₡1 500
+          </p>
+          <p className="font-extrabold">Total: ₡25 700</p>
+          <p className="mt-1.5">
+            Nombre: Luis
+            <br />
+            Teléfono: 8888 7777
+            <br />
+            Dirección: Escazú, 200 m sur del parque
+            <br />
+            Pago: Efectivo
+          </p>
+          <p className="mt-1 text-right text-[8.5px] opacity-60">9:41 ✓✓</p>
+        </div>
+        <div className="mr-auto max-w-[82%] rounded-2xl rounded-tl-sm px-3 py-2 text-[10.5px]" style={{ background: "#1f2c34" }}>
+          ¡Recibido, Luis! Sale en 25 min.
+          <span className="ml-2 text-[8.5px] opacity-60">9:42</span>
+        </div>
+      </div>
     </div>
   );
 }

@@ -119,6 +119,7 @@ export default async function PanelSolutionsPage({
     {
       id: "inicio",
       label: "Inicio",
+      descripcion: "Tu tablero y tus add-ons",
       icon: <IconHome />,
       content: (
         <SeccionInicio
@@ -136,10 +137,17 @@ export default async function PanelSolutionsPage({
     },
   ];
 
+  /** Una sección que es un add-on apagado: se ve, pero lleva a Inicio. */
+  // «Sumalo en Inicio» y no «Agregalo desde Inicio»: al lado de la
+  // etiqueta ADD-ON, en la columna de 252 px, la frase larga se cortaba
+  // en «Agregalo desde…» y dejaba de decir a dónde.
+  const bloqueada = { etiqueta: "Add-on", pie: "Sumalo en Inicio", destino: "inicio" };
+
   if (addons.pedidos) {
     tabs.push({
       id: "comandas",
       label: "Comandas",
+      descripcion: "Los pedidos que van llegando",
       icon: <IconClipboard />,
       badge: vivas,
       content: (
@@ -153,6 +161,8 @@ export default async function PanelSolutionsPage({
         />
       ),
     });
+  } else {
+    tabs.push({ id: "comandas", label: "Comandas", icon: <IconClipboard />, bloqueado: bloqueada });
   }
 
   if (acceso.puedeEditar) {
@@ -160,6 +170,7 @@ export default async function PanelSolutionsPage({
       {
         id: "pagina",
         label: "Mi página",
+        descripcion: "Diseño, portada y contacto",
         icon: <IconTagLine />,
         content: (
           <SeccionPagina
@@ -176,6 +187,7 @@ export default async function PanelSolutionsPage({
       {
         id: "links",
         label: "Enlaces",
+        descripcion: "Las puertas de tu página",
         icon: <IconEnlace />,
         content: <SeccionLinks negocioId={id} links={links} />,
       },
@@ -184,47 +196,62 @@ export default async function PanelSolutionsPage({
       tabs.push({
         id: "menu",
         label: "Menú digital",
+        descripcion: "Secciones, platos y precios",
         icon: <IconCloche />,
         badge: menu.items.length,
         content: <SeccionMenu negocioId={id} menu={menu} />,
       });
+    } else {
+      tabs.push({ id: "menu", label: "Menú digital", icon: <IconCloche />, bloqueado: bloqueada });
     }
     if (addons.pedidos && negocio.acepta_pedidos) {
       tabs.push({
         id: "mesas",
         label: "QR de mesas",
+        descripcion: "La hoja para imprimir",
         icon: <IconChair />,
         href: `/solutions/panel/${id}/mesas`,
       });
+    } else if (!addons.pedidos) {
+      tabs.push({ id: "mesas", label: "QR de mesas", icon: <IconChair />, bloqueado: bloqueada });
     }
     tabs.push({
       id: "equipo",
       label: "Equipo",
+      descripcion: "Quién entra a este panel",
       icon: <IconUsers />,
       badge: equipo.length,
       content: <SeccionEquipo negocioId={id} colaboradores={equipo} esDueno={acceso.esDueno} />,
     });
   }
 
+  /* La cabecera del rail (sep 2026, «cards más grandes»): logo de 56,
+     nombre a 16px, el estado como píldora blanca y el enlace público
+     como BOTÓN de 44px — antes era un texto chico subrayado que nadie
+     encontraba. Es la única acción del rail que abre otra pestaña. */
   const identidad = (
-    <div className="rounded-2xl border border-white/10 bg-white/[.06] p-4 text-white">
-      <div className="flex items-center gap-3">
+    <div className="p-1.5 text-white">
+      <div className="flex items-center gap-3.5">
         {negocio.logo_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={negocio.logo_url} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
+          <img src={negocio.logo_url} alt="" className="h-14 w-14 shrink-0 rounded-2xl object-cover" />
         ) : (
           <span
             aria-hidden
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-[18px] font-extrabold"
+            className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl text-[22px] font-extrabold"
             style={{ background: negocio.color_acento, color: "#10192e" }}
           >
             {negocio.nombre.trim().charAt(0).toUpperCase()}
           </span>
         )}
         <div className="min-w-0">
-          <p className="truncate text-[15px] font-extrabold leading-tight">{negocio.nombre}</p>
-          <p className="mt-0.5 text-[11.5px] text-aventurea-rail">
-            {negocio.publicado ? "● Publicado" : "○ Apagado"} · Solutions
+          <p className="truncate text-[16px] font-extrabold leading-tight">{negocio.nombre}</p>
+          <p className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg bg-white px-2 py-0.5 text-[11px] font-extrabold text-aventurea-navy">
+            <span
+              aria-hidden
+              className={`h-1.5 w-1.5 rounded-full ${negocio.publicado ? "bg-green-600" : "bg-aventurea-ink-soft"}`}
+            />
+            {negocio.publicado ? "Publicada" : "Apagada"}
           </p>
         </div>
       </div>
@@ -232,12 +259,34 @@ export default async function PanelSolutionsPage({
         href={urlPublica}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-3 block truncate text-[12px] font-bold text-aventurea-rail underline-offset-2 hover:underline"
+        className="presionable mt-3.5 flex min-h-[44px] items-center justify-between gap-2 rounded-xl bg-white px-3.5 text-[13px] font-extrabold text-aventurea-navy"
       >
-        {urlPublica.replace(/^https?:\/\//, "")} →
+        <span className="truncate">{urlPublica.replace(/^https?:\/\//, "")}</span>
+        <span aria-hidden className="shrink-0">
+          →
+        </span>
       </a>
     </div>
   );
+
+  /* El pie del rail: un solo atajo, y solo mientras haya algo que
+     agregar. Cuando el negocio tiene todo prendido, desaparece. */
+  const faltanAddons = !addons.menu || !addons.pedidos || !addons.lealtad;
+  const pie =
+    acceso.puedeEditar && faltanAddons ? (
+      <Link
+        href={`/solutions/panel/${id}?tab=inicio`}
+        className="presionable flex min-h-[52px] items-center gap-3 rounded-2xl border border-dashed border-white/25 px-3.5 text-[13.5px] font-extrabold text-white hover:bg-aventurea-navy-3"
+      >
+        <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-aventurea-navy-3 text-[18px] leading-none">
+          +
+        </span>
+        <span>
+          Agregar add-ons
+          <span className="block text-[11.5px] font-medium text-aventurea-rail">Menú, pedidos, lealtad</span>
+        </span>
+      </Link>
+    ) : undefined;
 
   const encabezado = (
     <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
@@ -264,7 +313,13 @@ export default async function PanelSolutionsPage({
        el build, así que la variable tiene que existir antes de que el
        negocio elija cuál usar. */
     <main className={`min-h-svh bg-[#f7f9fc] ${CLASES_FUENTES}`}>
-      <PanelSidebar tabs={tabs} defaultTab={!recienCreado && addons.pedidos && vivas > 0 ? "comandas" : "inicio"} identidad={identidad} encabezado={encabezado} />
+      <PanelSidebar
+        tabs={tabs}
+        defaultTab={!recienCreado && addons.pedidos && vivas > 0 ? "comandas" : "inicio"}
+        identidad={identidad}
+        encabezado={encabezado}
+        pie={pie}
+      />
     </main>
   );
 }
