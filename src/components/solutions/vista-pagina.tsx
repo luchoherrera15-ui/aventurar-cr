@@ -1,3 +1,4 @@
+import TextoEditable from "./texto-editable";
 import { ICONO_LINK, type IconoLink } from "@/lib/solutions/tipos";
 import {
   paletaDelTema,
@@ -67,6 +68,18 @@ export type DatosPagina = {
 };
 
 /**
+ * Los callbacks que vuelven la página EDITABLE en el lugar.
+ *
+ * Solo los pasa el panel. Sin esto —la página pública y los mockups—
+ * los textos se pintan planos y ni siquiera se importa el editor.
+ */
+export type EdicionPagina = {
+  alCambiarNombre: (v: string) => void;
+  alCambiarBajada: (v: string) => void;
+  alCambiarEtiquetaLink: (id: string, v: string) => void;
+};
+
+/**
  * Un ancla que, en modo inerte, es un `<span>` con la misma pinta.
  *
  * Vive en el MÓDULO y no adentro de `VistaPagina` (que es donde nació):
@@ -106,11 +119,14 @@ function Ancla({
 export default function VistaPagina({
   datos,
   inerte = false,
+  edicion,
   className = "",
 }: {
   datos: DatosPagina;
   /** true = los enlaces no navegan (previa del panel, mockup). */
   inerte?: boolean;
+  /** Presente = se escribe encima de la página (solo el panel). */
+  edicion?: EdicionPagina;
   className?: string;
 }) {
   const p = paletaDelTema(datos.tema, datos.colorFondo, datos.colorAcento);
@@ -214,12 +230,34 @@ export default function VistaPagina({
               )}
               <div className="min-w-0">
                 <h1 className="text-[24px] font-extrabold leading-tight tracking-[-0.02em]">
-                  {datos.nombre || "Tu negocio"}
+                  {edicion ? (
+                    <TextoEditable
+                      valor={datos.nombre}
+                      alCambiar={edicion.alCambiarNombre}
+                      placeholder="Tu negocio"
+                      maxLength={80}
+                      etiqueta="Nombre del negocio"
+                    />
+                  ) : (
+                    datos.nombre || "Tu negocio"
+                  )}
                 </h1>
-                {datos.bajada && (
+                {edicion ? (
                   <p className="mt-0.5 text-[13px]" style={{ color: p.suave }}>
-                    {datos.bajada}
+                    <TextoEditable
+                      valor={datos.bajada}
+                      alCambiar={edicion.alCambiarBajada}
+                      placeholder="La línea bajo tu nombre"
+                      maxLength={140}
+                      etiqueta="La línea bajo el nombre"
+                    />
                   </p>
+                ) : (
+                  datos.bajada && (
+                    <p className="mt-0.5 text-[13px]" style={{ color: p.suave }}>
+                      {datos.bajada}
+                    </p>
+                  )
                 )}
               </div>
             </div>
@@ -234,7 +272,8 @@ export default function VistaPagina({
           >
             {puertas.map((x) =>
               grilla ? (
-                <Ancla                  inerte={inerte}
+                <Ancla
+                  inerte={inerte}
                   key={x.clave}
                   href={x.href}
                   className="flex min-h-[92px] flex-col items-center justify-center gap-2 border p-3 text-center transition-opacity hover:opacity-90"
@@ -255,11 +294,22 @@ export default function VistaPagina({
                     {x.glifo}
                   </span>
                   <span className="line-clamp-2 text-[11px] font-extrabold leading-tight @[300px]:text-[11.5px]">
-                    {x.titulo}
+                    {edicion && x.clave !== "menu" ? (
+                      <TextoEditable
+                        valor={x.titulo}
+                        alCambiar={(v) => edicion.alCambiarEtiquetaLink(x.clave, v)}
+                        placeholder="Texto"
+                        maxLength={40}
+                        etiqueta={`Texto del botón ${x.titulo}`}
+                      />
+                    ) : (
+                      x.titulo
+                    )}
                   </span>
                 </Ancla>
               ) : (
-                <Ancla                  inerte={inerte}
+                <Ancla
+                  inerte={inerte}
                   key={x.clave}
                   href={x.href}
                   className="flex min-h-[64px] items-center gap-4 border p-4 transition-opacity hover:opacity-90"
@@ -282,7 +332,17 @@ export default function VistaPagina({
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[16px] font-extrabold leading-tight">
-                      {x.titulo}
+                      {edicion && x.clave !== "menu" ? (
+                        <TextoEditable
+                          valor={x.titulo}
+                          alCambiar={(v) => edicion.alCambiarEtiquetaLink(x.clave, v)}
+                          placeholder="Texto del botón"
+                          maxLength={40}
+                          etiqueta={`Texto del botón ${x.titulo}`}
+                        />
+                      ) : (
+                        x.titulo
+                      )}
                     </span>
                     {x.pie && (
                       <span className="mt-0.5 block truncate text-[12.5px]" style={{ color: p.suave }}>

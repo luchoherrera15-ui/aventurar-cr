@@ -23,7 +23,7 @@ import {
   type Tema,
 } from "@/lib/solutions/temas";
 import { TOPES, type LinkSolutions, type NegocioSolutions } from "@/lib/solutions/tipos";
-import { guardarPaginaSolutions } from "./actions";
+import { guardarLinksSolutions, guardarPaginaSolutions } from "./actions";
 
 /**
  * MI PÁGINA — el editor, con la página de verdad al lado.
@@ -91,6 +91,29 @@ export default function SeccionPagina({
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) =>
     setF((p) => ({ ...p, [k]: v }));
 
+  /**
+   * LAS ETIQUETAS DE LOS ENLACES TAMBIÉN SE EDITAN EN EL TELÉFONO.
+   *
+   * Viven en su propia tabla y tienen su pantalla («Enlaces»), así que
+   * acá se guarda una copia local que el teléfono edita en el lugar. Al
+   * guardar se manda por la MISMA action que usa esa pantalla — no hay
+   * un segundo camino de escritura, que es lo que convierte dos
+   * editores en dos verdades.
+   *
+   * Solo la ETIQUETA: la dirección, el ícono, el orden y el interruptor
+   * de visible siguen en «Enlaces», donde hay lugar para todo eso.
+   */
+  const [etiquetas, setEtiquetas] = useState<Record<string, string>>({});
+  const linksParaPrevia = links.map((l) => ({
+    id: l.id,
+    etiqueta: etiquetas[l.id] ?? l.etiqueta,
+    url: l.url,
+    icono: l.icono,
+  }));
+  const hayEtiquetasTocadas = links.some(
+    (l) => etiquetas[l.id] !== undefined && etiquetas[l.id] !== l.etiqueta,
+  );
+
   /** Elegir un tema trae su acento sugerido, salvo que ya lo hayan tocado. */
   const elegirTema = (t: Tema) =>
     setF((p) => ({
@@ -106,11 +129,26 @@ export default function SeccionPagina({
     setMsg(null);
     arrancar(async () => {
       const r = await guardarPaginaSolutions(negocio.id, f);
-      setMsg(
-        r.ok
-          ? { tono: "exito", texto: "Guardado. Ya está en tu página." }
-          : { tono: "alerta", texto: r.motivo },
-      );
+      if (!r.ok) {
+        setMsg({ tono: "alerta", texto: r.motivo });
+        return;
+      }
+      if (hayEtiquetasTocadas) {
+        const rl = await guardarLinksSolutions(
+          negocio.id,
+          links.map((l) => ({
+            etiqueta: etiquetas[l.id] ?? l.etiqueta,
+            url: l.url,
+            icono: l.icono,
+            visible: l.visible,
+          })),
+        );
+        if (!rl.ok) {
+          setMsg({ tono: "alerta", texto: rl.motivo });
+          return;
+        }
+      }
+      setMsg({ tono: "exito", texto: "Guardado. Ya está en tu página." });
     });
   };
 
@@ -126,7 +164,7 @@ export default function SeccionPagina({
     tema: f.tema,
     estiloLinks: f.estiloLinks,
     redondeo: f.redondeo,
-    links: links.map((l) => ({ id: l.id, etiqueta: l.etiqueta, url: l.url, icono: l.icono })),
+    links: linksParaPrevia,
     seccionesMenu,
     hayMenu: f.mostrarMenu && hayMenu,
     aceptaPedidos: f.aceptaPedidos,
@@ -343,12 +381,23 @@ export default function SeccionPagina({
         </p>
         <Telefono ancho={288} className="mx-auto lg:mx-0">
           {/* `inerte`: la previa no navega. Tocar un enlace acá sacaría al
-              dueño de su panel a mitad de la edición. */}
-          <VistaPagina datos={datosPrevia} inerte className="min-h-full" />
+              dueño de su panel a mitad de la edición.
+              `edicion`: los textos se escriben ACÁ ADENTRO. */}
+          <VistaPagina
+            datos={datosPrevia}
+            inerte
+            className="min-h-full"
+            edicion={{
+              alCambiarNombre: (v) => set("nombre", v),
+              alCambiarBajada: (v) => set("bajada", v),
+              alCambiarEtiquetaLink: (id, v) =>
+                setEtiquetas((p) => ({ ...p, [id]: v })),
+            }}
+          />
         </Telefono>
         <p className="mt-3 text-center text-[11.5px] leading-snug text-aventurea-ink-soft lg:text-left">
-          Es tu página de verdad, no un dibujo: cambia con cada cosa que tocás. Guardá para que la
-          vean tus clientes.
+          <strong className="text-aventurea-ink">Tocá el texto en el teléfono para escribirlo ahí.</strong>{" "}
+          Es tu página de verdad, no un dibujo. Guardá para que la vean tus clientes.
         </p>
       </aside>
     </div>
