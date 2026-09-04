@@ -13,12 +13,22 @@ import SubirImagen from "@/components/subir-imagen";
 import Telefono from "@/components/solutions/telefono";
 import VistaPagina from "@/components/solutions/vista-pagina";
 import {
+  EFECTO,
+  EFECTOS,
   ESTILOS_LINKS,
+  FUENTE,
+  FUENTES,
+  PORTADA,
+  PORTADAS,
   PRESETS,
   REDONDEOS,
   TEMAS,
   paletaDelTema,
+  pilaFuente,
+  type Efecto,
   type EstiloLinks,
+  type EstiloPortada,
+  type Fuente,
   type Redondeo,
   type Tema,
 } from "@/lib/solutions/temas";
@@ -85,6 +95,9 @@ export default function SeccionPagina({
     tema: negocio.tema as Tema,
     estiloLinks: negocio.estilo_links as EstiloLinks,
     redondeo: negocio.redondeo as Redondeo,
+    fuente: negocio.fuente as Fuente,
+    estiloPortada: negocio.estilo_portada as EstiloPortada,
+    efecto: negocio.efecto as Efecto,
   });
   const [msg, setMsg] = useState<{ tono: "exito" | "alerta"; texto: string } | null>(null);
   const [guardando, arrancar] = useTransition();
@@ -109,6 +122,7 @@ export default function SeccionPagina({
     etiqueta: etiquetas[l.id] ?? l.etiqueta,
     url: l.url,
     icono: l.icono,
+    fondoUrl: l.fondo_url,
   }));
   const hayEtiquetasTocadas = links.some(
     (l) => etiquetas[l.id] !== undefined && etiquetas[l.id] !== l.etiqueta,
@@ -164,6 +178,9 @@ export default function SeccionPagina({
     tema: f.tema,
     estiloLinks: f.estiloLinks,
     redondeo: f.redondeo,
+    fuente: f.fuente,
+    estiloPortada: f.estiloPortada,
+    efecto: f.efecto,
     links: linksParaPrevia,
     seccionesMenu,
     hayMenu: f.mostrarMenu && hayMenu,
@@ -266,6 +283,105 @@ export default function SeccionPagina({
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* ── LA FUENTE ────────────────────────────────────────
+              Cada botón se pinta CON su propia cara: elegir tipografía
+              por el nombre («Playfair Display») no le dice nada a quien
+              tiene un restaurante — verla escrita sí. */}
+          <p className={`mt-5 ${ROTULO_CAMPO}`}>Fuente</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {FUENTES.map((x) => {
+              const activo = f.fuente === x;
+              return (
+                <button
+                  key={x}
+                  type="button"
+                  onClick={() => set("fuente", x)}
+                  aria-pressed={activo}
+                  className={`presionable rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                    activo
+                      ? "border-aventurea-navy bg-aventurea-navy/5 ring-2 ring-aventurea-navy/20"
+                      : "border-aventurea-line"
+                  }`}
+                >
+                  <span
+                    className="block truncate text-[17px] font-bold leading-tight text-aventurea-ink"
+                    style={{ fontFamily: pilaFuente(x) }}
+                  >
+                    {f.nombre || "Tu negocio"}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] text-aventurea-ink-soft">
+                    {FUENTE[x].nombre} · {FUENTE[x].pie}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── EL ACABADO DE LAS PIEZAS ───────────────────────── */}
+          <p className={`mt-5 ${ROTULO_CAMPO}`}>Efecto de las tarjetas</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {EFECTOS.map((x) => {
+              const activo = f.efecto === x;
+              return (
+                <button
+                  key={x}
+                  type="button"
+                  onClick={() => set("efecto", x)}
+                  aria-pressed={activo}
+                  className={`presionable rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                    activo
+                      ? "border-aventurea-navy bg-aventurea-navy/5 ring-2 ring-aventurea-navy/20"
+                      : "border-aventurea-line"
+                  }`}
+                >
+                  <span className="block text-[12.5px] font-extrabold text-aventurea-ink">
+                    {EFECTO[x].nombre}
+                  </span>
+                  <span className="block text-[11px] leading-snug text-aventurea-ink-soft">
+                    {EFECTO[x].pie}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── QUÉ HACE LA PORTADA ────────────────────────────────
+              El aviso cuando no hay foto no es adorno: sin foto los
+              cuatro modos se ven igual, y sin decirlo el control
+              parecería roto. */}
+          <p className={`mt-5 ${ROTULO_CAMPO}`}>Tu foto de portada</p>
+          {!f.fotoPortadaUrl && (
+            <p className="mt-1 text-[12px] text-aventurea-ink-soft">
+              Todavía no subiste una — cargala abajo, en «Nombre, logo y portada», y acá elegís
+              qué hace.
+            </p>
+          )}
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {PORTADAS.map((x) => {
+              const activo = f.estiloPortada === x;
+              return (
+                <button
+                  key={x}
+                  type="button"
+                  onClick={() => set("estiloPortada", x)}
+                  aria-pressed={activo}
+                  className={`presionable rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                    activo
+                      ? "border-aventurea-navy bg-aventurea-navy/5 ring-2 ring-aventurea-navy/20"
+                      : "border-aventurea-line"
+                  }`}
+                >
+                  <span className="block text-[12.5px] font-extrabold text-aventurea-ink">
+                    {PORTADA[x].nombre}
+                  </span>
+                  <span className="block text-[11px] leading-snug text-aventurea-ink-soft">
+                    {PORTADA[x].pie}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">

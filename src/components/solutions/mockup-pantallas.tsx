@@ -1,5 +1,12 @@
 import { IconCheck, IconCloche, IconStar } from "@/components/icons";
-import { paletaDelTema, RADIOS, type Redondeo, type Tema } from "@/lib/solutions/temas";
+import {
+  paletaDelTema,
+  pilaFuente,
+  RADIOS,
+  type Fuente,
+  type Redondeo,
+  type Tema,
+} from "@/lib/solutions/temas";
 
 /**
  * LAS PANTALLAS DE MUESTRA DEL HÉROE — la carta y el pase.
@@ -23,9 +30,12 @@ import { paletaDelTema, RADIOS, type Redondeo, type Tema } from "@/lib/solutions
  *     leerían como parte de la pantalla del cliente, que es mentira.
  *
  * Así que estas dos son maquetas de venta, y se declaran como tales.
- * Lo que sí comparten con lo real es el sistema de temas: los colores,
- * los radios y las tintas salen de `paletaDelTema`, así que cambiar de
- * tema en el héroe las repinta igual que a la página de verdad.
+ * Lo que sí comparten con lo real es el SISTEMA DE DISEÑO: los colores,
+ * los radios, las tintas y la cara tipográfica salen de los mismos
+ * helpers que viste la página de verdad (`paletaDelTema`, `RADIOS`,
+ * `pilaFuente`). Por eso tocar un tema en el héroe las repinta a las
+ * tres igual que a /s/<slug> — y por eso una cara nueva en la 0232
+ * aparece acá sola, sin tocar este archivo.
  */
 
 const PLATOS = [
@@ -40,11 +50,13 @@ export function MockupCarta({
   tema,
   redondeo,
   acento,
+  fuente,
   nombre = "Casa Nostra",
 }: {
   tema: Tema;
   redondeo: Redondeo;
   acento: string;
+  fuente: Fuente;
   nombre?: string;
 }) {
   const p = paletaDelTema(tema, "#0a1226", acento);
@@ -53,7 +65,11 @@ export function MockupCarta({
   return (
     <div
       className="flex min-h-full flex-col px-4 pb-6 pt-12"
-      style={{ background: `linear-gradient(180deg, ${p.fondo} 0%, ${p.fondo2} 100%)`, color: p.tinta }}
+      style={{
+        background: `linear-gradient(180deg, ${p.fondo} 0%, ${p.fondo2} 100%)`,
+        color: p.tinta,
+        fontFamily: pilaFuente(fuente),
+      }}
     >
       <div className="flex items-center justify-between">
         <span
@@ -146,10 +162,12 @@ export function MockupCarta({
 export function MockupPase({
   tema,
   acento,
+  fuente,
   nombre = "Casa Nostra",
 }: {
   tema: Tema;
   acento: string;
+  fuente: Fuente;
   nombre?: string;
 }) {
   const p = paletaDelTema(tema, "#0a1226", acento);
@@ -159,7 +177,11 @@ export function MockupPase({
   return (
     <div
       className="flex min-h-full flex-col px-4 pb-6 pt-12"
-      style={{ background: `linear-gradient(180deg, ${p.fondo} 0%, ${p.fondo2} 100%)`, color: p.tinta }}
+      style={{
+        background: `linear-gradient(180deg, ${p.fondo} 0%, ${p.fondo2} 100%)`,
+        color: p.tinta,
+        fontFamily: pilaFuente(fuente),
+      }}
     >
       <p className="text-[13px] font-extrabold">Wallet</p>
 

@@ -8,7 +8,9 @@ import {
   PRESETS,
   paletaDelTema,
   TEMAS,
+  type Efecto,
   type EstiloLinks,
+  type Fuente,
   type Redondeo,
   type Tema,
 } from "@/lib/solutions/temas";
@@ -38,7 +40,10 @@ import {
  * el porqué de cada una está en `mockup-pantallas.tsx`.
  */
 
-const MUESTRA: Omit<DatosPagina, "tema" | "estiloLinks" | "redondeo" | "colorAcento"> = {
+const MUESTRA: Omit<
+  DatosPagina,
+  "tema" | "estiloLinks" | "redondeo" | "colorAcento" | "fuente" | "efecto" | "estiloPortada"
+> = {
   nombre: "Casa Nostra",
   bajada: "Pastas caseras, horno de leña y vinos de la casa.",
   logoUrl: null,
@@ -67,10 +72,12 @@ const ABANICO: {
   rotulo: string;
   estiloLinks: EstiloLinks;
   redondeo: Redondeo;
+  fuente: Fuente;
+  efecto: Efecto;
 }[] = [
-  { pieza: "carta", rotulo: "Tu carta", estiloLinks: "lista", redondeo: "suave" },
-  { pieza: "links", rotulo: "Tu página", estiloLinks: "grilla", redondeo: "redondo" },
-  { pieza: "pase", rotulo: "Tu lealtad", estiloLinks: "lista", redondeo: "recto" },
+  { pieza: "carta", rotulo: "Tu carta", estiloLinks: "lista", redondeo: "suave", fuente: "editorial", efecto: "plano" },
+  { pieza: "links", rotulo: "Tu página", estiloLinks: "grilla", redondeo: "redondo", fuente: "redonda", efecto: "vidrio" },
+  { pieza: "pase", rotulo: "Tu lealtad", estiloLinks: "lista", redondeo: "recto", fuente: "condensada", efecto: "elevado" },
 ];
 
 /** Qué tema usa cada teléfono según el que el visitante elija. */
@@ -119,11 +126,12 @@ export default function MockupsHero() {
                     tema={t}
                     redondeo={v.redondeo}
                     acento={acento}
+                    fuente={v.fuente}
                     nombre={MUESTRA.nombre}
                   />
                 )}
                 {v.pieza === "pase" && (
-                  <MockupPase tema={t} acento={acento} nombre={MUESTRA.nombre} />
+                  <MockupPase tema={t} acento={acento} fuente={v.fuente} nombre={MUESTRA.nombre} />
                 )}
                 {v.pieza === "links" && (
                   <VistaPagina
@@ -135,6 +143,9 @@ export default function MockupsHero() {
                       tema: t,
                       estiloLinks: v.estiloLinks,
                       redondeo: v.redondeo,
+                      fuente: v.fuente,
+                      efecto: v.efecto,
+                      estiloPortada: "card",
                     }}
                   />
                 )}

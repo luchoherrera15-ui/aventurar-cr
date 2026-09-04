@@ -13,6 +13,7 @@ import {
   IconUsers,
 } from "@/components/icons";
 import PanelSidebar, { type Tab } from "@/app/mi-negocio/[id]/panel-sidebar";
+import { CLASES_FUENTES } from "@/app/solutions/fuentes";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import {
   colaboradoresDelNegocio,
@@ -240,7 +241,11 @@ export default async function PanelSolutionsPage({
   );
 
   return (
-    <main className="min-h-svh bg-[#f7f9fc]">
+    /* Las seis caras se declaran acá arriba para que la VISTA PREVIA
+       pueda cambiar de tipografía sin recargar: `next/font` resuelve en
+       el build, así que la variable tiene que existir antes de que el
+       negocio elija cuál usar. */
+    <main className={`min-h-svh bg-[#f7f9fc] ${CLASES_FUENTES}`}>
       <PanelSidebar tabs={tabs} defaultTab={recienCreado ? "pagina" : vivas > 0 ? "comandas" : "inicio"} identidad={identidad} encabezado={encabezado} />
     </main>
   );

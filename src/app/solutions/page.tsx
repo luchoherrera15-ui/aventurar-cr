@@ -19,6 +19,7 @@ import {
   IconWallet,
 } from "@/components/icons";
 import MockupsHero from "./mockups-hero";
+import { CLASES_FUENTES } from "./fuentes";
 
 /**
  * /solutions — LOS PRODUCTOS DE BOOKEA PARA NEGOCIOS.
@@ -187,7 +188,9 @@ const FAQ = [
 
 export default function SolutionsPage() {
   return (
-    <main className="min-h-svh bg-white">
+    /* Las variables de las seis caras, para que los mockups del héroe
+       puedan pintarse con la cara que le toca a cada teléfono. */
+    <main className={`min-h-svh bg-white ${CLASES_FUENTES}`}>
       <RevealOnScroll />
       <NavLealtad autoOcultar />
       <BurbujaContacto />

@@ -1,5 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { estiloLinksDe, paletaDelTema, redondeoDe, temaDe } from "./temas";
+import {
+  efectoDe,
+  estiloLinksDe,
+  fuenteDe,
+  paletaDelTema,
+  portadaDe,
+  redondeoDe,
+  temaDe,
+} from "./temas";
 import {
   TOPES,
   type ColaboradorSolutions,
@@ -33,7 +41,18 @@ function fila<T>(f: Record<string, unknown>): T {
  */
 function conVestido(d: Record<string, unknown>): NegocioSolutions {
   const n = fila<NegocioSolutions>(d);
-  return { ...n, tema: temaDe(d.tema), estilo_links: estiloLinksDe(d.estilo_links), redondeo: redondeoDe(d.redondeo) };
+  return {
+    ...n,
+    tema: temaDe(d.tema),
+    estilo_links: estiloLinksDe(d.estilo_links),
+    redondeo: redondeoDe(d.redondeo),
+    // 0232. Los parsers también cubren el hueco entre desplegar el
+    // código y correr la migración: sin las columnas, `select("*")` no
+    // las trae y cada una cae a su default en vez de quedar undefined.
+    fuente: fuenteDe(d.fuente),
+    estilo_portada: portadaDe(d.estilo_portada),
+    efecto: efectoDe(d.efecto),
+  };
 }
 
 export async function negocioPorSlug(admin: Admin, slug: string): Promise<NegocioSolutions | null> {

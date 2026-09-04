@@ -3,9 +3,15 @@ import IconoLinkSVG from "./icono-link";
 import TextoEditable from "./texto-editable";
 import { type IconoLink } from "@/lib/solutions/tipos";
 import {
+  estiloDePieza,
   paletaDelTema,
+  pilaFuente,
   RADIOS,
+  veloDeFoto,
+  type Efecto,
   type EstiloLinks,
+  type EstiloPortada,
+  type Fuente,
   type Redondeo,
   type Tema,
 } from "@/lib/solutions/temas";
@@ -41,6 +47,8 @@ export type LinkVista = {
   etiqueta: string;
   url: string;
   icono: IconoLink;
+  /** Foto detrás de ESTA puerta (0232). El velo lo pone el sistema. */
+  fondoUrl?: string | null;
 };
 
 export type DatosPagina = {
@@ -55,6 +63,10 @@ export type DatosPagina = {
   tema: Tema;
   estiloLinks: EstiloLinks;
   redondeo: Redondeo;
+  /** El vestido fino (0232). */
+  fuente: Fuente;
+  estiloPortada: EstiloPortada;
+  efecto: Efecto;
   /** Las puertas del dueño, ya ordenadas y filtradas por visibles. */
   links: LinkVista[];
   /** Nombres de las primeras secciones de la carta — [] = sin menú. */
@@ -118,6 +130,30 @@ function Ancla({
   );
 }
 
+/**
+ * La foto de fondo de UNA puerta, con su velo (0232).
+ *
+ * Vive en el módulo por la misma razón que `Ancla` justo arriba: un
+ * componente declarado dentro del render es un tipo nuevo en cada
+ * pasada y React remonta el subárbol, que en la vista previa del panel
+ * es perder el foco del campo que se está escribiendo.
+ *
+ * El velo NO es opcional ni configurable. Con una foto detrás, el
+ * texto puede quedar ilegible con cualquier combinación de colores, y
+ * eso no es una preferencia del negocio: el negocio elige la foto, el
+ * sistema garantiza que se siga leyendo.
+ */
+function FondoDePieza({ url, velo }: { url?: string | null; velo: string }) {
+  if (!url) return null;
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover" />
+      <span aria-hidden className="absolute inset-0" style={{ background: velo }} />
+    </>
+  );
+}
+
 export default function VistaPagina({
   datos,
   inerte = false,
@@ -135,6 +171,13 @@ export default function VistaPagina({
   const r = RADIOS[datos.redondeo] ?? RADIOS.suave;
   const inicial = (datos.nombre.trim().charAt(0) || "•").toUpperCase();
   const grilla = datos.estiloLinks === "grilla";
+  const velo = veloDeFoto(p);
+  /* La portada solo «cuenta» si además hay foto: elegir «completa» sin
+     haber subido nada no puede dejar un banner vacío arriba. */
+  const portada: EstiloPortada = datos.fotoPortadaUrl ? datos.estiloPortada : "sin";
+  /** El acabado de una pieza, ya resuelto. Un solo lugar decide. */
+  const pieza = (opts: { destacada?: boolean; radio: number; conFoto?: boolean }) =>
+    estiloDePieza(datos.efecto, p, opts);
 
   const linkWhatsapp = datos.whatsapp
     ? `https://wa.me/${datos.whatsapp.length === 8 ? "506" : ""}${datos.whatsapp}`
@@ -144,7 +187,14 @@ export default function VistaPagina({
     : null;
 
   // Las puertas: el menú primero (es el producto), después las del dueño.
-  const puertas: { clave: string; icono: IconoLink; titulo: string; pie?: string; href: string }[] = [];
+  const puertas: {
+    clave: string;
+    icono: IconoLink;
+    titulo: string;
+    pie?: string;
+    href: string;
+    fondoUrl?: string | null;
+  }[] = [];
   if (datos.hayMenu) {
     puertas.push({
       clave: "menu",
@@ -160,6 +210,7 @@ export default function VistaPagina({
       icono: l.icono,
       titulo: l.etiqueta,
       href: l.url,
+      fondoUrl: l.fondoUrl ?? null,
     });
   }
 
@@ -170,32 +221,84 @@ export default function VistaPagina({
          se monta a 236 px (un mockup del héroe), a 288 px (la previa del
          panel) y a pantalla completa — y un breakpoint de viewport
          mentiría en los dos primeros. */
-      className={`@container flex min-h-full w-full flex-col px-5 pb-8 pt-6 ${className}`}
+      className={`@container relative flex min-h-full w-full flex-col ${
+        portada === "completa" ? "pb-8 pt-0" : "px-5 pb-8 pt-6"
+      } ${className}`}
       style={{
         background: `linear-gradient(180deg, ${p.fondo} 0%, ${p.fondo2} 100%)`,
         color: p.tinta,
+        /* La cara la pone el contenedor y todo hereda. Las seis
+           variables las declara el envoltorio de la página (ver
+           src/app/solutions/fuentes.ts); acá solo se elige cuál. */
+        fontFamily: pilaFuente(datos.fuente),
       }}
     >
-      <div className="mx-auto flex w-full max-w-[440px] flex-col gap-5">
-        {/* ── La cabecera: foto, logo, nombre ─────────────────── */}
-        <header
-          className="relative overflow-hidden border"
-          style={{ borderColor: p.borde, borderRadius: r.tarjeta }}
-        >
-          {datos.fotoPortadaUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={datos.fotoPortadaUrl}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover opacity-50"
-            />
-          )}
-          <div
+      {/* ── Portada «de fondo»: viste la página entera ──────────────
+          Va en el contenedor y no en el <header> para que las puertas
+          y el contacto también queden encima de la foto — que es lo
+          que distingue este modo de «completa». */}
+      {portada === "fondo" && datos.fotoPortadaUrl && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={datos.fotoPortadaUrl}
+            alt=""
+            aria-hidden
+            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          />
+          <span aria-hidden className="pointer-events-none absolute inset-0" style={{ background: velo }} />
+        </>
+      )}
+
+      {/* ── Portada «completa»: banner de borde a borde ─────────────
+          Sale del contenedor de 440 px a propósito: si respetara el
+          ancho máximo dejaría de ser «completa» en pantalla grande. */}
+      {portada === "completa" && datos.fotoPortadaUrl && (
+        <div className="relative h-[124px] w-full overflow-hidden @[320px]:h-[168px]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={datos.fotoPortadaUrl} alt="" className="h-full w-full object-cover" />
+          <span
             aria-hidden
             className="absolute inset-0"
-            style={{ background: `linear-gradient(180deg, transparent 18%, ${p.fondo} 97%)` }}
+            style={{ background: `linear-gradient(180deg, transparent 30%, ${p.fondo} 100%)` }}
           />
-          <div className="relative flex min-h-[132px] flex-col justify-end gap-3 p-4 @[320px]:min-h-[168px] @[320px]:p-5">
+        </div>
+      )}
+
+      <div
+        className={`relative mx-auto flex w-full max-w-[440px] flex-col gap-5 ${
+          portada === "completa" ? "-mt-10 px-5" : ""
+        }`}
+      >
+        {/* ── La cabecera: foto, logo, nombre ─────────────────── */}
+        {/* ── La cabecera ─────────────────────────────────────────
+            La foto solo vive acá adentro en modo «card»; en «completa»
+            ya salió arriba de borde a borde y en «fondo» viste la
+            página, así que repetirla sería la misma imagen dos veces. */}
+        <header
+          className="relative overflow-hidden"
+          style={pieza({ radio: r.tarjeta, conFoto: portada === "card" })}
+        >
+          {portada === "card" && datos.fotoPortadaUrl && (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={datos.fotoPortadaUrl}
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <div
+                aria-hidden
+                className="absolute inset-0"
+                style={{ background: `linear-gradient(180deg, transparent 18%, ${p.fondo} 97%)` }}
+              />
+            </>
+          )}
+          <div
+            className={`relative flex flex-col justify-end gap-3 p-4 @[320px]:p-5 ${
+              portada === "card" ? "min-h-[132px] @[320px]:min-h-[168px]" : ""
+            }`}
+          >
             {datos.mesa && (
               <span
                 className="absolute right-4 top-4 px-3 py-1 text-[12px] font-bold"
@@ -281,16 +384,17 @@ export default function VistaPagina({
                   inerte={inerte}
                   key={x.clave}
                   href={x.href}
-                  className="flex min-h-[92px] flex-col items-center justify-center gap-2 border p-3 text-center transition-opacity hover:opacity-90"
-                  style={{
-                    background: p.superficie,
-                    borderColor: x.clave === "menu" ? p.acento : p.borde,
-                    borderRadius: r.pieza,
-                  }}
+                  className="relative flex min-h-[92px] flex-col items-center justify-center gap-2 overflow-hidden p-3 text-center transition-opacity hover:opacity-90"
+                  style={pieza({
+                    destacada: x.clave === "menu",
+                    radio: r.pieza,
+                    conFoto: Boolean(x.fondoUrl),
+                  })}
                 >
+                  <FondoDePieza url={x.fondoUrl} velo={velo} />
                   <span
                     aria-hidden
-                    className="grid h-9 w-9 place-items-center text-[18px]"
+                    className="relative grid h-9 w-9 place-items-center text-[18px]"
                     style={{
                       background: x.clave === "menu" ? p.acento : "transparent",
                       borderRadius: 999,
@@ -298,7 +402,7 @@ export default function VistaPagina({
                   >
                     <IconoLinkSVG icono={x.icono} className="h-[18px] w-[18px]" />
                   </span>
-                  <span className="line-clamp-2 text-[11px] font-extrabold leading-tight @[300px]:text-[11.5px]">
+                  <span className="relative line-clamp-2 text-[11px] font-extrabold leading-tight @[300px]:text-[11.5px]">
                     {edicion && x.clave !== "menu" ? (
                       <TextoEditable
                         valor={x.titulo}
@@ -317,16 +421,17 @@ export default function VistaPagina({
                   inerte={inerte}
                   key={x.clave}
                   href={x.href}
-                  className="flex min-h-[64px] items-center gap-4 border p-4 transition-opacity hover:opacity-90"
-                  style={{
-                    background: p.superficie,
-                    borderColor: x.clave === "menu" ? p.acento : p.borde,
-                    borderRadius: r.pieza,
-                  }}
+                  className="relative flex min-h-[64px] items-center gap-4 overflow-hidden p-4 transition-opacity hover:opacity-90"
+                  style={pieza({
+                    destacada: x.clave === "menu",
+                    radio: r.pieza,
+                    conFoto: Boolean(x.fondoUrl),
+                  })}
                 >
+                  <FondoDePieza url={x.fondoUrl} velo={velo} />
                   <span
                     aria-hidden
-                    className="grid h-9 w-9 shrink-0 place-items-center text-[17px] @[320px]:h-11 @[320px]:w-11 @[320px]:text-[20px]"
+                    className="relative grid h-9 w-9 shrink-0 place-items-center text-[17px] @[320px]:h-11 @[320px]:w-11 @[320px]:text-[20px]"
                     style={{
                       background: x.clave === "menu" ? p.acento : p.superficie,
                       border: x.clave === "menu" ? "none" : `1px solid ${p.borde}`,
@@ -335,7 +440,7 @@ export default function VistaPagina({
                   >
                     <IconoLinkSVG icono={x.icono} className="h-[18px] w-[18px] @[320px]:h-5 @[320px]:w-5" />
                   </span>
-                  <span className="min-w-0 flex-1">
+                  <span className="relative min-w-0 flex-1">
                     {/* `line-clamp-2` y no `truncate`: a 268 px «Reservar
                         con descuento» se cortaba en «Reservar con…» y la
                         puerta dejaba de decir a dónde lleva. */}
@@ -358,7 +463,7 @@ export default function VistaPagina({
                       </span>
                     )}
                   </span>
-                  <span aria-hidden style={{ color: p.suave }}>
+                  <span aria-hidden className="relative" style={{ color: p.suave }}>
                     ›
                   </span>
                 </Ancla>

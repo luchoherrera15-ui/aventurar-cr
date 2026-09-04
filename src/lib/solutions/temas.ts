@@ -32,6 +32,68 @@ export type EstiloLinks = (typeof ESTILOS_LINKS)[number];
 export const REDONDEOS = ["recto", "suave", "redondo"] as const;
 export type Redondeo = (typeof REDONDEOS)[number];
 
+/**
+ * ── LAS CARAS TIPOGRÁFICAS (0232) ───────────────────────────────────
+ * Solo METADATOS acá. Las fuentes de verdad se cargan con `next/font`
+ * en `src/app/solutions/fuentes.ts`, que es un módulo de servidor: este
+ * archivo lo importan también componentes de cliente, y meterle
+ * `next/font` lo volvería inimportable desde ahí.
+ *
+ * El contrato entre los dos archivos es `cssVar`: allá se define, acá
+ * se nombra. Si se agrega una cara, va en los dos lados y en el CHECK
+ * de la migración — los tres tienen que decir lo mismo.
+ */
+export const FUENTES = ["sistema", "elegante", "redonda", "condensada", "editorial", "tecnica"] as const;
+export type Fuente = (typeof FUENTES)[number];
+
+export const FUENTE: Record<Fuente, { nombre: string; pie: string; cssVar: string; respaldo: string }> = {
+  sistema: { nombre: "Del sitio", pie: "Limpia y neutra", cssVar: "--font-figtree", respaldo: "system-ui, sans-serif" },
+  elegante: { nombre: "Elegante", pie: "Serif de mantel largo", cssVar: "--fuente-elegante", respaldo: "Georgia, serif" },
+  redonda: { nombre: "Redonda", pie: "Moderna y amable", cssVar: "--fuente-redonda", respaldo: "system-ui, sans-serif" },
+  condensada: { nombre: "Condensada", pie: "Fuerte, tipo pizarra", cssVar: "--fuente-condensada", respaldo: "Impact, sans-serif" },
+  editorial: { nombre: "Editorial", pie: "Serif cálida de lectura", cssVar: "--fuente-editorial", respaldo: "Georgia, serif" },
+  tecnica: { nombre: "Técnica", pie: "Geométrica de especialidad", cssVar: "--fuente-tecnica", respaldo: "system-ui, sans-serif" },
+};
+
+/** La pila lista para `font-family`. Siempre con respaldo real. */
+export function pilaFuente(f: Fuente): string {
+  const x = FUENTE[f] ?? FUENTE.sistema;
+  return `var(${x.cssVar}), ${x.respaldo}`;
+}
+
+/**
+ * ── QUÉ HACE LA FOTO DE PORTADA (0232) ──────────────────────────────
+ * Pedido del dueño: «que se pueda poner la portada completa o solo en
+ * card». `card` es el default porque es lo que hacía la 0230, y así
+ * ninguna página existente cambia de aspecto sola.
+ */
+export const PORTADAS = ["card", "completa", "fondo", "sin"] as const;
+export type EstiloPortada = (typeof PORTADAS)[number];
+
+export const PORTADA: Record<EstiloPortada, { nombre: string; pie: string }> = {
+  card: { nombre: "En la tarjeta", pie: "Dentro del encabezado" },
+  completa: { nombre: "Completa", pie: "Banner de borde a borde" },
+  fondo: { nombre: "De fondo", pie: "Viste la página entera" },
+  sin: { nombre: "Sin portada", pie: "Solo logo y nombre" },
+};
+
+/**
+ * ── EL ACABADO DE LAS PIEZAS (0232) ─────────────────────────────────
+ * Pedido del dueño: «que tenga efectos». Cinco acabados auditados; el
+ * renderizador los traduce con `estiloDePieza()`, así que el JSX no
+ * tiene ni un `if` de efecto adentro.
+ */
+export const EFECTOS = ["plano", "vidrio", "elevado", "contorno", "degradado"] as const;
+export type Efecto = (typeof EFECTOS)[number];
+
+export const EFECTO: Record<Efecto, { nombre: string; pie: string }> = {
+  plano: { nombre: "Plano", pie: "Superficie y borde" },
+  vidrio: { nombre: "Vidrio", pie: "Translúcido, con desenfoque" },
+  elevado: { nombre: "Elevado", pie: "Sólido, con sombra" },
+  contorno: { nombre: "Contorno", pie: "Solo el borde, sin relleno" },
+  degradado: { nombre: "Degradado", pie: "Se funde hacia tu acento" },
+};
+
 export type Paleta = {
   fondo: string;
   /** Fondo secundario para el degradado del hero. */
@@ -212,4 +274,103 @@ export function estiloLinksDe(v: unknown): EstiloLinks {
 }
 export function redondeoDe(v: unknown): Redondeo {
   return (REDONDEOS as readonly unknown[]).includes(v) ? (v as Redondeo) : "suave";
+}
+export function fuenteDe(v: unknown): Fuente {
+  return (FUENTES as readonly unknown[]).includes(v) ? (v as Fuente) : "sistema";
+}
+export function portadaDe(v: unknown): EstiloPortada {
+  return (PORTADAS as readonly unknown[]).includes(v) ? (v as EstiloPortada) : "card";
+}
+export function efectoDe(v: unknown): Efecto {
+  return (EFECTOS as readonly unknown[]).includes(v) ? (v as Efecto) : "plano";
+}
+
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  EL TRADUCTOR DE ACABADOS — de `efecto` a CSS de verdad
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Existe para que `vista-pagina.tsx` no tenga cinco ramas de estilo
+ * repetidas en la card de lista, en la de grilla y en el encabezado.
+ * Un solo lugar decide cómo se ve una pieza; el JSX solo la pide.
+ *
+ * `destacada` es la puerta del menú: es el producto, y en todos los
+ * acabados se distingue por el acento. No es un color aparte, es el
+ * mismo acabado subido de tono.
+ */
+export function estiloDePieza(
+  efecto: Efecto,
+  p: Paleta,
+  opciones: { destacada?: boolean; radio: number; conFoto?: boolean } = { radio: 14 },
+): React.CSSProperties {
+  const { destacada = false, radio, conFoto = false } = opciones;
+  const base: React.CSSProperties = { borderRadius: radio };
+
+  // Con foto detrás, el relleno lo pone la foto y su velo: cualquier
+  // superficie encima la taparía. Lo único que sobrevive del acabado es
+  // el borde y la sombra, que sí siguen leyéndose.
+  if (conFoto) {
+    return {
+      ...base,
+      border: `1px solid ${destacada ? p.acento : p.borde}`,
+      boxShadow: efecto === "elevado" ? "0 10px 24px -12px rgba(0,0,0,.55)" : undefined,
+    };
+  }
+
+  switch (efecto) {
+    case "vidrio":
+      return {
+        ...base,
+        background: p.superficie,
+        border: `1px solid ${destacada ? p.acento : p.borde}`,
+        backdropFilter: "blur(14px) saturate(1.3)",
+        WebkitBackdropFilter: "blur(14px) saturate(1.3)",
+      };
+    case "elevado":
+      // Sin borde a propósito: el borde y la sombra juntos ensucian el
+      // canto. La sombra es azul de marca con alfa, como las tres del
+      // sistema — una sombra gris sobre fondo de color se ve sucia.
+      return {
+        ...base,
+        background: p.superficie,
+        border: destacada ? `1px solid ${p.acento}` : "1px solid transparent",
+        boxShadow: "0 12px 26px -14px rgba(6,12,26,.55), 0 2px 5px rgba(6,12,26,.18)",
+      };
+    case "contorno":
+      return {
+        ...base,
+        background: "transparent",
+        border: `2px solid ${destacada ? p.acento : p.borde}`,
+      };
+    case "degradado":
+      return {
+        ...base,
+        // 14%/0% de alfa sobre el acento: se nota el tinte pero el texto
+        // sigue leyéndose contra la tinta del tema, que es lo que se
+        // audita. Un degradado al acento sólido cambiaría el contraste
+        // de la mitad de la card y ya no habría un solo par medido.
+        background: destacada
+          ? `linear-gradient(135deg, ${p.acento} 0%, ${p.acento}cc 100%)`
+          : `linear-gradient(135deg, ${p.superficie} 0%, ${p.acento}24 100%)`,
+        border: `1px solid ${destacada ? p.acento : p.borde}`,
+      };
+    default:
+      return { ...base, background: p.superficie, border: `1px solid ${destacada ? p.acento : p.borde}` };
+  }
+}
+
+/**
+ * El velo que va SOBRE la foto de fondo de una pieza.
+ *
+ * No es configurable a propósito: con una foto detrás, el texto puede
+ * quedar ilegible con cualquier combinación de colores, y la
+ * legibilidad no es una preferencia. El negocio elige la foto; el
+ * contraste lo garantiza el sistema. Se calcula del FONDO del tema, no
+ * del acento, porque la tinta que va encima es la del tema.
+ */
+export function veloDeFoto(p: Paleta): string {
+  const oscuro = esOscuro(p.tinta) === false; // tinta clara ⇒ tema oscuro
+  return oscuro
+    ? "linear-gradient(180deg, rgba(6,10,22,.42) 0%, rgba(6,10,22,.78) 100%)"
+    : "linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.86) 100%)";
 }

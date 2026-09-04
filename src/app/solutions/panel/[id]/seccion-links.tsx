@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Card, PildoraEstado } from "@/components/panel/piezas";
 import { BOTON_PANEL, BOTON_PANEL_PRIMARIO, CAMPO_PANEL } from "@/components/panel/sistema";
 import { IconArrastrar } from "@/components/icons";
+import SubirImagen from "@/components/subir-imagen";
 import {
   ICONOS_LINK,
   ICONO_LINK,
@@ -34,7 +35,14 @@ import { guardarLinksSolutions } from "./actions";
  * mitad de los dispositivos.
  */
 
-type Fila = { etiqueta: string; url: string; icono: IconoLink; visible: boolean };
+type Fila = {
+  etiqueta: string;
+  url: string;
+  icono: IconoLink;
+  visible: boolean;
+  /** Foto detrás de esta puerta (0232). "" = sin foto. */
+  fondoUrl: string;
+};
 
 export default function SeccionLinks({
   negocioId,
@@ -44,7 +52,13 @@ export default function SeccionLinks({
   links: LinkSolutions[];
 }) {
   const [filas, setFilas] = useState<Fila[]>(
-    links.map((l) => ({ etiqueta: l.etiqueta, url: l.url, icono: l.icono, visible: l.visible })),
+    links.map((l) => ({
+      etiqueta: l.etiqueta,
+      url: l.url,
+      icono: l.icono,
+      visible: l.visible,
+      fondoUrl: l.fondo_url ?? "",
+    })),
   );
   const [msg, setMsg] = useState<{ tono: "exito" | "alerta"; texto: string } | null>(null);
   const [guardando, arrancar] = useTransition();
@@ -90,7 +104,8 @@ export default function SeccionLinks({
       >
         <p className="text-[12.5px] leading-snug text-aventurea-ink-soft">
           Las puertas de tu página, en este orden. Arrastralas del asa de la izquierda para
-          acomodarlas, o usá ↑ ↓. La carta ya tiene su botón propio.
+          acomodarlas, o usá ↑ ↓. La carta ya tiene su botón propio. A cada una le podés poner
+          una foto de fondo — el velo que la deja legible lo ponemos nosotros.
         </p>
 
         {filas.length > 0 && (
@@ -197,6 +212,27 @@ export default function SeccionLinks({
                     ✕
                   </button>
                 </div>
+
+                {/* ── La foto de fondo de ESTA puerta (0232) ─────────
+                    Ocupa el ancho entero de la fila y no una columna
+                    más: a 390 px la fila ya lleva cinco controles, y
+                    meterle un sexto la partiría en dos renglones
+                    ilegibles.
+
+                    `destino="banner"` y no uno nuevo: una card es
+                    apaisada como una banda, y ese preset ya comprime a
+                    1200 px —no a los 2560 del preset de vitrina— que es
+                    de sobra para un fondo de 400 px de ancho. */}
+                <div className="sm:col-span-5">
+                  <SubirImagen
+                    valor={l.fondoUrl}
+                    alCambiar={(u) => cambiar(i, { fondoUrl: u })}
+                    destino="banner"
+                    etiqueta="Foto de fondo (opcional)"
+                    carpeta="solutions/links"
+                    bucket="solutions-fotos"
+                  />
+                </div>
               </li>
             ))}
           </ul>
@@ -205,7 +241,9 @@ export default function SeccionLinks({
         {filas.length < TOPES.links && (
           <button
             type="button"
-            onClick={() => setFilas((p) => [...p, { etiqueta: "", url: "", icono: "link", visible: true }])}
+            onClick={() =>
+              setFilas((p) => [...p, { etiqueta: "", url: "", icono: "link", visible: true, fondoUrl: "" }])
+            }
             className={`mt-3 ${BOTON_PANEL}`}
           >
             + Agregar enlace

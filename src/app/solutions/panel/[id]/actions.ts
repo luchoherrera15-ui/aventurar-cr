@@ -6,7 +6,14 @@ import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { comprobarImagenSubida } from "@/lib/media/comprobar-imagen-subida";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import { generarSlugSolutions } from "@/lib/solutions/slug";
-import { estiloLinksDe, redondeoDe, temaDe } from "@/lib/solutions/temas";
+import {
+  efectoDe,
+  estiloLinksDe,
+  fuenteDe,
+  portadaDe,
+  redondeoDe,
+  temaDe,
+} from "@/lib/solutions/temas";
 import {
   ESTADOS_PEDIDO,
   HEX,
@@ -95,6 +102,10 @@ export async function guardarPaginaSolutions(
     tema: string;
     estiloLinks: string;
     redondeo: string;
+    /** El vestido fino (0232). Mismo criterio: lista cerrada saneada acá. */
+    fuente: string;
+    estiloPortada: string;
+    efecto: string;
   },
 ): Promise<R> {
   const p = await portonEditar(negocioId);
@@ -143,6 +154,9 @@ export async function guardarPaginaSolutions(
       tema: temaDe(d.tema),
       estilo_links: estiloLinksDe(d.estiloLinks),
       redondeo: redondeoDe(d.redondeo),
+      fuente: fuenteDe(d.fuente),
+      estilo_portada: portadaDe(d.estiloPortada),
+      efecto: efectoDe(d.efecto),
       mesas: Math.max(0, Math.min(TOPES.mesas, Math.trunc(Number(d.mesas)) || 0)),
       actualizado_en: new Date().toISOString(),
     })
@@ -158,12 +172,20 @@ export async function guardarPaginaSolutions(
 
 export async function guardarLinksSolutions(
   negocioId: string,
-  links: { etiqueta: string; url: string; icono: string; visible: boolean }[],
+  links: { etiqueta: string; url: string; icono: string; visible: boolean; fondoUrl?: string | null }[],
 ): Promise<R> {
   const p = await portonEditar(negocioId);
   if (!p.ok) return p;
 
-  const limpios: { negocio_id: string; etiqueta: string; url: string; icono: IconoLink; orden: number; visible: boolean }[] = [];
+  const limpios: {
+    negocio_id: string;
+    etiqueta: string;
+    url: string;
+    icono: IconoLink;
+    orden: number;
+    visible: boolean;
+    fondo_url: string | null;
+  }[] = [];
   for (const l of Array.isArray(links) ? links.slice(0, TOPES.links) : []) {
     const etiqueta = String(l.etiqueta ?? "").trim().slice(0, TOPES.etiquetaLink);
     let url = String(l.url ?? "").trim();
@@ -172,7 +194,26 @@ export async function guardarLinksSolutions(
     if (/^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(url)) url = `https://${url}`;
     if (!/^(https?:\/\/|mailto:|tel:)/i.test(url)) return { ok: false, motivo: `«${etiqueta}» necesita una dirección válida.` };
     const icono = (ICONOS_LINK as readonly string[]).includes(l.icono) ? (l.icono as IconoLink) : "link";
-    limpios.push({ negocio_id: negocioId, etiqueta, url, icono, orden: limpios.length, visible: l.visible !== false });
+
+    // La foto de fondo pasa por el MISMO portero que el logo y la
+    // portada: tiene que estar en nuestro storage y ser una imagen de
+    // verdad (magic bytes), no solo una cadena que termine en .png.
+    const fondo = await fotoValida(String(l.fondoUrl ?? ""));
+    if (!fondo.ok) return fondo;
+
+    // `fondo_url` va SIEMPRE, aunque sea null. PostgREST rechaza un
+    // insert en lote donde los objetos no tienen las mismas claves
+    // (PGRST102, «All object keys must match») — y acá la mitad de las
+    // puertas no lleva foto, que es justo el caso que lo dispara.
+    limpios.push({
+      negocio_id: negocioId,
+      etiqueta,
+      url,
+      icono,
+      orden: limpios.length,
+      visible: l.visible !== false,
+      fondo_url: fondo.url,
+    });
   }
 
   // Reemplazo completo: borrar y volver a insertar es más simple y más

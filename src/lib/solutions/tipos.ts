@@ -92,7 +92,7 @@ export const TOPES = {
 
 // ── Las filas, ya tipadas ──────────────────────────────────────────
 
-import type { EstiloLinks, Redondeo, Tema } from "./temas";
+import type { Efecto, EstiloLinks, EstiloPortada, Fuente, Redondeo, Tema } from "./temas";
 
 export type NegocioSolutions = {
   id: string;
@@ -114,6 +114,10 @@ export type NegocioSolutions = {
   tema: Tema;
   estilo_links: EstiloLinks;
   redondeo: Redondeo;
+  /** El vestido fino (0232): cara, qué hace la portada y el acabado. */
+  fuente: Fuente;
+  estilo_portada: EstiloPortada;
+  efecto: Efecto;
   creado_en: string;
 };
 
@@ -125,6 +129,8 @@ export type LinkSolutions = {
   icono: IconoLink;
   orden: number;
   visible: boolean;
+  /** Foto detrás de esta puerta (0232). null = sin foto, que es lo normal. */
+  fondo_url: string | null;
 };
 
 export type SeccionMenu = {
