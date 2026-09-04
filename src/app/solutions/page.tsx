@@ -5,6 +5,8 @@ import SiteFooter from "@/components/site-footer";
 import NavLealtad from "@/app/lealtad/nav-lealtad";
 import BurbujaContacto from "@/app/lealtad/burbuja-contacto";
 import FaqAcordeon from "@/app/lealtad/faq-acordeon";
+import Telefono from "@/components/solutions/telefono";
+import VistaPagina, { type DatosPagina } from "@/components/solutions/vista-pagina";
 
 /**
  * /solutions — LOS PRODUCTOS DE BOOKEA PARA NEGOCIOS, EN UNA PÁGINA.
@@ -52,6 +54,44 @@ const NAVY_PROFUNDO = "#0a1226";
  * `demo` es un ejemplo público real para que se vea antes de crear
  * cuenta — el banco de pruebas de Lealtad, que existe para esto.
  */
+/**
+ * LAS TRES PÁGINAS DEL HÉROE.
+ *
+ * No son capturas ni un dibujo: son `VistaPagina` —el mismo componente
+ * que sirve /s/<slug>— con datos de ejemplo y tres temas distintos. Si
+ * mañana cambia el diseño de la página, el héroe cambia solo; una
+ * captura habría quedado mintiendo desde el primer retoque.
+ *
+ * `inerte`: los enlaces del mockup no navegan.
+ */
+const MUESTRA: Omit<DatosPagina, "tema" | "estiloLinks" | "redondeo"> = {
+  nombre: "Casa Nostra",
+  bajada: "Pastas caseras, horno de leña y vinos de la casa.",
+  logoUrl: null,
+  fotoPortadaUrl: null,
+  whatsapp: "88887777",
+  direccion: "Av. Principal 123",
+  colorFondo: "#0a1226",
+  colorAcento: "#e5533d",
+  links: [
+    { id: "1", etiqueta: "Reservar con descuento", url: "#", icono: "reservar" },
+    { id: "2", etiqueta: "Pedir para recoger", url: "#", icono: "tienda" },
+    { id: "3", etiqueta: "Cómo llegar", url: "#", icono: "mapa" },
+    { id: "4", etiqueta: "Escribinos por WhatsApp", url: "#", icono: "whatsapp" },
+    { id: "5", etiqueta: "Club Casa Nostra", url: "#", icono: "link" },
+  ],
+  seccionesMenu: ["Entradas", "Pastas", "Postres"],
+  hayMenu: true,
+  aceptaPedidos: true,
+  mesa: null,
+};
+
+const VESTIDOS = [
+  { tema: "claro", estiloLinks: "lista", redondeo: "suave", acento: "#e5533d" },
+  { tema: "noche", estiloLinks: "grilla", redondeo: "redondo", acento: "#7c9cff" },
+  { tema: "crema", estiloLinks: "lista", redondeo: "recto", acento: "#b07a2c" },
+] as const;
+
 const PRODUCTOS = [
   {
     id: "lealtad",
@@ -136,34 +176,84 @@ export default function SolutionsPage() {
             "linear-gradient(180deg,#ffffff 0%,#fbfcff 100%)",
         }}
       >
-        <div className="relative mx-auto w-[min(1180px,92vw)] pb-12 pt-12 text-center sm:pt-16 lg:pb-16">
-          <p
-            className="inline-flex items-center gap-2 rounded-full border border-[#dbe3f4] bg-white/75 px-3.5 py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em]"
-            style={{ color: "var(--accion)" }}
+        <div className="relative mx-auto grid w-[min(1180px,92vw)] items-center gap-10 pb-12 pt-12 sm:pt-16 lg:grid-cols-[46%_54%] lg:gap-4 lg:pb-20">
+          <div className="text-center lg:text-left">
+            <p
+              className="inline-flex items-center gap-2 rounded-full border border-[#dbe3f4] bg-white/75 px-3.5 py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em]"
+              style={{ color: "var(--accion)" }}
+            >
+              Para restaurantes, cafeterías y servicios
+            </p>
+            <h1 className="titulo mt-5 max-w-[15ch] text-balance text-[clamp(36px,5vw,58px)] leading-[1.02] tracking-tight text-aventurea-navy lg:mx-0">
+              Tu página, tu carta y tu QR.{" "}
+              <span style={{ color: "var(--accion)" }}>Diseñados por vos.</span>
+            </h1>
+            <p className="mt-5 max-w-[52ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-aventurea-ink-soft lg:mx-0">
+              Armá una página de enlaces 100 % configurable con tu carta digital, pedidos desde la
+              mesa sin comisión y tu programa de lealtad.{" "}
+              <strong className="text-aventurea-navy">Un solo QR para todo.</strong>
+            </p>
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
+              <Link
+                href="/solutions/crear"
+                className="presionable inline-flex min-h-[48px] items-center rounded-xl px-6 text-[15px] font-extrabold text-white"
+                style={{ background: NAVY }}
+              >
+                Crear mi página gratis →
+              </Link>
+              <a
+                href="#productos"
+                className="presionable inline-flex min-h-[48px] items-center rounded-xl border border-aventurea-line bg-white px-6 text-[15px] font-bold text-aventurea-navy"
+              >
+                Ver todo lo que incluye
+              </a>
+            </div>
+            <p className="mt-4 text-[13px] text-aventurea-ink-soft">
+              Sin tarjeta. Empezás con el plan Gratis y subís cuando lo necesités.
+            </p>
+          </div>
+
+          {/* ── LOS TRES TELÉFONOS ────────────────────────────────
+              Cada uno es la MISMA página con otro tema, otro tipo de
+              card y otros bordes: es la promesa del producto —«100 %
+              configurable»— demostrada en vez de escrita. El del medio
+              va al frente y más grande porque es el que hay que mirar.
+
+              `aria-hidden`: son decoración. Lo que dicen ya está en el
+              título y en la lista de productos de abajo, así que un
+              lector de pantalla que los recorra solo escucharía tres
+              veces el mismo menú de un restaurante inventado. */}
+          <div
+            aria-hidden
+            className="relative hidden h-[520px] items-center justify-center sm:flex lg:h-[560px]"
           >
-            Bookea Solutions
-          </p>
-          <h1 className="titulo mx-auto mt-5 max-w-[18ch] text-balance text-[clamp(36px,5vw,60px)] leading-[1.02] tracking-tight text-aventurea-navy">
-            Todo lo que tu negocio necesita en el teléfono de tu cliente.
-          </h1>
-          <p className="mx-auto mt-5 max-w-[56ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-aventurea-ink-soft">
-            Una tarjeta de lealtad, tu página de links y un menú con pedidos desde la mesa.{" "}
-            <strong className="text-aventurea-navy">Una sola cuenta, una sola marca: la tuya.</strong>
-          </p>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/solutions/crear"
-              className="presionable inline-flex min-h-[48px] items-center rounded-xl px-6 text-[15px] font-extrabold text-white"
-              style={{ background: NAVY }}
-            >
-              Empezar gratis →
-            </Link>
-            <a
-              href="#productos"
-              className="presionable inline-flex min-h-[48px] items-center rounded-xl border border-aventurea-line bg-white px-6 text-[15px] font-bold text-aventurea-navy"
-            >
-              Ver los tres productos
-            </a>
+            {VESTIDOS.map((v, i) => {
+              const central = i === 1;
+              return (
+                <div
+                  key={v.tema}
+                  className="absolute transition-transform duration-500"
+                  style={{
+                    zIndex: central ? 3 : 2 - Math.abs(i - 1),
+                    transform: `translateX(${(i - 1) * 82}%) scale(${central ? 1 : 0.84}) rotate(${(i - 1) * 5}deg)`,
+                  }}
+                >
+                  <Telefono ancho={central ? 236 : 210}>
+                    <VistaPagina
+                      inerte
+                      className="min-h-full"
+                      datos={{
+                        ...MUESTRA,
+                        colorAcento: v.acento,
+                        tema: v.tema,
+                        estiloLinks: v.estiloLinks,
+                        redondeo: v.redondeo,
+                      }}
+                    />
+                  </Telefono>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>

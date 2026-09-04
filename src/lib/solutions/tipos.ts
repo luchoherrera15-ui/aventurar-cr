@@ -87,6 +87,8 @@ export const TOPES = {
 
 // ── Las filas, ya tipadas ──────────────────────────────────────────
 
+import type { EstiloLinks, Redondeo, Tema } from "./temas";
+
 export type NegocioSolutions = {
   id: string;
   owner_id: string;
@@ -103,6 +105,10 @@ export type NegocioSolutions = {
   mesas: number;
   mostrar_menu: boolean;
   acepta_pedidos: boolean;
+  /** El vestido de la página (0231). */
+  tema: Tema;
+  estilo_links: EstiloLinks;
+  redondeo: Redondeo;
   creado_en: string;
 };
 

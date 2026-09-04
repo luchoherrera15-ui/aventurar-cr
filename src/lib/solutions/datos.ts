@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { estiloLinksDe, paletaDelTema, redondeoDe, temaDe } from "./temas";
 import {
-  paletaDe,
   TOPES,
   type ColaboradorSolutions,
   type EstadoPedido,
@@ -26,14 +26,24 @@ function fila<T>(f: Record<string, unknown>): T {
   return f as unknown as T;
 }
 
+/**
+ * Las columnas de la 0231 se SANEAN al leer: una fila anterior a esa
+ * migración no las tiene, y un valor fuera de la lista cerrada no puede
+ * llegar al render. `temaDe` y compañía caen al default.
+ */
+function conVestido(d: Record<string, unknown>): NegocioSolutions {
+  const n = fila<NegocioSolutions>(d);
+  return { ...n, tema: temaDe(d.tema), estilo_links: estiloLinksDe(d.estilo_links), redondeo: redondeoDe(d.redondeo) };
+}
+
 export async function negocioPorSlug(admin: Admin, slug: string): Promise<NegocioSolutions | null> {
   const { data } = await admin.from("solutions_negocios").select("*").eq("slug", slug).maybeSingle();
-  return data ? fila<NegocioSolutions>(data) : null;
+  return data ? conVestido(data as Record<string, unknown>) : null;
 }
 
 export async function negocioPorId(admin: Admin, id: string): Promise<NegocioSolutions | null> {
   const { data } = await admin.from("solutions_negocios").select("*").eq("id", id).maybeSingle();
-  return data ? fila<NegocioSolutions>(data) : null;
+  return data ? conVestido(data as Record<string, unknown>) : null;
 }
 
 export async function linksDelNegocio(admin: Admin, negocioId: string): Promise<LinkSolutions[]> {
@@ -153,6 +163,6 @@ export async function paginaPublica(slug: string) {
     negocio,
     links: links.filter((l) => l.visible),
     menu: menuPublico(menu),
-    paleta: paletaDe(negocio.color_fondo, negocio.color_acento),
+    paleta: paletaDelTema(negocio.tema, negocio.color_fondo, negocio.color_acento),
   };
 }

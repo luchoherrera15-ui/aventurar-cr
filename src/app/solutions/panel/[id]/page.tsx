@@ -91,7 +91,16 @@ export default async function PanelSolutionsPage({
         id: "pagina",
         label: "Mi página",
         icon: <span aria-hidden>🏷</span>,
-        content: <SeccionPagina negocio={negocio} urlPublica={urlPublica} recienCreado={recienCreado} />,
+        content: (
+          <SeccionPagina
+            negocio={negocio}
+            links={links.filter((l) => l.visible)}
+            seccionesMenu={menu.agrupado.map((g) => g.seccion?.nombre ?? "Otros")}
+            hayMenu={menu.items.length > 0}
+            urlPublica={urlPublica}
+            recienCreado={recienCreado}
+          />
+        ),
       },
       {
         id: "links",

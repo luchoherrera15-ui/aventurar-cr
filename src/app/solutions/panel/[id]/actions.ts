@@ -6,6 +6,7 @@ import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { comprobarImagenSubida } from "@/lib/media/comprobar-imagen-subida";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import { generarSlugSolutions } from "@/lib/solutions/slug";
+import { estiloLinksDe, redondeoDe, temaDe } from "@/lib/solutions/temas";
 import {
   ESTADOS_PEDIDO,
   HEX,
@@ -89,6 +90,11 @@ export async function guardarPaginaSolutions(
     mostrarMenu: boolean;
     aceptaPedidos: boolean;
     mesas: number;
+    /** El vestido de la página (0231). Lista cerrada; lo saneamos acá
+     *  igual que el CHECK de la migración. */
+    tema: string;
+    estiloLinks: string;
+    redondeo: string;
   },
 ): Promise<R> {
   const p = await portonEditar(negocioId);
@@ -134,6 +140,9 @@ export async function guardarPaginaSolutions(
       publicado: d.publicado === true,
       mostrar_menu: d.mostrarMenu !== false,
       acepta_pedidos: d.aceptaPedidos === true,
+      tema: temaDe(d.tema),
+      estilo_links: estiloLinksDe(d.estiloLinks),
+      redondeo: redondeoDe(d.redondeo),
       mesas: Math.max(0, Math.min(TOPES.mesas, Math.trunc(Number(d.mesas)) || 0)),
       actualizado_en: new Date().toISOString(),
     })
