@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hoyISOCR } from "@/lib/fechas";
 import {
   IconChair,
   IconClipboard,
+  IconHome,
   IconCloche,
   IconEnlace,
   IconTagLine,
@@ -21,6 +23,7 @@ import {
 } from "@/lib/solutions/datos";
 import { urlPublicaSolutions } from "@/lib/solutions/tipos";
 import SeccionComandas from "./seccion-comandas";
+import SeccionInicio from "./seccion-inicio";
 import SeccionPagina from "./seccion-pagina";
 import SeccionLinks from "./seccion-links";
 import SeccionMenu from "./seccion-menu";
@@ -71,10 +74,55 @@ export default async function PanelSolutionsPage({
   ]);
 
   const vivas = pedidos.filter((p) => p.estado === "nuevo" || p.estado === "preparando" || p.estado === "listo").length;
+
+  // Las comandas de HOY, en hora de Costa Rica — el tablero las muestra
+  // como el único número «de hoy» que existe de verdad.
+  //
+  // `hoyISOCR` del repo y no un cálculo a mano: restarle 6 horas al UTC
+  // acierta casi siempre y falla en el borde de la medianoche, que es
+  // justo cuando el número importa (cerrando la caja del día).
+  const hoyCR = hoyISOCR();
+  const comandasHoy = pedidos.filter((p) => p.creado_en.slice(0, 10) === hoyCR).length;
+
+  // ¿Este dueño ya tiene tarjeta en Bookea Lealtad? Es lo que decide si
+  // el tablero ofrece sumarla o la da por puesta. Consulta chica y
+  // tolerante: si algo falla, se asume que no y se ofrece.
+  let tieneLealtad = false;
+  {
+    const { data: susRanchos } = await admin
+      .from("ranchos")
+      .select("id")
+      .eq("owner_id", negocio.owner_id)
+      .limit(20);
+    const ids = (susRanchos ?? []).map((r) => r.id as string);
+    if (ids.length > 0) {
+      const { count } = await admin
+        .from("programa_lealtad")
+        .select("id", { count: "exact", head: true })
+        .in("rancho_id", ids);
+      tieneLealtad = (count ?? 0) > 0;
+    }
+  }
   const urlPublica = urlPublicaSolutions(negocio.slug);
   const recienCreado = busqueda.nuevo === "1";
 
   const tabs: Tab[] = [
+    {
+      id: "inicio",
+      label: "Inicio",
+      icon: <IconHome />,
+      content: (
+        <SeccionInicio
+          negocio={negocio}
+          urlPublica={urlPublica}
+          totalLinks={links.filter((l) => l.visible).length}
+          totalPlatos={menu.items.length}
+          totalSecciones={menu.secciones.length}
+          comandasHoy={comandasHoy}
+          tieneLealtad={tieneLealtad}
+        />
+      ),
+    },
     {
       id: "comandas",
       label: "Comandas",
@@ -193,7 +241,7 @@ export default async function PanelSolutionsPage({
 
   return (
     <main className="min-h-svh bg-[#f7f9fc]">
-      <PanelSidebar tabs={tabs} defaultTab={recienCreado ? "pagina" : "comandas"} identidad={identidad} encabezado={encabezado} />
+      <PanelSidebar tabs={tabs} defaultTab={recienCreado ? "pagina" : vivas > 0 ? "comandas" : "inicio"} identidad={identidad} encabezado={encabezado} />
     </main>
   );
 }
