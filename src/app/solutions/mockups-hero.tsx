@@ -3,23 +3,39 @@
 import { useState } from "react";
 import Telefono from "@/components/solutions/telefono";
 import VistaPagina, { type DatosPagina } from "@/components/solutions/vista-pagina";
-import { PRESETS, TEMAS, type EstiloLinks, type Redondeo, type Tema } from "@/lib/solutions/temas";
+import { MockupCarta, MockupPase } from "@/components/solutions/mockup-pantallas";
+import {
+  PRESETS,
+  paletaDelTema,
+  TEMAS,
+  type EstiloLinks,
+  type Redondeo,
+  type Tema,
+} from "@/lib/solutions/temas";
 
 /**
  * LOS TELÉFONOS DEL HÉROE — y el selector que los repinta.
  *
  * Pedido del dueño (4 sep 2026): que la landing sea «más interactiva,
- * más funcional, más informativa».
+ * más funcional, más informativa», y que «cada card tenga algo
+ * distinto: la carta, el linktree, el pase de lealtad».
+ *
+ * ── CADA TELÉFONO CUENTA UNA COSA ──────────────────────────────────
+ * Tres veces la misma pantalla con distinto color no vende tres
+ * productos: vende un selector de temas. Así que cada aparato muestra
+ * una pieza distinta de lo que trae Solutions —la carta, el linktree,
+ * el pase— y el tema los repinta a los tres a la vez. Eso sí demuestra
+ * las dos promesas juntas: son varias cosas, y son tuyas.
  *
  * ── POR QUÉ SE PUEDE TOCAR ─────────────────────────────────────────
- * La promesa de la página es «diseñados por vos». Escribirlo convence
- * a nadie; dejar que el visitante toque un tema y vea los tres
+ * La promesa de la página es «diseñados por vos». Escribirlo no
+ * convence a nadie; dejar que el visitante toque un tema y vea los tres
  * teléfonos cambiar en el acto lo demuestra. Es el producto haciendo
  * la demostración, no una captura de él.
  *
- * Y no es una maqueta aparte: cada teléfono monta `VistaPagina`, el
- * MISMO componente que sirve /s/<slug>. Lo que se ve acá es
- * literalmente lo que le queda al negocio.
+ * El del medio no es una maqueta: monta `VistaPagina`, el MISMO
+ * componente que sirve /s/<slug>. Los de los lados sí son maquetas, y
+ * el porqué de cada una está en `mockup-pantallas.tsx`.
  */
 
 const MUESTRA: Omit<DatosPagina, "tema" | "estiloLinks" | "redondeo" | "colorAcento"> = {
@@ -42,11 +58,19 @@ const MUESTRA: Omit<DatosPagina, "tema" | "estiloLinks" | "redondeo" | "colorAce
   mesa: null,
 };
 
-/** Los tres del abanico: el del medio manda, los de los lados acompañan. */
-const ABANICO: { estiloLinks: EstiloLinks; redondeo: Redondeo }[] = [
-  { estiloLinks: "lista", redondeo: "suave" },
-  { estiloLinks: "grilla", redondeo: "redondo" },
-  { estiloLinks: "lista", redondeo: "recto" },
+/**
+ * Los tres del abanico: el del medio manda, los de los lados acompañan.
+ * `pieza` decide QUÉ pantalla va adentro; el resto es su vestido.
+ */
+const ABANICO: {
+  pieza: "carta" | "links" | "pase";
+  rotulo: string;
+  estiloLinks: EstiloLinks;
+  redondeo: Redondeo;
+}[] = [
+  { pieza: "carta", rotulo: "Tu carta", estiloLinks: "lista", redondeo: "suave" },
+  { pieza: "links", rotulo: "Tu página", estiloLinks: "grilla", redondeo: "redondo" },
+  { pieza: "pase", rotulo: "Tu lealtad", estiloLinks: "lista", redondeo: "recto" },
 ];
 
 /** Qué tema usa cada teléfono según el que el visitante elija. */
@@ -67,6 +91,12 @@ export default function MockupsHero() {
         {ABANICO.map((v, i) => {
           const central = i === 1;
           const t = trio[i];
+          const acento = PRESETS[t].acentoSugerido;
+          /* La barra de estado tiene que leerse sobre la pantalla que
+             tiene debajo: en «claro» o «crema» los glifos blancos
+             desaparecen. La tinta sale de la misma paleta que pinta el
+             contenido, así que nunca se despareja. */
+          const paleta = paletaDelTema(t, MUESTRA.colorFondo, acento);
           return (
             <div
               key={i}
@@ -83,23 +113,53 @@ export default function MockupsHero() {
                 opacity: central ? 1 : 0.95,
               }}
             >
-              <Telefono ancho={central ? 268 : 236}>
-                <VistaPagina
-                  inerte
-                  className="min-h-full"
-                  datos={{
-                    ...MUESTRA,
-                    colorAcento: PRESETS[t].acentoSugerido,
-                    tema: t,
-                    estiloLinks: v.estiloLinks,
-                    redondeo: v.redondeo,
-                  }}
-                />
+              <Telefono ancho={central ? 268 : 236} tinta={paleta.tinta}>
+                {v.pieza === "carta" && (
+                  <MockupCarta
+                    tema={t}
+                    redondeo={v.redondeo}
+                    acento={acento}
+                    nombre={MUESTRA.nombre}
+                  />
+                )}
+                {v.pieza === "pase" && (
+                  <MockupPase tema={t} acento={acento} nombre={MUESTRA.nombre} />
+                )}
+                {v.pieza === "links" && (
+                  <VistaPagina
+                    inerte
+                    className="min-h-full"
+                    datos={{
+                      ...MUESTRA,
+                      colorAcento: acento,
+                      tema: t,
+                      estiloLinks: v.estiloLinks,
+                      redondeo: v.redondeo,
+                    }}
+                  />
+                )}
               </Telefono>
             </div>
           );
         })}
       </div>
+
+      {/* ── Qué es cada uno ───────────────────────────────────────────
+          Van en una fila aparte y no bajo cada teléfono: el abanico se
+          solapa 58 px, así que un rótulo por aparato quedaría pisado por
+          el de al lado. En el mismo orden que los teléfonos. */}
+      <ul className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
+        {ABANICO.map((v, i) => (
+          <li key={v.pieza} className="flex items-center gap-1.5 text-[12.5px] font-bold text-aventurea-ink-soft">
+            <span
+              aria-hidden
+              className="h-2 w-2 rounded-full"
+              style={{ background: PRESETS[trio[i]].acentoSugerido }}
+            />
+            {v.rotulo}
+          </li>
+        ))}
+      </ul>
 
       {/* ── El selector: la prueba de que es configurable ──────────── */}
       <div className="flex flex-col items-center gap-2">
