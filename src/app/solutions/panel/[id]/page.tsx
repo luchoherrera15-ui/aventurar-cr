@@ -15,6 +15,7 @@ import {
 import PanelSidebar, { type Tab } from "@/app/mi-negocio/[id]/panel-sidebar";
 import { CLASES_FUENTES } from "@/app/solutions/fuentes";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
+import { addonsDelNegocio } from "@/lib/solutions/addons";
 import {
   colaboradoresDelNegocio,
   linksDelNegocio,
@@ -67,11 +68,12 @@ export default async function PanelSolutionsPage({
   const negocio = await negocioPorId(admin, id);
   if (!negocio) notFound();
 
-  const [links, menu, pedidos, equipo] = await Promise.all([
+  const [links, menu, pedidos, equipo, addons] = await Promise.all([
     linksDelNegocio(admin, id),
     menuDelNegocio(admin, id),
     pedidosDelNegocio(admin, id, { limite: 80 }),
     acceso.puedeEditar ? colaboradoresDelNegocio(admin, id) : Promise.resolve([]),
+    addonsDelNegocio(admin, id),
   ]);
 
   const vivas = pedidos.filter((p) => p.estado === "nuevo" || p.estado === "preparando" || p.estado === "listo").length;
@@ -107,6 +109,12 @@ export default async function PanelSolutionsPage({
   const urlPublica = urlPublicaSolutions(negocio.slug);
   const recienCreado = busqueda.nuevo === "1";
 
+  const recibePedidos = negocio.acepta_pedidos || negocio.pedidos_llevar || negocio.pedidos_express;
+
+  // ── EL RAIL SE ARMA CON LOS ADD-ONS (0233) ─────────────────────────
+  // Lo que el negocio no tiene prendido no aparece: ni «Comandas» sin
+  // el add-on de pedidos ni «Menú digital» sin el de menú. Se agregan
+  // desde Inicio, que es la única pestaña que siempre está.
   const tabs: Tab[] = [
     {
       id: "inicio",
@@ -121,10 +129,15 @@ export default async function PanelSolutionsPage({
           totalSecciones={menu.secciones.length}
           comandasHoy={comandasHoy}
           tieneLealtad={tieneLealtad}
+          addons={addons}
+          puedeEditar={acceso.puedeEditar}
         />
       ),
     },
-    {
+  ];
+
+  if (addons.pedidos) {
+    tabs.push({
       id: "comandas",
       label: "Comandas",
       icon: <IconClipboard />,
@@ -133,14 +146,14 @@ export default async function PanelSolutionsPage({
         <SeccionComandas
           negocioId={id}
           pedidos={pedidos}
-          aceptaPedidos={negocio.acepta_pedidos}
+          aceptaPedidos={recibePedidos}
           mesas={negocio.mesas}
           puedeEditar={acceso.puedeEditar}
           items={menu.items}
         />
       ),
-    },
-  ];
+    });
+  }
 
   if (acceso.puedeEditar) {
     tabs.push(
@@ -156,6 +169,7 @@ export default async function PanelSolutionsPage({
             hayMenu={menu.items.length > 0}
             urlPublica={urlPublica}
             recienCreado={recienCreado}
+            addons={addons}
           />
         ),
       },
@@ -165,27 +179,31 @@ export default async function PanelSolutionsPage({
         icon: <IconEnlace />,
         content: <SeccionLinks negocioId={id} links={links} />,
       },
-      {
+    );
+    if (addons.menu) {
+      tabs.push({
         id: "menu",
-        label: "La carta",
+        label: "Menú digital",
         icon: <IconCloche />,
         badge: menu.items.length,
         content: <SeccionMenu negocioId={id} menu={menu} />,
-      },
-      {
+      });
+    }
+    if (addons.pedidos && negocio.acepta_pedidos) {
+      tabs.push({
         id: "mesas",
         label: "QR de mesas",
         icon: <IconChair />,
         href: `/solutions/panel/${id}/mesas`,
-      },
-      {
-        id: "equipo",
-        label: "Equipo",
-        icon: <IconUsers />,
-        badge: equipo.length,
-        content: <SeccionEquipo negocioId={id} colaboradores={equipo} esDueno={acceso.esDueno} />,
-      },
-    );
+      });
+    }
+    tabs.push({
+      id: "equipo",
+      label: "Equipo",
+      icon: <IconUsers />,
+      badge: equipo.length,
+      content: <SeccionEquipo negocioId={id} colaboradores={equipo} esDueno={acceso.esDueno} />,
+    });
   }
 
   const identidad = (
@@ -246,7 +264,7 @@ export default async function PanelSolutionsPage({
        el build, así que la variable tiene que existir antes de que el
        negocio elija cuál usar. */
     <main className={`min-h-svh bg-[#f7f9fc] ${CLASES_FUENTES}`}>
-      <PanelSidebar tabs={tabs} defaultTab={recienCreado ? "pagina" : vivas > 0 ? "comandas" : "inicio"} identidad={identidad} encabezado={encabezado} />
+      <PanelSidebar tabs={tabs} defaultTab={!recienCreado && addons.pedidos && vivas > 0 ? "comandas" : "inicio"} identidad={identidad} encabezado={encabezado} />
     </main>
   );
 }

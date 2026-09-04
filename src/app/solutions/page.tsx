@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
-import NavLealtad from "@/app/lealtad/nav-lealtad";
+import NavSolutions from "./nav-solutions";
 import BurbujaContacto from "@/app/lealtad/burbuja-contacto";
 import FaqAcordeon from "@/app/lealtad/faq-acordeon";
 import {
@@ -58,9 +58,9 @@ import { CLASES_FUENTES } from "./fuentes";
  */
 
 export const metadata: Metadata = {
-  title: "Bookea Solutions · Tu página, tu carta digital y tu QR",
+  title: "Bookea Solutions · Tu página, tu menú digital y tu QR",
   description:
-    "Creá la página de tu negocio con tu carta digital, pedidos desde la mesa sin comisión y tu tarjeta de lealtad. Un solo QR para todo, 100 % configurable.",
+    "Creá la página de tu negocio con tu menú digital, pedidos desde la mesa sin comisión y tu tarjeta de lealtad. Un solo QR para todo, 100 % configurable.",
   alternates: { canonical: "/solutions" },
 };
 
@@ -71,13 +71,21 @@ const NAVY_PROFUNDO = "#0a1226";
 const retraso = (i: number) =>
   ({ "--reveal-delay": `${Math.min(i * 60, 320)}ms` }) as React.CSSProperties;
 
+/**
+ * LOS PRODUCTOS SON ADD-ONS (dueño, 4 sep 2026): una cuenta, un
+ * negocio, y lo que se agrega por separado. El link hub es lo
+ * incluido; el resto tiene su precio — hoy ₡0 mientras dure la
+ * prueba, pero el lugar del precio ya existe para que cuando cambie
+ * se vea acá, antes de crear la cuenta.
+ */
 const PRODUCTOS = [
   {
-    id: "linktree",
-    kicker: "Tu página",
-    titulo: "Una página con tu marca, no con la nuestra",
+    id: "linkhub",
+    kicker: "Incluido",
+    precio: "Gratis",
+    titulo: "Tu link hub: una página con tu marca",
     bajada:
-      "Tus puertas en el orden que quieras: la carta, WhatsApp, Instagram, reservas, cómo llegar. Seis temas, dos tipos de botón y tres estilos de borde.",
+      "Tus puertas en el orden que quieras: el menú, WhatsApp, Instagram, reservas, cómo llegar. Seis temas, seis fuentes, cinco efectos y foto de fondo por botón.",
     puntos: [
       "Hasta doce enlaces, ordenados arrastrando",
       "Se edita escribiendo encima de la página",
@@ -88,24 +96,41 @@ const PRODUCTOS = [
   },
   {
     id: "menu",
-    kicker: "Restaurantes y cafeterías",
-    titulo: "Carta digital con pedidos desde la mesa",
+    kicker: "Add-on",
+    precio: "₡0 en prueba",
+    titulo: "Menú digital",
     bajada:
-      "Tu carta con fotos, secciones y precios, vestida con tu marca. Un QR por mesa: el cliente pide desde su teléfono y la comanda te llega al panel.",
+      "Secciones, platos, fotos y precios, vestidos con tu marca. Se abre desde tu página y desde el QR.",
     puntos: [
-      "Sin comisión por pedido — el cobro es tuyo",
       "Marcás «agotado hoy» y desaparece del menú",
-      "Comandas en vivo: nuevo → preparando → listo",
+      "Fotos por plato, precios en colones",
+      "Lo prendés desde tu panel cuando lo necesités",
     ],
-    cta: { href: "/solutions/crear", label: "Armar mi carta" },
+    cta: { href: "/solutions/crear", label: "Empezar con mi página" },
     Icono: IconCloche,
   },
   {
+    id: "pedidos",
+    kicker: "Add-on",
+    precio: "₡0 en prueba",
+    titulo: "Pedidos: mesa, para llevar y exprés",
+    bajada:
+      "Un QR por mesa y la comanda te llega al panel. Para llevar o exprés, el cliente arma su pedido y te llega ordenado por WhatsApp.",
+    puntos: [
+      "Sin comisión por pedido — el cobro es tuyo",
+      "Comandas en vivo: nuevo → preparando → listo",
+      "Nombre, teléfono, dirección y forma de pago, siempre en el mismo orden",
+    ],
+    cta: { href: "/solutions/crear", label: "Empezar con mi página" },
+    Icono: IconClipboard,
+  },
+  {
     id: "lealtad",
-    kicker: "Fidelización",
+    kicker: "Add-on",
+    precio: "Con Bookea Lealtad",
     titulo: "Tarjeta de lealtad en el teléfono",
     bajada:
-      "Sellos, puntos o cashback en Apple Wallet y Google Wallet. Sin apps que instalar ni cartones que se pierden.",
+      "Sellos, puntos o cashback en Apple Wallet y Google Wallet. Se arma con la misma cuenta y aparece como una puerta más en tu página.",
     puntos: [
       "Tu logo, tus colores y tu regalía",
       "Se agrega con un QR en el mostrador",
@@ -125,7 +150,7 @@ const PASOS = [
   },
   {
     n: "02",
-    titulo: "Cargás tu carta",
+    titulo: "Cargás tu menú",
     detalle:
       "Secciones, platos, fotos y precios. Lo que marcás agotado desaparece del menú hasta que vuelva a haber.",
   },
@@ -157,32 +182,32 @@ const FAQ = [
   {
     pregunta: "¿Necesito varias cuentas?",
     respuesta:
-      "No. Con tu cuenta de Bookea creás tu negocio en Solutions y desde su panel manejás la página, la carta y las comandas. La tarjeta de lealtad se arma aparte, en Bookea Lealtad, con la misma cuenta.",
+      "No. Una sola cuenta de Bookea. Con ella creás tu negocio en Solutions y te queda tu link hub gratis; el menú digital, los pedidos y la tarjeta de lealtad son add-ons que agregás desde el panel cuando los necesités — con esa misma cuenta.",
   },
   {
     pregunta: "¿Cuánto cuesta?",
     respuesta:
-      "La página de enlaces y la carta digital con pedidos son gratis: creás tu negocio en /solutions/crear y ya tenés bookea.lat/s/tu-negocio. La tarjeta de lealtad tiene sus propios paquetes.",
+      "El link hub es gratis, siempre. Los add-ons se venden por separado y, mientras dure la prueba, están en ₡0: los prendés desde Inicio y los apagás cuando quieras. Cuando tengan precio lo vas a ver ahí mismo, antes de activarlos.",
   },
   {
-    pregunta: "¿Los pedidos desde la mesa cobran comisión?",
+    pregunta: "¿Cómo funciona el pedido por WhatsApp?",
     respuesta:
-      "No, y no es un detalle: es una comanda, no una pasarela. El cliente pide desde el QR y a vos te llega al panel con el número de mesa. El cobro sigue siendo tuyo, en tu caja.",
+      "El cliente abre tu menú, va sumando —un combo, unas papas, un refresco—, elige para llevar o exprés, llena nombre, teléfono, cédula, dirección y cómo paga, y toca enviar. Se abre WhatsApp con el pedido ya escrito y ordenado; solo lo manda. Vos lo ves en el chat y en «Comandas», con el mismo código.",
   },
   {
-    pregunta: "¿Puedo usar solo la carta, sin tarjeta de lealtad?",
+    pregunta: "¿Los pedidos cobran comisión?",
     respuesta:
-      "Sí. Solutions no exige tarjeta: creás el negocio, cargás la carta, imprimís los QR de mesa y listo. La página se arma con lo que tengas prendido.",
+      "No, y no es un detalle: es una comanda, no una pasarela. Desde la mesa te llega al panel; para llevar o exprés te llega por WhatsApp. El cobro sigue siendo tuyo, en tu caja o como lo coordinés con el cliente.",
   },
   {
-    pregunta: "¿Y si no tengo mesas?",
+    pregunta: "¿Puedo usar solo el link hub?",
     respuesta:
-      "Dejás las mesas en cero y apagás los pedidos. Te queda la página de enlaces con tu carta para mirar — que es lo que usan las cafeterías de mostrador y los negocios de servicios.",
+      "Sí. Es lo que usan las cafeterías de mostrador y los negocios de servicios: tu página con tus enlaces y tu QR, sin menú ni pedidos. Los add-ons se agregan después, si hacen falta.",
   },
   {
     pregunta: "¿Puedo cambiar el diseño después?",
     respuesta:
-      "Cuando quieras y las veces que quieras. El tema, el tipo de botón y los bordes se cambian desde el panel y tu página se actualiza al guardar — el QR que ya imprimiste sigue funcionando igual.",
+      "Cuando quieras y las veces que quieras. Tema, fuente, efectos, portada y bordes se cambian desde el panel y tu página se actualiza al guardar — el QR que ya imprimiste sigue funcionando igual.",
   },
 ];
 
@@ -192,7 +217,7 @@ export default function SolutionsPage() {
        puedan pintarse con la cara que le toca a cada teléfono. */
     <main className={`min-h-svh bg-white ${CLASES_FUENTES}`}>
       <RevealOnScroll />
-      <NavLealtad autoOcultar />
+      <NavSolutions autoOcultar />
       <BurbujaContacto />
 
       {/* ══ 1 · HERO ══════════════════════════════════════════════ */}
@@ -213,11 +238,11 @@ export default function SolutionsPage() {
               Para restaurantes, cafeterías y servicios
             </p>
             <h1 className="titulo mt-5 max-w-[15ch] text-balance text-[clamp(34px,4.8vw,56px)] leading-[1.03] tracking-tight text-aventurea-navy">
-              Tu página, tu carta y tu QR.{" "}
+              Tu página, tu menú y tu QR.{" "}
               <span style={{ color: "var(--accion)" }}>Diseñados por vos.</span>
             </h1>
             <p className="mt-5 max-w-[52ch] text-[clamp(15px,1.7vw,18px)] leading-relaxed text-aventurea-ink-soft">
-              Armá una página de enlaces 100 % configurable con tu carta digital, pedidos desde la
+              Armá una página de enlaces 100 % configurable con tu menú digital, pedidos desde la
               mesa sin comisión y tu programa de lealtad.{" "}
               <strong className="text-aventurea-navy">Un solo QR para todo.</strong>
             </p>
@@ -254,17 +279,17 @@ export default function SolutionsPage() {
             className="text-[11px] font-extrabold uppercase tracking-[0.16em]"
             style={{ color: "var(--accion)" }}
           >
-            Tres herramientas, una cuenta
+            Una cuenta, tus add-ons
           </p>
           <h2 className="titulo mt-2 text-[clamp(26px,3.4vw,40px)] leading-tight text-aventurea-navy">
-            Todo lo digital de tu negocio, en un lugar
+            Empezás gratis y agregás lo que necesités
           </h2>
           <p className="mt-3 text-[15px] leading-relaxed text-aventurea-ink-soft">
-            Lo que antes eran tres servicios distintos —y tres facturas— acá es un panel y un QR.
+            Creás tu cuenta, tenés tu link hub, y desde el panel sumás el menú, los pedidos o la tarjeta cuando te hagan falta. Un panel, un QR, una factura.
           </p>
         </div>
 
-        <div className="mt-10 grid gap-5 lg:grid-cols-3">
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {PRODUCTOS.map((p, i) => (
             <article
               key={p.id}
@@ -284,7 +309,7 @@ export default function SolutionsPage() {
                 className="mt-5 text-[11px] font-extrabold uppercase tracking-[0.16em]"
                 style={{ color: "var(--accion)" }}
               >
-                {p.kicker}
+                {p.kicker} · <span className="text-aventurea-ink">{p.precio}</span>
               </p>
               <h3 className="titulo mt-1.5 text-[22px] leading-tight text-aventurea-navy">
                 {p.titulo}
@@ -406,7 +431,7 @@ export default function SolutionsPage() {
             <p className="mt-4 text-[15px] leading-relaxed text-aventurea-ink-soft">
               El QR de la mesa abre{" "}
               <strong className="text-aventurea-navy">bookea.lat/s/tu-negocio</strong>: tu página,
-              con tu marca. Desde ahí ve la carta, pide, suma sellos y te escribe. Y como el número
+              con tu marca. Desde ahí ve el menú, pide, suma sellos y te escribe. Y como el número
               de mesa viaja en el código, sabés de dónde viene cada pedido{" "}
               <strong className="text-aventurea-navy">sin reimprimir nada</strong>.
             </p>
@@ -414,7 +439,7 @@ export default function SolutionsPage() {
           <ol className="grid gap-3 sm:grid-cols-3">
             {[
               ["Escanea", "El QR de la mesa o del mostrador."],
-              ["Elige", "Carta, reservas, WhatsApp — tus puertas."],
+              ["Elige", "Menú, reservas, WhatsApp — tus puertas."],
               ["Pide", "La comanda llega al panel con su mesa."],
             ].map(([t, d], i) => (
               <li

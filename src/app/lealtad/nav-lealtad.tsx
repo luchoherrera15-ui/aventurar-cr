@@ -63,6 +63,42 @@ const ITEMS_CUENTA: { href: string; label: string }[] = [
 ];
 
 /**
+ * ── LA MARCA DEL NAV (4 sep 2026) ───────────────────────────────────
+ * Este nav lo usa también Bookea Solutions. Antes Solutions lo montaba
+ * tal cual y arriba decía «Lealtad», con los enlaces de Lealtad y el
+ * botón «¡Creá tu tarjeta ya!»: la confusión que el dueño marcó.
+ *
+ * Un solo componente con la marca por prop, y no una copia por
+ * producto: la burbuja, el scroll, la sesión en el navegador y el menú
+ * móvil son exactamente iguales en los dos, y dos copias se despegan
+ * en cuanto alguien toca una. Lo que cambia entre productos es SOLO
+ * esto.
+ */
+export type MarcaNav = {
+  /** Lo que va al lado del logo: «Lealtad», «Solutions». */
+  etiqueta: string;
+  enlaces: { href: string; label: string }[];
+  itemsCuenta: { href: string; label: string }[];
+  hrefIngresar: string;
+  cta: { href: string; label: string };
+  cerrarSesion: () => Promise<void>;
+  /** El desplegable de industrias es de Lealtad; los demás no lo tienen. */
+  industrias: boolean;
+  idMenu: string;
+};
+
+const MARCA_LEALTAD: MarcaNav = {
+  etiqueta: "Lealtad",
+  enlaces: ENLACES,
+  itemsCuenta: ITEMS_CUENTA,
+  hrefIngresar: "/lealtad/ingresar",
+  cta: { href: "/lealtad/crear", label: "¡Creá tu tarjeta ya!" },
+  cerrarSesion: cerrarSesionLealtad,
+  industrias: true,
+  idMenu: "menu-lealtad",
+};
+
+/**
  * ════════════════════════════════════════════════════════════════════
  *  LA SESIÓN SE RESUELVE EN EL NAVEGADOR CUANDO NADIE LA PASA
  * ════════════════════════════════════════════════════════════════════
@@ -157,8 +193,11 @@ export default function NavLealtad(props: {
    *  lo piden /lealtad/ayuda, la landing /lealtad y /lealtad/crear
    *  (30 ago 2026). El resto de las landings la deja fija. */
   autoOcultar?: boolean;
+  /** Qué producto es. Sin esto, Lealtad. */
+  marca?: MarcaNav;
 }) {
   const { logueado, nombre } = useSesionDelNav(props);
+  const marca = props.marca ?? MARCA_LEALTAD;
   const [abierto, setAbierto] = useState(false);
   const [abiertoCuenta, setAbiertoCuenta] = useState(false);
 
@@ -262,7 +301,7 @@ export default function NavLealtad(props: {
             className="h-7 w-auto shrink-0 sm:h-8"
           />
           <span className="hidden text-[13px] font-bold text-aventurea-ink-soft sm:inline">
-            Lealtad
+            {marca.etiqueta}
           </span>
         </Link>
 
@@ -270,7 +309,7 @@ export default function NavLealtad(props: {
           aria-label="Secciones de la página"
           className="hidden items-center gap-8 lg:flex"
         >
-          {ENLACES.map((e) => (
+          {marca.enlaces.map((e) => (
             <a
               key={e.href}
               href={e.href}
@@ -284,6 +323,7 @@ export default function NavLealtad(props: {
               porque un menú solo-hover deja afuera a quien navega con
               Tab. El pt-3 es el puente invisible entre el botón y el
               panel: sin él, el hover se corta al cruzar el espacio. */}
+          {marca.industrias && (
           <div className="group relative">
             <button
               type="button"
@@ -312,6 +352,7 @@ export default function NavLealtad(props: {
               </div>
             </div>
           </div>
+          )}
         </nav>
 
         <div className="hidden items-center gap-5 lg:flex">
@@ -345,7 +386,7 @@ export default function NavLealtad(props: {
                     className="fixed inset-0 z-40 cursor-default"
                   />
                   <div className="absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-2xl border border-aventurea-line bg-white p-1.5 shadow-[0_24px_60px_-24px_rgba(16,38,88,0.35)]">
-                    {ITEMS_CUENTA.map((item) => (
+                    {marca.itemsCuenta.map((item) => (
                       <Link
                         key={item.href}
                         href={item.href}
@@ -356,7 +397,7 @@ export default function NavLealtad(props: {
                       </Link>
                     ))}
                     <div className="my-1 border-t border-aventurea-line" />
-                    <form action={cerrarSesionLealtad}>
+                    <form action={marca.cerrarSesion}>
                       <button
                         type="submit"
                         className="block w-full whitespace-nowrap rounded-xl px-3.5 py-2.5 text-left text-[13.5px] font-bold text-aventurea-ink hover:bg-[#f2f5fb]"
@@ -370,7 +411,7 @@ export default function NavLealtad(props: {
             </div>
           ) : (
             <Link
-              href="/lealtad/ingresar"
+              href={marca.hrefIngresar}
               className="flex items-center gap-1.5 text-[15px] font-medium text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
             >
               <Icono nombre="perfil" className="h-4 w-4 shrink-0" />
@@ -380,14 +421,24 @@ export default function NavLealtad(props: {
 
           {/* La acción, siempre a la vista: antes vivía en el hero y
               desaparecía apenas se hacía scroll. */}
-          <BotonCrearPase>¡Creá tu tarjeta ya!</BotonCrearPase>
+          {props.marca ? (
+            <Link
+              href={marca.cta.href}
+              className="presionable inline-flex items-center justify-center rounded-xl px-6 py-3.5 text-[14px] font-bold text-white transition-all duration-200 hover:-translate-y-0.5 hover:opacity-90"
+              style={{ background: "#0a1226", boxShadow: "0 6px 16px -10px rgba(10,18,38,.45)" }}
+            >
+              {marca.cta.label}
+            </Link>
+          ) : (
+            <BotonCrearPase>¡Creá tu tarjeta ya!</BotonCrearPase>
+          )}
         </div>
 
         <button
           type="button"
           onClick={() => setAbierto((v) => !v)}
           aria-expanded={abierto}
-          aria-controls="menu-lealtad"
+          aria-controls={marca.idMenu}
           aria-label={abierto ? "Cerrar menú" : "Abrir menú"}
           className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-aventurea-line text-aventurea-navy lg:hidden"
         >
@@ -403,14 +454,14 @@ export default function NavLealtad(props: {
            hay una lista de enlaces que tiene que leerse sí o sí sobre
            cualquier cosa que pase por detrás. */
         <div
-          id="menu-lealtad"
+          id={marca.idMenu}
           className="pointer-events-auto mx-auto mt-2 w-full max-w-[1180px] rounded-3xl border border-aventurea-line bg-white/95 px-5 py-5 shadow-[0_24px_60px_-24px_rgba(16,38,88,.35)] backdrop-blur-xl lg:hidden"
         >
           <nav
             className="flex flex-col gap-4"
             aria-label="Secciones de la página"
           >
-            {ENLACES.map((e) => (
+            {marca.enlaces.map((e) => (
               <a
                 key={e.href}
                 href={e.href}
@@ -420,19 +471,23 @@ export default function NavLealtad(props: {
                 {e.label}
               </a>
             ))}
-            <p className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.16em] text-aventurea-ink-soft">
-              Industrias
-            </p>
-            {INDUSTRIAS.map((i) => (
-              <Link
-                key={i.slug}
-                href={`/lealtad/industrias/${i.slug}`}
-                onClick={() => setAbierto(false)}
-                className="pl-3 text-[14px] font-bold text-aventurea-ink"
-              >
-                {i.nombre}
-              </Link>
-            ))}
+            {marca.industrias && (
+              <>
+                <p className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.16em] text-aventurea-ink-soft">
+                  Industrias
+                </p>
+                {INDUSTRIAS.map((i) => (
+                  <Link
+                    key={i.slug}
+                    href={`/lealtad/industrias/${i.slug}`}
+                    onClick={() => setAbierto(false)}
+                    className="pl-3 text-[14px] font-bold text-aventurea-ink"
+                  >
+                    {i.nombre}
+                  </Link>
+                ))}
+              </>
+            )}
             {logueado ? (
               <>
                 <div className="mt-1 flex items-center gap-2 text-[15px] font-bold text-aventurea-ink">
@@ -441,7 +496,7 @@ export default function NavLealtad(props: {
                   </span>
                   <span className="truncate">{etiquetaCuenta}</span>
                 </div>
-                {ITEMS_CUENTA.map((item) => (
+                {marca.itemsCuenta.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
@@ -451,7 +506,7 @@ export default function NavLealtad(props: {
                     {item.label}
                   </Link>
                 ))}
-                <form action={cerrarSesionLealtad}>
+                <form action={marca.cerrarSesion}>
                   <button type="submit" className="pl-3 text-[14px] font-bold text-aventurea-ink">
                     Cerrar sesión
                   </button>
@@ -459,7 +514,7 @@ export default function NavLealtad(props: {
               </>
             ) : (
               <Link
-                href="/lealtad/ingresar"
+                href={marca.hrefIngresar}
                 onClick={() => setAbierto(false)}
                 className="flex items-center gap-2 text-[15px] font-bold text-aventurea-ink"
               >

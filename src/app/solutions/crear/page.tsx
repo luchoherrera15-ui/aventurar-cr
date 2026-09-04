@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import NavLealtad from "@/app/lealtad/nav-lealtad";
+import NavSolutions from "../nav-solutions";
 import { negociosDeLaCuenta } from "@/lib/solutions/acceso";
 import FormularioCrear from "./formulario-crear";
 
@@ -31,7 +31,7 @@ export default async function CrearSolutionsPage() {
 
   return (
     <main className="min-h-svh bg-[#f7f9fc]">
-      <NavLealtad logueado nombre={null} />
+      <NavSolutions logueado nombre={null} />
       <section className="mx-auto w-[min(560px,92vw)] py-12">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "var(--accion)" }}>
           Bookea Solutions
@@ -41,7 +41,8 @@ export default async function CrearSolutionsPage() {
         </h1>
         <p className="mt-3 text-[15px] leading-relaxed text-aventurea-ink-soft">
           Con eso te creamos tu página <strong className="text-aventurea-navy">bookea.lat/s/…</strong> y tu
-          panel. Los links, la carta y las mesas se arman ahí.
+          panel. Tu link hub es gratis; el menú, los pedidos y la tarjeta de lealtad se agregan
+          desde ahí, con esta misma cuenta.
         </p>
 
         <div className="mt-6 rounded-[18px] border border-aventurea-line bg-white p-6 shadow-plano">

@@ -20,12 +20,12 @@ import {
  *
  * Pedido del dueño (4 sep 2026): que la landing sea «más interactiva,
  * más funcional, más informativa», y que «cada card tenga algo
- * distinto: la carta, el linktree, el pase de lealtad».
+ * distinto: el menú, el linktree, el pase de lealtad».
  *
  * ── CADA TELÉFONO CUENTA UNA COSA ──────────────────────────────────
  * Tres veces la misma pantalla con distinto color no vende tres
  * productos: vende un selector de temas. Así que cada aparato muestra
- * una pieza distinta de lo que trae Solutions —la carta, el linktree,
+ * una pieza distinta de lo que trae Solutions —el menú, el linktree,
  * el pase— y el tema los repinta a los tres a la vez. Eso sí demuestra
  * las dos promesas juntas: son varias cosas, y son tuyas.
  *
@@ -68,14 +68,14 @@ const MUESTRA: Omit<
  * `pieza` decide QUÉ pantalla va adentro; el resto es su vestido.
  */
 const ABANICO: {
-  pieza: "carta" | "links" | "pase";
+  pieza: "menu" | "links" | "pase";
   rotulo: string;
   estiloLinks: EstiloLinks;
   redondeo: Redondeo;
   fuente: Fuente;
   efecto: Efecto;
 }[] = [
-  { pieza: "carta", rotulo: "Tu carta", estiloLinks: "lista", redondeo: "suave", fuente: "editorial", efecto: "plano" },
+  { pieza: "menu", rotulo: "Tu menú", estiloLinks: "lista", redondeo: "suave", fuente: "editorial", efecto: "plano" },
   { pieza: "links", rotulo: "Tu página", estiloLinks: "grilla", redondeo: "redondo", fuente: "redonda", efecto: "vidrio" },
   { pieza: "pase", rotulo: "Tu lealtad", estiloLinks: "lista", redondeo: "recto", fuente: "condensada", efecto: "elevado" },
 ];
@@ -121,7 +121,7 @@ export default function MockupsHero() {
               }}
             >
               <Telefono ancho={central ? 268 : 236} tinta={paleta.tinta}>
-                {v.pieza === "carta" && (
+                {v.pieza === "menu" && (
                   <MockupCarta
                     tema={t}
                     redondeo={v.redondeo}

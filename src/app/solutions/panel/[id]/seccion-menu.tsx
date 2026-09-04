@@ -18,7 +18,7 @@ import {
 } from "./actions";
 
 /**
- * LA CARTA — secciones y platos.
+ * EL MENÚ — secciones y platos.
  *
  * Cada cambio se guarda al momento (no hay un «Guardar todo»): un
  * restaurante edita un plato a la vez, entre servicio y servicio, y
@@ -171,7 +171,7 @@ export default function SeccionMenu({ negocioId, menu }: { negocioId: string; me
               <SubirImagen valor={editando.foto_url ?? ""} alCambiar={(u) => setEditando({ ...editando, foto_url: u })} destino="banner" etiqueta="Foto del plato" carpeta="solutions/platos" bucket="solutions-fotos" />
               <label className="flex items-center gap-2.5 text-[13px] font-bold text-aventurea-ink">
                 <input type="checkbox" checked={editando.disponible !== false} onChange={(e) => setEditando({ ...editando, disponible: e.target.checked })} className="h-4 w-4" />
-                Visible en la carta
+                Visible en el menú
               </label>
             </div>
             <div className="mt-5 flex flex-wrap items-center gap-2">

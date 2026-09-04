@@ -104,7 +104,7 @@ export default function SeccionLinks({
       >
         <p className="text-[12.5px] leading-snug text-aventurea-ink-soft">
           Las puertas de tu página, en este orden. Arrastralas del asa de la izquierda para
-          acomodarlas, o usá ↑ ↓. La carta ya tiene su botón propio. A cada una le podés poner
+          acomodarlas, o usá ↑ ↓. El menú ya tiene su botón propio. A cada una le podés poner
           una foto de fondo — el velo que la deja legible lo ponemos nosotros.
         </p>
 

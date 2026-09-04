@@ -6,7 +6,15 @@ import { useRouter } from "next/navigation";
 import { Card, PildoraEstado } from "@/components/panel/piezas";
 import { BOTON_PANEL, BOTON_PANEL_PRIMARIO, ESTADO_AVISO } from "@/components/panel/sistema";
 import { fmtColones } from "@/lib/finanzas";
-import { ESTADO_PEDIDO, type EstadoPedido, type ItemMenuSolutions, type PedidoSolutions } from "@/lib/solutions/tipos";
+import {
+  ESTADO_PEDIDO,
+  METODO_PAGO,
+  MODALIDAD,
+  type EstadoPedido,
+  type ItemMenuSolutions,
+  type PedidoSolutions,
+} from "@/lib/solutions/tipos";
+import { codigoDePedido } from "@/lib/solutions/whatsapp";
 import { cambiarEstadoPedidoSolutions, marcarAgotadoSolutions } from "./actions";
 
 /**
@@ -60,12 +68,17 @@ export default function SeccionComandas({
   const agotados = items.filter((it) => it.agotado_hoy);
   const hora = (iso: string) => new Date(iso).toLocaleTimeString("es-CR", { hour: "2-digit", minute: "2-digit" });
   const tono = (e: EstadoPedido) => (e === "nuevo" ? "aviso" : e === "preparando" ? "info" : e === "listo" ? "exito" : "neutro");
+  /** «Mesa 4» o «Para llevar #A1B2»: el título de una comanda (0233). El
+   *  código es el mismo que viaja en el mensaje de WhatsApp, para que el
+   *  local encuentre acá lo que le llegó por el chat. */
+  const titulo = (p: PedidoSolutions) =>
+    p.modalidad === "mesa" ? `Mesa ${p.mesa ?? "?"}` : `${MODALIDAD[p.modalidad].rotulo} #${codigoDePedido(p.id)}`;
 
   return (
     <div className="flex flex-col gap-4">
       {!aceptaPedidos && (
         <p className={`rounded-xl p-3 text-[13px] ${ESTADO_AVISO.info}`}>
-          Los pedidos desde la mesa están apagados.{" "}
+          Los pedidos están apagados.{" "}
           {puedeEditar ? (
             <Link href="?tab=pagina" className="font-bold underline">Prendelos en «Mi página»</Link>
           ) : (
@@ -78,7 +91,7 @@ export default function SeccionComandas({
 
       <Card eyebrow="Ahora" titulo="Comandas en curso" accion={<PildoraEstado estado={vivas.length > 0 ? "aviso" : "neutro"}>{vivas.length}</PildoraEstado>}>
         {vivas.length === 0 && (
-          <p className="text-[13px] text-aventurea-ink-soft">Nada pendiente. Cuando alguien pida desde su mesa, aparece acá solo.</p>
+          <p className="text-[13px] text-aventurea-ink-soft">Nada pendiente. Cuando alguien pida desde su mesa o por WhatsApp, aparece acá solo.</p>
         )}
         <ul className="grid gap-3 lg:grid-cols-2">
           {vivas.map((p) => {
@@ -86,11 +99,20 @@ export default function SeccionComandas({
             return (
               <li key={p.id} className="rounded-2xl border border-aventurea-line bg-white p-4 shadow-plano">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[22px] font-extrabold leading-none text-aventurea-navy">Mesa {p.mesa}</p>
+                  <div className="min-w-0">
+                    <p className="text-[22px] font-extrabold leading-none text-aventurea-navy">{titulo(p)}</p>
                     <p className="mt-1 text-[12px] text-aventurea-ink-soft">
                       {hora(p.creado_en)}{p.nombre && ` · ${p.nombre}`}
                     </p>
+                    {/* Los datos del cliente, solo cuando hay que entregarle (0233). */}
+                    {p.modalidad !== "mesa" && (
+                      <p className="mt-1 text-[12.5px] leading-snug text-aventurea-ink">
+                        {p.telefono && <span className="block">Tel. {p.telefono}</span>}
+                        {p.cedula && <span className="block">Cédula {p.cedula}</span>}
+                        {p.direccion && <span className="block">{p.direccion}</span>}
+                        {p.metodo_pago && <span className="block font-bold">Paga con {METODO_PAGO[p.metodo_pago].toLowerCase()}</span>}
+                      </p>
+                    )}
                   </div>
                   <PildoraEstado estado={tono(p.estado)}>{def.rotulo}</PildoraEstado>
                 </div>
@@ -102,11 +124,17 @@ export default function SeccionComandas({
                     </li>
                   ))}
                 </ul>
+                {p.costo_envio > 0 && (
+                  <p className="mt-1 flex justify-between text-[13px] text-aventurea-ink-soft">
+                    <span>Envío</span>
+                    <span className="tabular-nums">{fmtColones(p.costo_envio)}</span>
+                  </p>
+                )}
                 {p.nota && <p className="mt-2 rounded-lg bg-aventurea-cream-2 px-3 py-2 text-[12.5px] italic text-aventurea-ink">«{p.nota}»</p>}
                 <div className="mt-3 flex items-center justify-between gap-2 border-t border-aventurea-line pt-3">
                   <span className="text-[15px] font-extrabold tabular-nums text-aventurea-navy">{fmtColones(p.total)}</span>
                   <div className="flex gap-2">
-                    <button type="button" disabled={ocupado} onClick={() => { if (confirm(`¿Cancelar el pedido de la mesa ${p.mesa}?`)) mover(p, "cancelado"); }} className={BOTON_PANEL}>Cancelar</button>
+                    <button type="button" disabled={ocupado} onClick={() => { if (confirm(`¿Cancelar el pedido ${titulo(p)}?`)) mover(p, "cancelado"); }} className={BOTON_PANEL}>Cancelar</button>
                     {def.siguiente && def.accion && (
                       <button type="button" disabled={ocupado} onClick={() => mover(p, def.siguiente as EstadoPedido)} className={BOTON_PANEL_PRIMARIO}>{def.accion}</button>
                     )}
@@ -138,7 +166,7 @@ export default function SeccionComandas({
             <ul className="flex flex-col divide-y divide-aventurea-line">
               {cerradas.map((p) => (
                 <li key={p.id} className="flex items-center justify-between gap-3 py-2 text-[13px]">
-                  <span className="text-aventurea-ink"><strong>Mesa {p.mesa}</strong> · {hora(p.creado_en)} · {p.items.reduce((s, it) => s + it.cantidad, 0)} platos</span>
+                  <span className="text-aventurea-ink"><strong>{titulo(p)}</strong> · {hora(p.creado_en)} · {p.items.reduce((s, it) => s + it.cantidad, 0)} platos</span>
                   <span className="flex items-center gap-3">
                     <span className="tabular-nums text-aventurea-ink-soft">{fmtColones(p.total)}</span>
                     <PildoraEstado estado={p.estado === "cancelado" ? "alerta" : "neutro"}>{ESTADO_PEDIDO[p.estado].rotulo}</PildoraEstado>

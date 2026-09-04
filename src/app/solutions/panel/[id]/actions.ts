@@ -6,6 +6,7 @@ import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { comprobarImagenSubida } from "@/lib/media/comprobar-imagen-subida";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import { generarSlugSolutions } from "@/lib/solutions/slug";
+import { esAddon } from "@/lib/solutions/addons";
 import {
   efectoDe,
   estiloLinksDe,
@@ -20,6 +21,7 @@ import {
   ICONOS_LINK,
   ROLES_COLABORADOR,
   TOPES,
+  metodosPagoDe,
   type EstadoPedido,
   type IconoLink,
   type RolColaborador,
@@ -106,6 +108,12 @@ export async function guardarPaginaSolutions(
     fuente: string;
     estiloPortada: string;
     efecto: string;
+    /** Cómo recibe pedidos además de la mesa (0233). */
+    pedidosLlevar: boolean;
+    pedidosExpress: boolean;
+    costoExpress: number;
+    metodosPago: string[];
+    whatsappPedidos: string;
   },
 ): Promise<R> {
   const p = await portonEditar(negocioId);
@@ -135,6 +143,18 @@ export async function guardarPaginaSolutions(
   if (whatsapp && (whatsapp.length < 8 || whatsapp.length > 15)) {
     return { ok: false, motivo: "El WhatsApp tiene que tener entre 8 y 15 dígitos." };
   }
+  const whatsappPedidos = String(d.whatsappPedidos ?? "").replace(/\D/g, "");
+  if (whatsappPedidos && (whatsappPedidos.length < 8 || whatsappPedidos.length > 15)) {
+    return { ok: false, motivo: "El WhatsApp de pedidos tiene que tener entre 8 y 15 dígitos." };
+  }
+  // Para llevar o exprés necesitan un número a dónde mandar el pedido:
+  // el de pedidos o, en su defecto, el de la página. Sin ninguno, el
+  // cliente armaría un pedido que no llega a nadie.
+  if ((d.pedidosLlevar || d.pedidosExpress) && !whatsappPedidos && !whatsapp) {
+    return { ok: false, motivo: "Para recibir pedidos para llevar o exprés hace falta un WhatsApp." };
+  }
+  const costoExpress = Math.max(0, Math.round(Number(d.costoExpress) || 0));
+  const metodosPago = metodosPagoDe(d.metodosPago);
 
   const { error } = await p.admin
     .from("solutions_negocios")
@@ -157,6 +177,11 @@ export async function guardarPaginaSolutions(
       fuente: fuenteDe(d.fuente),
       estilo_portada: portadaDe(d.estiloPortada),
       efecto: efectoDe(d.efecto),
+      pedidos_llevar: d.pedidosLlevar === true,
+      pedidos_express: d.pedidosExpress === true,
+      costo_express: costoExpress,
+      metodos_pago: metodosPago,
+      whatsapp_pedidos: whatsappPedidos || null,
       mesas: Math.max(0, Math.min(TOPES.mesas, Math.trunc(Number(d.mesas)) || 0)),
       actualizado_en: new Date().toISOString(),
     })
@@ -165,6 +190,35 @@ export async function guardarPaginaSolutions(
 
   refrescar(negocioId, slug);
   if (actual?.slug && actual.slug !== slug) revalidatePath(`/s/${actual.slug}`);
+  return { ok: true };
+}
+
+// ── LOS ADD-ONS (0233) ──────────────────────────────────────────────
+
+/**
+ * Prender o apagar un add-on. Hoy es gratis («todo es prueba», dueño,
+ * 4 sep 2026): el día que se cobre, lo que cambia es lo que pasa ANTES
+ * de escribir la fila —verificar el pago—, no esta puerta.
+ *
+ * Solo dueño/admin (`portonEditar`), y el link hub no se apaga: es lo
+ * incluido con la cuenta.
+ */
+export async function activarAddonSolutions(negocioId: string, addon: string, activo: boolean): Promise<R> {
+  const p = await portonEditar(negocioId);
+  if (!p.ok) return p;
+  if (!esAddon(addon)) return { ok: false, motivo: "Ese complemento no existe." };
+  if (addon === "linkhub") return { ok: false, motivo: "Tu página viene con la cuenta: no se apaga." };
+
+  const fila: Record<string, unknown> = { negocio_id: negocioId, addon, activo: activo === true, vence_en: null };
+  if (activo) {
+    fila.activado_en = new Date().toISOString();
+    fila.notas = "prueba (gratis)";
+  }
+  const { error } = await p.admin.from("solutions_addons").upsert(fila, { onConflict: "negocio_id,addon" });
+  if (error) return { ok: false, motivo: "No se pudo cambiar el complemento. Probá de nuevo." };
+
+  const { data: n } = await p.admin.from("solutions_negocios").select("slug").eq("id", negocioId).single();
+  refrescar(negocioId, n?.slug as string | undefined);
   return { ok: true };
 }
 

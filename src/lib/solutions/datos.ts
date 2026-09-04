@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { addonsDelNegocio } from "./addons";
 import {
   efectoDe,
   estiloLinksDe,
@@ -9,6 +10,9 @@ import {
   temaDe,
 } from "./temas";
 import {
+  metodoPagoDe,
+  metodosPagoDe,
+  modalidadDe,
   TOPES,
   type ColaboradorSolutions,
   type EstadoPedido,
@@ -52,6 +56,12 @@ function conVestido(d: Record<string, unknown>): NegocioSolutions {
     fuente: fuenteDe(d.fuente),
     estilo_portada: portadaDe(d.estilo_portada),
     efecto: efectoDe(d.efecto),
+    // 0233. Mismo criterio: sin las columnas, cada una cae a su default.
+    pedidos_llevar: d.pedidos_llevar === true,
+    pedidos_express: d.pedidos_express === true,
+    costo_express: Number(d.costo_express ?? 0) || 0,
+    metodos_pago: metodosPagoDe(d.metodos_pago),
+    whatsapp_pedidos: typeof d.whatsapp_pedidos === "string" && d.whatsapp_pedidos ? d.whatsapp_pedidos : null,
   };
 }
 
@@ -137,11 +147,17 @@ export async function pedidosDelNegocio(
     return {
       id: f.id as string,
       negocio_id: f.negocio_id as string,
-      mesa: Number(f.mesa),
+      mesa: f.mesa === null || f.mesa === undefined ? null : Number(f.mesa),
+      modalidad: modalidadDe(f.modalidad),
       nombre: (f.nombre as string) ?? "",
       nota: (f.nota as string) ?? "",
       estado: f.estado as EstadoPedido,
       total: Number(f.total ?? 0),
+      telefono: (f.telefono as string | null) ?? null,
+      cedula: (f.cedula as string | null) ?? null,
+      direccion: (f.direccion as string | null) ?? null,
+      metodo_pago: metodoPagoDe(f.metodo_pago),
+      costo_envio: Number(f.costo_envio ?? 0) || 0,
       creado_en: f.creado_en as string,
       actualizado_en: f.actualizado_en as string,
       items: items.map((it) => ({
@@ -177,11 +193,19 @@ export async function paginaPublica(slug: string) {
   if (!admin || !slug) return null;
   const negocio = await negocioPorSlug(admin, slug);
   if (!negocio || !negocio.publicado) return null;
-  const [links, menu] = await Promise.all([linksDelNegocio(admin, negocio.id), menuDelNegocio(admin, negocio.id)]);
+  const [links, menu, addons] = await Promise.all([
+    linksDelNegocio(admin, negocio.id),
+    menuDelNegocio(admin, negocio.id),
+    addonsDelNegocio(admin, negocio.id),
+  ]);
   return {
     negocio,
     links: links.filter((l) => l.visible),
-    menu: menuPublico(menu),
+    // El menú público solo existe si el add-on está prendido (0233):
+    // lo que el negocio no contrató no sale a la calle, tenga o no
+    // platos cargados.
+    menu: addons.menu ? menuPublico(menu) : [],
+    addons,
     paleta: paletaDelTema(negocio.tema, negocio.color_fondo, negocio.color_acento),
   };
 }

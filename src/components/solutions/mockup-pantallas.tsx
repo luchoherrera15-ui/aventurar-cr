@@ -9,18 +9,18 @@ import {
 } from "@/lib/solutions/temas";
 
 /**
- * LAS PANTALLAS DE MUESTRA DEL HÉROE — la carta y el pase.
+ * LAS PANTALLAS DE MUESTRA DEL HÉROE — el menú y el pase.
  *
  * Pedido del dueño (4 sep 2026): «que cada card tenga algo distinto: la
- * carta, el linktree, el pase de lealtad».
+ * menú, el linktree, el pase de lealtad».
  *
  * ── POR QUÉ ESTAS DOS SON PROPIAS Y EL LINKTREE NO ─────────────────
  * El linktree del medio monta `VistaPagina`, el componente REAL que
  * sirve /s/<slug>: ahí no hay imitación posible ni necesaria.
  *
- * La carta y el pase no pueden hacer lo mismo, y por razones concretas:
+ * El menú y el pase no pueden hacer lo mismo, y por razones concretas:
  *
- *   · La carta real (`MenuConCarrito`) es un componente de cliente con
+ *   · El menú real (`MenuConCarrito`) es un componente de cliente con
  *     carrito, hoja de confirmación y una server action detrás. Meter
  *     eso en un héroe sería cargar el pedido entero para dibujar cuatro
  *     platos.
@@ -45,7 +45,7 @@ const PLATOS = [
   { n: "Tiramisú de la casa", d: "Receta de la nonna", p: "₡3 800" },
 ];
 
-/** LA CARTA — secciones, platos y precios, como se ven en /s/<slug>/menu. */
+/** EL MENÚ — secciones, platos y precios, como se ven en /s/<slug>/menu. */
 export function MockupCarta({
   tema,
   redondeo,
@@ -91,7 +91,7 @@ export function MockupCarta({
         Elegí y pedí desde tu mesa
       </p>
 
-      {/* Las anclas de sección, como en la carta real. */}
+      {/* Las anclas de sección, como en el menú real. */}
       <div className="mt-3 flex gap-1.5">
         {["Entradas", "Pastas", "Postres"].map((s, i) => (
           <span

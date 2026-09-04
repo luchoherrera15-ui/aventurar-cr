@@ -67,6 +67,43 @@ export const ESTADO_PEDIDO: Record<
   cancelado: { rotulo: "Cancelado", siguiente: null, accion: null },
 };
 
+/**
+ * ── CÓMO SE PIDE (0233) ─────────────────────────────────────────────
+ * mesa    = desde el QR de la mesa; llega al panel y se paga en caja.
+ * llevar  = para recoger en el local; se manda por WhatsApp.
+ * express = envío a domicilio; se manda por WhatsApp con dirección.
+ */
+export const MODALIDADES = ["mesa", "llevar", "express"] as const;
+export type Modalidad = (typeof MODALIDADES)[number];
+
+export const MODALIDAD: Record<Modalidad, { rotulo: string; pie: string }> = {
+  mesa: { rotulo: "En la mesa", pie: "Pide desde el QR de su mesa" },
+  llevar: { rotulo: "Para llevar", pie: "Pasa a recogerlo" },
+  express: { rotulo: "Exprés", pie: "Se lo llevás a su dirección" },
+};
+
+/** Con qué paga. Lista cerrada — el CHECK de la 0233 la espeja. */
+export const METODOS_PAGO = ["efectivo", "tarjeta", "transferencia"] as const;
+export type MetodoPago = (typeof METODOS_PAGO)[number];
+
+export const METODO_PAGO: Record<MetodoPago, string> = {
+  efectivo: "Efectivo",
+  tarjeta: "Tarjeta",
+  transferencia: "Transferencia",
+};
+
+export function modalidadDe(v: unknown): Modalidad {
+  return (MODALIDADES as readonly unknown[]).includes(v) ? (v as Modalidad) : "mesa";
+}
+export function metodoPagoDe(v: unknown): MetodoPago | null {
+  return (METODOS_PAGO as readonly unknown[]).includes(v) ? (v as MetodoPago) : null;
+}
+/** Lee el text[] crudo. Vacío o roto ⇒ efectivo, que todo local acepta. */
+export function metodosPagoDe(v: unknown): MetodoPago[] {
+  const lista = Array.isArray(v) ? v.filter((x): x is MetodoPago => metodoPagoDe(x) !== null) : [];
+  return lista.length > 0 ? Array.from(new Set(lista)) : ["efectivo"];
+}
+
 export const ROLES_COLABORADOR = ["admin", "equipo"] as const;
 export type RolColaborador = (typeof ROLES_COLABORADOR)[number];
 
@@ -88,6 +125,10 @@ export const TOPES = {
   cantidadPorRenglon: 20,
   renglonesPorPedido: 30,
   colaboradores: 15,
+  /** Los datos del cliente en un pedido para llevar / exprés (0233). */
+  telefono: 15,
+  cedula: 20,
+  direccionPedido: 200,
 } as const;
 
 // ── Las filas, ya tipadas ──────────────────────────────────────────
@@ -118,6 +159,13 @@ export type NegocioSolutions = {
   fuente: Fuente;
   estilo_portada: EstiloPortada;
   efecto: Efecto;
+  /** Cómo recibe pedidos además de la mesa (0233). */
+  pedidos_llevar: boolean;
+  pedidos_express: boolean;
+  costo_express: number;
+  metodos_pago: MetodoPago[];
+  /** null = el `whatsapp` de la página. */
+  whatsapp_pedidos: string | null;
   creado_en: string;
 };
 
@@ -156,11 +204,19 @@ export type ItemMenuSolutions = {
 export type PedidoSolutions = {
   id: string;
   negocio_id: string;
-  mesa: number;
+  /** null cuando no es de mesa (0233). */
+  mesa: number | null;
+  modalidad: Modalidad;
   nombre: string;
   nota: string;
   estado: EstadoPedido;
   total: number;
+  /** Los datos del cliente, solo en llevar / exprés (0233). */
+  telefono: string | null;
+  cedula: string | null;
+  direccion: string | null;
+  metodo_pago: MetodoPago | null;
+  costo_envio: number;
   creado_en: string;
   actualizado_en: string;
   items: { id: string; nombre: string; precio: number; cantidad: number }[];

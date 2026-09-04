@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Card, PildoraEstado } from "@/components/panel/piezas";
 import {
   BOTON_PANEL,
@@ -32,7 +33,15 @@ import {
   type Redondeo,
   type Tema,
 } from "@/lib/solutions/temas";
-import { TOPES, type LinkSolutions, type NegocioSolutions } from "@/lib/solutions/tipos";
+import {
+  METODOS_PAGO,
+  METODO_PAGO,
+  TOPES,
+  type LinkSolutions,
+  type MetodoPago,
+  type NegocioSolutions,
+} from "@/lib/solutions/tipos";
+import type { EstadoAddons } from "@/lib/solutions/addons";
 import { guardarLinksSolutions, guardarPaginaSolutions } from "./actions";
 
 /**
@@ -69,6 +78,7 @@ export default function SeccionPagina({
   hayMenu,
   urlPublica,
   recienCreado,
+  addons,
 }: {
   negocio: NegocioSolutions;
   /** Para que la previa muestre las puertas de verdad. */
@@ -77,6 +87,8 @@ export default function SeccionPagina({
   hayMenu: boolean;
   urlPublica: string;
   recienCreado: boolean;
+  /** Qué tiene prendido el negocio (0233): decide qué controles se muestran. */
+  addons: EstadoAddons;
 }) {
   const [f, setF] = useState({
     nombre: negocio.nombre,
@@ -98,6 +110,11 @@ export default function SeccionPagina({
     fuente: negocio.fuente as Fuente,
     estiloPortada: negocio.estilo_portada as EstiloPortada,
     efecto: negocio.efecto as Efecto,
+    pedidosLlevar: negocio.pedidos_llevar,
+    pedidosExpress: negocio.pedidos_express,
+    costoExpress: negocio.costo_express,
+    metodosPago: negocio.metodos_pago as MetodoPago[],
+    whatsappPedidos: negocio.whatsapp_pedidos ?? "",
   });
   const [msg, setMsg] = useState<{ tono: "exito" | "alerta"; texto: string } | null>(null);
   const [guardando, arrancar] = useTransition();
@@ -183,7 +200,7 @@ export default function SeccionPagina({
     efecto: f.efecto,
     links: linksParaPrevia,
     seccionesMenu,
-    hayMenu: f.mostrarMenu && hayMenu,
+    hayMenu: addons.menu && f.mostrarMenu && hayMenu,
     aceptaPedidos: f.aceptaPedidos,
     mesa: null,
   };
@@ -194,8 +211,8 @@ export default function SeccionPagina({
       <div className="flex flex-col gap-4">
         {recienCreado && (
           <p className={`rounded-xl p-3 text-[13px] ${ESTADO_AVISO.info}`}>
-            ¡Tu negocio ya existe! Elegí abajo cómo se ve —lo mirás al lado mientras tocás— y
-            cargá tu carta en «La carta».
+            ¡Tu negocio ya existe! Elegí abajo cómo se ve —lo mirás al lado mientras tocás. El menú
+            y los pedidos se agregan desde «Inicio».
           </p>
         )}
 
@@ -456,23 +473,113 @@ export default function SeccionPagina({
         </Card>
 
         <Card eyebrow="Las puertas" titulo="Menú y pedidos">
-          <label className="flex items-center gap-2.5 text-[13px] font-bold text-aventurea-ink">
-            <input type="checkbox" checked={f.mostrarMenu} onChange={(e) => set("mostrarMenu", e.target.checked)} className="h-4 w-4" />
-            Mostrar la carta en la página
-          </label>
-          <label className="mt-3 flex items-center gap-2.5 text-[13px] font-bold text-aventurea-ink">
-            <input type="checkbox" checked={f.aceptaPedidos} onChange={(e) => set("aceptaPedidos", e.target.checked)} className="h-4 w-4" />
-            Recibir pedidos desde la mesa
-          </label>
-          <p className="mt-1.5 text-[12.5px] leading-snug text-aventurea-ink-soft">
-            Con esto prendido, quien escanee el QR de su mesa arma el pedido desde el teléfono y te
-            llega a «Comandas». El pago sigue siendo en tu caja.
-          </p>
-          <div className="mt-4 border-t border-aventurea-line pt-4">
-            <label htmlFor="mesas" className={ROTULO_CAMPO}>Cuántas mesas tenés</label>
-            <input id="mesas" type="number" min={0} max={TOPES.mesas} value={f.mesas} onChange={(e) => set("mesas", Math.max(0, Math.min(TOPES.mesas, Number(e.target.value) || 0)))} className={`mt-1.5 w-[110px] ${CAMPO_PANEL}`} />
-            <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">Cada mesa tiene su QR. Se imprimen en «QR de mesas».</p>
-          </div>
+          {/* ── EL MENÚ: solo con su add-on ────────────────────── */}
+          {addons.menu ? (
+            <label className="flex items-center gap-2.5 text-[13px] font-bold text-aventurea-ink">
+              <input type="checkbox" checked={f.mostrarMenu} onChange={(e) => set("mostrarMenu", e.target.checked)} className="h-4 w-4" />
+              Mostrar el menú en la página
+            </label>
+          ) : (
+            <p className={`rounded-xl p-3 text-[13px] ${ESTADO_AVISO.info}`}>
+              El menú digital es un add-on.{" "}
+              <Link href="?tab=inicio" className="font-bold underline">Agregalo desde Inicio</Link> y acá aparecen
+              sus opciones.
+            </p>
+          )}
+
+          {/* ── LOS PEDIDOS: tres modalidades, cada una con lo suyo ─
+              Pedido del dueño (4 sep 2026): para llevar y exprés se
+              mandan por WhatsApp con los datos del cliente. Cada
+              modalidad se prende aparte porque un local puede tener
+              mesas sin exprés o exprés sin mesas. */}
+          {addons.pedidos ? (
+            <div className="mt-4 border-t border-aventurea-line pt-4">
+              <p className={ROTULO_CAMPO}>Cómo recibís pedidos</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                {(
+                  [
+                    { k: "aceptaPedidos", t: "En la mesa", d: "Desde el QR de cada mesa. Llega a «Comandas»." },
+                    { k: "pedidosLlevar", t: "Para llevar", d: "Pasa a recogerlo. Llega por WhatsApp." },
+                    { k: "pedidosExpress", t: "Exprés", d: "Se lo llevás. Llega por WhatsApp con dirección." },
+                  ] as const
+                ).map((m) => (
+                  <label
+                    key={m.k}
+                    className={`flex cursor-pointer items-start gap-2.5 rounded-xl border p-3 ${
+                      f[m.k] ? "border-aventurea-navy bg-aventurea-navy/5" : "border-aventurea-line"
+                    }`}
+                  >
+                    <input type="checkbox" checked={f[m.k]} onChange={(e) => set(m.k, e.target.checked)} className="mt-0.5 h-4 w-4" />
+                    <span>
+                      <span className="block text-[13px] font-extrabold text-aventurea-ink">{m.t}</span>
+                      <span className="block text-[11.5px] leading-snug text-aventurea-ink-soft">{m.d}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              {f.aceptaPedidos && (
+                <div className="mt-4">
+                  <label htmlFor="mesas" className={ROTULO_CAMPO}>Cuántas mesas tenés</label>
+                  <input id="mesas" type="number" min={0} max={TOPES.mesas} value={f.mesas} onChange={(e) => set("mesas", Math.max(0, Math.min(TOPES.mesas, Number(e.target.value) || 0)))} className={`mt-1.5 w-[110px] ${CAMPO_PANEL}`} />
+                  <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">Cada mesa tiene su QR. Se imprimen en «QR de mesas». El pago sigue siendo en tu caja.</p>
+                </div>
+              )}
+
+              {(f.pedidosLlevar || f.pedidosExpress) && (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  {f.pedidosExpress && (
+                    <div>
+                      <label htmlFor="costoExpress" className={ROTULO_CAMPO}>Costo del envío (₡)</label>
+                      <input id="costoExpress" type="number" min={0} step={100} value={f.costoExpress} onChange={(e) => set("costoExpress", Math.max(0, Number(e.target.value) || 0))} className={`mt-1.5 w-[150px] ${CAMPO_PANEL}`} />
+                      <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">Se suma al pedido exprés. 0 = envío gratis.</p>
+                    </div>
+                  )}
+                  <div>
+                    <label htmlFor="whatsappPedidos" className={ROTULO_CAMPO}>WhatsApp para pedidos</label>
+                    <input id="whatsappPedidos" type="tel" value={f.whatsappPedidos} placeholder={f.whatsapp || "88887777"} onChange={(e) => set("whatsappPedidos", e.target.value)} className={`mt-1.5 ${CAMPO_PANEL}`} />
+                    <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">
+                      {f.whatsapp ? "Vacío = el WhatsApp de tu página." : "Sin uno, los pedidos no tienen a dónde llegar."}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className={ROTULO_CAMPO}>Con qué se puede pagar</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {METODOS_PAGO.map((m) => {
+                        const activo = f.metodosPago.includes(m);
+                        return (
+                          <label
+                            key={m}
+                            className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-bold ${
+                              activo ? "border-aventurea-navy bg-aventurea-navy/5 text-aventurea-navy" : "border-aventurea-line text-aventurea-ink-soft"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={activo}
+                              onChange={(e) => {
+                                const lista = e.target.checked ? [...f.metodosPago, m] : f.metodosPago.filter((x) => x !== m);
+                                // Al menos una: sin forma de pago no hay pedido posible.
+                                set("metodosPago", lista.length > 0 ? lista : ["efectivo"]);
+                              }}
+                              className="h-4 w-4"
+                            />
+                            {METODO_PAGO[m]}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">El cliente elige una al pedir y va en el mensaje. El cobro es tuyo: acá no hay pasarela.</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className={`mt-4 rounded-xl p-3 text-[13px] ${ESTADO_AVISO.info}`}>
+              Los pedidos (mesa, para llevar y exprés) son un add-on.{" "}
+              <Link href="?tab=inicio" className="font-bold underline">Agregalo desde Inicio</Link>.
+            </p>
+          )}
         </Card>
 
         <div className="flex flex-wrap items-center gap-3">

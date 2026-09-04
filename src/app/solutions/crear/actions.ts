@@ -38,5 +38,12 @@ export async function crearNegocioSolutions(
     .single();
   if (error || !data) return { error: "No se pudo crear el negocio. Probá de nuevo." };
 
+  // El link hub viene con la cuenta (0233): es lo gratuito y lo primero.
+  // Si esta fila fallara el negocio igual funciona —`addonsDelNegocio`
+  // devuelve linkhub=true aunque no haya fila—, por eso no se aborta.
+  await admin
+    .from("solutions_addons")
+    .insert({ negocio_id: data.id, addon: "linkhub", activo: true, activado_en: new Date().toISOString(), notas: "incluido" });
+
   redirect(`/solutions/panel/${data.id}?nuevo=1`);
 }
