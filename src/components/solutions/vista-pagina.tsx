@@ -1,5 +1,7 @@
+import { IconPin, IconWhatsapp } from "@/components/icons";
+import IconoLinkSVG from "./icono-link";
 import TextoEditable from "./texto-editable";
-import { ICONO_LINK, type IconoLink } from "@/lib/solutions/tipos";
+import { type IconoLink } from "@/lib/solutions/tipos";
 import {
   paletaDelTema,
   RADIOS,
@@ -142,11 +144,11 @@ export default function VistaPagina({
     : null;
 
   // Las puertas: el menú primero (es el producto), después las del dueño.
-  const puertas: { clave: string; glifo: string; titulo: string; pie?: string; href: string }[] = [];
+  const puertas: { clave: string; icono: IconoLink; titulo: string; pie?: string; href: string }[] = [];
   if (datos.hayMenu) {
     puertas.push({
       clave: "menu",
-      glifo: "🍽",
+      icono: "menu",
       titulo: datos.aceptaPedidos && datos.mesa ? "Ver el menú y pedir" : "Ver el menú",
       pie: datos.seccionesMenu.slice(0, 3).join(" · "),
       href: datos.hrefMenu ?? "#",
@@ -155,7 +157,7 @@ export default function VistaPagina({
   for (const l of datos.links) {
     puertas.push({
       clave: l.id,
-      glifo: ICONO_LINK[l.icono]?.glifo ?? "🔗",
+      icono: l.icono,
       titulo: l.etiqueta,
       href: l.url,
     });
@@ -193,7 +195,7 @@ export default function VistaPagina({
             className="absolute inset-0"
             style={{ background: `linear-gradient(180deg, transparent 18%, ${p.fondo} 97%)` }}
           />
-          <div className="relative flex min-h-[168px] flex-col justify-end gap-3 p-5">
+          <div className="relative flex min-h-[132px] flex-col justify-end gap-3 p-4 @[320px]:min-h-[168px] @[320px]:p-5">
             {datos.mesa && (
               <span
                 className="absolute right-4 top-4 px-3 py-1 text-[12px] font-bold"
@@ -212,13 +214,13 @@ export default function VistaPagina({
                 <img
                   src={datos.logoUrl}
                   alt=""
-                  className="h-14 w-14 shrink-0 object-cover"
+                  className="h-11 w-11 shrink-0 object-cover @[320px]:h-14 @[320px]:w-14"
                   style={{ borderRadius: grilla ? 999 : r.foto }}
                 />
               ) : (
                 <span
                   aria-hidden
-                  className="grid h-14 w-14 shrink-0 place-items-center text-[26px] font-extrabold"
+                  className="grid h-11 w-11 shrink-0 place-items-center text-[20px] font-extrabold @[320px]:h-14 @[320px]:w-14 @[320px]:text-[26px]"
                   style={{
                     background: p.acento,
                     color: p.tintaSobreAcento,
@@ -229,7 +231,10 @@ export default function VistaPagina({
                 </span>
               )}
               <div className="min-w-0">
-                <h1 className="text-[24px] font-extrabold leading-tight tracking-[-0.02em]">
+                {/* El tamaño sigue al CONTENEDOR: en un mockup de 268 px
+                    el titular de 24 px partía «Casa Nostra» en dos
+                    renglones y empujaba todo hacia abajo. */}
+                <h1 className="text-[19px] font-extrabold leading-tight tracking-[-0.02em] @[320px]:text-[24px]">
                   {edicion ? (
                     <TextoEditable
                       valor={datos.nombre}
@@ -254,7 +259,7 @@ export default function VistaPagina({
                   </p>
                 ) : (
                   datos.bajada && (
-                    <p className="mt-0.5 text-[13px]" style={{ color: p.suave }}>
+                    <p className="mt-0.5 text-[11.5px] @[320px]:text-[13px]" style={{ color: p.suave }}>
                       {datos.bajada}
                     </p>
                   )
@@ -291,7 +296,7 @@ export default function VistaPagina({
                       borderRadius: 999,
                     }}
                   >
-                    {x.glifo}
+                    <IconoLinkSVG icono={x.icono} className="h-[18px] w-[18px]" />
                   </span>
                   <span className="line-clamp-2 text-[11px] font-extrabold leading-tight @[300px]:text-[11.5px]">
                     {edicion && x.clave !== "menu" ? (
@@ -321,17 +326,20 @@ export default function VistaPagina({
                 >
                   <span
                     aria-hidden
-                    className="grid h-11 w-11 shrink-0 place-items-center text-[20px]"
+                    className="grid h-9 w-9 shrink-0 place-items-center text-[17px] @[320px]:h-11 @[320px]:w-11 @[320px]:text-[20px]"
                     style={{
                       background: x.clave === "menu" ? p.acento : p.superficie,
                       border: x.clave === "menu" ? "none" : `1px solid ${p.borde}`,
                       borderRadius: r.foto,
                     }}
                   >
-                    {x.glifo}
+                    <IconoLinkSVG icono={x.icono} className="h-[18px] w-[18px] @[320px]:h-5 @[320px]:w-5" />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[16px] font-extrabold leading-tight">
+                    {/* `line-clamp-2` y no `truncate`: a 268 px «Reservar
+                        con descuento» se cortaba en «Reservar con…» y la
+                        puerta dejaba de decir a dónde lleva. */}
+                    <span className="line-clamp-2 text-[13.5px] font-extrabold leading-tight @[320px]:text-[16px]">
                       {edicion && x.clave !== "menu" ? (
                         <TextoEditable
                           valor={x.titulo}
@@ -345,7 +353,7 @@ export default function VistaPagina({
                       )}
                     </span>
                     {x.pie && (
-                      <span className="mt-0.5 block truncate text-[12.5px]" style={{ color: p.suave }}>
+                      <span className="mt-0.5 block truncate text-[11px] @[320px]:text-[12.5px]" style={{ color: p.suave }}>
                         {x.pie}
                       </span>
                     )}
@@ -361,15 +369,17 @@ export default function VistaPagina({
 
         {/* ── Contacto ────────────────────────────────────────── */}
         {(linkWhatsapp || linkMapa) && (
-          <section className="flex flex-col gap-2 text-[13px]" style={{ color: p.suave }}>
+          <section className="flex flex-col gap-2 text-[12.5px] @[320px]:text-[13px]" style={{ color: p.suave }}>
             {linkMapa && (
-              <Ancla inerte={inerte} href={linkMapa} className="underline-offset-2 hover:underline">
-                📍 {datos.direccion}
+              <Ancla inerte={inerte} href={linkMapa} className="flex items-center gap-2 underline-offset-2 hover:underline">
+                <IconPin className="h-[15px] w-[15px] shrink-0" />
+                <span className="min-w-0 truncate">{datos.direccion}</span>
               </Ancla>
             )}
             {linkWhatsapp && (
-              <Ancla inerte={inerte} href={linkWhatsapp} className="underline-offset-2 hover:underline">
-                💬 Escribinos por WhatsApp
+              <Ancla inerte={inerte} href={linkWhatsapp} className="flex items-center gap-2 underline-offset-2 hover:underline">
+                <IconWhatsapp className="h-[15px] w-[15px] shrink-0" />
+                <span>Escribinos por WhatsApp</span>
               </Ancla>
             )}
           </section>

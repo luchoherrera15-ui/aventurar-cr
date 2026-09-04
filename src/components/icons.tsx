@@ -999,3 +999,74 @@ export function IconCrema({ className = base }: IconProps) {
   );
 }
 
+
+// ── Los seis que le faltaban al set para Solutions (4 sep 2026) ──────
+// Mismo contrato que el resto: viewBox 24, sin relleno, trazo
+// `currentColor` de 1.6-1.8 y remates redondos.
+
+export function IconEnlace({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.2 1.2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.2-1.2" />
+    </svg>
+  );
+}
+
+export function IconTelefono({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6.5 3.5h2l1.4 3.5-1.7 1.3a11 11 0 0 0 5.5 5.5l1.3-1.7 3.5 1.4v2a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2Z"
+      />
+    </svg>
+  );
+}
+
+export function IconYoutube({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <rect x="2.5" y="5.5" width="19" height="13" rx="4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="m10.5 9.3 4.2 2.7-4.2 2.7V9.3Z" />
+    </svg>
+  );
+}
+
+export function IconPaleta({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2-.9 2-1.8 0-1.5-1.3-1.8-1.3-2.9 0-.8.7-1.3 1.6-1.3h1.6a4.6 4.6 0 0 0 4.6-4.6C20.5 6.4 16.7 3.5 12 3.5Z"
+      />
+      <circle cx="8" cy="10" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="7.6" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="9.6" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function IconArrastrar({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className}>
+      <circle cx="9" cy="6" r="1.5" />
+      <circle cx="15" cy="6" r="1.5" />
+      <circle cx="9" cy="12" r="1.5" />
+      <circle cx="15" cy="12" r="1.5" />
+      <circle cx="9" cy="18" r="1.5" />
+      <circle cx="15" cy="18" r="1.5" />
+    </svg>
+  );
+}
+
+export function IconMovil({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
+      <rect x="6.5" y="2.5" width="11" height="19" rx="2.6" />
+      <path strokeLinecap="round" d="M10.5 5.4h3" />
+    </svg>
+  );
+}

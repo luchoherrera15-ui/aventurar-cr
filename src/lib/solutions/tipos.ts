@@ -30,21 +30,26 @@ export const ICONOS_LINK = [
 ] as const;
 export type IconoLink = (typeof ICONOS_LINK)[number];
 
-/** Cómo se llama cada ícono en el editor, y el glifo con que se pinta. */
-export const ICONO_LINK: Record<IconoLink, { nombre: string; glifo: string }> = {
-  link: { nombre: "Enlace", glifo: "🔗" },
-  instagram: { nombre: "Instagram", glifo: "📸" },
-  facebook: { nombre: "Facebook", glifo: "👍" },
-  tiktok: { nombre: "TikTok", glifo: "🎵" },
-  whatsapp: { nombre: "WhatsApp", glifo: "💬" },
-  telefono: { nombre: "Teléfono", glifo: "📞" },
-  mapa: { nombre: "Cómo llegar", glifo: "📍" },
-  reservar: { nombre: "Reservas", glifo: "📅" },
-  web: { nombre: "Sitio web", glifo: "🌐" },
-  correo: { nombre: "Correo", glifo: "✉️" },
-  youtube: { nombre: "YouTube", glifo: "▶️" },
-  tienda: { nombre: "Tienda", glifo: "🛍" },
-  menu: { nombre: "Menú", glifo: "🍽" },
+/**
+ * Cómo se llama cada ícono en el editor. El DIBUJO no vive acá: lo pone
+ * `components/solutions/icono-link.tsx` con el set de trazo del sitio.
+ * Acá solo texto, porque esto alimenta un <option> de un <select> y ahí
+ * no entra JSX.
+ */
+export const ICONO_LINK: Record<IconoLink, { nombre: string }> = {
+  link: { nombre: "Enlace" },
+  instagram: { nombre: "Instagram" },
+  facebook: { nombre: "Facebook" },
+  tiktok: { nombre: "TikTok" },
+  whatsapp: { nombre: "WhatsApp" },
+  telefono: { nombre: "Teléfono" },
+  mapa: { nombre: "Cómo llegar" },
+  reservar: { nombre: "Reservas" },
+  web: { nombre: "Sitio web" },
+  correo: { nombre: "Correo" },
+  youtube: { nombre: "YouTube" },
+  tienda: { nombre: "Tienda" },
+  menu: { nombre: "Menú" },
 };
 
 export const ESTADOS_PEDIDO = ["nuevo", "preparando", "listo", "entregado", "cancelado"] as const;

@@ -2,6 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  IconChair,
+  IconClipboard,
+  IconCloche,
+  IconEnlace,
+  IconTagLine,
+  IconUsers,
+} from "@/components/icons";
 import PanelSidebar, { type Tab } from "@/app/mi-negocio/[id]/panel-sidebar";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import {
@@ -70,7 +78,7 @@ export default async function PanelSolutionsPage({
     {
       id: "comandas",
       label: "Comandas",
-      icon: <span aria-hidden>🧾</span>,
+      icon: <IconClipboard />,
       badge: vivas,
       content: (
         <SeccionComandas
@@ -90,7 +98,7 @@ export default async function PanelSolutionsPage({
       {
         id: "pagina",
         label: "Mi página",
-        icon: <span aria-hidden>🏷</span>,
+        icon: <IconTagLine />,
         content: (
           <SeccionPagina
             negocio={negocio}
@@ -105,26 +113,26 @@ export default async function PanelSolutionsPage({
       {
         id: "links",
         label: "Enlaces",
-        icon: <span aria-hidden>🔗</span>,
+        icon: <IconEnlace />,
         content: <SeccionLinks negocioId={id} links={links} />,
       },
       {
         id: "menu",
         label: "La carta",
-        icon: <span aria-hidden>🍽</span>,
+        icon: <IconCloche />,
         badge: menu.items.length,
         content: <SeccionMenu negocioId={id} menu={menu} />,
       },
       {
         id: "mesas",
         label: "QR de mesas",
-        icon: <span aria-hidden>🪑</span>,
+        icon: <IconChair />,
         href: `/solutions/panel/${id}/mesas`,
       },
       {
         id: "equipo",
         label: "Equipo",
-        icon: <span aria-hidden>👥</span>,
+        icon: <IconUsers />,
         badge: equipo.length,
         content: <SeccionEquipo negocioId={id} colaboradores={equipo} esDueno={acceso.esDueno} />,
       },

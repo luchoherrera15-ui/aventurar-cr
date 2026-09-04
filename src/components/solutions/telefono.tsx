@@ -8,23 +8,31 @@
  * Es puro y sin estado, así que sirve igual en la landing (Server
  * Component) y en el panel (dentro de uno de cliente).
  *
- * El alto sale del ancho por proporción (19.5:9, el de un iPhone
- * moderno) en vez de fijarse en px: así el mismo componente entra en
- * la columna del panel y en el héroe de la landing sin dos juegos de
- * medidas que se desincronizan.
+ * El alto sale del ancho por PROPORCIÓN en vez de fijarse en px: así el
+ * mismo componente entra en la columna del panel y en el héroe de la
+ * landing sin dos juegos de medidas que se desincronizan.
+ *
+ * El default 2.05 es un pelo más ancho que el 19.5:9 (2.167) de un
+ * iPhone moderno, y es a propósito: a los tamaños chicos del héroe la
+ * proporción real se lee «super delgada» —el dueño lo marcó el 4 sep
+ * 2026— porque el bisel y la isla no encogen igual que el alto. Quien
+ * necesite la proporción exacta la pide por `proporcion`.
  */
 export default function Telefono({
   ancho = 260,
+  proporcion = 2.05,
   children,
   className = "",
   style,
 }: {
   ancho?: number;
+  /** Alto = ancho × proporción. 2.167 = 19.5:9 exacto. */
+  proporcion?: number;
   children: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
 }) {
-  const alto = Math.round(ancho * (19.5 / 9));
+  const alto = Math.round(ancho * proporcion);
   const bisel = Math.max(3, Math.round(ancho * 0.013));
   const radio = Math.round(ancho * 0.155);
 

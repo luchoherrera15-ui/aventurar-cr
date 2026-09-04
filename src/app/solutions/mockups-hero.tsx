@@ -61,7 +61,9 @@ export default function MockupsHero() {
 
   return (
     <div className="flex flex-col items-center gap-5">
-      <div className="relative flex h-[430px] w-full items-center justify-center sm:h-[500px] lg:h-[540px]">
+      {/* El alto acompaña al teléfono del medio (268 × 2.05 ≈ 549) más
+          aire. Si se cambia el ancho de abajo, esto también. */}
+      <div className="relative flex h-[430px] w-full items-center justify-center sm:h-[575px]">
         {ABANICO.map((v, i) => {
           const central = i === 1;
           const t = trio[i];
@@ -71,11 +73,17 @@ export default function MockupsHero() {
               className="absolute transition-all duration-500 ease-out"
               style={{
                 zIndex: central ? 3 : 1,
-                transform: `translateX(${(i - 1) * 88}%) scale(${central ? 1 : 0.8}) rotate(${(i - 1) * 6}deg)`,
-                opacity: central ? 1 : 0.92,
+                /* Offset en PÍXELES y no en % del propio ancho: en % el
+                   corrimiento cambia con el tamaño del teléfono y los
+                   laterales terminaban tapados por el del medio.
+                   Con 190 px: el central ocupa −134..134 y cada lateral
+                   arranca en 76, o sea 58 px de solape — se ve entero el
+                   contenido de los tres. */
+                transform: `translateX(${(i - 1) * 190}px) scale(${central ? 1 : 0.9}) rotate(${(i - 1) * 5}deg)`,
+                opacity: central ? 1 : 0.95,
               }}
             >
-              <Telefono ancho={central ? 232 : 208}>
+              <Telefono ancho={central ? 268 : 236}>
                 <VistaPagina
                   inerte
                   className="min-h-full"

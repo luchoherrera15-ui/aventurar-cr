@@ -5,6 +5,19 @@ import SiteFooter from "@/components/site-footer";
 import NavLealtad from "@/app/lealtad/nav-lealtad";
 import BurbujaContacto from "@/app/lealtad/burbuja-contacto";
 import FaqAcordeon from "@/app/lealtad/faq-acordeon";
+import {
+  IconArrastrar,
+  IconChair,
+  IconClipboard,
+  IconCloche,
+  IconEdit,
+  IconEnlace,
+  IconMovil,
+  IconPaleta,
+  IconStar,
+  IconUsers,
+  IconWallet,
+} from "@/components/icons";
 import MockupsHero from "./mockups-hero";
 
 /**
@@ -70,7 +83,7 @@ const PRODUCTOS = [
       "Un solo QR: bookea.lat/s/tu-negocio",
     ],
     cta: { href: "/solutions/crear", label: "Crear mi página gratis" },
-    icono: "🔗",
+    Icono: IconEnlace,
   },
   {
     id: "menu",
@@ -84,7 +97,7 @@ const PRODUCTOS = [
       "Comandas en vivo: nuevo → preparando → listo",
     ],
     cta: { href: "/solutions/crear", label: "Armar mi carta" },
-    icono: "🍽",
+    Icono: IconCloche,
   },
   {
     id: "lealtad",
@@ -98,7 +111,7 @@ const PRODUCTOS = [
       "Correos automáticos en los hitos",
     ],
     cta: { href: "/lealtad", label: "Ver Bookea Lealtad" },
-    icono: "⭐",
+    Icono: IconStar,
   },
 ] as const;
 
@@ -129,14 +142,14 @@ const PASOS = [
 ] as const;
 
 const INCLUYE = [
-  { t: "Seis temas", d: "Noche, claro, crema, bosque, vino o tus propios colores.", i: "🎨" },
-  { t: "Editás en vivo", d: "Tocás el texto en la vista del teléfono y lo escribís ahí.", i: "✍️" },
-  { t: "Arrastrar y soltar", d: "Acomodás tus enlaces arrastrándolos. También con flechas.", i: "⠿" },
-  { t: "QR por mesa", d: "Hasta 99 mesas, cada una con su código, en una hoja imprimible.", i: "🪑" },
-  { t: "Comandas en vivo", d: "El panel se refresca solo mientras la cocina trabaja.", i: "🧾" },
-  { t: "Tu equipo", d: "Invitás meseros por correo: ven comandas, no tocan la configuración.", i: "👥" },
-  { t: "Sin comisión", d: "El pedido es un comandero, no una pasarela. Cobrás en tu caja.", i: "💵" },
-  { t: "Sin apps", d: "Tu cliente escanea y listo. No instala nada.", i: "📱" },
+  { t: "Seis temas", d: "Noche, claro, crema, bosque, vino o tus propios colores.", Icono: IconPaleta },
+  { t: "Editás en vivo", d: "Tocás el texto en la vista del teléfono y lo escribís ahí.", Icono: IconEdit },
+  { t: "Arrastrar y soltar", d: "Acomodás tus enlaces arrastrándolos. También con flechas.", Icono: IconArrastrar },
+  { t: "QR por mesa", d: "Hasta 99 mesas, cada una con su código, en una hoja imprimible.", Icono: IconChair },
+  { t: "Comandas en vivo", d: "El panel se refresca solo mientras la cocina trabaja.", Icono: IconClipboard },
+  { t: "Tu equipo", d: "Invitás meseros por correo: ven comandas, no tocan la configuración.", Icono: IconUsers },
+  { t: "Sin comisión", d: "El pedido es un comandero, no una pasarela. Cobrás en tu caja.", Icono: IconWallet },
+  { t: "Sin apps", d: "Tu cliente escanea y listo. No instala nada.", Icono: IconMovil },
 ] as const;
 
 const FAQ = [
@@ -259,10 +272,10 @@ export default function SolutionsPage() {
             >
               <span
                 aria-hidden
-                className="grid h-12 w-12 place-items-center rounded-2xl text-[22px]"
-                style={{ background: "var(--accion-suave)" }}
+                className="grid h-12 w-12 place-items-center rounded-2xl"
+                style={{ background: "var(--accion-suave)", color: "var(--accion)" }}
               >
-                {p.icono}
+                <p.Icono className="h-[22px] w-[22px]" />
               </span>
               <p
                 className="mt-5 text-[11px] font-extrabold uppercase tracking-[0.16em]"
@@ -357,8 +370,12 @@ export default function SolutionsPage() {
               style={retraso(i)}
               className="elevar rounded-2xl border border-aventurea-line bg-white p-5"
             >
-              <span aria-hidden className="text-[22px]">
-                {x.i}
+              <span
+                aria-hidden
+                className="grid h-10 w-10 place-items-center rounded-xl"
+                style={{ background: "var(--accion-suave)", color: "var(--accion)" }}
+              >
+                <x.Icono className="h-5 w-5" />
               </span>
               <p className="mt-2.5 text-[15px] font-extrabold text-aventurea-navy">{x.t}</p>
               <p className="mt-1 text-[13px] leading-snug text-aventurea-ink-soft">{x.d}</p>

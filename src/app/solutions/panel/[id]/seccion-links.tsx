@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Card, PildoraEstado } from "@/components/panel/piezas";
 import { BOTON_PANEL, BOTON_PANEL_PRIMARIO, CAMPO_PANEL } from "@/components/panel/sistema";
+import { IconArrastrar } from "@/components/icons";
 import {
   ICONOS_LINK,
   ICONO_LINK,
@@ -88,8 +89,8 @@ export default function SeccionLinks({
         }
       >
         <p className="text-[12.5px] leading-snug text-aventurea-ink-soft">
-          Las puertas de tu página, en este orden. Arrastralas del ⠿ para acomodarlas, o usá ↑ ↓.
-          La carta ya tiene su botón propio.
+          Las puertas de tu página, en este orden. Arrastralas del asa de la izquierda para
+          acomodarlas, o usá ↑ ↓. La carta ya tiene su botón propio.
         </p>
 
         {filas.length > 0 && (
@@ -141,7 +142,7 @@ export default function SeccionLinks({
                   title="Arrastrá para mover"
                   className="hidden h-9 w-6 cursor-grab select-none items-center justify-center text-[15px] text-aventurea-ink-soft active:cursor-grabbing sm:flex"
                 >
-                  ⠿
+                  <IconArrastrar className="h-4 w-4" />
                 </span>
 
                 <select
@@ -152,7 +153,7 @@ export default function SeccionLinks({
                 >
                   {ICONOS_LINK.map((ic) => (
                     <option key={ic} value={ic}>
-                      {ICONO_LINK[ic].glifo} {ICONO_LINK[ic].nombre}
+                      {ICONO_LINK[ic].nombre}
                     </option>
                   ))}
                 </select>
