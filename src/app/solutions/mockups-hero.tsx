@@ -5,9 +5,16 @@ import Telefono from "@/components/solutions/telefono";
 import VistaPagina from "@/components/solutions/vista-pagina";
 import { MockupCarta, MockupPase, MUESTRA_PAGINA as MUESTRA } from "@/components/solutions/mockup-pantallas";
 import {
+  EFECTO,
+  EFECTOS,
+  ESTILOS_LINKS,
+  FUENTE,
+  FUENTES,
   PRESETS,
-  paletaDelTema,
+  REDONDEOS,
   TEMAS,
+  paletaDelTema,
+  pilaFuente,
   type Efecto,
   type EstiloLinks,
   type Fuente,
@@ -16,169 +23,183 @@ import {
 } from "@/lib/solutions/temas";
 
 /**
- * LOS TELÉFONOS DEL HÉROE — y el selector que los repinta.
+ * EL TELÉFONO DEL HÉROE — uno solo, y el configurador al lado.
  *
- * Pedido del dueño (4 sep 2026): que la landing sea «más interactiva,
- * más funcional, más informativa», y que «cada card tenga algo
- * distinto: el menú, el linktree, el pase de lealtad».
+ * Pedido del dueño (5 sep 2026): «prefiero que salga un solo mockup y
+ * que se pueda cambiar el contenido y el tipo de diseño: ver muestras
+ * en tiempo real de todos los tipos de diseño, en link hubs, en menús
+ * digitales».
  *
- * ── CADA TELÉFONO CUENTA UNA COSA ──────────────────────────────────
- * Tres veces la misma pantalla con distinto color no vende tres
- * productos: vende un selector de temas. Así que cada aparato muestra
- * una pieza distinta de lo que trae Solutions —el menú, el linktree,
- * el pase— y el tema los repinta a los tres a la vez. Eso sí demuestra
- * las dos promesas juntas: son varias cosas, y son tuyas.
+ * ── POR QUÉ UNO Y NO TRES ──────────────────────────────────────────
+ * Tres teléfonos en abanico muestran tres cosas de lejos; uno grande
+ * con controles muestra UNA cosa de cerca y deja tocarla. Lo que se
+ * vende acá no es «hay tres productos» (eso lo cuentan las cards de
+ * abajo): es «vos lo diseñás». Y eso se demuestra dejando diseñar.
  *
- * ── POR QUÉ SE PUEDE TOCAR ─────────────────────────────────────────
- * La promesa de la página es «diseñados por vos». Escribirlo no
- * convence a nadie; dejar que el visitante toque un tema y vea los tres
- * teléfonos cambiar en el acto lo demuestra. Es el producto haciendo
- * la demostración, no una captura de él.
+ * ── ES EL EDITOR DE VERDAD, EN CHICO ───────────────────────────────
+ * Los controles son los mismos que tiene el panel («Mi página»):
+ * tema, fuente, puertas, bordes, efecto. Y el teléfono monta
+ * `VistaPagina`, el MISMO componente que sirve /s/<slug>. Quien toca
+ * acá está usando el producto, no mirando una captura de él. El menú
+ * y el pase son maquetas (ver mockup-pantallas.tsx) pero se visten con
+ * el mismo sistema, así que responden a los mismos controles.
  *
- * El del medio no es una maqueta: monta `VistaPagina`, el MISMO
- * componente que sirve /s/<slug>. Los de los lados sí son maquetas, y
- * el porqué de cada una está en `mockup-pantallas.tsx`.
+ * Los controles que no aplican a la pieza elegida se van, no se
+ * apagan: un chip de «Efecto» sobre el pase de Wallet no cambiaría
+ * nada, y un control que no hace nada enseña que los demás tampoco.
  */
 
-/**
- * Los tres del abanico: el del medio manda, los de los lados acompañan.
- * `pieza` decide QUÉ pantalla va adentro; el resto es su vestido.
- */
-const ABANICO: {
-  pieza: "menu" | "links" | "pase";
-  rotulo: string;
-  estiloLinks: EstiloLinks;
-  redondeo: Redondeo;
-  fuente: Fuente;
-  efecto: Efecto;
-}[] = [
-  { pieza: "menu", rotulo: "Tu menú", estiloLinks: "lista", redondeo: "suave", fuente: "editorial", efecto: "plano" },
-  { pieza: "links", rotulo: "Tu página", estiloLinks: "grilla", redondeo: "redondo", fuente: "redonda", efecto: "vidrio" },
-  { pieza: "pase", rotulo: "Tu lealtad", estiloLinks: "lista", redondeo: "recto", fuente: "condensada", efecto: "elevado" },
+type Pieza = "links" | "menu" | "pase";
+const PIEZAS: { id: Pieza; nombre: string }[] = [
+  { id: "links", nombre: "Link hub" },
+  { id: "menu", nombre: "Menú digital" },
+  { id: "pase", nombre: "Pase de lealtad" },
 ];
+const ETIQUETA_ESTILO: Record<EstiloLinks, string> = { lista: "Lista", grilla: "Cuadrícula" };
+const ETIQUETA_REDONDEO: Record<Redondeo, string> = { recto: "Recto", suave: "Suave", redondo: "Redondo" };
 
-/** Qué tema usa cada teléfono según el que el visitante elija. */
-function trioDe(elegido: Tema): Tema[] {
-  const otros = TEMAS.filter((t) => t !== elegido && t !== "marca");
-  return [otros[0] ?? "claro", elegido, otros[1] ?? "crema"];
+/** Un chip del configurador. En el módulo, no en el render (ver `Ancla` en vista-pagina.tsx). */
+function Chip({
+  activo,
+  onClick,
+  children,
+  style,
+}: {
+  activo: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      style={style}
+      className={`presionable inline-flex min-h-[36px] items-center gap-2 rounded-full border px-3.5 text-[12.5px] font-bold transition-colors ${
+        activo
+          ? "border-aventurea-navy bg-white text-aventurea-navy shadow-plano"
+          : "border-aventurea-line bg-white/70 text-aventurea-ink-soft hover:border-aventurea-navy/40"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Un grupo de chips con su rótulo chico arriba. */
+function Grupo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-ink-soft">{rotulo}</p>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
+  );
 }
 
 export default function MockupsHero() {
+  const [pieza, setPieza] = useState<Pieza>("links");
   const [tema, setTema] = useState<Tema>("noche");
-  const trio = trioDe(tema);
+  const [fuente, setFuente] = useState<Fuente>("redonda");
+  const [estiloLinks, setEstiloLinks] = useState<EstiloLinks>("grilla");
+  const [redondeo, setRedondeo] = useState<Redondeo>("redondo");
+  const [efecto, setEfecto] = useState<Efecto>("vidrio");
+
+  const acento = PRESETS[tema].acentoSugerido;
+  /* La barra de estado del teléfono toma la tinta del tema: sobre
+     «claro» o «crema» los glifos blancos desaparecen. */
+  const paleta = paletaDelTema(tema, MUESTRA.colorFondo, acento);
 
   return (
-    <div className="flex flex-col items-center gap-5">
-      {/* El alto acompaña al teléfono del medio (268 × 2.05 ≈ 549) más
-          aire. Si se cambia el ancho de abajo, esto también. */}
-      <div className="relative flex h-[430px] w-full items-center justify-center sm:h-[575px]">
-        {ABANICO.map((v, i) => {
-          const central = i === 1;
-          const t = trio[i];
-          const acento = PRESETS[t].acentoSugerido;
-          /* La barra de estado tiene que leerse sobre la pantalla que
-             tiene debajo: en «claro» o «crema» los glifos blancos
-             desaparecen. La tinta sale de la misma paleta que pinta el
-             contenido, así que nunca se despareja. */
-          const paleta = paletaDelTema(t, MUESTRA.colorFondo, acento);
-          return (
-            <div
-              key={i}
-              className="absolute transition-all duration-500 ease-out"
-              style={{
-                zIndex: central ? 3 : 1,
-                /* Offset en PÍXELES y no en % del propio ancho: en % el
-                   corrimiento cambia con el tamaño del teléfono y los
-                   laterales terminaban tapados por el del medio.
-                   Con 190 px: el central ocupa −134..134 y cada lateral
-                   arranca en 76, o sea 58 px de solape — se ve entero el
-                   contenido de los tres. */
-                transform: `translateX(${(i - 1) * 190}px) scale(${central ? 1 : 0.9}) rotate(${(i - 1) * 5}deg)`,
-                opacity: central ? 1 : 0.95,
-              }}
-            >
-              <Telefono ancho={central ? 268 : 236} tinta={paleta.tinta}>
-                {v.pieza === "menu" && (
-                  <MockupCarta
-                    tema={t}
-                    redondeo={v.redondeo}
-                    acento={acento}
-                    fuente={v.fuente}
-                    nombre={MUESTRA.nombre}
-                  />
-                )}
-                {v.pieza === "pase" && (
-                  <MockupPase tema={t} acento={acento} fuente={v.fuente} nombre={MUESTRA.nombre} />
-                )}
-                {v.pieza === "links" && (
-                  <VistaPagina
-                    inerte
-                    className="min-h-full"
-                    datos={{
-                      ...MUESTRA,
-                      colorAcento: acento,
-                      tema: t,
-                      estiloLinks: v.estiloLinks,
-                      redondeo: v.redondeo,
-                      fuente: v.fuente,
-                      efecto: v.efecto,
-                      estiloPortada: "card",
-                    }}
-                  />
-                )}
-              </Telefono>
-            </div>
-          );
-        })}
-      </div>
+    <div className="flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center xl:gap-8">
+      <Telefono ancho={300} tinta={paleta.tinta} className="shrink-0">
+        {pieza === "links" && (
+          <VistaPagina
+            inerte
+            className="min-h-full"
+            datos={{
+              ...MUESTRA,
+              colorAcento: acento,
+              tema,
+              estiloLinks,
+              redondeo,
+              fuente,
+              efecto,
+              estiloPortada: "card",
+            }}
+          />
+        )}
+        {pieza === "menu" && (
+          <MockupCarta tema={tema} redondeo={redondeo} acento={acento} fuente={fuente} nombre={MUESTRA.nombre} />
+        )}
+        {pieza === "pase" && <MockupPase tema={tema} acento={acento} fuente={fuente} nombre={MUESTRA.nombre} />}
+      </Telefono>
 
-      {/* ── Qué es cada uno ───────────────────────────────────────────
-          Van en una fila aparte y no bajo cada teléfono: el abanico se
-          solapa 58 px, así que un rótulo por aparato quedaría pisado por
-          el de al lado. En el mismo orden que los teléfonos. */}
-      <ul className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5">
-        {ABANICO.map((v, i) => (
-          <li key={v.pieza} className="flex items-center gap-1.5 text-[12.5px] font-bold text-aventurea-ink-soft">
-            <span
-              aria-hidden
-              className="h-2 w-2 rounded-full"
-              style={{ background: PRESETS[trio[i]].acentoSugerido }}
-            />
-            {v.rotulo}
-          </li>
-        ))}
-      </ul>
+      {/* ── El configurador ─────────────────────────────────────── */}
+      <div className="flex w-full max-w-[360px] flex-col gap-4">
+        <Grupo rotulo="Qué querés ver">
+          {PIEZAS.map((p) => (
+            <Chip key={p.id} activo={pieza === p.id} onClick={() => setPieza(p.id)}>
+              {p.nombre}
+            </Chip>
+          ))}
+        </Grupo>
 
-      {/* ── El selector: la prueba de que es configurable ──────────── */}
-      <div className="flex flex-col items-center gap-2">
-        <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-aventurea-ink-soft">
-          Probá un tema
+        <Grupo rotulo="Tema">
+          {TEMAS.filter((t) => t !== "marca").map((t) => (
+            <Chip key={t} activo={tema === t} onClick={() => setTema(t)}>
+              <span
+                aria-hidden
+                className="h-4 w-4 rounded-full border border-black/10"
+                style={{ background: PRESETS[t].fondo ?? MUESTRA.colorFondo }}
+              />
+              {PRESETS[t].nombre}
+            </Chip>
+          ))}
+        </Grupo>
+
+        {/* Cada chip, escrito con su propia letra: verla dice más que su nombre. */}
+        <Grupo rotulo="Fuente">
+          {FUENTES.map((x) => (
+            <Chip key={x} activo={fuente === x} onClick={() => setFuente(x)} style={{ fontFamily: pilaFuente(x) }}>
+              {FUENTE[x].nombre}
+            </Chip>
+          ))}
+        </Grupo>
+
+        {pieza !== "pase" && (
+          <Grupo rotulo="Bordes">
+            {REDONDEOS.map((r) => (
+              <Chip key={r} activo={redondeo === r} onClick={() => setRedondeo(r)}>
+                {ETIQUETA_REDONDEO[r]}
+              </Chip>
+            ))}
+          </Grupo>
+        )}
+
+        {pieza === "links" && (
+          <>
+            <Grupo rotulo="Tus puertas">
+              {ESTILOS_LINKS.map((e) => (
+                <Chip key={e} activo={estiloLinks === e} onClick={() => setEstiloLinks(e)}>
+                  {ETIQUETA_ESTILO[e]}
+                </Chip>
+              ))}
+            </Grupo>
+            <Grupo rotulo="Efecto de las tarjetas">
+              {EFECTOS.map((x) => (
+                <Chip key={x} activo={efecto === x} onClick={() => setEfecto(x)}>
+                  {EFECTO[x].nombre}
+                </Chip>
+              ))}
+            </Grupo>
+          </>
+        )}
+
+        <p className="text-[12px] leading-snug text-aventurea-ink-soft">
+          Todo esto lo elegís desde tu panel, mirando cómo queda al lado — y también la portada, tus
+          colores y una foto de fondo por botón.
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {TEMAS.filter((t) => t !== "marca").map((t) => {
-            const activo = tema === t;
-            return (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTema(t)}
-                aria-pressed={activo}
-                className={`presionable flex items-center gap-2 rounded-full border py-1.5 pl-1.5 pr-3.5 text-[12.5px] font-bold transition-colors ${
-                  activo
-                    ? "border-aventurea-navy bg-white text-aventurea-navy shadow-plano"
-                    : "border-aventurea-line bg-white/70 text-aventurea-ink-soft hover:border-aventurea-navy/40"
-                }`}
-              >
-                <span
-                  aria-hidden
-                  className="h-5 w-5 rounded-full border border-black/10"
-                  style={{ background: PRESETS[t].fondo ?? "#0a1226" }}
-                />
-                {PRESETS[t].nombre}
-              </button>
-            );
-          })}
-        </div>
       </div>
     </div>
   );
