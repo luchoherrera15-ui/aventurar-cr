@@ -82,6 +82,8 @@ export type MarcaNav = {
   hrefIngresar: string;
   cta: { href: string; label: string };
   cerrarSesion: () => Promise<void>;
+  /** «Ingresar» en el idioma de la marca. Ausente = «Ingresar». */
+  ingresar?: string;
   /** El desplegable de industrias es de Lealtad; los demás no lo tienen. */
   industrias: boolean;
   idMenu: string;
@@ -251,7 +253,7 @@ export default function NavLealtad(props: {
   // Pedido del dueño: que arriba se vea DE QUIÉN es la sesión. Con
   // nombre se muestra el nombre; sin él (sesión sin perfil cargado),
   // «Mi cuenta»; sin sesión, «Ingresar».
-  const etiquetaCuenta = logueado ? nombre || "Mi cuenta" : "Ingresar";
+  const etiquetaCuenta = logueado ? nombre || "Mi cuenta" : (marca.ingresar ?? "Ingresar");
 
   return (
     /**

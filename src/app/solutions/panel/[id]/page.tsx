@@ -32,6 +32,8 @@ import SeccionPagina from "./seccion-pagina";
 import SeccionMenu from "./seccion-menu";
 import SeccionEquipo from "./seccion-equipo";
 import EscanerSolutions from "./escaner-solutions";
+import CompletarPerfil from "../completar-perfil";
+import { estadoDelPerfil } from "@/lib/solutions/perfil";
 
 export const metadata: Metadata = { title: "Panel · Bookea Solutions" };
 
@@ -69,6 +71,16 @@ export default async function PanelSolutionsPage({
   if (!admin) notFound();
   const negocio = await negocioPorId(admin, id);
   if (!negocio) notFound();
+
+  // EL PRIMER INGRESO (dueño, 5 sep 2026): sin nombre y teléfono no hay
+  // panel. Solo para el dueño: un admin de Bookea que entra a configurar
+  // el negocio de un cliente no tiene que llenar los datos del cliente.
+  if (acceso.esDueno) {
+    const perfil = await estadoDelPerfil(acceso.user);
+    if (perfil.falta && !perfil.esAdmin) {
+      return <CompletarPerfil correo={acceso.user.email ?? ""} nombreInicial={perfil.nombre} negocio={negocio.nombre} />;
+    }
+  }
 
   const [links, menu, pedidos, equipo, addons] = await Promise.all([
     linksDelNegocio(admin, id),
@@ -239,7 +251,7 @@ export default async function PanelSolutionsPage({
         descripcion: "Secciones, platos y precios",
         icon: <IconCloche />,
         badge: menu.items.length,
-        content: <SeccionMenu negocioId={id} menu={menu} />,
+        content: <SeccionMenu negocioId={id} menu={menu} idiomas={negocio.idiomas_menu} />,
       });
     } else {
       tabs.push({ id: "menu", label: "Menú digital", icon: <IconCloche />, bloqueado: bloqueada });

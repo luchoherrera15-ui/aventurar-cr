@@ -173,7 +173,16 @@ function Pantalla({ look }: { look: Look }) {
   );
 }
 
-export default function MockupsHero() {
+type TextoLook = { nombre: string; pie: string };
+
+export default function MockupsHero({
+  textos,
+  carrusel,
+}: {
+  /** El nombre y la línea de cada diseño, en el idioma de la landing. */
+  textos?: Partial<Record<Look["id"], TextoLook>>;
+  carrusel?: { anterior: string; siguiente: string; lista: string };
+} = {}) {
   const [activo, setActivo] = useState(0);
   const [pausado, setPausado] = useState(false);
 
@@ -185,6 +194,8 @@ export default function MockupsHero() {
   }, [pausado]);
 
   const look = LOOKS[activo];
+  const rotulo = (l: Look): TextoLook => textos?.[l.id] ?? { nombre: l.nombre, pie: l.pie };
+  const c = carrusel ?? { anterior: "Diseño anterior", siguiente: "Diseño siguiente", lista: "Diseños de muestra" };
   /* La barra de estado del teléfono toma la tinta del tema del slide
      activo: sobre «claro» o «crema» los glifos blancos desaparecen. */
   const paleta = paletaDelTema(look.tema, MUESTRA.colorFondo, PRESETS[look.tema].acentoSugerido);
@@ -225,26 +236,26 @@ export default function MockupsHero() {
       {/* ── Qué diseño es, y los puntos para pasar ───────────────── */}
       <div className="flex w-full max-w-[360px] flex-col items-center gap-2 text-center">
         <p className="text-[14px] font-extrabold text-aventurea-navy" aria-live="polite">
-          {look.nombre}
-          <span className="block text-[12px] font-medium text-aventurea-ink-soft">{look.pie}</span>
+          {rotulo(look).nombre}
+          <span className="block text-[12px] font-medium text-aventurea-ink-soft">{rotulo(look).pie}</span>
         </p>
         <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => ir(activo - 1)}
-            aria-label="Diseño anterior"
+            aria-label={c.anterior}
             className="presionable grid h-9 w-9 place-items-center rounded-full border border-aventurea-line bg-white text-aventurea-navy"
           >
             <IconChevronLeft className="h-4 w-4" />
           </button>
-          <div className="flex items-center gap-1.5" role="tablist" aria-label="Diseños de muestra">
+          <div className="flex items-center gap-1.5" role="tablist" aria-label={c.lista}>
             {LOOKS.map((l, k) => (
               <button
                 key={l.id}
                 type="button"
                 role="tab"
                 aria-selected={k === activo}
-                aria-label={l.nombre}
+                aria-label={rotulo(l).nombre}
                 onClick={() => ir(k)}
                 className={`h-2.5 rounded-full transition-[width,background-color] duration-[200ms] ${
                   k === activo ? "w-6 bg-aventurea-navy" : "w-2.5 bg-aventurea-line hover:bg-aventurea-navy/40"
@@ -256,7 +267,7 @@ export default function MockupsHero() {
           <button
             type="button"
             onClick={() => ir(activo + 1)}
-            aria-label="Diseño siguiente"
+            aria-label={c.siguiente}
             className="presionable grid h-9 w-9 place-items-center rounded-full border border-aventurea-line bg-white text-aventurea-navy"
           >
             <IconChevronRight className="h-4 w-4" />

@@ -34,6 +34,7 @@ export const RESERVED_SLUGS = new Set([
   // /solutions (3 sep 2026): la landing de los productos para negocios
   // —linktree, menú digital, lealtad—. Carpeta real en src/app.
   "solutions",
+  "soluciones",
   // /s/<slug>: la página pública de un negocio de Solutions (0230).
   "s",
   "mi-negocio",

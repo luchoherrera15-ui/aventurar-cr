@@ -3,6 +3,17 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { paginaPublica, mesaDeBusqueda } from "@/lib/solutions/datos";
 import MenuConCarrito from "./menu-con-carrito";
+import { idiomaDeBusqueda, textoEn, type Idioma } from "@/lib/solutions/idiomas";
+
+/** El título y la bajada del menú, en el idioma del cliente. */
+const TITULO: Record<Idioma, { titulo: string; mesa: string; llevar: string; solo: string }> = {
+  es: { titulo: "El menú", mesa: "Elegí y pedí desde tu mesa · precios en colones", llevar: "Elegí y pedí To go o Exprés · precios en colones", solo: "Precios en colones" },
+  en: { titulo: "The menu", mesa: "Choose and order from your table · prices in colones", llevar: "Choose and order to go or for delivery · prices in colones", solo: "Prices in colones" },
+  fr: { titulo: "Le menu", mesa: "Choisissez et commandez depuis votre table · prix en colones", llevar: "Choisissez et commandez à emporter ou en livraison · prix en colones", solo: "Prix en colones" },
+  it: { titulo: "Il menù", mesa: "Scegli e ordina dal tuo tavolo · prezzi in colones", llevar: "Scegli e ordina da asporto o a domicilio · prezzi in colones", solo: "Prezzi in colones" },
+  pt: { titulo: "O menu", mesa: "Escolha e peça da sua mesa · preços em colones", llevar: "Escolha e peça para viagem ou entrega · preços em colones", solo: "Preços em colones" },
+  de: { titulo: "Die Speisekarte", mesa: "Wähle und bestelle von deinem Tisch · Preise in Colones", llevar: "Wähle und bestelle zum Mitnehmen oder liefern · Preise in Colones", solo: "Preise in Colones" },
+};
 
 /**
  * /s/<slug>/menu — LA CARTA, y desde la mesa, EL PEDIDO.
@@ -42,6 +53,9 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
   const llevar = addons.pedidos && negocio.pedidos_llevar;
   const express = addons.pedidos && negocio.pedidos_express;
   const paraLlevar = mesa === null && (llevar || express);
+  // El idioma viene en ?idioma= y solo vale si el negocio lo ofrece (0235).
+  const idioma = idiomaDeBusqueda(busqueda.idioma, negocio.idiomas_menu);
+  const tt = TITULO[idioma];
 
   return (
     <main className="min-h-svh pb-32" style={{ background: paleta.fondo, color: paleta.tinta }}>
@@ -75,13 +89,9 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
           </div>
         )}
 
-        <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.02em]">El menú</h1>
+        <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.02em]">{tt.titulo}</h1>
         <p className="mt-0.5 text-[12.5px]" style={{ color: paleta.suave }}>
-          {puedePedir
-            ? "Elegí y pedí desde tu mesa · precios en colones"
-            : paraLlevar
-              ? "Elegí y pedí To go o Exprés · precios en colones"
-              : "Precios en colones"}
+          {puedePedir ? tt.mesa : paraLlevar ? tt.llevar : tt.solo}
         </p>
       </div>
 
@@ -91,16 +101,20 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
         mesa={mesa}
         puedePedir={puedePedir}
         grupos={menu.map((g) => ({
-          nombre: g.seccion?.nombre ?? "Otros",
+          // Los textos ya van en el idioma del cliente; lo que no esté
+          // traducido sale en español (textoEn).
+          nombre: g.seccion ? textoEn(g.seccion, idioma).nombre : "Otros",
           items: g.items.map((it) => ({
             id: it.id,
-            nombre: it.nombre,
-            descripcion: it.descripcion,
+            ...textoEn(it, idioma),
             precio: it.precio,
             foto_url: it.foto_url,
+            nutricion: it.nutricion,
           })),
         }))}
         paleta={paleta}
+        idioma={idioma}
+        idiomas={negocio.idiomas_menu}
         llevar={llevar}
         express={express}
         costoExpress={negocio.costo_express}

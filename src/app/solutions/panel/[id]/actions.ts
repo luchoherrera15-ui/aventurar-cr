@@ -8,6 +8,8 @@ import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import { generarSlugSolutions } from "@/lib/solutions/slug";
 import { esAddon } from "@/lib/solutions/addons";
 import { esHostPropio, normalizarDominio } from "@/lib/solutions/dominios";
+import { idiomasMenuDe, nutricionDe, traduccionesDe } from "@/lib/solutions/idiomas";
+import { traducirPiezas } from "@/lib/solutions/traducir-menu";
 import {
   agregarDominioEnVercel,
   leerDns,
@@ -123,6 +125,8 @@ export async function guardarPaginaSolutions(
     costoExpress: number;
     metodosPago: string[];
     whatsappPedidos: string;
+    /** Idiomas del menú además del español (0235). */
+    idiomasMenu: string[];
   },
 ): Promise<R> {
   const p = await portonEditar(negocioId);
@@ -185,6 +189,7 @@ export async function guardarPaginaSolutions(
       costo_express: costoExpress,
       metodos_pago: metodosPago,
       whatsapp_pedidos: whatsappPedidos || null,
+      idiomas_menu: idiomasMenuDe(d.idiomasMenu),
       mesas: Math.max(0, Math.min(TOPES.mesas, Math.trunc(Number(d.mesas)) || 0)),
       actualizado_en: new Date().toISOString(),
     })
@@ -322,6 +327,63 @@ export async function quitarDominioSolutions(negocioId: string): Promise<R> {
   return { ok: true };
 }
 
+// ── TRADUCIR EL MENÚ CON IA (0235) ───────────────────────────────────
+
+/**
+ * Traduce de una vez TODO lo que falte a los idiomas que el negocio
+ * tiene prendidos. Solo completa huecos: lo que ya estaba traducido a
+ * mano no se pisa, así corregir un plato no se deshace al volver a
+ * tocar el botón.
+ */
+export async function traducirMenuSolutions(
+  negocioId: string,
+): Promise<{ ok: true; platos: number; secciones: number } | { ok: false; motivo: string }> {
+  const p = await portonEditar(negocioId);
+  if (!p.ok) return p;
+  const { data: n } = await p.admin.from("solutions_negocios").select("idiomas_menu").eq("id", negocioId).single();
+  const idiomas = idiomasMenuDe(n?.idiomas_menu);
+  if (idiomas.length === 0) return { ok: false, motivo: "Primero prendé algún idioma en Mi página → Menú y pedidos." };
+
+  const [{ data: secciones }, { data: platos }] = await Promise.all([
+    p.admin.from("solutions_menu_secciones").select("id, nombre, traducciones").eq("negocio_id", negocioId),
+    p.admin.from("solutions_menu_items").select("id, nombre, descripcion, traducciones").eq("negocio_id", negocioId),
+  ]);
+  const faltaAlgo = (t: unknown) => {
+    const actuales = traduccionesDe(t);
+    return idiomas.some((i) => !actuales[i]?.nombre);
+  };
+  const piezas = [
+    ...(secciones ?? []).filter((s) => faltaAlgo(s.traducciones)).map((s) => ({ id: `s:${s.id}`, nombre: s.nombre as string })),
+    ...(platos ?? [])
+      .filter((it) => faltaAlgo(it.traducciones))
+      .map((it) => ({ id: `p:${it.id}`, nombre: it.nombre as string, descripcion: (it.descripcion as string) || undefined })),
+  ];
+  if (piezas.length === 0) return { ok: true, platos: 0, secciones: 0 };
+
+  const r = await traducirPiezas(piezas, idiomas);
+  if (!r.ok) return r;
+
+  let nPlatos = 0;
+  let nSecciones = 0;
+  for (const [clave, nuevas] of Object.entries(r.por)) {
+    const [tipo, id] = clave.split(":");
+    const tabla = tipo === "s" ? "solutions_menu_secciones" : "solutions_menu_items";
+    const fuente = (tipo === "s" ? secciones : platos)?.find((x) => x.id === id);
+    if (!fuente) continue;
+    // Se completa lo que falta; lo hecho a mano se respeta.
+    const actuales = traduccionesDe(fuente.traducciones);
+    const fusion = { ...actuales };
+    for (const i of idiomas) if (!fusion[i]?.nombre && nuevas[i]) fusion[i] = nuevas[i];
+    const { error } = await p.admin.from(tabla).update({ traducciones: fusion }).eq("id", id).eq("negocio_id", negocioId);
+    if (!error) {
+      if (tipo === "s") nSecciones++;
+      else nPlatos++;
+    }
+  }
+  await refrescarPorId(p.admin, negocioId);
+  return { ok: true, platos: nPlatos, secciones: nSecciones };
+}
+
 // ── LOS LINKS (se guardan todos juntos, en orden) ───────────────────
 
 export async function guardarLinksSolutions(
@@ -389,17 +451,18 @@ export async function guardarLinksSolutions(
 
 export async function guardarSeccionSolutions(
   negocioId: string,
-  d: { id: string | null; nombre: string },
+  d: { id: string | null; nombre: string; traducciones?: unknown },
 ): Promise<R & { id?: string }> {
   const p = await portonEditar(negocioId);
   if (!p.ok) return p;
   const nombre = d.nombre.trim().slice(0, TOPES.seccionNombre);
   if (!nombre) return { ok: false, motivo: "La sección necesita un nombre." };
+  const traducciones = traduccionesDe(d.traducciones);
 
   if (d.id) {
     const { error } = await p.admin
       .from("solutions_menu_secciones")
-      .update({ nombre })
+      .update({ nombre, traducciones })
       .eq("id", d.id)
       .eq("negocio_id", negocioId);
     if (error) return { ok: false, motivo: "No se pudo guardar la sección." };
@@ -415,7 +478,7 @@ export async function guardarSeccionSolutions(
 
   const { data, error } = await p.admin
     .from("solutions_menu_secciones")
-    .insert({ negocio_id: negocioId, nombre, orden: count ?? 0 })
+    .insert({ negocio_id: negocioId, nombre, orden: count ?? 0, traducciones })
     .select("id")
     .single();
   if (error || !data) return { ok: false, motivo: "No se pudo crear la sección." };
@@ -455,6 +518,10 @@ export async function guardarPlatoSolutions(
     precio: number | null;
     fotoUrl: string;
     disponible: boolean;
+    /** Nombre y descripción en otros idiomas (0235). */
+    traducciones?: unknown;
+    /** La ficha nutricional; null o vacía = no la tiene (0235). */
+    nutricion?: unknown;
   },
 ): Promise<R & { id?: string }> {
   const p = await portonEditar(negocioId);
@@ -475,6 +542,8 @@ export async function guardarPlatoSolutions(
     precio,
     foto_url: foto.url,
     disponible: d.disponible !== false,
+    traducciones: traduccionesDe(d.traducciones),
+    nutricion: nutricionDe(d.nutricion),
   };
 
   if (d.id) {

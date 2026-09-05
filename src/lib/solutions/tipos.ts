@@ -141,6 +141,9 @@ export const TOPES = {
 // ── Las filas, ya tipadas ──────────────────────────────────────────
 
 import type { Efecto, EstiloLinks, EstiloPortada, Fuente, Redondeo, Tema } from "./temas";
+// Solo tipos: idiomas.ts importa TOPES de acá, y un import de valores
+// en las dos direcciones sería un ciclo en tiempo de ejecución.
+import type { IdiomaExtra, Nutricion, Traducciones } from "./idiomas";
 
 export type NegocioSolutions = {
   id: string;
@@ -178,6 +181,10 @@ export type NegocioSolutions = {
   dominio_estado: EstadoDominio;
   dominio_verificado_en: string | null;
   dominio_nota: string | null;
+  /** Idiomas que el menú ofrece además del español (0235). */
+  idiomas_menu: IdiomaExtra[];
+  /** Quién lo armó: el cliente (publico) o Bookea desde el admin (0235). */
+  origen: "publico" | "admin";
   creado_en: string;
 };
 
@@ -198,6 +205,8 @@ export type SeccionMenu = {
   negocio_id: string;
   nombre: string;
   orden: number;
+  /** El nombre en otros idiomas (0235). */
+  traducciones: Traducciones;
 };
 
 export type ItemMenuSolutions = {
@@ -211,6 +220,10 @@ export type ItemMenuSolutions = {
   disponible: boolean;
   agotado_hoy: boolean;
   orden: number;
+  /** Nombre y descripción en otros idiomas (0235). */
+  traducciones: Traducciones;
+  /** La ficha nutricional, si la cargó (0235). */
+  nutricion: Nutricion | null;
 };
 
 export type PedidoSolutions = {

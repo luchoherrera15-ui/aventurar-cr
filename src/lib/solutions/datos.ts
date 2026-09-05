@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { addonsDelNegocio } from "./addons";
+import { idiomasMenuDe, nutricionDe, traduccionesDe } from "./idiomas";
 import {
   efectoDe,
   estiloLinksDe,
@@ -68,6 +69,9 @@ function conVestido(d: Record<string, unknown>): NegocioSolutions {
     dominio_estado: estadoDominioDe(d.dominio_estado),
     dominio_verificado_en: (d.dominio_verificado_en as string | null) ?? null,
     dominio_nota: (d.dominio_nota as string | null) ?? null,
+    // 0235
+    idiomas_menu: idiomasMenuDe(d.idiomas_menu),
+    origen: d.origen === "admin" ? "admin" : "publico",
   };
 }
 
@@ -111,10 +115,19 @@ export async function menuDelNegocio(admin: Admin, negocioId: string): Promise<M
       .eq("negocio_id", negocioId)
       .order("orden", { ascending: true }),
   ]);
-  const secciones = (s ?? []).map((d) => fila<SeccionMenu>(d));
+  const secciones = (s ?? []).map((d) => ({
+    ...fila<SeccionMenu>(d),
+    traducciones: traduccionesDe((d as Record<string, unknown>).traducciones),
+  }));
   const items = (i ?? []).map((d) => {
     const it = fila<ItemMenuSolutions>(d);
-    return { ...it, precio: it.precio === null ? null : Number(it.precio) };
+    const crudo = d as Record<string, unknown>;
+    return {
+      ...it,
+      precio: it.precio === null ? null : Number(it.precio),
+      traducciones: traduccionesDe(crudo.traducciones),
+      nutricion: nutricionDe(crudo.nutricion),
+    };
   });
 
   const agrupado: MenuDelNegocio["agrupado"] = secciones.map((seccion) => ({

@@ -102,6 +102,15 @@ export const GRUPOS_ADMIN: GrupoAdmin[] = [
       { href: "/admin/moderadores", etiqueta: "Moderadores", icono: "users" },
     ],
   },
+  /**
+   * SOLUTIONS TIENE GRUPO PROPIO (dueño, 5 sep 2026): «una sección solo
+   * de Solutions: lealtad, menús digitales y el link hub, donde yo
+   * pueda dejarle el paquete listo a un cliente por su correo».
+   */
+  {
+    titulo: "Solutions",
+    items: [{ href: "/admin/solutions", etiqueta: "Negocios de Solutions", icono: "negocio" }],
+  },
   {
     titulo: "Productos de Bookea",
     items: [

@@ -32,10 +32,30 @@ export const MARCA_SOLUTIONS: MarcaNav = {
   idMenu: "menu-solutions",
 };
 
-export default function NavSolutions(props: {
+/** La misma marca, con los rótulos en inglés para /solutions/en. */
+export const MARCA_SOLUTIONS_EN: MarcaNav = {
+  ...MARCA_SOLUTIONS,
+  enlaces: [
+    { href: "/solutions/en#productos", label: "Add-ons & pricing" },
+    { href: "/solutions/en#como-funciona", label: "How it works" },
+  ],
+  itemsCuenta: [
+    { href: "/solutions/panel", label: "My businesses" },
+    { href: "/lealtad/panel", label: "My loyalty cards" },
+    { href: "/cuenta", label: "Profile settings" },
+  ],
+  cta: { href: "/solutions/crear", label: "Create my page for free" },
+  ingresar: "Sign in",
+};
+
+export default function NavSolutions({
+  idioma = "es",
+  ...props
+}: {
   logueado?: boolean;
   nombre?: string | null;
   autoOcultar?: boolean;
+  idioma?: "es" | "en";
 }) {
-  return <NavLealtad {...props} marca={MARCA_SOLUTIONS} />;
+  return <NavLealtad {...props} marca={idioma === "en" ? MARCA_SOLUTIONS_EN : MARCA_SOLUTIONS} />;
 }

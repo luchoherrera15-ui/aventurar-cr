@@ -44,6 +44,7 @@ import {
   type NegocioSolutions,
 } from "@/lib/solutions/tipos";
 import type { EstadoAddons } from "@/lib/solutions/addons";
+import { IDIOMA, IDIOMAS_EXTRA, type IdiomaExtra } from "@/lib/solutions/idiomas";
 import { guardarLinksSolutions, guardarPaginaSolutions } from "./actions";
 import SeccionLinks from "./seccion-links";
 import SeccionDominio from "./seccion-dominio";
@@ -212,6 +213,7 @@ export default function SeccionPagina({
     costoExpress: negocio.costo_express,
     metodosPago: negocio.metodos_pago as MetodoPago[],
     whatsappPedidos: negocio.whatsapp_pedidos ?? "",
+    idiomasMenu: negocio.idiomas_menu as IdiomaExtra[],
   });
   const [msg, setMsg] = useState<{ tono: "exito" | "alerta"; texto: string } | null>(null);
   const [guardando, arrancar] = useTransition();
@@ -541,10 +543,48 @@ export default function SeccionPagina({
         <Card eyebrow="Las puertas" titulo="Menú y pedidos">
           {/* ── EL MENÚ: solo con su add-on ────────────────────── */}
           {addons.menu ? (
-            <label className="flex items-center gap-2.5 text-[13px] font-bold text-aventurea-ink">
-              <input type="checkbox" checked={f.mostrarMenu} onChange={(e) => set("mostrarMenu", e.target.checked)} className="h-4 w-4" />
-              Mostrar el menú en la página
-            </label>
+            <>
+              <label className="flex items-center gap-2.5 text-[13px] font-bold text-aventurea-ink">
+                <input type="checkbox" checked={f.mostrarMenu} onChange={(e) => set("mostrarMenu", e.target.checked)} className="h-4 w-4" />
+                Mostrar el menú en la página
+              </label>
+
+              {/* ── LOS IDIOMAS DEL MENÚ (0235) ──────────────────
+                  Pedido del dueño: «que el menú se pueda ver en cinco
+                  idiomas al mismo tiempo». Acá se prenden; se traducen
+                  en «Menú digital», a mano o con IA. */}
+              <div className="mt-4">
+                <p className={ROTULO_CAMPO}>Idiomas del menú (además del español)</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {IDIOMAS_EXTRA.map((i) => {
+                    const activo = f.idiomasMenu.includes(i);
+                    return (
+                      <label
+                        key={i}
+                        className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-bold ${
+                          activo ? "border-aventurea-navy bg-aventurea-navy/5 text-aventurea-navy" : "border-aventurea-line text-aventurea-ink-soft"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={activo}
+                          onChange={(e) =>
+                            set("idiomasMenu", e.target.checked ? [...f.idiomasMenu, i] : f.idiomasMenu.filter((x) => x !== i))
+                          }
+                          className="h-4 w-4"
+                        />
+                        {IDIOMA[i].nombre}
+                        <span className="text-[11px] font-medium text-aventurea-ink-soft">{IDIOMA[i].propio}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">
+                  Tus clientes cambian el idioma arriba del menú. Las traducciones se cargan en «Menú digital», a mano o con
+                  IA de una vez.
+                </p>
+              </div>
+            </>
           ) : (
             <p className={`rounded-xl p-3 text-[13px] ${ESTADO_AVISO.info}`}>
               El menú digital es un add-on.{" "}

@@ -6,6 +6,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import NavSolutions from "../nav-solutions";
 import { negociosDeLaCuenta } from "@/lib/solutions/acceso";
 import { ADDON, ADDONS, addonsDeVarios } from "@/lib/solutions/addons";
+import { estadoDelPerfil } from "@/lib/solutions/perfil";
+import CompletarPerfil from "./completar-perfil";
 
 export const metadata: Metadata = { title: "Mis negocios · Bookea Solutions" };
 
@@ -16,6 +18,12 @@ export default async function PanelSolutionsIndex() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/cuenta?volver=solutions");
+
+  // El primer ingreso (5 sep 2026): nombre y teléfono antes de todo.
+  const perfil = await estadoDelPerfil(user);
+  if (perfil.falta && !perfil.esAdmin) {
+    return <CompletarPerfil correo={user.email ?? ""} nombreInicial={perfil.nombre} />;
+  }
 
   const negocios = await negociosDeLaCuenta();
   if (negocios.length === 0) redirect("/solutions/crear");
