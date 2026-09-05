@@ -46,6 +46,7 @@ import {
 import type { EstadoAddons } from "@/lib/solutions/addons";
 import { guardarLinksSolutions, guardarPaginaSolutions } from "./actions";
 import SeccionLinks from "./seccion-links";
+import SeccionDominio from "./seccion-dominio";
 
 /**
  * MI PÁGINA — el editor, con la página de verdad al lado.
@@ -172,6 +173,7 @@ export default function SeccionPagina({
   urlPublica,
   recienCreado,
   addons,
+  esDueno,
 }: {
   negocio: NegocioSolutions;
   /** Para que la previa muestre las puertas de verdad. */
@@ -182,6 +184,8 @@ export default function SeccionPagina({
   recienCreado: boolean;
   /** Qué tiene prendido el negocio (0233): decide qué controles se muestran. */
   addons: EstadoAddons;
+  /** El dominio propio es del dueño: un colaborador admin no lo toca. */
+  esDueno: boolean;
 }) {
   const [f, setF] = useState({
     nombre: negocio.nombre,
@@ -660,6 +664,9 @@ export default function SeccionPagina({
         <div id="enlaces" className="scroll-mt-24">
           <SeccionLinks negocioId={negocio.id} links={links} />
         </div>
+
+        {/* ── TU PROPIO DOMINIO (0234) — solo el dueño ─────────── */}
+        {esDueno && <SeccionDominio negocio={negocio} />}
       </div>
 
       {/* ── LA PREVIA EN VIVO ────────────────────────────────────── */}

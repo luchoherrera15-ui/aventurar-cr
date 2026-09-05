@@ -5,7 +5,7 @@ import { toString as qrATexto } from "qrcode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import { negocioPorId } from "@/lib/solutions/datos";
-import { TOPES, urlPublicaSolutions } from "@/lib/solutions/tipos";
+import { TOPES, urlDelNegocio } from "@/lib/solutions/tipos";
 
 export const metadata: Metadata = { title: "QR de mesas · Bookea Solutions" };
 
@@ -40,7 +40,9 @@ export default async function HojaMesasPage({
 
   const pedido = Number(Array.isArray(busqueda.mesas) ? busqueda.mesas[0] : busqueda.mesas);
   const cantidad = Math.max(0, Math.min(TOPES.mesas, Number.isFinite(pedido) && pedido > 0 ? Math.trunc(pedido) : negocio.mesas));
-  const base = urlPublicaSolutions(negocio.slug);
+  // Con dominio propio activo, el QR lleva ese dominio (0234). Solo si
+  // está activo: un QR impreso con un dominio que no sirve es un QR roto.
+  const base = urlDelNegocio(negocio);
 
   const tarjetas = await Promise.all(
     Array.from({ length: cantidad }, (_, i) => i + 1).map(async (n) => ({

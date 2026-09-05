@@ -1,5 +1,6 @@
 ﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { CABECERA_DOMINIO, destinoEnDominioPropio, esHostPropio, slugPorDominio } from "@/lib/solutions/dominios";
 
 // NOTA: en esta versión de Next.js el archivo "middleware.ts" pasó a
 // llamarse "proxy.ts" (mismo propósito: código que corre antes de que
@@ -53,6 +54,50 @@ export default async function proxy(request: NextRequest) {
    * que apunta acá y sirve otra cosa confunde más que un dominio que
    * no resuelve.
    */
+  /**
+   * ══════════════════════════════════════════════════════════════════
+   *  EL DOMINIO PROPIO DE UN NEGOCIO DE SOLUTIONS (0234)
+   * ══════════════════════════════════════════════════════════════════
+   * Pedido del dueño (5 sep 2026): «que la gente agregue su propio
+   * dominio y tenga sus mini portales».
+   *
+   * Si el Host NO es nuestro (bookea.lat, localhost, *.vercel.app),
+   * puede ser el dominio de un negocio: casanostra.com. Se busca con la
+   * llave anónima —la política pública de la 0230 solo devuelve
+   * negocios publicados— y con un caché de un minuto por host, porque
+   * este proxy corre en todas las rutas. Si existe, la raíz se
+   * reescribe a /s/<slug>, /menu a /s/<slug>/menu, y el resto del sitio
+   * vuelve a la raíz: bajo el dominio del negocio no se sirve Bookea.
+   *
+   * Es el mismo truco que usó food.bookea.lat, por la misma razón: el
+   * proxy corre ANTES del sistema de archivos y es la única capa donde
+   * «/» puede ser otra página. La cabecera es lo que «Verificar» busca
+   * para dar el dominio por activo (ver vercel-dominios.ts).
+   *
+   * Un host nuestro no paga nada: `esHostPropio` corta antes de tocar la
+   * red. Un host ajeno que no es de nadie sigue su camino normal.
+   */
+  const hostAjeno = request.headers.get("host") ?? "";
+  if (hostAjeno && !esHostPropio(hostAjeno)) {
+    const slugDominio = await slugPorDominio(hostAjeno);
+    if (slugDominio) {
+      const destino = destinoEnDominioPropio(request.nextUrl.pathname, slugDominio);
+      if (destino.tipo === "redirect") {
+        return NextResponse.redirect(new URL(destino.pathname, request.url));
+      }
+      let salida: NextResponse;
+      if (destino.tipo === "rewrite") {
+        const url = request.nextUrl.clone();
+        url.pathname = destino.pathname;
+        salida = NextResponse.rewrite(url);
+      } else {
+        salida = NextResponse.next({ request });
+      }
+      salida.headers.set(CABECERA_DOMINIO, slugDominio);
+      return salida;
+    }
+  }
+
   const path = request.nextUrl.pathname;
   const isAdminRoute = path.startsWith("/admin") && path !== "/admin/login";
   const isMiRanchoRoute =

@@ -10,6 +10,7 @@ import {
   temaDe,
 } from "./temas";
 import {
+  estadoDominioDe,
   metodoPagoDe,
   metodosPagoDe,
   modalidadDe,
@@ -62,6 +63,11 @@ function conVestido(d: Record<string, unknown>): NegocioSolutions {
     costo_express: Number(d.costo_express ?? 0) || 0,
     metodos_pago: metodosPagoDe(d.metodos_pago),
     whatsapp_pedidos: typeof d.whatsapp_pedidos === "string" && d.whatsapp_pedidos ? d.whatsapp_pedidos : null,
+    // 0234
+    dominio: typeof d.dominio === "string" && d.dominio ? d.dominio : null,
+    dominio_estado: estadoDominioDe(d.dominio_estado),
+    dominio_verificado_en: (d.dominio_verificado_en as string | null) ?? null,
+    dominio_nota: (d.dominio_nota as string | null) ?? null,
   };
 }
 

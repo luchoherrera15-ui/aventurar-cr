@@ -104,6 +104,13 @@ export function metodosPagoDe(v: unknown): MetodoPago[] {
   return lista.length > 0 ? Array.from(new Set(lista)) : ["efectivo"];
 }
 
+/** El estado del dominio propio (0234). Lo decide una sonda, no el negocio. */
+export const ESTADOS_DOMINIO = ["pendiente", "activo", "error"] as const;
+export type EstadoDominio = (typeof ESTADOS_DOMINIO)[number];
+export function estadoDominioDe(v: unknown): EstadoDominio {
+  return (ESTADOS_DOMINIO as readonly unknown[]).includes(v) ? (v as EstadoDominio) : "pendiente";
+}
+
 export const ROLES_COLABORADOR = ["admin", "equipo"] as const;
 export type RolColaborador = (typeof ROLES_COLABORADOR)[number];
 
@@ -166,6 +173,11 @@ export type NegocioSolutions = {
   metodos_pago: MetodoPago[];
   /** null = el `whatsapp` de la página. */
   whatsapp_pedidos: string | null;
+  /** El dominio propio (0234). null = solo bookea.lat/s/<slug>. */
+  dominio: string | null;
+  dominio_estado: EstadoDominio;
+  dominio_verificado_en: string | null;
+  dominio_nota: string | null;
   creado_en: string;
 };
 
@@ -234,6 +246,15 @@ export type ColaboradorSolutions = {
 export function urlPublicaSolutions(slug: string): string {
   const sitio = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
   return `${sitio}/s/${slug}`;
+}
+
+/**
+ * La URL que se comparte y va en el QR: el dominio propio SOLO si ya
+ * está activo (una sonda lo confirmó); si no, bookea.lat/s/<slug>. Un
+ * QR impreso con un dominio que todavía no sirve sería un QR roto.
+ */
+export function urlDelNegocio(n: Pick<NegocioSolutions, "slug" | "dominio" | "dominio_estado">): string {
+  return n.dominio && n.dominio_estado === "activo" ? `https://${n.dominio}` : urlPublicaSolutions(n.slug);
 }
 
 /**

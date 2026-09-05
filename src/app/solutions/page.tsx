@@ -98,7 +98,7 @@ const PRODUCTOS = [
     puntos: [
       "Hasta doce enlaces, ordenados arrastrando",
       "Se edita escribiendo encima de la página",
-      "Un solo QR: bookea.lat/s/tu-negocio",
+      "bookea.lat/s/tu-negocio — o tu propio dominio",
     ],
     cta: { href: "/solutions/crear", label: "Crear mi página gratis" },
     Icono: IconEnlace,

@@ -26,7 +26,7 @@ import {
   negocioPorId,
   pedidosDelNegocio,
 } from "@/lib/solutions/datos";
-import { urlPublicaSolutions } from "@/lib/solutions/tipos";
+import { urlDelNegocio } from "@/lib/solutions/tipos";
 import SeccionInicio from "./seccion-inicio";
 import SeccionPagina from "./seccion-pagina";
 import SeccionMenu from "./seccion-menu";
@@ -108,7 +108,8 @@ export default async function PanelSolutionsPage({
       tieneLealtad = (count ?? 0) > 0;
     }
   }
-  const urlPublica = urlPublicaSolutions(negocio.slug);
+  // El dominio propio, si ya está activo; si no, bookea.lat/s/<slug> (0234).
+  const urlPublica = urlDelNegocio(negocio);
   const recienCreado = busqueda.nuevo === "1";
 
   // El escáner de pases (5 sep 2026): solo para el dueño, que es quien
@@ -226,6 +227,7 @@ export default async function PanelSolutionsPage({
             urlPublica={urlPublica}
             recienCreado={recienCreado}
             addons={addons}
+            esDueno={acceso.esDueno}
           />
         ),
       },
