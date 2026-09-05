@@ -379,14 +379,17 @@ export default function SolutionsPage() {
               className="elevar flex flex-col overflow-hidden rounded-[18px] border border-aventurea-line bg-white shadow-plano"
             >
               <div className="relative h-[236px] overflow-hidden" style={{ background: FONDO_HEADER[p.id] }}>
-                {/* El teléfono asoma desde abajo, apenas girado: lo que
-                    se ve es la parte alta de la pantalla, que es donde
-                    cada producto muestra lo suyo. */}
-                <div
-                  aria-hidden
-                  className="absolute left-1/2 top-7"
-                  style={{ transform: "translateX(-50%) rotate(-4deg)" }}
-                >
+                {/* El teléfono asoma desde abajo, DERECHO y centrado por
+                    flex, sin transform. Acá hubo un `rotate(-4deg)` con
+                    `translateX(-50%)` y las cuatro cards se veían
+                    borrosas (dueño, 5 sep 2026): un texto de 11 px
+                    girado se re-muestrea en cada píxel y pierde el
+                    hinting, y el corrimiento del 50 % lo dejaba en medio
+                    píxel. Sin transform, el texto se pinta alineado a la
+                    grilla de píxeles y sale nítido. La inclinación se
+                    veía bien de lejos, pero de cerca costaba la nitidez
+                    de lo único que hay que poder leer. */}
+                <div aria-hidden className="flex justify-center pt-7">
                   <VisualProducto id={p.id} />
                 </div>
                 {/* El «logo» del producto, sobre el header, como una
