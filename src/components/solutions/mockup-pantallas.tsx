@@ -83,12 +83,15 @@ export function MockupCarta({
   acento,
   fuente,
   nombre = "Casa Nostra",
+  portadaUrl = null,
 }: {
   tema: Tema;
   redondeo: Redondeo;
   acento: string;
   fuente: Fuente;
   nombre?: string;
+  /** La foto de portada arriba del título, como en /s/<slug>/menu. */
+  portadaUrl?: string | null;
 }) {
   const p = paletaDelTema(tema, "#0a1226", acento);
   const r = RADIOS[redondeo] ?? RADIOS.suave;
@@ -116,6 +119,19 @@ export function MockupCarta({
           Mesa 4
         </span>
       </div>
+
+      {/* La portada, si la hay: de borde a borde y fundida hacia el
+          fondo, igual que en /s/<slug>/menu. */}
+      {portadaUrl && (
+        <div aria-hidden className="relative -mx-4 mt-3 h-[112px] overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={portadaUrl} alt="" className="h-full w-full object-cover" />
+          <span
+            className="absolute inset-0"
+            style={{ background: `linear-gradient(180deg, transparent 40%, ${p.fondo} 100%)` }}
+          />
+        </div>
+      )}
 
       <h2 className="mt-4 text-[19px] font-extrabold leading-tight">El menú</h2>
       <p className="mt-0.5 text-[10.5px]" style={{ color: p.suave }}>

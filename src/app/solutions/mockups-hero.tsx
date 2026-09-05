@@ -1,205 +1,267 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Telefono from "@/components/solutions/telefono";
 import VistaPagina from "@/components/solutions/vista-pagina";
-import { MockupCarta, MockupPase, MUESTRA_PAGINA as MUESTRA } from "@/components/solutions/mockup-pantallas";
+import { MockupCarta, MUESTRA_PAGINA as MUESTRA } from "@/components/solutions/mockup-pantallas";
+import { IconChevronLeft, IconChevronRight } from "@/components/icons";
 import {
-  EFECTO,
-  EFECTOS,
-  ESTILOS_LINKS,
-  FUENTE,
-  FUENTES,
   PRESETS,
-  REDONDEOS,
-  TEMAS,
   paletaDelTema,
-  pilaFuente,
   type Efecto,
   type EstiloLinks,
+  type EstiloPortada,
   type Fuente,
   type Redondeo,
   type Tema,
 } from "@/lib/solutions/temas";
 
 /**
- * EL TELÉFONO DEL HÉROE — uno solo, y el configurador al lado.
+ * EL TELÉFONO DEL HÉROE — uno solo, con diseños que pasan como slides.
  *
- * Pedido del dueño (5 sep 2026): «prefiero que salga un solo mockup y
- * que se pueda cambiar el contenido y el tipo de diseño: ver muestras
- * en tiempo real de todos los tipos de diseño, en link hubs, en menús
- * digitales».
+ * Pedido del dueño (5 sep 2026): «quitá las opciones configurables y
+ * generá uno con algún fondo de comidas o de portada, que sean como
+ * slides, con diferentes diseños: uno con todo el fondo, otro solo una
+ * parte, y así».
  *
- * ── POR QUÉ UNO Y NO TRES ──────────────────────────────────────────
- * Tres teléfonos en abanico muestran tres cosas de lejos; uno grande
- * con controles muestra UNA cosa de cerca y deja tocarla. Lo que se
- * vende acá no es «hay tres productos» (eso lo cuentan las cards de
- * abajo): es «vos lo diseñás». Y eso se demuestra dejando diseñar.
+ * ── POR QUÉ SLIDES Y NO CONTROLES ──────────────────────────────────
+ * El configurador con chips era el editor en chico: exacto, pero
+ * pedía trabajo al visitante. Un slide muestra un diseño TERMINADO,
+ * con foto, sin que nadie toque nada — que es lo que el negocio se
+ * imagina cuando piensa «mi página». Los controles siguen existiendo
+ * donde importan: en el panel.
  *
- * ── ES EL EDITOR DE VERDAD, EN CHICO ───────────────────────────────
- * Los controles son los mismos que tiene el panel («Mi página»):
- * tema, fuente, puertas, bordes, efecto. Y el teléfono monta
- * `VistaPagina`, el MISMO componente que sirve /s/<slug>. Quien toca
- * acá está usando el producto, no mirando una captura de él. El menú
- * y el pase son maquetas (ver mockup-pantallas.tsx) pero se visten con
- * el mismo sistema, así que responden a los mismos controles.
+ * Cada «look» es una combinación real del sistema (tema, cara, forma,
+ * acabado, qué hace la portada) más una foto. El teléfono monta
+ * `VistaPagina`, el MISMO componente que sirve /s/<slug>: lo que
+ * pasa por acá es lo que el negocio puede tener, no una ilustración.
  *
- * Los controles que no aplican a la pieza elegida se van, no se
- * apagan: un chip de «Efecto» sobre el pase de Wallet no cambiaría
- * nada, y un control que no hace nada enseña que los demás tampoco.
+ * ── LAS FOTOS ──────────────────────────────────────────────────────
+ * Vienen de Unsplash, como las de los seeds de demo del sitio (el host
+ * ya está en next.config). Son de muestra: el negocio sube las suyas.
+ *
+ * ── EL MOVIMIENTO ──────────────────────────────────────────────────
+ * Fundido de 420 ms con la curva del sistema (solo `opacity`, que es
+ * de lo que globals.css permite animar). Avanza solo cada 4,5 s, se
+ * frena al pasar el mouse o al tocar un punto, y con
+ * `prefers-reduced-motion` NO avanza solo: quien pidió menos
+ * movimiento pasa los slides a mano con las flechas o los puntos.
  */
 
-type Pieza = "links" | "menu" | "pase";
-const PIEZAS: { id: Pieza; nombre: string }[] = [
-  { id: "links", nombre: "Link hub" },
-  { id: "menu", nombre: "Menú digital" },
-  { id: "pase", nombre: "Pase de lealtad" },
+type Look = {
+  id: string;
+  nombre: string;
+  pie: string;
+  pieza: "links" | "menu";
+  tema: Tema;
+  fuente: Fuente;
+  estiloLinks: EstiloLinks;
+  redondeo: Redondeo;
+  efecto: Efecto;
+  estiloPortada: EstiloPortada;
+  foto: string | null;
+};
+
+const FOTO = {
+  pasta: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=900&q=70",
+  mesa: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=900&q=70",
+  bowl: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=900&q=70",
+  pizza: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=900&q=70",
+};
+
+const LOOKS: Look[] = [
+  {
+    id: "completa",
+    nombre: "Portada completa",
+    pie: "La foto de borde a borde · Noche · Elegante",
+    pieza: "links",
+    tema: "noche",
+    fuente: "elegante",
+    estiloLinks: "grilla",
+    redondeo: "redondo",
+    efecto: "vidrio",
+    estiloPortada: "completa",
+    foto: FOTO.pasta,
+  },
+  {
+    id: "fondo",
+    nombre: "Foto de fondo",
+    pie: "La foto viste la página entera · Vino · Condensada",
+    pieza: "links",
+    tema: "vino",
+    fuente: "condensada",
+    estiloLinks: "lista",
+    redondeo: "suave",
+    efecto: "elevado",
+    estiloPortada: "fondo",
+    foto: FOTO.mesa,
+  },
+  {
+    id: "tarjeta",
+    nombre: "Foto en la tarjeta",
+    pie: "Solo en el encabezado · Crema · Editorial",
+    pieza: "links",
+    tema: "crema",
+    fuente: "editorial",
+    estiloLinks: "lista",
+    redondeo: "suave",
+    efecto: "plano",
+    estiloPortada: "card",
+    foto: FOTO.bowl,
+  },
+  {
+    id: "menu",
+    nombre: "Menú digital",
+    pie: "Con su portada · Claro · Del sitio",
+    pieza: "menu",
+    tema: "claro",
+    fuente: "sistema",
+    estiloLinks: "lista",
+    redondeo: "suave",
+    efecto: "plano",
+    estiloPortada: "card",
+    foto: FOTO.pizza,
+  },
+  {
+    id: "marca",
+    nombre: "Solo tu marca",
+    pie: "Sin foto: colores y degradado · Bosque · Redonda",
+    pieza: "links",
+    tema: "bosque",
+    fuente: "redonda",
+    estiloLinks: "grilla",
+    redondeo: "redondo",
+    efecto: "degradado",
+    estiloPortada: "sin",
+    foto: null,
+  },
 ];
-const ETIQUETA_ESTILO: Record<EstiloLinks, string> = { lista: "Lista", grilla: "Cuadrícula" };
-const ETIQUETA_REDONDEO: Record<Redondeo, string> = { recto: "Recto", suave: "Suave", redondo: "Redondo" };
 
-/** Un chip del configurador. En el módulo, no en el render (ver `Ancla` en vista-pagina.tsx). */
-function Chip({
-  activo,
-  onClick,
-  children,
-  style,
-}: {
-  activo: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={activo}
-      style={style}
-      className={`presionable inline-flex min-h-[36px] items-center gap-2 rounded-full border px-3.5 text-[12.5px] font-bold transition-colors ${
-        activo
-          ? "border-aventurea-navy bg-white text-aventurea-navy shadow-plano"
-          : "border-aventurea-line bg-white/70 text-aventurea-ink-soft hover:border-aventurea-navy/40"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
+const INTERVALO_MS = 4500;
 
-/** Un grupo de chips con su rótulo chico arriba. */
-function Grupo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
+/** La pantalla de un look. En el módulo, no en el render (ver `Ancla` en vista-pagina.tsx). */
+function Pantalla({ look }: { look: Look }) {
+  const acento = PRESETS[look.tema].acentoSugerido;
+  if (look.pieza === "menu") {
+    return (
+      <MockupCarta
+        tema={look.tema}
+        redondeo={look.redondeo}
+        acento={acento}
+        fuente={look.fuente}
+        nombre={MUESTRA.nombre}
+        portadaUrl={look.foto}
+      />
+    );
+  }
   return (
-    <div>
-      <p className="mb-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-aventurea-ink-soft">{rotulo}</p>
-      <div className="flex flex-wrap gap-1.5">{children}</div>
-    </div>
+    <VistaPagina
+      inerte
+      className="min-h-full"
+      datos={{
+        ...MUESTRA,
+        fotoPortadaUrl: look.foto,
+        colorAcento: acento,
+        tema: look.tema,
+        estiloLinks: look.estiloLinks,
+        redondeo: look.redondeo,
+        fuente: look.fuente,
+        efecto: look.efecto,
+        estiloPortada: look.estiloPortada,
+      }}
+    />
   );
 }
 
 export default function MockupsHero() {
-  const [pieza, setPieza] = useState<Pieza>("links");
-  const [tema, setTema] = useState<Tema>("noche");
-  const [fuente, setFuente] = useState<Fuente>("redonda");
-  const [estiloLinks, setEstiloLinks] = useState<EstiloLinks>("grilla");
-  const [redondeo, setRedondeo] = useState<Redondeo>("redondo");
-  const [efecto, setEfecto] = useState<Efecto>("vidrio");
+  const [activo, setActivo] = useState(0);
+  const [pausado, setPausado] = useState(false);
 
-  const acento = PRESETS[tema].acentoSugerido;
-  /* La barra de estado del teléfono toma la tinta del tema: sobre
-     «claro» o «crema» los glifos blancos desaparecen. */
-  const paleta = paletaDelTema(tema, MUESTRA.colorFondo, acento);
+  useEffect(() => {
+    if (pausado) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setInterval(() => setActivo((v) => (v + 1) % LOOKS.length), INTERVALO_MS);
+    return () => clearInterval(t);
+  }, [pausado]);
+
+  const look = LOOKS[activo];
+  /* La barra de estado del teléfono toma la tinta del tema del slide
+     activo: sobre «claro» o «crema» los glifos blancos desaparecen. */
+  const paleta = paletaDelTema(look.tema, MUESTRA.colorFondo, PRESETS[look.tema].acentoSugerido);
+  const ir = (n: number) => setActivo((n + LOOKS.length) % LOOKS.length);
 
   return (
-    <div className="flex flex-col items-center gap-6 xl:flex-row xl:items-start xl:justify-center xl:gap-8">
-      <Telefono ancho={300} tinta={paleta.tinta} className="shrink-0">
-        {pieza === "links" && (
-          <VistaPagina
-            inerte
-            className="min-h-full"
-            datos={{
-              ...MUESTRA,
-              colorAcento: acento,
-              tema,
-              estiloLinks,
-              redondeo,
-              fuente,
-              efecto,
-              estiloPortada: "card",
-            }}
-          />
-        )}
-        {pieza === "menu" && (
-          <MockupCarta tema={tema} redondeo={redondeo} acento={acento} fuente={fuente} nombre={MUESTRA.nombre} />
-        )}
-        {pieza === "pase" && <MockupPase tema={tema} acento={acento} fuente={fuente} nombre={MUESTRA.nombre} />}
+    <div
+      className="flex flex-col items-center gap-4"
+      onMouseEnter={() => setPausado(true)}
+      onMouseLeave={() => setPausado(false)}
+    >
+      <Telefono ancho={300} tinta={paleta.tinta}>
+        {/* Todos los slides montados y apilados; solo el activo se ve.
+            Montarlos todos es lo que hace que el fundido sea un fundido
+            y no un parpadeo: el siguiente ya está pintado (y su foto ya
+            cargada) cuando le toca aparecer. */}
+        <div className="relative h-full">
+          {LOOKS.map((l, k) => {
+            const visible = k === activo;
+            return (
+              <div
+                key={l.id}
+                aria-hidden={!visible}
+                className="absolute inset-0 overflow-y-auto transition-opacity duration-[420ms] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                style={{
+                  opacity: visible ? 1 : 0,
+                  pointerEvents: visible ? "auto" : "none",
+                  transitionTimingFunction: "var(--ease-bookea)",
+                }}
+              >
+                <Pantalla look={l} />
+              </div>
+            );
+          })}
+        </div>
       </Telefono>
 
-      {/* ── El configurador ─────────────────────────────────────── */}
-      <div className="flex w-full max-w-[360px] flex-col gap-4">
-        <Grupo rotulo="Qué querés ver">
-          {PIEZAS.map((p) => (
-            <Chip key={p.id} activo={pieza === p.id} onClick={() => setPieza(p.id)}>
-              {p.nombre}
-            </Chip>
-          ))}
-        </Grupo>
-
-        <Grupo rotulo="Tema">
-          {TEMAS.filter((t) => t !== "marca").map((t) => (
-            <Chip key={t} activo={tema === t} onClick={() => setTema(t)}>
-              <span
-                aria-hidden
-                className="h-4 w-4 rounded-full border border-black/10"
-                style={{ background: PRESETS[t].fondo ?? MUESTRA.colorFondo }}
-              />
-              {PRESETS[t].nombre}
-            </Chip>
-          ))}
-        </Grupo>
-
-        {/* Cada chip, escrito con su propia letra: verla dice más que su nombre. */}
-        <Grupo rotulo="Fuente">
-          {FUENTES.map((x) => (
-            <Chip key={x} activo={fuente === x} onClick={() => setFuente(x)} style={{ fontFamily: pilaFuente(x) }}>
-              {FUENTE[x].nombre}
-            </Chip>
-          ))}
-        </Grupo>
-
-        {pieza !== "pase" && (
-          <Grupo rotulo="Bordes">
-            {REDONDEOS.map((r) => (
-              <Chip key={r} activo={redondeo === r} onClick={() => setRedondeo(r)}>
-                {ETIQUETA_REDONDEO[r]}
-              </Chip>
-            ))}
-          </Grupo>
-        )}
-
-        {pieza === "links" && (
-          <>
-            <Grupo rotulo="Tus puertas">
-              {ESTILOS_LINKS.map((e) => (
-                <Chip key={e} activo={estiloLinks === e} onClick={() => setEstiloLinks(e)}>
-                  {ETIQUETA_ESTILO[e]}
-                </Chip>
-              ))}
-            </Grupo>
-            <Grupo rotulo="Efecto de las tarjetas">
-              {EFECTOS.map((x) => (
-                <Chip key={x} activo={efecto === x} onClick={() => setEfecto(x)}>
-                  {EFECTO[x].nombre}
-                </Chip>
-              ))}
-            </Grupo>
-          </>
-        )}
-
-        <p className="text-[12px] leading-snug text-aventurea-ink-soft">
-          Todo esto lo elegís desde tu panel, mirando cómo queda al lado — y también la portada, tus
-          colores y una foto de fondo por botón.
+      {/* ── Qué diseño es, y los puntos para pasar ───────────────── */}
+      <div className="flex w-full max-w-[360px] flex-col items-center gap-2 text-center">
+        <p className="text-[14px] font-extrabold text-aventurea-navy" aria-live="polite">
+          {look.nombre}
+          <span className="block text-[12px] font-medium text-aventurea-ink-soft">{look.pie}</span>
         </p>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => ir(activo - 1)}
+            aria-label="Diseño anterior"
+            className="presionable grid h-9 w-9 place-items-center rounded-full border border-aventurea-line bg-white text-aventurea-navy"
+          >
+            <IconChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="flex items-center gap-1.5" role="tablist" aria-label="Diseños de muestra">
+            {LOOKS.map((l, k) => (
+              <button
+                key={l.id}
+                type="button"
+                role="tab"
+                aria-selected={k === activo}
+                aria-label={l.nombre}
+                onClick={() => ir(k)}
+                className={`h-2.5 rounded-full transition-[width,background-color] duration-[200ms] ${
+                  k === activo ? "w-6 bg-aventurea-navy" : "w-2.5 bg-aventurea-line hover:bg-aventurea-navy/40"
+                }`}
+                style={{ transitionTimingFunction: "var(--ease-bookea)" }}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => ir(activo + 1)}
+            aria-label="Diseño siguiente"
+            className="presionable grid h-9 w-9 place-items-center rounded-full border border-aventurea-line bg-white text-aventurea-navy"
+          >
+            <IconChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
