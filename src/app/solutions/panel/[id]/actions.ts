@@ -147,12 +147,6 @@ export async function guardarPaginaSolutions(
   if (whatsappPedidos && (whatsappPedidos.length < 8 || whatsappPedidos.length > 15)) {
     return { ok: false, motivo: "El WhatsApp de pedidos tiene que tener entre 8 y 15 dígitos." };
   }
-  // Para llevar o exprés necesitan un número a dónde mandar el pedido:
-  // el de pedidos o, en su defecto, el de la página. Sin ninguno, el
-  // cliente armaría un pedido que no llega a nadie.
-  if ((d.pedidosLlevar || d.pedidosExpress) && !whatsappPedidos && !whatsapp) {
-    return { ok: false, motivo: "Para recibir pedidos para llevar o exprés hace falta un WhatsApp." };
-  }
   const costoExpress = Math.max(0, Math.round(Number(d.costoExpress) || 0));
   const metodosPago = metodosPagoDe(d.metodosPago);
 

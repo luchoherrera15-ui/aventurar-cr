@@ -78,7 +78,7 @@ export type Modalidad = (typeof MODALIDADES)[number];
 
 export const MODALIDAD: Record<Modalidad, { rotulo: string; pie: string }> = {
   mesa: { rotulo: "En la mesa", pie: "Pide desde el QR de su mesa" },
-  llevar: { rotulo: "Para llevar", pie: "Pasa a recogerlo" },
+  llevar: { rotulo: "To go", pie: "Pasa a recogerlo" },
   express: { rotulo: "Exprés", pie: "Se lo llevás a su dirección" },
 };
 

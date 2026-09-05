@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codigoDePedido, enlaceDeWhatsapp, numeroParaWhatsapp, textoDelPedido } from "./whatsapp";
+import { codigoDePedido, enlaceDeWhatsapp, numeroParaWhatsapp, textoAvisoListo, textoDelPedido } from "./whatsapp";
 
 const base = {
   negocio: "Casa Nostra",
@@ -24,7 +24,7 @@ describe("textoDelPedido", () => {
     const t = textoDelPedido({ ...base, modalidad: "llevar", costoEnvio: 0, total: 24200 });
     const lineas = t.split("\n");
     expect(lineas[0]).toBe("*Pedido #A1B2 · Casa Nostra*");
-    expect(lineas[1]).toBe("Para llevar");
+    expect(lineas[1]).toBe("To go");
     expect(t).toContain("2× Tagliatelle al ragú — ₡17");
     expect(t).toContain("*Total: ₡24");
     expect(t).not.toContain("Envío");
@@ -90,5 +90,18 @@ describe("numeroParaWhatsapp / enlaceDeWhatsapp", () => {
 describe("codigoDePedido", () => {
   it("son los primeros cuatro del uuid, en mayúsculas", () => {
     expect(codigoDePedido("a1b2c3d4-0000-0000-0000-000000000000")).toBe("A1B2");
+  });
+});
+
+describe("textoAvisoListo", () => {
+  it("to go: listo para recoger, con el nombre si lo hay", () => {
+    expect(textoAvisoListo({ cliente: "Luis", codigo: "A1B2", negocio: "Casa Nostra", modalidad: "llevar" })).toBe(
+      "Hola Luis, tu pedido #A1B2 de Casa Nostra está listo para recoger.",
+    );
+  });
+  it("exprés: va en camino, y sin nombre saluda igual", () => {
+    expect(textoAvisoListo({ cliente: "  ", codigo: "A1B2", negocio: "Casa Nostra", modalidad: "express" })).toBe(
+      "Hola, tu pedido #A1B2 de Casa Nostra ya va en camino.",
+    );
   });
 });

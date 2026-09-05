@@ -35,14 +35,13 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
   const { negocio, menu, paleta, addons } = datos;
   const mesa = mesaDeBusqueda(busqueda.mesa, negocio.mesas);
   // Desde la mesa: el add-on de pedidos, el interruptor y el número de
-  // mesa del QR. Por WhatsApp (0233): el add-on, alguna modalidad
-  // prendida y un número a dónde mandarlo — y SIN mesa, porque desde la
-  // mesa se pide a la cocina, no por chat.
+  // mesa del QR. To go / exprés (0233): el add-on y la modalidad
+  // prendida — y SIN mesa, porque desde la mesa se pide a la cocina.
+  // Las tres caen en el Modo restaurante del panel.
   const puedePedir = addons.pedidos && negocio.acepta_pedidos && mesa !== null;
-  const whatsappPedidos = negocio.whatsapp_pedidos ?? negocio.whatsapp;
-  const llevar = addons.pedidos && negocio.pedidos_llevar && Boolean(whatsappPedidos);
-  const express = addons.pedidos && negocio.pedidos_express && Boolean(whatsappPedidos);
-  const porWhatsapp = mesa === null && (llevar || express);
+  const llevar = addons.pedidos && negocio.pedidos_llevar;
+  const express = addons.pedidos && negocio.pedidos_express;
+  const paraLlevar = mesa === null && (llevar || express);
 
   return (
     <main className="min-h-svh pb-32" style={{ background: paleta.fondo, color: paleta.tinta }}>
@@ -80,8 +79,8 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
         <p className="mt-0.5 text-[12.5px]" style={{ color: paleta.suave }}>
           {puedePedir
             ? "Elegí y pedí desde tu mesa · precios en colones"
-            : porWhatsapp
-              ? "Elegí y pedí por WhatsApp · precios en colones"
+            : paraLlevar
+              ? "Elegí y pedí To go o Exprés · precios en colones"
               : "Precios en colones"}
         </p>
       </div>
@@ -106,7 +105,6 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
         express={express}
         costoExpress={negocio.costo_express}
         metodosPago={negocio.metodos_pago}
-        whatsappPedidos={whatsappPedidos}
       />
     </main>
   );

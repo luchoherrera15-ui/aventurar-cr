@@ -6,6 +6,8 @@ import { fmtColones } from "@/lib/finanzas";
 import { ADDON, ADDONS, type EstadoAddons } from "@/lib/solutions/addons";
 import type { NegocioSolutions } from "@/lib/solutions/tipos";
 import AddonToggle from "./addon-toggle";
+import EscanerSolutions from "./escaner-solutions";
+import type { EscanerLealtad } from "@/lib/solutions/lealtad-puente";
 
 /**
  * INICIO — el tablero que abre el panel.
@@ -53,6 +55,7 @@ export default function SeccionInicio({
   tieneLealtad,
   addons,
   puedeEditar,
+  escaneres,
 }: {
   negocio: NegocioSolutions;
   urlPublica: string;
@@ -72,6 +75,8 @@ export default function SeccionInicio({
   /** Qué tiene prendido el negocio (0233). */
   addons: EstadoAddons;
   puedeEditar: boolean;
+  /** Los escáneres de pases de la cuenta (5 sep 2026). Vacío = no se muestra. */
+  escaneres: EscanerLealtad[];
 }) {
   const base = `/solutions/panel/${negocio.id}`;
   const lealtadActiva = addons.lealtad || tieneLealtad;
@@ -93,7 +98,7 @@ export default function SeccionInicio({
       titulo: "Sumá tus enlaces",
       detalle: "Instagram, reservas, cómo llegar, lo que uses.",
       listo: totalLinks > 0,
-      href: `${base}?tab=links`,
+      href: `${base}?tab=pagina#enlaces`,
       accion: "Agregar enlaces",
     },
     {
@@ -119,7 +124,7 @@ export default function SeccionInicio({
     pasos.push({
       clave: "pedidos",
       titulo: "Decidí cómo recibís pedidos",
-      detalle: "Desde la mesa, para llevar o exprés, y con qué se paga.",
+      detalle: "Desde la mesa, To go o exprés, y con qué se paga.",
       listo: negocio.acepta_pedidos || negocio.pedidos_llevar || negocio.pedidos_express,
       href: `${base}?tab=pagina`,
       accion: "Configurar",
@@ -152,7 +157,7 @@ export default function SeccionInicio({
     if (id === "pedidos" && addons.pedidos) {
       const modos = [
         negocio.acepta_pedidos && `mesa (${negocio.mesas})`,
-        negocio.pedidos_llevar && "para llevar",
+        negocio.pedidos_llevar && "to go",
         negocio.pedidos_express && "exprés",
       ].filter(Boolean);
       return modos.length > 0 ? `${modos.join(" · ")} · sin comisión` : "Sin modalidad elegida todavía";
@@ -201,6 +206,21 @@ export default function SeccionInicio({
           </ul>
         )}
       </Card>
+
+      {/* ── EL ESCÁNER DE PASES (dueño, 5 sep 2026) ──────────────
+          Solo cuando la cuenta tiene una tarjeta de Lealtad con la que
+          acreditar. Es el mismo escáner del panel de Lealtad, montado
+          acá para que la caja no cambie de producto para sumar un
+          sello. */}
+      {escaneres.length > 0 && (
+        <Card eyebrow="Tu tarjeta de lealtad" titulo="Escanear el pase de un cliente">
+          <p className="mb-3 text-[12.5px] leading-snug text-aventurea-ink-soft">
+            Apuntá la cámara al QR del pase y se le suma el sello o los puntos. La cámara se pide
+            recién al tocar el botón.
+          </p>
+          <EscanerSolutions opciones={escaneres} />
+        </Card>
+      )}
 
       {/* ── LO QUE ESTÁ FUNCIONANDO HOY ──────────────────────────── */}
       <div className={`grid gap-3 ${metricas.length === 3 ? "sm:grid-cols-3" : metricas.length === 2 ? "sm:grid-cols-2" : ""}`}>

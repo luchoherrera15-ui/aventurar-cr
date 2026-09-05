@@ -4,18 +4,21 @@ import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISOCR } from "@/lib/fechas";
 import {
+  IconCamera,
   IconChair,
   IconClipboard,
   IconHome,
   IconCloche,
-  IconEnlace,
   IconTagLine,
   IconUsers,
 } from "@/components/icons";
+import { Card } from "@/components/panel/piezas";
+import { BOTON_PANEL_PRIMARIO } from "@/components/panel/sistema";
 import PanelSidebar, { type Tab } from "@/app/mi-negocio/[id]/panel-sidebar";
 import { CLASES_FUENTES } from "@/app/solutions/fuentes";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import { addonsDelNegocio } from "@/lib/solutions/addons";
+import { escaneresDeLaCuenta } from "@/lib/solutions/lealtad-puente";
 import {
   colaboradoresDelNegocio,
   linksDelNegocio,
@@ -24,12 +27,11 @@ import {
   pedidosDelNegocio,
 } from "@/lib/solutions/datos";
 import { urlPublicaSolutions } from "@/lib/solutions/tipos";
-import SeccionComandas from "./seccion-comandas";
 import SeccionInicio from "./seccion-inicio";
 import SeccionPagina from "./seccion-pagina";
-import SeccionLinks from "./seccion-links";
 import SeccionMenu from "./seccion-menu";
 import SeccionEquipo from "./seccion-equipo";
+import EscanerSolutions from "./escaner-solutions";
 
 export const metadata: Metadata = { title: "Panel · Bookea Solutions" };
 
@@ -109,7 +111,11 @@ export default async function PanelSolutionsPage({
   const urlPublica = urlPublicaSolutions(negocio.slug);
   const recienCreado = busqueda.nuevo === "1";
 
-  const recibePedidos = negocio.acepta_pedidos || negocio.pedidos_llevar || negocio.pedidos_express;
+  // El escáner de pases (5 sep 2026): solo para el dueño, que es quien
+  // tiene acceso en Lealtad. Un colaborador de Solutions no es equipo
+  // del rancho y el servidor le diría que no al escanear.
+  const escaneres =
+    acceso.esDueno && (addons.lealtad || tieneLealtad) ? await escaneresDeLaCuenta(admin, negocio.owner_id) : [];
 
   // ── EL RAIL SE ARMA CON LOS ADD-ONS (0233) ─────────────────────────
   // Lo que el negocio no tiene prendido no aparece: ni «Comandas» sin
@@ -132,6 +138,7 @@ export default async function PanelSolutionsPage({
           tieneLealtad={tieneLealtad}
           addons={addons}
           puedeEditar={acceso.puedeEditar}
+          escaneres={escaneres}
         />
       ),
     },
@@ -143,26 +150,62 @@ export default async function PanelSolutionsPage({
   // en «Agregalo desde…» y dejaba de decir a dónde.
   const bloqueada = { etiqueta: "Add-on", pie: "Sumalo en Inicio", destino: "inicio" };
 
+  // MODO RESTAURANTE (dueño, 5 sep 2026): las comandas dejan de ser
+  // una pestaña y pasan a su pantalla de operación, con las de mesa,
+  // To go y exprés. Es un `href`: se abre entera, sin el rail.
   if (addons.pedidos) {
     tabs.push({
-      id: "comandas",
-      label: "Comandas",
-      descripcion: "Los pedidos que van llegando",
+      id: "restaurante",
+      label: "Modo restaurante",
+      descripcion: "Comandas en vivo: mesa, To go y exprés",
       icon: <IconClipboard />,
       badge: vivas,
-      content: (
-        <SeccionComandas
-          negocioId={id}
-          pedidos={pedidos}
-          aceptaPedidos={recibePedidos}
-          mesas={negocio.mesas}
-          puedeEditar={acceso.puedeEditar}
-          items={menu.items}
-        />
-      ),
+      href: `/solutions/panel/${id}/restaurante`,
     });
   } else {
-    tabs.push({ id: "comandas", label: "Comandas", icon: <IconClipboard />, bloqueado: bloqueada });
+    tabs.push({ id: "restaurante", label: "Modo restaurante", icon: <IconClipboard />, bloqueado: bloqueada });
+  }
+
+  // EL ESCÁNER DE PASES (dueño, 5 sep 2026): el mismo de Lealtad,
+  // montado acá. Solo el dueño (ver `escaneres` arriba).
+  if (acceso.esDueno) {
+    if (escaneres.length > 0) {
+      tabs.push({
+        id: "escanear",
+        label: "Escanear pases",
+        descripcion: "Sumá sellos o puntos al cliente",
+        icon: <IconCamera />,
+        content: (
+          <Card eyebrow="Tu tarjeta de lealtad" titulo="Escanear el pase de un cliente">
+            <p className="mb-3 text-[12.5px] leading-snug text-aventurea-ink-soft">
+              Apuntá la cámara al QR del pase y se le suma el sello o los puntos. Es el mismo
+              escáner de tu panel de Lealtad.
+            </p>
+            <EscanerSolutions opciones={escaneres} abierto />
+          </Card>
+        ),
+      });
+    } else if (addons.lealtad || tieneLealtad) {
+      tabs.push({
+        id: "escanear",
+        label: "Escanear pases",
+        descripcion: "Primero armá tu tarjeta",
+        icon: <IconCamera />,
+        content: (
+          <Card eyebrow="Tu tarjeta de lealtad" titulo="Todavía no tenés una tarjeta que escanear">
+            <p className="text-[13px] leading-snug text-aventurea-ink-soft">
+              El escáner suma sellos o puntos a un pase. Armá tu tarjeta en Bookea Lealtad con esta
+              misma cuenta y acá aparece la cámara.
+            </p>
+            <Link href="/lealtad/crear" className={`mt-3 inline-flex ${BOTON_PANEL_PRIMARIO}`}>
+              Armar mi tarjeta →
+            </Link>
+          </Card>
+        ),
+      });
+    } else {
+      tabs.push({ id: "escanear", label: "Escanear pases", icon: <IconCamera />, bloqueado: bloqueada });
+    }
   }
 
   if (acceso.puedeEditar) {
@@ -170,12 +213,14 @@ export default async function PanelSolutionsPage({
       {
         id: "pagina",
         label: "Mi página",
-        descripcion: "Diseño, portada y contacto",
+        descripcion: "Diseño, enlaces y contacto",
         icon: <IconTagLine />,
+        // «?tab=links» era la pestaña de Enlaces; ahora viven acá.
+        alias: ["links"],
         content: (
           <SeccionPagina
             negocio={negocio}
-            links={links.filter((l) => l.visible)}
+            links={links}
             seccionesMenu={menu.agrupado.map((g) => g.seccion?.nombre ?? "Otros")}
             hayMenu={menu.items.length > 0}
             urlPublica={urlPublica}
@@ -183,13 +228,6 @@ export default async function PanelSolutionsPage({
             addons={addons}
           />
         ),
-      },
-      {
-        id: "links",
-        label: "Enlaces",
-        descripcion: "Las puertas de tu página",
-        icon: <IconEnlace />,
-        content: <SeccionLinks negocioId={id} links={links} />,
       },
     );
     if (addons.menu) {

@@ -25,7 +25,7 @@ import VistaPagina from "@/components/solutions/vista-pagina";
 import {
   MockupCarta,
   MockupPase,
-  MockupPedidoWhatsapp,
+  MockupPedido,
   MUESTRA_PAGINA,
 } from "@/components/solutions/mockup-pantallas";
 import { PRESETS } from "@/lib/solutions/temas";
@@ -122,13 +122,13 @@ const PRODUCTOS = [
     id: "pedidos",
     kicker: "Add-on",
     precio: "₡0 en prueba",
-    titulo: "Pedidos: mesa, para llevar y exprés",
+    titulo: "Pedidos: mesa, To go y exprés",
     bajada:
-      "Un QR por mesa y la comanda te llega al panel. Para llevar o exprés, el cliente arma su pedido y te llega ordenado por WhatsApp.",
+      "Un QR por mesa, y To go o exprés desde tu página. Todo cae en tu Modo restaurante, marcado, con nuevo → preparando → listo.",
     puntos: [
       "Sin comisión por pedido — el cobro es tuyo",
-      "Comandas en vivo: nuevo → preparando → listo",
-      "Nombre, teléfono, dirección y forma de pago, siempre en el mismo orden",
+      "Modo restaurante: la pantalla de la cocina y la caja",
+      "To go y exprés con nombre, teléfono, dirección y forma de pago",
     ],
     cta: { href: "/solutions/crear", label: "Empezar con mi página" },
     Icono: IconClipboard,
@@ -196,7 +196,7 @@ function VisualProducto({ id }: { id: (typeof PRODUCTOS)[number]["id"] }) {
   if (id === "pedidos") {
     return (
       <Telefono ancho={ancho}>
-        <MockupPedidoWhatsapp />
+        <MockupPedido />
       </Telefono>
     );
   }
@@ -265,14 +265,14 @@ const FAQ = [
       "El link hub es gratis, siempre. Los add-ons se venden por separado y, mientras dure la prueba, están en ₡0: los prendés desde Inicio y los apagás cuando quieras. Cuando tengan precio lo vas a ver ahí mismo, antes de activarlos.",
   },
   {
-    pregunta: "¿Cómo funciona el pedido por WhatsApp?",
+    pregunta: "¿Cómo funcionan To go y Exprés?",
     respuesta:
-      "El cliente abre tu menú, va sumando —un combo, unas papas, un refresco—, elige para llevar o exprés, llena nombre, teléfono, cédula, dirección y cómo paga, y toca enviar. Se abre WhatsApp con el pedido ya escrito y ordenado; solo lo manda. Vos lo ves en el chat y en «Comandas», con el mismo código.",
+      "El cliente abre tu menú desde tu página, va sumando —un combo, unas papas, un refresco—, elige To go o Exprés, llena nombre, teléfono, cédula, dirección y cómo paga, y toca enviar. Recibe un código, y a vos te cae al instante en el Modo restaurante, marcado. Cuando esté listo, le avisás al teléfono con un toque.",
   },
   {
     pregunta: "¿Los pedidos cobran comisión?",
     respuesta:
-      "No, y no es un detalle: es una comanda, no una pasarela. Desde la mesa te llega al panel; para llevar o exprés te llega por WhatsApp. El cobro sigue siendo tuyo, en tu caja o como lo coordinés con el cliente.",
+      "No, y no es un detalle: es una comanda, no una pasarela. Desde la mesa, To go o exprés, todo te llega al Modo restaurante. El cobro sigue siendo tuyo: en tu caja, al recoger o al entregar.",
   },
   {
     pregunta: "¿Puedo usar solo el link hub?",

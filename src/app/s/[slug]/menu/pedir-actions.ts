@@ -12,7 +12,7 @@ import { codigoDePedido } from "@/lib/solutions/whatsapp";
  * servicio detrás de validaciones que la RLS no puede hacer por él:
  *
  *   · el negocio existe, está publicado y tiene el ADD-ON de pedidos;
- *   · la modalidad que pide está prendida (mesa / llevar / exprés);
+ *   · la modalidad que pide está prendida (mesa / To go / exprés);
  *   · cada renglón es un plato de ESE negocio, disponible, no agotado
  *     y CON precio (uno «a consultar» no tiene monto que congelar);
  *   · el total se calcula acá con los precios de la base — nunca con
@@ -23,9 +23,10 @@ import { codigoDePedido } from "@/lib/solutions/whatsapp";
  * cocina recibe dos.
  *
  * ── DOS PUERTAS, UNA VALIDACIÓN ─────────────────────────────────────
- * `pedirDesdeLaMesa` (QR de la mesa → panel) y `pedirParaLlevar`
- * (para llevar / exprés → WhatsApp + panel) comparten `renglonesDe`:
- * lo que hace válido a un plato no depende de por dónde se pide.
+ * `pedirDesdeLaMesa` (QR de la mesa) y `pedirParaLlevar` (To go /
+ * exprés, desde la página) comparten `renglonesDe`: lo que hace válido
+ * a un plato no depende de por dónde se pide. Las dos caen en el MISMO
+ * lugar: el Modo restaurante del panel, cada una con su etiqueta.
  */
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
@@ -118,8 +119,7 @@ export async function pedirDesdeLaMesa(entrada: {
   const r = await renglonesDe(admin, negocio.id, entrada.renglones);
   if (!r.ok) return r;
 
-  // `modalidad` no se manda: su default en la base es 'mesa'. Así este
-  // camino sigue funcionando igual antes y después de la 0233.
+  // `modalidad` no se manda: su default en la base es 'mesa'.
   const g = await guardarPedido(
     admin,
     {
@@ -135,18 +135,15 @@ export async function pedirDesdeLaMesa(entrada: {
   return { ok: true, pedidoId: g.id, total: r.subtotal };
 }
 
-// ── 2. PARA LLEVAR / EXPRÉS → WHATSAPP (0233) ───────────────────────
+// ── 2. TO GO / EXPRÉS, DESDE LA PÁGINA (0233) ───────────────────────
 
 /**
- * Pedido del dueño (4 sep 2026): «para llevar o exprés: la persona va
- * escogiendo, llena nombre, cédula, dirección, teléfono, cómo paga, y
- * organizadamente se manda por WhatsApp al restaurante».
- *
- * El pedido se GUARDA antes de abrir WhatsApp, y por dos razones:
- * aparece en «Comandas» con su código, así el local lo encuentra
- * cuando le llega el chat; y lo que viaja en el mensaje sale de ESTA
- * respuesta —nombres y precios de la base—, no del carrito del
- * navegador. Una sola verdad para el chat y para el panel.
+ * Pedido del dueño (5 sep 2026): «las To go y Exprés por la web, y que
+ * lleguen al Modo restaurante marcadas». Antes este camino abría
+ * WhatsApp con el pedido escrito; ahora el pedido ES la web: se guarda,
+ * recibe un código corto y aparece en el tablero de la cocina como
+ * cualquier comanda de mesa. El teléfono del cliente queda en el
+ * pedido para que el local le avise cuando esté listo.
  */
 export async function pedirParaLlevar(entrada: {
   negocioId: string;
@@ -160,17 +157,7 @@ export async function pedirParaLlevar(entrada: {
   nota: string;
   renglones: { itemId: string; cantidad: number }[];
 }): Promise<
-  | {
-      ok: true;
-      pedidoId: string;
-      codigo: string;
-      negocio: string;
-      whatsapp: string;
-      renglones: { nombre: string; cantidad: number; precio: number }[];
-      costoEnvio: number;
-      total: number;
-      metodoPago: MetodoPago;
-    }
+  | { ok: true; pedidoId: string; codigo: string; total: number; costoEnvio: number; metodoPago: MetodoPago }
   | Falla
 > {
   const admin = createAdminClient();
@@ -178,7 +165,7 @@ export async function pedirParaLlevar(entrada: {
 
   const { data: negocio } = await admin
     .from("solutions_negocios")
-    .select("id, slug, nombre, publicado, pedidos_llevar, pedidos_express, costo_express, metodos_pago, whatsapp, whatsapp_pedidos")
+    .select("id, slug, publicado, pedidos_llevar, pedidos_express, costo_express, metodos_pago")
     .eq("id", entrada.negocioId)
     .maybeSingle();
   if (!negocio || negocio.slug !== entrada.slug || !negocio.publicado) {
@@ -188,11 +175,8 @@ export async function pedirParaLlevar(entrada: {
   if (!addons.pedidos) return { ok: false, motivo: "Este negocio no recibe pedidos por acá." };
 
   const modalidad = entrada.modalidad === "express" ? "express" : "llevar";
-  if (modalidad === "llevar" && !negocio.pedidos_llevar) return { ok: false, motivo: "Este negocio no recibe pedidos para llevar." };
+  if (modalidad === "llevar" && !negocio.pedidos_llevar) return { ok: false, motivo: "Este negocio no recibe pedidos To go." };
   if (modalidad === "express" && !negocio.pedidos_express) return { ok: false, motivo: "Este negocio no hace exprés." };
-
-  const whatsapp = String(negocio.whatsapp_pedidos || negocio.whatsapp || "").replace(/\D/g, "");
-  if (whatsapp.length < 8) return { ok: false, motivo: "Este negocio todavía no tiene WhatsApp para pedidos." };
 
   // ── Los datos del cliente ─────────────────────────────────────────
   const nombre = String(entrada.nombre ?? "").trim().slice(0, TOPES.pedidoNombre);
@@ -240,15 +224,5 @@ export async function pedirParaLlevar(entrada: {
   );
   if (!g.ok) return g;
 
-  return {
-    ok: true,
-    pedidoId: g.id,
-    codigo: codigoDePedido(g.id),
-    negocio: negocio.nombre as string,
-    whatsapp,
-    renglones: r.items.map((it) => ({ nombre: it.nombre, cantidad: it.cantidad, precio: it.precio })),
-    costoEnvio,
-    total,
-    metodoPago,
-  };
+  return { ok: true, pedidoId: g.id, codigo: codigoDePedido(g.id), total, costoEnvio, metodoPago };
 }

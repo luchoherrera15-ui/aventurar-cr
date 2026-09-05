@@ -3,7 +3,6 @@
 import { useMemo, useState, useTransition } from "react";
 import { fmtColones } from "@/lib/finanzas";
 import { METODO_PAGO, MODALIDAD, TOPES, type MetodoPago } from "@/lib/solutions/tipos";
-import { enlaceDeWhatsapp, textoDelPedido } from "@/lib/solutions/whatsapp";
 import { pedirDesdeLaMesa, pedirParaLlevar } from "./pedir-actions";
 
 type Item = { id: string; nombre: string; descripcion: string; precio: number | null; foto_url: string | null };
@@ -28,23 +27,19 @@ type Paleta = {
  *
  * ── DESDE LA MESA ───────────────────────────────────────────────────
  * Con número de mesa (viene en el QR), el pedido va a la cocina: se
- * guarda y aparece en «Comandas». Nombre y nota opcionales; se paga en
- * el local.
+ * guarda y aparece en el Modo restaurante. Nombre y nota opcionales;
+ * se paga en el local.
  *
- * ── PARA LLEVAR / EXPRÉS → WHATSAPP (0233) ──────────────────────────
+ * ── TO GO / EXPRÉS, POR LA WEB (0233) ───────────────────────────────
  * Sin mesa y con alguna de esas dos prendidas, la hoja pide los datos
  * del cliente —nombre, teléfono, cédula, dirección si es exprés y
- * cómo paga— y al enviar: (1) el pedido se guarda y recibe un código,
- * (2) se arma el mensaje ordenado con lo que devolvió el servidor, y
- * (3) se abre WhatsApp con ese mensaje ya escrito. La persona solo
- * toca «Enviar» en el chat.
- *
- * Se abre con `location.assign` y no con `window.open`: después de
- * esperar a la action ya no estamos dentro del clic, y los
- * navegadores bloquean las ventanas nuevas que no salen de un gesto.
- * Navegar nunca se bloquea. En el teléfono abre la app y esta pantalla
- * queda atrás; por si acaso, la confirmación deja el enlace a mano.
+ * cómo paga— y al enviar el pedido se guarda con un código corto y
+ * cae en el Modo restaurante, marcado To go o Exprés. La confirmación
+ * queda en pantalla con el código; el local le avisa al teléfono
+ * cuando esté listo. Pedido del dueño (5 sep 2026): por la web, no por
+ * WhatsApp.
  */
+
 /**
  * Un botón de opción (modalidad, forma de pago) con la paleta del negocio.
  *
@@ -92,7 +87,6 @@ export default function MenuConCarrito({
   express = false,
   costoExpress = 0,
   metodosPago = ["efectivo"],
-  whatsappPedidos = null,
 }: {
   negocioId: string;
   slug: string;
@@ -101,18 +95,17 @@ export default function MenuConCarrito({
   puedePedir: boolean;
   grupos: Grupo[];
   paleta: Paleta;
-  /** Por WhatsApp (0233). Los decide el servidor con el add-on y los interruptores. */
+  /** To go / exprés (0233). Los decide el servidor con el add-on y los interruptores. */
   llevar?: boolean;
   express?: boolean;
   costoExpress?: number;
   metodosPago?: MetodoPago[];
-  whatsappPedidos?: string | null;
 }) {
-  /* Por chat solo SIN mesa: desde la mesa se pide a la cocina, no por
-     WhatsApp — y si hubiera las dos puertas a la vez, la persona en la
-     mesa 4 podría pedirse un exprés a su casa. */
-  const porWhatsapp = mesa === null && Boolean(whatsappPedidos) && (llevar || express);
-  const puedeAgregar = puedePedir || porWhatsapp;
+  /* To go / exprés solo SIN mesa: desde la mesa se pide a la cocina,
+     y si hubiera las dos puertas a la vez, la persona en la mesa 4
+     podría pedirse un exprés a su casa. */
+  const paraLlevar = mesa === null && (llevar || express);
+  const puedeAgregar = puedePedir || paraLlevar;
 
   const [carrito, setCarrito] = useState<Record<string, number>>({});
   const [abierto, setAbierto] = useState(false);
@@ -126,7 +119,7 @@ export default function MenuConCarrito({
   const [error, setError] = useState<string | null>(null);
   const [enviado, setEnviado] = useState<
     | { tipo: "mesa"; total: number; renglones: number }
-    | { tipo: "whatsapp"; codigo: string; total: number; enlace: string }
+    | { tipo: "llevar" | "express"; codigo: string; total: number; telefono: string; direccion: string; metodoPago: MetodoPago }
     | null
   >(null);
   const [enviando, arrancar] = useTransition();
@@ -135,7 +128,7 @@ export default function MenuConCarrito({
   const renglones = Object.entries(carrito).filter(([, c]) => c > 0);
   const cantidadTotal = renglones.reduce((s, [, c]) => s + c, 0);
   const subtotal = renglones.reduce((s, [id, c]) => s + (porId.get(id)?.precio ?? 0) * c, 0);
-  const envio = porWhatsapp && modalidad === "express" ? costoExpress : 0;
+  const envio = paraLlevar && modalidad === "express" ? costoExpress : 0;
   const total = subtotal + envio;
 
   const ajustar = (id: string, delta: number) =>
@@ -174,7 +167,7 @@ export default function MenuConCarrito({
     });
   };
 
-  const enviarPorWhatsapp = () => {
+  const enviarParaLlevar = () => {
     setError(null);
     if (nombre.trim().length < 2) return setError("Decinos tu nombre.");
     if (telefono.replace(/\D/g, "").length < 8) return setError("Dejanos un teléfono de 8 dígitos o más.");
@@ -196,30 +189,16 @@ export default function MenuConCarrito({
         setError(r.motivo);
         return;
       }
-      // El texto sale de lo que DEVOLVIÓ el servidor —nombres y precios
-      // de la base—, no del carrito: una sola verdad para el chat y el
-      // panel.
-      const texto = textoDelPedido({
-        negocio: r.negocio,
-        slug,
+      setEnviado({
+        tipo: modalidad,
         codigo: r.codigo,
-        modalidad,
-        renglones: r.renglones,
-        costoEnvio: r.costoEnvio,
         total: r.total,
-        cliente: {
-          nombre: nombre.trim(),
-          telefono: telefono.trim(),
-          cedula: cedula.trim(),
-          direccion: direccion.trim(),
-          metodoPago: r.metodoPago,
-          nota: nota.trim(),
-        },
+        telefono: telefono.trim(),
+        direccion: direccion.trim(),
+        metodoPago: r.metodoPago,
       });
-      const enlace = enlaceDeWhatsapp(r.whatsapp, texto);
-      setEnviado({ tipo: "whatsapp", codigo: r.codigo, total: r.total, enlace });
       limpiar();
-      window.location.assign(enlace);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
   };
 
@@ -229,6 +208,39 @@ export default function MenuConCarrito({
 
   return (
     <>
+      {/* ── Confirmación ──────────────────────────────────────── */}
+      {enviado && (
+        <div className="mx-auto mt-4 w-full max-w-[520px] px-5">
+          <div className="rounded-2xl border p-4" style={{ background: paleta.superficie, borderColor: paleta.acento }}>
+            {enviado.tipo === "mesa" ? (
+              <>
+                <p className="text-[15px] font-extrabold">✓ Pedido enviado a la mesa {mesa}</p>
+                <p className="mt-1 text-[13px]" style={{ color: paleta.suave }}>
+                  {enviado.renglones} {enviado.renglones === 1 ? "plato" : "platos"} · {fmtColones(enviado.total)}. Te lo
+                  llevan a la mesa; el pago es en el local.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[15px] font-extrabold">
+                  ✓ Pedido #{enviado.codigo} recibido · {MODALIDAD[enviado.tipo].rotulo}
+                </p>
+                <p className="mt-1 text-[13px]" style={{ color: paleta.suave }}>
+                  {fmtColones(enviado.total)} · pagás con {METODO_PAGO[enviado.metodoPago].toLowerCase()}.{" "}
+                  {enviado.tipo === "express"
+                    ? `Te lo llevamos a ${enviado.direccion}.`
+                    : "Pasá a recogerlo cuando te avisemos."}{" "}
+                  Te avisamos al {enviado.telefono}. Guardá el código por si te lo piden.
+                </p>
+              </>
+            )}
+            <button type="button" onClick={() => setEnviado(null)} className="mt-2 block text-[12.5px] font-bold underline">
+              Pedir algo más
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Anclas ─────────────────────────────────────────────── */}
       {grupos.length > 1 && (
         <nav
@@ -327,43 +339,6 @@ export default function MenuConCarrito({
         ))}
       </div>
 
-      {/* ── Confirmación ──────────────────────────────────────── */}
-      {enviado && (
-        <div className="mx-auto mt-6 w-full max-w-[520px] px-5">
-          <div className="rounded-2xl border p-4" style={{ background: paleta.superficie, borderColor: paleta.acento }}>
-            {enviado.tipo === "mesa" ? (
-              <>
-                <p className="text-[15px] font-extrabold">✓ Pedido enviado a la mesa {mesa}</p>
-                <p className="mt-1 text-[13px]" style={{ color: paleta.suave }}>
-                  {enviado.renglones} {enviado.renglones === 1 ? "plato" : "platos"} · {fmtColones(enviado.total)}. Te lo
-                  llevan a la mesa; el pago es en el local.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-[15px] font-extrabold">✓ Pedido #{enviado.codigo} listo · {fmtColones(enviado.total)}</p>
-                <p className="mt-1 text-[13px]" style={{ color: paleta.suave }}>
-                  Se abrió WhatsApp con tu pedido ya escrito: solo tocá enviar. El negocio te confirma por ese
-                  chat.
-                </p>
-                <a
-                  href={enviado.enlace}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="presionable mt-3 inline-flex min-h-[44px] items-center justify-center rounded-xl px-4 text-[14px] font-extrabold"
-                  style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}
-                >
-                  Abrir WhatsApp de nuevo
-                </a>
-              </>
-            )}
-            <button type="button" onClick={() => setEnviado(null)} className="mt-2 block text-[12.5px] font-bold underline">
-              Pedir algo más
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* ── La barra del carrito ──────────────────────────────── */}
       {puedeAgregar && cantidadTotal > 0 && !abierto && (
         <div className="fixed inset-x-0 bottom-0 z-20 px-4 pb-4">
@@ -416,8 +391,8 @@ export default function MenuConCarrito({
               })}
             </ul>
 
-            {/* ── Para llevar / exprés: cómo y a quién ─────────── */}
-            {porWhatsapp && (llevar && express) && (
+            {/* ── To go / exprés: cómo lo querés ──────────────── */}
+            {paraLlevar && llevar && express && (
               <div className="mt-4">
                 <p className="text-[11px] font-extrabold uppercase tracking-[0.14em]" style={{ color: paleta.suave }}>
                   ¿Cómo lo querés?
@@ -425,10 +400,13 @@ export default function MenuConCarrito({
                 <div className="mt-2 flex gap-2">
                   <Opcion paleta={paleta} activo={modalidad === "llevar"} onClick={() => setModalidad("llevar")}>
                     {MODALIDAD.llevar.rotulo}
+                    <span className="block text-[11px] font-bold opacity-80">{MODALIDAD.llevar.pie}</span>
                   </Opcion>
                   <Opcion paleta={paleta} activo={modalidad === "express"} onClick={() => setModalidad("express")}>
                     {MODALIDAD.express.rotulo}
-                    {costoExpress > 0 && <span className="block text-[11px] font-bold opacity-80">+{fmtColones(costoExpress)}</span>}
+                    <span className="block text-[11px] font-bold opacity-80">
+                      {costoExpress > 0 ? `+${fmtColones(costoExpress)} de envío` : "Envío gratis"}
+                    </span>
                   </Opcion>
                 </div>
               </div>
@@ -447,10 +425,10 @@ export default function MenuConCarrito({
               </div>
             </div>
 
-            {porWhatsapp ? (
+            {paraLlevar ? (
               <div className="mt-4 grid gap-3">
                 <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={TOPES.pedidoNombre} placeholder="Tu nombre" autoComplete="name" className={campo} style={estiloCampo} />
-                <input type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} maxLength={TOPES.telefono + 4} placeholder="Tu teléfono" autoComplete="tel" className={campo} style={estiloCampo} />
+                <input type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} maxLength={TOPES.telefono + 4} placeholder="Tu teléfono (te avisamos ahí)" autoComplete="tel" className={campo} style={estiloCampo} />
                 <input type="text" value={cedula} onChange={(e) => setCedula(e.target.value)} maxLength={TOPES.cedula} placeholder="Cédula (opcional, para la factura)" className={campo} style={estiloCampo} />
                 {modalidad === "express" && (
                   <textarea value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={TOPES.direccionPedido} rows={2} placeholder="Dirección exacta para el envío" autoComplete="street-address" className={`${campo} text-[14px]`} style={estiloCampo} />
@@ -480,16 +458,16 @@ export default function MenuConCarrito({
 
             <button
               type="button"
-              onClick={porWhatsapp ? enviarPorWhatsapp : enviarALaMesa}
+              onClick={paraLlevar ? enviarParaLlevar : enviarALaMesa}
               disabled={enviando || renglones.length === 0}
               className="presionable mt-4 w-full rounded-2xl py-4 text-[15px] font-extrabold disabled:opacity-60"
               style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}
             >
-              {enviando ? "Enviando…" : porWhatsapp ? `Enviar por WhatsApp · ${fmtColones(total)}` : `Enviar pedido · ${fmtColones(total)}`}
+              {enviando ? "Enviando…" : `Enviar pedido · ${fmtColones(total)}`}
             </button>
             <p className="mt-2 text-center text-[11.5px]" style={{ color: paleta.suave }}>
-              {porWhatsapp
-                ? "Se abre WhatsApp con el pedido ya escrito. El pago se coordina con el negocio."
+              {paraLlevar
+                ? "El negocio recibe tu pedido al instante y te avisa al teléfono cuando esté listo."
                 : "El pago es en el local. Esto solo avisa a la cocina."}
             </p>
           </div>

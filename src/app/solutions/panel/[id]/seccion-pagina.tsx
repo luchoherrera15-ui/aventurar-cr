@@ -45,6 +45,7 @@ import {
 } from "@/lib/solutions/tipos";
 import type { EstadoAddons } from "@/lib/solutions/addons";
 import { guardarLinksSolutions, guardarPaginaSolutions } from "./actions";
+import SeccionLinks from "./seccion-links";
 
 /**
  * MI PÁGINA — el editor, con la página de verdad al lado.
@@ -226,7 +227,7 @@ export default function SeccionPagina({
    * de visible siguen en «Enlaces», donde hay lugar para todo eso.
    */
   const [etiquetas, setEtiquetas] = useState<Record<string, string>>({});
-  const linksParaPrevia = links.map((l) => ({
+  const linksParaPrevia = links.filter((l) => l.visible).map((l) => ({
     id: l.id,
     etiqueta: etiquetas[l.id] ?? l.etiqueta,
     url: l.url,
@@ -549,19 +550,19 @@ export default function SeccionPagina({
           )}
 
           {/* ── LOS PEDIDOS: tres modalidades, cada una con lo suyo ─
-              Pedido del dueño (4 sep 2026): para llevar y exprés se
-              mandan por WhatsApp con los datos del cliente. Cada
-              modalidad se prende aparte porque un local puede tener
-              mesas sin exprés o exprés sin mesas. */}
+              Las tres caen en el Modo restaurante (5 sep 2026); To go
+              y exprés traen los datos del cliente. Cada modalidad se
+              prende aparte porque un local puede tener mesas sin
+              exprés o exprés sin mesas. */}
           {addons.pedidos ? (
             <div className="mt-4 border-t border-aventurea-line pt-4">
               <p className={ROTULO_CAMPO}>Cómo recibís pedidos</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
                 {(
                   [
-                    { k: "aceptaPedidos", t: "En la mesa", d: "Desde el QR de cada mesa. Llega a «Comandas»." },
-                    { k: "pedidosLlevar", t: "Para llevar", d: "Pasa a recogerlo. Llega por WhatsApp." },
-                    { k: "pedidosExpress", t: "Exprés", d: "Se lo llevás. Llega por WhatsApp con dirección." },
+                    { k: "aceptaPedidos", t: "En la mesa", d: "Desde el QR de cada mesa. Llega al Modo restaurante." },
+                    { k: "pedidosLlevar", t: "To go", d: "Pasa a recogerlo. Llega al Modo restaurante." },
+                    { k: "pedidosExpress", t: "Exprés", d: "Se lo llevás. Llega al Modo restaurante con la dirección." },
                   ] as const
                 ).map((m) => (
                   <label
@@ -596,13 +597,6 @@ export default function SeccionPagina({
                       <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">Se suma al pedido exprés. 0 = envío gratis.</p>
                     </div>
                   )}
-                  <div>
-                    <label htmlFor="whatsappPedidos" className={ROTULO_CAMPO}>WhatsApp para pedidos</label>
-                    <input id="whatsappPedidos" type="tel" value={f.whatsappPedidos} placeholder={f.whatsapp || "88887777"} onChange={(e) => set("whatsappPedidos", e.target.value)} className={`mt-1.5 ${CAMPO_PANEL}`} />
-                    <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">
-                      {f.whatsapp ? "Vacío = el WhatsApp de tu página." : "Sin uno, los pedidos no tienen a dónde llegar."}
-                    </p>
-                  </div>
                   <div className="sm:col-span-2">
                     <p className={ROTULO_CAMPO}>Con qué se puede pagar</p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -630,7 +624,7 @@ export default function SeccionPagina({
                         );
                       })}
                     </div>
-                    <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">El cliente elige una al pedir y va en el mensaje. El cobro es tuyo: acá no hay pasarela.</p>
+                    <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">El cliente elige una al pedir y te llega con el pedido. El cobro es tuyo: acá no hay pasarela.</p>
                   </div>
                 </div>
               )}
@@ -655,6 +649,16 @@ export default function SeccionPagina({
               {msg.texto}
             </p>
           )}
+        </div>
+
+        {/* ── LOS ENLACES, ACÁ MISMO (dueño, 5 sep 2026) ──────────
+            «Mi página y Enlaces, ¿no es lo mismo?». Lo es: los enlaces
+            SON la página. Antes tenían pestaña propia; ahora viven acá
+            abajo, con su propio botón de guardar porque van a otra
+            tabla y por otra action. `scroll-mt` para que los atajos
+            del tablero (#enlaces) no queden tapados por el header. */}
+        <div id="enlaces" className="scroll-mt-24">
+          <SeccionLinks negocioId={negocio.id} links={links} />
         </div>
       </div>
 

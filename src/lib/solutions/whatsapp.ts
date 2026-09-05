@@ -10,6 +10,13 @@ import { METODO_PAGO, MODALIDAD, type MetodoPago, type Modalidad } from "./tipos
  * datos y, organizadamente, se manda un mensaje de WhatsApp al
  * restaurante — como los que uno envía desde una página».
  *
+ * ⚠️ CAMBIO DE RUMBO (5 sep 2026): «To go y Exprés por la web, no por
+ * WhatsApp». El pedido del cliente ya NO pasa por acá: entra por la
+ * página y cae en el Modo restaurante. Lo que queda de WhatsApp es en
+ * el otro sentido —el LOCAL le avisa al cliente que su pedido está
+ * listo (`textoAvisoListo`)— y `textoDelPedido` se conserva por si un
+ * local quiere reenviar una comanda a su propio chat de cocina.
+ *
  * ── CÓMO FUNCIONA «EL API» ──────────────────────────────────────────
  * No hay API que llamar ni cuenta de WhatsApp Business que configurar:
  * un enlace `https://wa.me/<número>?text=<mensaje>` abre WhatsApp (la
@@ -107,4 +114,20 @@ export function enlaceDeWhatsapp(numero: string, texto: string): string {
  */
 export function codigoDePedido(id: string): string {
   return id.replace(/-/g, "").slice(0, 4).toUpperCase();
+}
+
+/**
+ * Lo que el local le manda al cliente desde el Modo restaurante cuando
+ * el pedido pasa a «Listo». Va al teléfono que el cliente dejó al pedir.
+ */
+export function textoAvisoListo(p: {
+  cliente: string;
+  codigo: string;
+  negocio: string;
+  modalidad: Exclude<Modalidad, "mesa">;
+}): string {
+  const saludo = p.cliente.trim() ? `Hola ${p.cliente.trim()}` : "Hola";
+  return p.modalidad === "express"
+    ? `${saludo}, tu pedido #${p.codigo} de ${p.negocio} ya va en camino.`
+    : `${saludo}, tu pedido #${p.codigo} de ${p.negocio} está listo para recoger.`;
 }

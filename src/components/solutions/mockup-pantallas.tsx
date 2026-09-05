@@ -3,6 +3,7 @@ import type { DatosPagina } from "./vista-pagina";
 import {
   paletaDelTema,
   pilaFuente,
+  PRESETS,
   RADIOS,
   type Fuente,
   type Redondeo,
@@ -308,67 +309,65 @@ export function MockupPase({
 }
 
 /**
- * EL PEDIDO EN EL CHAT — cómo le llega al negocio por WhatsApp (0233).
+ * EL PEDIDO RECIBIDO — la confirmación que ve el cliente (0233).
  *
- * Los colores son los de WhatsApp (fondo, cabecera, burbuja saliente)
- * y no los del sistema, a propósito: la card vende «te llega por
- * WhatsApp», y para que eso se lea de un vistazo tiene que PARECER
- * WhatsApp. Es la única pantalla de Solutions con colores de un
- * tercero, y solo vive en la vitrina.
- *
- * El mensaje es el mismo formato que arma `whatsapp.ts`: título en
- * negrita, modalidad, renglones, total, datos del cliente en orden
- * fijo. Si aquello cambia, esto debería cambiar igual.
+ * Pedido del dueño (5 sep 2026): To go y Exprés se piden POR LA WEB y
+ * caen en el Modo restaurante. Esta pantalla es lo que el cliente ve
+ * después de enviar: el código, la modalidad, qué pidió y cómo paga.
+ * Reemplaza a la maqueta del chat de WhatsApp, que vendía un flujo que
+ * ya no es el del producto.
  */
-export function MockupPedidoWhatsapp({ nombre = "Casa Nostra" }: { nombre?: string }) {
-  const inicial = nombre.trim().charAt(0).toUpperCase();
+export function MockupPedido({ nombre = "Casa Nostra" }: { nombre?: string }) {
+  const p = paletaDelTema("claro", "#0a1226", PRESETS.claro.acentoSugerido);
   return (
-    <div className="flex min-h-full flex-col pt-11" style={{ background: "#0b141a", color: "#e9edef" }}>
-      <div className="flex items-center gap-2.5 px-3 py-2" style={{ background: "#1f2c34" }}>
-        <span
-          aria-hidden
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-[13px] font-extrabold"
-          style={{ background: "#25d366", color: "#0b141a" }}
-        >
-          {inicial}
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-[12.5px] font-extrabold leading-tight">{nombre}</span>
-          <span className="block text-[9.5px] opacity-70">en línea</span>
-        </span>
+    <div
+      className="flex min-h-full flex-col px-4 pb-6 pt-12"
+      style={{ background: `linear-gradient(180deg, ${p.fondo} 0%, ${p.fondo2} 100%)`, color: p.tinta }}
+    >
+      <span className="self-start rounded-full px-2.5 py-1 text-[10px] font-bold" style={{ border: `1px solid ${p.borde}`, color: p.suave }}>
+        ← {nombre}
+      </span>
+
+      <div className="mt-4 rounded-2xl border p-3.5" style={{ background: p.superficie, borderColor: p.acento }}>
+        <div className="flex items-center gap-2.5">
+          <span
+            aria-hidden
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full"
+            style={{ background: p.acento, color: p.tintaSobreAcento }}
+          >
+            <IconCheck className="h-4 w-4" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[13px] font-extrabold leading-tight">Pedido #A1B2 recibido</span>
+            <span className="block text-[10px]" style={{ color: p.suave }}>
+              Hoy, 9:41
+            </span>
+          </span>
+          <span
+            className="ml-auto shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-[0.1em]"
+            style={{ background: p.acento, color: p.tintaSobreAcento }}
+          >
+            To go
+          </span>
+        </div>
+
+        <ul className="mt-3 flex flex-col gap-1 text-[10.5px]">
+          <li className="flex justify-between gap-2"><span>2× Tagliatelle al ragú</span><span className="tabular-nums" style={{ color: p.suave }}>₡17 800</span></li>
+          <li className="flex justify-between gap-2"><span>1× Burrata con tomate</span><span className="tabular-nums" style={{ color: p.suave }}>₡6 400</span></li>
+        </ul>
+        <div className="mt-2 flex justify-between border-t pt-2 text-[11.5px] font-extrabold" style={{ borderColor: p.borde }}>
+          <span>Total</span>
+          <span className="tabular-nums">₡24 200</span>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-2 px-3 pb-4 pt-3">
-        <div
-          className="ml-auto w-[94%] rounded-2xl rounded-tr-sm px-3 py-2 text-[10.5px] leading-[1.45]"
-          style={{ background: "#005c4b" }}
-        >
-          <p className="font-extrabold">Pedido #A1B2 · {nombre}</p>
-          <p className="opacity-90">Exprés</p>
-          <p className="mt-1.5">
-            2× Tagliatelle al ragú — ₡17 800
-            <br />
-            1× Burrata con tomate — ₡6 400
-            <br />
-            Envío — ₡1 500
-          </p>
-          <p className="font-extrabold">Total: ₡25 700</p>
-          <p className="mt-1.5">
-            Nombre: Luis
-            <br />
-            Teléfono: 8888 7777
-            <br />
-            Dirección: Escazú, 200 m sur del parque
-            <br />
-            Pago: Efectivo
-          </p>
-          <p className="mt-1 text-right text-[8.5px] opacity-60">9:41 ✓✓</p>
-        </div>
-        <div className="mr-auto max-w-[82%] rounded-2xl rounded-tl-sm px-3 py-2 text-[10.5px]" style={{ background: "#1f2c34" }}>
-          ¡Recibido, Luis! Sale en 25 min.
-          <span className="ml-2 text-[8.5px] opacity-60">9:42</span>
-        </div>
+      <div className="mt-3 rounded-xl px-3 py-2.5 text-[10.5px] leading-snug" style={{ background: p.superficie, color: p.tinta }}>
+        Pagás en efectivo al recoger. Te avisamos al <strong>8888 7777</strong> cuando esté listo.
       </div>
+
+      <p className="mt-3 text-[9.5px]" style={{ color: p.suave }}>
+        En el local ya lo ven en su Modo restaurante.
+      </p>
     </div>
   );
 }
