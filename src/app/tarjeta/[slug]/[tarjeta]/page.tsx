@@ -1,4 +1,16 @@
+import type { Metadata } from "next";
 import VistaDeTarjeta from "../vista-tarjeta";
+import { metadataDeTarjeta } from "../metadata-tarjeta";
+
+/** La previa al compartir, con la tarjeta que pide la llave. */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string; tarjeta: string }>;
+}): Promise<Metadata> {
+  const { slug, tarjeta } = await params;
+  return metadataDeTarjeta(slug, tarjeta);
+}
 
 /**
  * EL LINK DE UNA TARJETA EN CONCRETO: `/tarjeta/<negocio>/<llave>`.

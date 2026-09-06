@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { paginaPublica, mesaDeBusqueda } from "@/lib/solutions/datos";
+import { urlDelNegocio } from "@/lib/solutions/tipos";
+import { vocabDe } from "@/lib/solutions/rubros";
 import VistaPagina from "@/components/solutions/vista-pagina";
 import { CLASES_FUENTES } from "@/app/solutions/fuentes";
 
@@ -25,12 +27,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const datos = await paginaPublica(slug);
   if (!datos) return { title: "Página no encontrada" };
+  // Lo que se ve al COMPARTIR este link (dueño, 6 sep 2026): el negocio
+  // con su marca, no Bookea. `title.absolute` esquiva el «| Bookea» del
+  // layout; el `openGraph` propio le gana al del sitio. La imagen la
+  // dibuja `opengraph-image.tsx` de esta carpeta con la portada, el
+  // logo y los colores del negocio.
+  const v = vocabDe(datos.negocio.rubro);
+  const titulo = datos.negocio.nombre;
+  const descripcion =
+    datos.negocio.bajada ||
+    (datos.addons.menu && datos.menu.length > 0
+      ? `${v.catalogo}, enlaces y contacto de ${datos.negocio.nombre}, en un solo lugar.`
+      : `Los enlaces y el contacto de ${datos.negocio.nombre}, en un solo lugar.`);
   return {
-    title: datos.negocio.nombre,
-    description: datos.negocio.bajada || `${datos.negocio.nombre} en Bookea.`,
-    openGraph: datos.negocio.foto_portada_url
-      ? { images: [datos.negocio.foto_portada_url] }
-      : undefined,
+    title: { absolute: titulo },
+    description: descripcion,
+    openGraph: {
+      title: titulo,
+      description: descripcion,
+      url: urlDelNegocio(datos.negocio),
+      siteName: datos.negocio.nombre,
+      type: "website",
+      locale: "es_CR",
+    },
+    twitter: { card: "summary_large_image", title: titulo, description: descripcion },
   };
 }
 

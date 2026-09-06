@@ -28,11 +28,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const datos = await datosDePaginaPublica(slug);
   if (!datos) return { title: "Página no encontrada" };
+  // Lo que se ve al COMPARTIR este link (dueño, 6 sep 2026): el
+  // negocio, no Bookea. `title.absolute` esquiva el «| Bookea» del
+  // layout y el `openGraph` propio le gana al del sitio (ver la trampa
+  // documentada en src/app/layout.tsx). La imagen la pone
+  // `opengraph-image.tsx` de esta carpeta.
+  const titulo = datos.negocio.nombre;
+  const descripcion =
+    datos.pagina.bajada ||
+    (datos.meta
+      ? `Menú, tarjeta de lealtad y contacto de ${datos.negocio.nombre}. Juntá ${datos.meta.costo} y llevate ${datos.meta.nombre}.`
+      : `Menú, tarjeta de lealtad e información de ${datos.negocio.nombre}.`);
   return {
-    title: datos.negocio.nombre,
-    description:
-      datos.pagina.bajada ||
-      `Menú, tarjeta de lealtad e información de ${datos.negocio.nombre}.`,
+    title: { absolute: titulo },
+    description: descripcion,
+    openGraph: {
+      title: titulo,
+      description: descripcion,
+      url: `/r/${datos.negocio.slug}`,
+      siteName: datos.negocio.nombre,
+      type: "website",
+      locale: "es_CR",
+    },
+    twitter: { card: "summary_large_image", title: titulo, description: descripcion },
   };
 }
 

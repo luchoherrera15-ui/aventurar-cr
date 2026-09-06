@@ -1,4 +1,16 @@
+import type { Metadata } from "next";
 import VistaDeTarjeta from "./vista-tarjeta";
+import { metadataDeTarjeta } from "./metadata-tarjeta";
+
+/**
+ * LO QUE SE VE AL COMPARTIR ESTE LINK (dueño, 6 sep 2026): el nombre,
+ * el logo y la promesa del negocio, no los del sitio. Ver
+ * `metadata-tarjeta.ts` y `opengraph-image.tsx`. La pantalla no cambia.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  return metadataDeTarjeta(slug, null);
+}
 
 /**
  * EL LINK VIEJO: `/tarjeta/<negocio>`.
