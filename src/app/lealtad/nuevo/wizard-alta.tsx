@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState, useTransition, type ReactNode } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { comprimirImagen } from "@/lib/comprimir-imagen";
 import { subirImagenAlAlta } from "@/lib/lealtad/subida-alta";
 import { solicitarAltaConPlan } from "./actions";
+import { estadoInicial, sanearGuardado, type EstadoWizard } from "./respaldo-wizard";
 // Solo se usa en modo admin. Importarlo siempre no cuesta nada: un
 // server action es una referencia, no código que viaje al cliente.
 import { crearPaseDesdeAdmin } from "@/app/admin/(dashboard)/lealtad/nuevo/actions";
@@ -13,25 +15,18 @@ import type { DatosPago } from "@/app/lealtad/planes/formulario-solicitud";
 import { crearTarjeta, type BorradorTarjeta } from "@/app/lealtad/panel/[id]/crear-actions";
 import {
   configPorDefecto,
-  leerBeneficio,
   validarBeneficio,
   TIPOS_TARJETA,
-  esTipoTarjeta,
-  type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
 import { coloresDePaleta, paletaDeLosColores, PALETAS } from "@/lib/lealtad/paletas";
-import { esIconoSello, type IconoSello } from "@/lib/lealtad/iconos-sello";
-import { CONFIG_CLASICA, configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
-import { planIncluyeTipo } from "@/lib/lealtad/planes";
+import { esIconoSello } from "@/lib/lealtad/iconos-sello";
 import {
   ETIQUETAS_RUBRO,
   RUBROS,
-  esRubro,
   presetsDe,
   regaliasDe,
   type PresetRubro,
-  type Rubro,
 } from "@/lib/lealtad/presets-rubro";
 import SelectorTipo from "@/components/lealtad/selector-tipo";
 import PasoBeneficio from "@/components/lealtad/paso-beneficio";
@@ -103,14 +98,6 @@ export type RanchoWizard = {
   tarjetasLlenas: boolean;
 };
 
-// "prellenado": llega desde configurador-lealtad.tsx (Modo 3 del
-// configurador sin cuenta, vía `tarjeta-formulario.tsx`) con
-// tipo/beneficio/apariencia YA resueltos
-// — antes este wizard los volvía a pedir desde cero (mismo formulario
-// de PasoBeneficio, mismos selectores de color), el "proceso
-// redundante al pagar" que se reportó. Salta directo a "revisar".
-type Camino = "creador" | "personalizado" | "prellenado";
-
 type Pantalla =
   | "nombre"
   | "negocio"
@@ -121,49 +108,6 @@ type Pantalla =
   | "cuenta"
   | "revisar";
 
-/** El estado que se respalda en sessionStorage (todo serializable). */
-type EstadoWizard = {
-  paso: number;
-  camino: Camino;
-  /** En modo solo-tarjeta es el nombre de la TARJETA. */
-  nombreNegocio: string;
-  tipoNegocio: Rubro | null;
-  detalleOtro: string;
-  modo: TipoTarjeta | null;
-  beneficio: ConfigBeneficio | null;
-  colorFondo: string;
-  colorSello: string;
-  iconoSello: IconoSello | null;
-  logoUrl: string | null;
-  bannerUrl: string | null;
-  /**
-   * Dónde van los sellos en la tira (0212).
-   *
-   * Este asistente NO tiene controles para tocarlo, y aun así lo guarda:
-   * cuando el configurador público manda a pagar, deja su borrador en
-   * sessionStorage y esta pantalla lo levanta. Sin el campo, elegir
-   * «sellos abajo» y después pagar devolvía los sellos al centro.
-   */
-  diseno: ConfigTira;
-  telefono: string;
-  descripcion: string;
-  /** El código del agente de ventas que atendió el alta (opcional). */
-  codigoReferido: string;
-  /**
-   * MODO ADMIN: a quién le queda el pase.
-   *
-   * Van en el estado —y no en un `useState` suelto— para que el
-   * respaldo en sessionStorage los conserve: un admin que arma una
-   * tarjeta larga y recarga sin querer no tiene por qué volver a
-   * escribir el correo del cliente.
-   *
-   * En el alta pública quedan vacíos y nadie los mira.
-   */
-  correoAdmin: string;
-  nombrePersona: string;
-};
-
-const HEX = /^#[0-9a-fA-F]{6}$/;
 const METAS = [5, 6, 8, 10, 12];
 
 const campo =
@@ -175,93 +119,6 @@ const chip = (activo: boolean) =>
       ? "border-bookea-azul bg-bookea-azul-suave text-bookea-tinta"
       : "border-bookea-linea bg-white text-bookea-gris"
   }`;
-
-function estadoInicial(): EstadoWizard {
-  const base = coloresDePaleta(PALETAS.sellos);
-  return {
-    paso: 0,
-    camino: "creador",
-    nombreNegocio: "",
-    tipoNegocio: null,
-    detalleOtro: "",
-    // Arranca en sellos —igual que el creador del panel—: el tipo es
-    // requerido, y «sellos» es el que TODO paquete incluye.
-    modo: "sellos",
-    beneficio: configPorDefecto("sellos"),
-    colorFondo: base.fondo,
-    colorSello: base.sello,
-    iconoSello: null,
-    logoUrl: null,
-    bannerUrl: null,
-    diseno: CONFIG_CLASICA,
-    telefono: "",
-    descripcion: "",
-    correoAdmin: "",
-    nombrePersona: "",
-    codigoReferido: "",
-  };
-}
-
-/**
- * Lo que vuelve de sessionStorage no se cree tal cual: se sanea campo
- * por campo. Un valor viejo o manipulado se descarta al default, nunca
- * rompe el asistente ni salta un candado (el servidor revalida igual).
- */
-function sanearGuardado(crudo: unknown, plan: string | null, topePasos: number): EstadoWizard {
-  const limpio = estadoInicial();
-  if (!crudo || typeof crudo !== "object") return limpio;
-  const c = crudo as Record<string, unknown>;
-
-  const texto = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
-  // El camino "prellenado" (irAlPlanPago() en tarjeta-formulario.tsx)
-  // guarda el nombre bajo la clave `nombre` (el campo se llama así en
-  // `ValorFormulario`, compartido con el creador y el editor) — nunca
-  // escribió `nombreNegocio`. Sin este respaldo, "Revisar" llegaba con
-  // el nombre vacío, "Enviar"/"Pagar" bloqueados, y ninguna pantalla
-  // donde escribirlo: "Revisar" es la ÚNICA pantalla de este camino
-  // (ver `pantallas` más abajo), así que no hay a dónde "volver".
-  limpio.nombreNegocio = texto(c.nombreNegocio ?? c.nombre, 80);
-  limpio.detalleOtro = texto(c.detalleOtro, 80);
-  limpio.telefono = texto(c.telefono, 30);
-  limpio.codigoReferido = texto(c.codigoReferido, 24);
-  limpio.descripcion = texto(c.descripcion, 500);
-  if (c.camino === "personalizado") limpio.camino = "personalizado";
-  if (c.camino === "prellenado") limpio.camino = "prellenado";
-  if (esRubro(c.tipoNegocio)) limpio.tipoNegocio = c.tipoNegocio;
-  // El camino "prellenado" nace de `publicarAlta()`/`irAlPlanPago()` en
-  // configurador-lealtad.tsx, que no tiene paso de rubro (mismo
-  // criterio que ya usa ese archivo) — se fuerza "citas" sin importar
-  // qué haya en el respaldo.
-  if (limpio.camino === "prellenado") limpio.tipoNegocio = "citas";
-
-  // El tipo se restaura SOLO si el paquete actual lo incluye: volver de
-  // un F5 con un tipo bloqueado dejaría el candado saltado en silencio.
-  if (
-    typeof c.modo === "string" &&
-    esTipoTarjeta(c.modo) &&
-    planIncluyeTipo(plan, c.modo)
-  ) {
-    limpio.modo = c.modo;
-    limpio.beneficio = leerBeneficio(c.beneficio, c.modo) ?? configPorDefecto(c.modo);
-  }
-  if (typeof c.colorFondo === "string" && HEX.test(c.colorFondo)) limpio.colorFondo = c.colorFondo;
-  if (typeof c.colorSello === "string" && HEX.test(c.colorSello)) limpio.colorSello = c.colorSello;
-  if (esIconoSello(c.iconoSello)) limpio.iconoSello = c.iconoSello;
-  if (typeof c.logoUrl === "string" && c.logoUrl) limpio.logoUrl = c.logoUrl;
-  if (typeof c.bannerUrl === "string" && c.bannerUrl) limpio.bannerUrl = c.bannerUrl;
-  // La geometría de la tira (0212) llega por el camino "prellenado":
-  // `configDesdeJson` la sanea campo por campo, así que un respaldo
-  // viejo —que ni tenía la clave— cae al layout clásico solo.
-  limpio.diseno = configDesdeJson(c.diseno);
-  if (typeof c.paso === "number" && Number.isInteger(c.paso)) {
-    limpio.paso = Math.min(Math.max(0, c.paso), topePasos - 1);
-  }
-  // Forzado al final, después del saneo genérico de arriba: "prellenado"
-  // tiene una sola pantalla ("revisar"), así que cualquier `paso`
-  // restaurado de otro camino no tiene a dónde apuntar.
-  if (limpio.camino === "prellenado") limpio.paso = 0;
-  return limpio;
-}
 
 type Exito =
   | { tipo: "instantaneo"; ranchoId: string; slug: string | null }
@@ -1311,8 +1168,23 @@ export default function WizardAlta({
                   negocioNombre={soloTarjeta ? rancho.nombre : nombre}
                   planNombre={soloTarjeta ? null : plan.nombre}
                   planPrecio={soloTarjeta ? null : plan.precio}
-                  motivo={estado.camino === "creador" ? motivoBeneficio : null}
+                  // ⚠️ TAMBIÉN EN "prellenado", no solo en "creador". Si el
+                  // beneficio llega incompleto por ese camino (ver
+                  // `sanearGuardado`), esta es la ÚNICA pantalla y el botón
+                  // queda apagado: sin este texto, la persona no tiene forma
+                  // de saber por qué. Un botón muerto sin motivo es lo que
+                  // perdió el alta del 6 sep 2026.
+                  motivo={estado.camino !== "personalizado" ? motivoBeneficio : null}
                 />
+                {estado.camino === "prellenado" && motivoBeneficio && (
+                  <p className="text-[13px] leading-snug text-aventurea-ink-soft">
+                    Tu tarjeta quedó a medio armar.{" "}
+                    <Link href="/lealtad/crear" className="font-extrabold text-bookea-azul underline underline-offset-2">
+                      Volvé al configurador
+                    </Link>{" "}
+                    para completarla — lo que ya hiciste se conserva — y desde ahí tocá «Pagar» de nuevo.
+                  </p>
+                )}
 
                 {!soloTarjeta && (
                   <div>

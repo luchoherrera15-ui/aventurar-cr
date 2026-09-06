@@ -7,7 +7,7 @@ import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import { negocioPorId } from "@/lib/solutions/datos";
 import { TOPES, urlDelNegocio } from "@/lib/solutions/tipos";
 
-export const metadata: Metadata = { title: "QR de mesas · Bookea Solutions" };
+export const metadata: Metadata = { title: "QR de mesas · Linksy" };
 
 /**
  * /solutions/panel/<id>/mesas — LA HOJA DE QR, UNA POR MESA, PARA IMPRIMIR.

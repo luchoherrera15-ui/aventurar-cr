@@ -2,6 +2,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { addonsDeVarios, type EstadoAddons } from "@/lib/solutions/addons";
 import { urlDelNegocio } from "@/lib/solutions/tipos";
 import { estadoDominioDe } from "@/lib/solutions/tipos";
+import { rubroDe } from "@/lib/solutions/rubros";
+import { monedaDe, paisDe } from "@/lib/monedas";
 import SolutionsAdminPanel, { type NegocioAdmin } from "./solutions-admin-panel";
 
 export const metadata = { title: "Solutions · Admin" };
@@ -40,7 +42,7 @@ export default async function SolutionsAdminPage() {
   const [{ data: filas, count }, { data: platos }, { data: pedidos }] = await Promise.all([
     admin
       .from("solutions_negocios")
-      .select("id, nombre, slug, owner_id, publicado, dominio, dominio_estado, origen, creado_en", { count: "exact" })
+      .select("id, nombre, slug, owner_id, publicado, dominio, dominio_estado, origen, creado_en, rubro, pais, moneda", { count: "exact" })
       .order("creado_en", { ascending: false })
       .limit(TOPE),
     admin.from("solutions_menu_items").select("negocio_id"),
@@ -75,6 +77,9 @@ export default async function SolutionsAdminPage() {
       slug: n.slug as string,
       publicado: n.publicado === true,
       origen: (n.origen as string) === "admin" ? "admin" : "publico",
+      rubro: rubroDe(n.rubro),
+      pais: paisDe(n.pais),
+      moneda: monedaDe(n.moneda),
       creadoEn: n.creado_en as string,
       dueno: { email: (perfil?.email as string | null) ?? "(sin perfil)", nombre: (perfil?.nombre as string | null) ?? null },
       addons: addons[n.id as string] as EstadoAddons,

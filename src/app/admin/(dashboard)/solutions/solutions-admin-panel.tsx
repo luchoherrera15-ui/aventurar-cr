@@ -7,6 +7,8 @@ import { Card, PildoraEstado } from "@/components/panel/piezas";
 import { BOTON_PANEL, BOTON_PANEL_PRIMARIO, CAMPO_PANEL, ROTULO_CAMPO } from "@/components/panel/sistema";
 import { ADDON, ADDONS, type AddonId, type EstadoAddons } from "@/lib/solutions/addons";
 import type { EstadoDominio } from "@/lib/solutions/tipos";
+import { GRUPO_RUBRO, RUBRO, RUBROS, type Rubro } from "@/lib/solutions/rubros";
+import { banderaDe, MONEDA, PAIS, PAISES, type Moneda, type Pais } from "@/lib/monedas";
 import { cambiarAddonDesdeAdmin, crearNegocioSolutionsDesdeAdmin, enlaceDeEntradaDesdeAdmin } from "./actions";
 
 export type NegocioAdmin = {
@@ -15,6 +17,10 @@ export type NegocioAdmin = {
   slug: string;
   publicado: boolean;
   origen: "publico" | "admin";
+  /** Rubro, país y moneda (0236). */
+  rubro: Rubro;
+  pais: Pais;
+  moneda: Moneda;
   creadoEn: string;
   dueno: { email: string; nombre: string | null };
   addons: EstadoAddons;
@@ -35,7 +41,9 @@ export default function SolutionsAdminPanel({ negocios, total, tope }: { negocio
   const [ocupado, arrancar] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [filtro, setFiltro] = useState("");
-  const [f, setF] = useState({ correo: "", nombrePersona: "", telefono: "", nombreNegocio: "", menu: true, pedidos: false, lealtad: false });
+  const vacio = { correo: "", nombrePersona: "", telefono: "", nombreNegocio: "", rubro: "restaurante" as Rubro, pais: "CR" as Pais, menu: true, pedidos: false, lealtad: false };
+  const [f, setF] = useState(vacio);
+  const grupos = Array.from(new Set(RUBROS.map((r) => RUBRO[r].grupo)));
   const [creado, setCreado] = useState<{ nombre: string; correo: string; url: string; cuentaNueva: boolean; enlace: string | null } | null>(null);
   const [enlaces, setEnlaces] = useState<Record<string, string>>({});
 
@@ -48,6 +56,8 @@ export default function SolutionsAdminPanel({ negocios, total, tope }: { negocio
         telefono: f.telefono,
         nombreNegocio: f.nombreNegocio,
         addons: { menu: f.menu, pedidos: f.pedidos, lealtad: f.lealtad },
+        rubro: f.rubro,
+        pais: f.pais,
       });
       if (!r.ok) return setError(r.motivo);
       setCreado({
@@ -57,7 +67,7 @@ export default function SolutionsAdminPanel({ negocios, total, tope }: { negocio
         cuentaNueva: r.cuentaNueva,
         enlace: r.enlaceDeEntrada,
       });
-      setF({ correo: "", nombrePersona: "", telefono: "", nombreNegocio: "", menu: true, pedidos: false, lealtad: false });
+      setF(vacio);
       router.refresh();
     });
   };
@@ -123,6 +133,26 @@ export default function SolutionsAdminPanel({ negocios, total, tope }: { negocio
           <div>
             <label htmlFor="a-tel" className={ROTULO_CAMPO}>Teléfono (opcional)</label>
             <input id="a-tel" type="tel" value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} placeholder="88887777" className={`mt-1.5 ${CAMPO_PANEL}`} />
+          </div>
+          <div>
+            <label htmlFor="a-rubro" className={ROTULO_CAMPO}>Rubro</label>
+            <select id="a-rubro" value={f.rubro} onChange={(e) => setF({ ...f, rubro: e.target.value as Rubro })} className={`mt-1.5 ${CAMPO_PANEL}`}>
+              {grupos.map((g) => (
+                <optgroup key={g} label={GRUPO_RUBRO[g]}>
+                  {RUBROS.filter((r) => RUBRO[r].grupo === g).map((r) => (
+                    <option key={r} value={r}>{RUBRO[r].nombre}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="a-pais" className={ROTULO_CAMPO}>País (pone la moneda y el prefijo del WhatsApp)</label>
+            <select id="a-pais" value={f.pais} onChange={(e) => setF({ ...f, pais: e.target.value as Pais })} className={`mt-1.5 ${CAMPO_PANEL}`}>
+              {PAISES.map((p) => (
+                <option key={p} value={p}>{banderaDe(p)} {PAIS[p].nombre} · {MONEDA[PAIS[p].moneda].simbolo} {PAIS[p].moneda}</option>
+              ))}
+            </select>
           </div>
         </div>
         <p className={`mt-4 ${ROTULO_CAMPO}`}>Qué le dejás prendido</p>
@@ -204,6 +234,7 @@ export default function SolutionsAdminPanel({ negocios, total, tope }: { negocio
                   {n.origen === "admin" && <PildoraEstado estado="info">Lo armó Bookea</PildoraEstado>}
                 </div>
                 <p className="mt-0.5 truncate text-[12.5px] text-aventurea-ink-soft">
+                  {banderaDe(n.pais)} {RUBRO[n.rubro].nombre} · {MONEDA[n.moneda].simbolo} {n.moneda} ·{" "}
                   {n.dueno.nombre ? `${n.dueno.nombre} · ` : ""}
                   {n.dueno.email} · desde {fecha(n.creadoEn)}
                 </p>
@@ -212,7 +243,7 @@ export default function SolutionsAdminPanel({ negocios, total, tope }: { negocio
                     {n.url.replace(/^https?:\/\//, "")}
                   </a>
                   {n.dominio && n.dominioEstado !== "activo" && ` · dominio ${n.dominio} pendiente`}
-                  {` · ${n.platos} platos`}
+                  {` · ${n.platos} ítems`}
                   {n.pedidosVivos > 0 && ` · ${n.pedidosVivos} pedidos en curso`}
                 </p>
               </div>

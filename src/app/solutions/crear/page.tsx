@@ -4,10 +4,11 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import NavSolutions from "../nav-solutions";
 import { negociosDeLaCuenta } from "@/lib/solutions/acceso";
+import { TOPES } from "@/lib/solutions/tipos";
 import FormularioCrear from "./formulario-crear";
 
 export const metadata: Metadata = {
-  title: "Creá tu negocio · Bookea Solutions",
+  title: "Creá tu página · Linksy",
   description: "Tu página de links y tu menú digital con pedidos desde la mesa, en cinco minutos.",
   alternates: { canonical: "/solutions/crear" },
 };
@@ -20,12 +21,22 @@ export const metadata: Metadata = {
  * creados se ofrece entrar a ellos: crear dos por accidente es el
  * error más fácil de cometer en un alta de un solo campo.
  */
-export default async function CrearSolutionsPage() {
+export default async function CrearSolutionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/cuenta?volver=solutions");
+
+  // `?nombre=` viene del reclamo del link de la landing de Linksy. Se
+  // recorta al mismo tope que la columna: lo que llega por la URL lo
+  // escribe cualquiera, y este valor va derecho a un campo del alta.
+  const crudo = (await searchParams).nombre;
+  const nombreInicial = (Array.isArray(crudo) ? crudo[0] : crudo)?.slice(0, TOPES.nombre) ?? "";
 
   const mios = await negociosDeLaCuenta();
 
@@ -34,19 +45,19 @@ export default async function CrearSolutionsPage() {
       <NavSolutions logueado nombre={null} />
       <section className="mx-auto w-[min(560px,92vw)] py-12">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "var(--accion)" }}>
-          Bookea Solutions
+          Linksy
         </p>
         <h1 className="titulo mt-2 text-[clamp(28px,4vw,40px)] leading-tight text-aventurea-navy">
           ¿Cómo se llama tu negocio?
         </h1>
         <p className="mt-3 text-[15px] leading-relaxed text-aventurea-ink-soft">
-          Con eso te creamos tu página <strong className="text-aventurea-navy">bookea.lat/s/…</strong> y tu
-          panel. Tu link hub es gratis; el menú, los pedidos y la tarjeta de lealtad se agregan
+          Con eso te creamos tu página <strong className="text-aventurea-navy">linksy.lat/…</strong> y tu
+          panel. Tu página es gratis; el menú, los pedidos y la tarjeta de lealtad se agregan
           desde ahí, con esta misma cuenta.
         </p>
 
         <div className="mt-6 rounded-[18px] border border-aventurea-line bg-white p-6 shadow-plano">
-          <FormularioCrear />
+          <FormularioCrear nombreInicial={nombreInicial} />
         </div>
 
         {mios.length > 0 && (
@@ -62,7 +73,7 @@ export default async function CrearSolutionsPage() {
                     className="flex items-center justify-between rounded-xl border border-aventurea-line px-3.5 py-2.5 text-[14px] font-bold text-aventurea-navy hover:border-bookea-azul/40"
                   >
                     <span>{n.nombre}</span>
-                    <span className="text-[12px] font-medium text-aventurea-ink-soft">/s/{n.slug} →</span>
+                    <span className="text-[12px] font-medium text-aventurea-ink-soft">linksy.lat/{n.slug} →</span>
                   </Link>
                 </li>
               ))}

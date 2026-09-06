@@ -29,6 +29,42 @@
 export const VERCEL_A = "76.76.21.21";
 export const VERCEL_CNAME = "cname.vercel-dns.com";
 
+/**
+ * ════════════════════════════════════════════════════════════════════
+ *  LINKSY.LAT — EL DOMINIO DEL PRODUCTO
+ * ════════════════════════════════════════════════════════════════════
+ *
+ * Pedido del dueño (6 sep 2026): el link hub deja de vivir colgado de
+ * bookea.lat y estrena dominio propio, linksy.lat. La página de un
+ * negocio pasa de `bookea.lat/s/<slug>` a `linksy.lat/<slug>`.
+ *
+ * ── POR QUÉ ESTO ES UNA CONSTANTE Y NO UNA VARIABLE DE ENTORNO ──────
+ * `esHostPropio` la usa para decidir si un Host es NUESTRO, y de esa
+ * decisión depende una regla de seguridad: la acción que guarda el
+ * dominio propio de un negocio rechaza todo lo que `esHostPropio`
+ * reconozca (ver panel/[id]/actions.ts). Si el nombre viniera de una
+ * variable, un entorno mal configurado convertiría linksy.lat en un
+ * dominio «ajeno» reclamable — un negocio cualquiera podría quedarse
+ * con la raíz del producto. Un dominio que define la seguridad del
+ * sistema se escribe en el código, no en la configuración.
+ *
+ * ⚠️ EL PANEL NO VIVE ACÁ, Y ES A PROPÓSITO. La cookie de sesión de
+ * Supabase nace pegada al host que la escribió: la de bookea.lat no
+ * viaja a linksy.lat, y no hay ajuste que lo arregle entre dos
+ * dominios de apex distinto (sí entre subdominios — es lo que ya está
+ * anotado abajo para food.bookea.lat). Servir el panel acá exigiría un
+ * inicio de sesión único propio, con tickets de un solo uso y firmas:
+ * 300 líneas de seguridad delicada para no ganar nada. Por eso
+ * linksy.lat sirve SOLO páginas públicas y manda al panel de Bookea.
+ */
+export const LINKSY_HOST = "linksy.lat";
+
+/** ¿El Host es linksy.lat (o su www)? */
+export function esHostLinksy(host: string): boolean {
+  const h = (host ?? "").toLowerCase().split(":")[0];
+  return h === LINKSY_HOST || h === `www.${LINKSY_HOST}`;
+}
+
 /** La cabecera con la que el proxy marca una página servida por dominio propio. */
 export const CABECERA_DOMINIO = "x-bookea-solutions";
 
@@ -56,6 +92,12 @@ export function esHostPropio(host: string, sitio: string | undefined = process.e
   if (h === "localhost" || h === "127.0.0.1" || h.endsWith(".localhost")) return true;
   if (h.endsWith(".vercel.app")) return true;
   if (h === "bookea.lat" || h.endsWith(".bookea.lat")) return true;
+  // linksy.lat es nuestro. Dos consecuencias, las dos buscadas: el
+  // proxy NO lo trata como el dominio propio de algún negocio (lo
+  // resuelve su propia rama, arriba de esa), y la acción de guardar
+  // dominio lo rechaza — ningún negocio puede reclamar la raíz del
+  // producto para sí.
+  if (esHostLinksy(h)) return true;
   try {
     const propio = sitio ? new URL(sitio).hostname.toLowerCase() : "";
     if (propio && (h === propio || h === propio.replace(/^www\./, ""))) return true;
@@ -113,6 +155,86 @@ export function destinoEnDominioPropio(pathname: string, slug: string): DestinoD
   if (p === `/s/${slug}` || p.startsWith(`/s/${slug}/`)) return { tipo: "pasar" };
   if (p.startsWith("/api/")) return { tipo: "pasar" };
   return { tipo: "redirect", pathname: "/" };
+}
+
+// ── El enrutado de linksy.lat ───────────────────────────────────────
+
+export type DestinoLinksy =
+  | { tipo: "rewrite"; pathname: string }
+  | { tipo: "redirect"; pathname: string }
+  /**
+   * Al login de Linksy, que vive en bookea.lat (/linksy/login) porque
+   * la sesión tiene que nacer ahí. El proxy arma la URL absoluta.
+   */
+  | { tipo: "login" }
+  | { tipo: "pasar" };
+
+/**
+ * Las TRES palabras que en linksy.lat no son el slug de un negocio.
+ *
+ * En bookea.lat las páginas viven bajo `/s/<slug>`, así que un negocio
+ * podía llamarse «crear» sin chocar con nada. En linksy.lat el slug
+ * está en la RAÍZ, y ahí sí choca. Estas tres están replicadas en
+ * `RESERVED_SLUGS` (src/lib/slug.ts), que es lo que impide que un alta
+ * nueva se quede con una de ellas.
+ *
+ * La lista es corta a propósito: cada palabra que se reserva es un
+ * nombre que un negocio real ya no puede usar. Todo lo demás que el
+ * producto necesite va bajo un prefijo (`/s/…`) o en bookea.lat.
+ */
+export const RUTAS_LINKSY = new Set(["crear", "entrar", "login", "linksy"]);
+
+/**
+ * A dónde va cada ruta cuando llega por linksy.lat.
+ *
+ *   /            la landing del producto
+ *   /crear       el alta de una página
+ *   /entrar      al login de Linksy en bookea.lat (ver LINKSY_HOST);
+ *   /login       lo mismo — es lo que la gente escribe
+ *   /<slug>      la página pública de ese negocio
+ *   /<slug>/menu su menú / catálogo
+ *
+ * ── LO QUE PASA DE LARGO, Y POR QUÉ ─────────────────────────────────
+ * `/api/`, `/_next/` y cualquier primer segmento CON PUNTO
+ * (robots.txt, sitemap.xml, favicon.ico, los .well-known) siguen su
+ * camino sin tocarse. El punto es la señal barata y exacta: un slug
+ * nunca lo lleva —el CHECK de la 0230 es `^[a-z0-9-]{2,60}$`—, así que
+ * no hay forma de confundir un archivo con un negocio.
+ *
+ * Lo que no encaja en ninguna forma conocida vuelve a la raíz en vez
+ * de dar un 404: bajo el dominio del producto, una dirección mal
+ * escrita lleva a la portada, no a una pared.
+ */
+export function destinoEnLinksy(pathname: string): DestinoLinksy {
+  const p = pathname.replace(/\/+$/, "") || "/";
+  if (p === "/") return { tipo: "rewrite", pathname: "/linksy" };
+  if (p.startsWith("/api/") || p.startsWith("/_next/")) return { tipo: "pasar" };
+
+  const partes = p.split("/").filter(Boolean);
+  const primero = partes[0] ?? "";
+
+  // Archivos de la raíz: tienen punto, un slug no.
+  if (primero.includes(".")) return { tipo: "pasar" };
+
+  // Lo que ya viene resuelto a la ruta interna pasa tal cual: es lo que
+  // recibe el propio rewrite de acá cuando Next lo vuelve a evaluar.
+  if (primero === "s") return { tipo: "pasar" };
+
+  if (RUTAS_LINKSY.has(primero)) {
+    if (partes.length > 1) return { tipo: "redirect", pathname: "/" };
+    if (primero === "crear") return { tipo: "rewrite", pathname: "/solutions/crear" };
+    if (primero === "entrar" || primero === "login") return { tipo: "login" };
+    // `/linksy` es la ruta interna de la landing: por el dominio del
+    // producto se llega a ella por la raíz, no repitiendo el nombre.
+    return { tipo: "redirect", pathname: "/" };
+  }
+
+  if (!/^[a-z0-9-]{2,60}$/.test(primero)) return { tipo: "redirect", pathname: "/" };
+  if (partes.length === 1) return { tipo: "rewrite", pathname: `/s/${primero}` };
+  if (partes.length === 2 && partes[1] === "menu") {
+    return { tipo: "rewrite", pathname: `/s/${primero}/menu` };
+  }
+  return { tipo: "redirect", pathname: `/${primero}` };
 }
 
 // ── La búsqueda del proxy ───────────────────────────────────────────

@@ -12,22 +12,37 @@ import {
 } from "@/components/panel/sistema";
 import SubirImagen from "@/components/subir-imagen";
 import Telefono from "@/components/solutions/telefono";
-import VistaPagina from "@/components/solutions/vista-pagina";
+import VistaPagina, { type ItemVitrina } from "@/components/solutions/vista-pagina";
 import {
+  ALINEACIONES,
+  ANIMACIONES,
+  BOTONES,
+  DENSIDADES,
+  DISENO_OPCION,
   EFECTO,
   EFECTOS,
   ESTILOS_LINKS,
+  FONDOS,
   FUENTE,
   FUENTES,
+  HOVERS,
+  LOGO_FORMAS,
+  LOGO_TAMANOS,
   PORTADA,
   PORTADAS,
   PRESETS,
   RADIOS,
+  REDES,
   REDONDEOS,
   TEMAS,
+  TITULOS,
+  VITRINAS,
+  conAlfa,
   estiloDePieza,
+  fondoDePagina,
   paletaDelTema,
   pilaFuente,
+  type Diseno,
   type Efecto,
   type EstiloLinks,
   type EstiloPortada,
@@ -45,7 +60,21 @@ import {
 } from "@/lib/solutions/tipos";
 import type { EstadoAddons } from "@/lib/solutions/addons";
 import { IDIOMA, IDIOMAS_EXTRA, type IdiomaExtra } from "@/lib/solutions/idiomas";
+import {
+  banderaDe,
+  ejemploTelefono,
+  MONEDA,
+  MONEDAS,
+  monedaDelPais,
+  PAIS,
+  PAISES,
+  pasoDePrecio,
+  type Moneda,
+  type Pais,
+} from "@/lib/monedas";
+import { esDeComida, GRUPO_RUBRO, RUBRO, RUBROS, vocabDe, type Rubro } from "@/lib/solutions/rubros";
 import { guardarLinksSolutions, guardarPaginaSolutions } from "./actions";
+import { prepararSubidaSolutions } from "../../subida-actions";
 import SeccionLinks from "./seccion-links";
 import SeccionDominio from "./seccion-dominio";
 
@@ -53,7 +82,9 @@ import SeccionDominio from "./seccion-dominio";
  * MI PÁGINA — el editor, con la página de verdad al lado.
  *
  * Pedido del dueño (4 sep 2026): «que seamos casi un creador de
- * mini-websites… editar las cosas en tiempo real».
+ * mini-websites… editar las cosas en tiempo real». Y el 6 sep 2026:
+ * «que sea MUY personalizable: más opciones, animaciones, tipo
+ * Linktree; para cualquier negocio, en la moneda de su país».
  *
  * ── LA PREVIA NO ES UNA IMITACIÓN ──────────────────────────────────
  * El teléfono de la derecha monta `VistaPagina`, EL MISMO componente
@@ -62,8 +93,9 @@ import SeccionDominio from "./seccion-dominio";
  * formulario, y lo que se ve es lo que se publica.
  *
  * Por eso el orden de los controles es el del recorrido visual —
- * primero el vestido (tema, forma, colores), después el contenido:
- * cada cambio se ve al lado antes de guardar.
+ * primero el vestido (tema, letra, forma, efecto, botones, encabezado,
+ * fondo, movimiento), después el negocio (rubro, país, moneda) y el
+ * contenido: cada cambio se ve al lado antes de guardar.
  */
 
 const ETIQUETA_ESTILO: Record<EstiloLinks, { nombre: string; pie: string }> = {
@@ -81,9 +113,10 @@ const ETIQUETA_REDONDEO: Record<Redondeo, string> = {
  * Rediseño del editor (4 sep 2026): «más ordenado, como de diseñador
  * profesional». Lo que se lee como desorden en un editor no es la
  * cantidad de opciones: es que cada una tenga su propio tamaño y su
- * propia forma. Así que hay TRES piezas y todo el estudio se arma con
+ * propia forma. Así que hay CUATRO piezas y todo el estudio se arma con
  * ellas: un grupo (rótulo + ayuda + raya), un control con su rótulo
- * chico, y el control segmentado para las listas de 2 a 4 opciones.
+ * chico, el control segmentado para las listas de 2 a 4 opciones, y las
+ * fichas (grilla de botones con nombre y pie) para las de 5 o más.
  *
  * Viven en el módulo y no adentro del componente por lo de siempre:
  * un componente declarado dentro del render es un tipo nuevo en cada
@@ -125,7 +158,7 @@ function Control({ rotulo, nota, children }: { rotulo: string; nota?: string; ch
 /**
  * El control segmentado: de 2 a 4 opciones del MISMO ancho, una activa.
  * Es el mismo control para las puertas, los bordes y la portada, y por
- * eso las tres filas se leen como una sola cosa.
+ * eso las filas se leen como una sola cosa.
  */
 function Segmentos<T extends string>({
   opciones,
@@ -166,11 +199,59 @@ function Segmentos<T extends string>({
   );
 }
 
+/** Las fichas: para listas de cinco o más, con nombre y una línea. */
+function Fichas<T extends string>({
+  opciones,
+  valor,
+  alCambiar,
+  etiqueta,
+  columnas = "grid-cols-2 sm:grid-cols-5",
+  vista,
+}: {
+  opciones: { id: T; nombre: string; pie?: string }[];
+  valor: T;
+  alCambiar: (v: T) => void;
+  etiqueta: string;
+  columnas?: string;
+  /** Una miniatura opcional por opción, arriba del nombre. */
+  vista?: (id: T) => React.ReactNode;
+}) {
+  return (
+    <div role="group" aria-label={etiqueta} className={`grid gap-2 ${columnas}`}>
+      {opciones.map((o) => {
+        const activo = o.id === valor;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            onClick={() => alCambiar(o.id)}
+            aria-pressed={activo}
+            title={o.pie}
+            className={`presionable overflow-hidden rounded-xl border text-left transition-colors ${
+              activo ? "border-aventurea-navy bg-aventurea-navy/5 ring-2 ring-aventurea-navy/20" : "border-aventurea-line hover:border-aventurea-navy/40"
+            }`}
+          >
+            {vista && vista(o.id)}
+            <span className="block px-2.5 py-2">
+              <span className="block truncate text-[12px] font-extrabold text-aventurea-ink">{o.nombre}</span>
+              {o.pie && <span className="block truncate text-[10.5px] text-aventurea-ink-soft">{o.pie}</span>}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+const opcionesDe = <T extends string>(lista: readonly T[], dic: Record<T, { nombre: string; pie: string }>) =>
+  lista.map((id) => ({ id, nombre: dic[id].nombre, pie: dic[id].pie || undefined }));
+
 export default function SeccionPagina({
   negocio,
   links,
   seccionesMenu,
   hayMenu,
+  vitrina,
   urlPublica,
   recienCreado,
   addons,
@@ -181,6 +262,8 @@ export default function SeccionPagina({
   links: LinkSolutions[];
   seccionesMenu: string[];
   hayMenu: boolean;
+  /** Los ítems públicos, para la vitrina de la previa (0236). */
+  vitrina: ItemVitrina[];
   urlPublica: string;
   recienCreado: boolean;
   /** Qué tiene prendido el negocio (0233): decide qué controles se muestran. */
@@ -214,23 +297,33 @@ export default function SeccionPagina({
     metodosPago: negocio.metodos_pago as MetodoPago[],
     whatsappPedidos: negocio.whatsapp_pedidos ?? "",
     idiomasMenu: negocio.idiomas_menu as IdiomaExtra[],
+    // 0236
+    pais: negocio.pais as Pais,
+    moneda: negocio.moneda as Moneda,
+    rubro: negocio.rubro as Rubro,
+    diseno: negocio.diseno as Diseno,
   });
   const [msg, setMsg] = useState<{ tono: "exito" | "alerta"; texto: string } | null>(null);
   const [guardando, arrancar] = useTransition();
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) =>
     setF((p) => ({ ...p, [k]: v }));
+  const setDiseno = <K extends keyof Diseno>(k: K, v: Diseno[K]) =>
+    setF((p) => ({ ...p, diseno: { ...p.diseno, [k]: v } }));
+
+  const vocab = vocabDe(f.rubro);
+  const comida = esDeComida(f.rubro);
+  const paleta = paletaDelTema(f.tema, f.colorFondo, f.colorAcento);
 
   /**
    * LAS ETIQUETAS DE LOS ENLACES TAMBIÉN SE EDITAN EN EL TELÉFONO.
    *
-   * Viven en su propia tabla y tienen su pantalla («Enlaces»), así que
-   * acá se guarda una copia local que el teléfono edita en el lugar. Al
-   * guardar se manda por la MISMA action que usa esa pantalla — no hay
+   * Viven en su propia tabla y tienen su sección («Enlaces», abajo), así
+   * que acá se guarda una copia local que el teléfono edita en el lugar.
+   * Al guardar se manda por la MISMA action que usa esa sección — no hay
    * un segundo camino de escritura, que es lo que convierte dos
-   * editores en dos verdades.
-   *
-   * Solo la ETIQUETA: la dirección, el ícono, el orden y el interruptor
-   * de visible siguen en «Enlaces», donde hay lugar para todo eso.
+   * editores en dos verdades. Se mandan TODAS las columnas del enlace
+   * (foto, formato, descripción): la action reemplaza la lista entera,
+   * y mandar solo la etiqueta borraba el resto.
    */
   const [etiquetas, setEtiquetas] = useState<Record<string, string>>({});
   const linksParaPrevia = links.filter((l) => l.visible).map((l) => ({
@@ -239,6 +332,8 @@ export default function SeccionPagina({
     url: l.url,
     icono: l.icono,
     fondoUrl: l.fondo_url,
+    formato: l.formato,
+    descripcion: l.descripcion,
   }));
   const hayEtiquetasTocadas = links.some(
     (l) => etiquetas[l.id] !== undefined && etiquetas[l.id] !== l.etiqueta,
@@ -254,6 +349,18 @@ export default function SeccionPagina({
           ? PRESETS[t].acentoSugerido
           : p.colorAcento,
     }));
+
+  /** Elegir un país trae su moneda, salvo que la moneda ya sea otra a propósito. */
+  const elegirPais = (pais: Pais) =>
+    setF((p) => ({
+      ...p,
+      pais,
+      moneda: p.moneda === monedaDelPais(p.pais) ? monedaDelPais(pais) : p.moneda,
+      // Sin mesas fuera de la comida: el QR de mesa es de restaurante.
+    }));
+
+  const elegirRubro = (rubro: Rubro) =>
+    setF((p) => ({ ...p, rubro, aceptaPedidos: esDeComida(rubro) ? p.aceptaPedidos : false }));
 
   const guardar = () => {
     setMsg(null);
@@ -271,6 +378,9 @@ export default function SeccionPagina({
             url: l.url,
             icono: l.icono,
             visible: l.visible,
+            fondoUrl: l.fondo_url,
+            formato: l.formato,
+            descripcion: l.descripcion,
           })),
         );
         if (!rl.ok) {
@@ -302,7 +412,15 @@ export default function SeccionPagina({
     hayMenu: addons.menu && f.mostrarMenu && hayMenu,
     aceptaPedidos: f.aceptaPedidos,
     mesa: null,
+    diseno: f.diseno,
+    moneda: f.moneda,
+    pais: f.pais,
+    rubro: f.rubro,
+    vitrina: f.diseno.vitrina === "destacados" ? vitrina.slice(0, TOPES.vitrinaDestacados) : vitrina,
   };
+
+  const simbolo = MONEDA[f.moneda].simbolo;
+  const grupos = Array.from(new Set(RUBROS.map((r) => RUBRO[r].grupo)));
 
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6">
@@ -310,18 +428,16 @@ export default function SeccionPagina({
       <div className="flex flex-col gap-4">
         {recienCreado && (
           <p className={`rounded-xl p-3 text-[13px] ${ESTADO_AVISO.info}`}>
-            ¡Tu negocio ya existe! Elegí abajo cómo se ve —lo mirás al lado mientras tocás. El menú
-            y los pedidos se agregan desde «Inicio».
+            ¡Tu negocio ya existe! Elegí abajo cómo se ve —lo mirás al lado mientras tocás. El{" "}
+            {vocab.catalogo.toLowerCase()} y los pedidos se agregan desde «Inicio».
           </p>
         )}
 
-        {/* ── EL VESTIDO, PRIMERO ──────────────────────────────── */}
         {/* ── EL ESTUDIO ─────────────────────────────────────────
-            Cuatro grupos, siempre en el mismo orden, del más global al
-            más fino: el TEMA (la paleta), la TIPOGRAFÍA, la FORMA
-            (puertas, bordes, portada) y el EFECTO. Cada grupo tiene UNA
-            fila de controles del mismo tamaño, y la píldora de arriba
-            resume la elección para que se lea sin recorrer la card. */}
+            Grupos siempre en el mismo orden, del más global al más
+            fino: TEMA, TIPOGRAFÍA, FORMA, EFECTO, BOTONES, ENCABEZADO,
+            FONDO, MOVIMIENTO. Cada grupo tiene UNA fila de controles del
+            mismo tamaño, y la píldora de arriba resume la elección. */}
         <Card
           eyebrow="El diseño"
           titulo="Tu estilo"
@@ -331,10 +447,10 @@ export default function SeccionPagina({
             </PildoraEstado>
           }
         >
-          {/* 1 · TEMA — seis fichas del mismo tamaño, en una fila. La
-              miniatura se pinta con la MISMA paleta que la página. */}
+          {/* 1 · TEMA — trece fichas del mismo tamaño. La miniatura se
+              pinta con la MISMA paleta que la página. */}
           <Grupo titulo="Tema" pie="La paleta de tu página" primero>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7">
               {TEMAS.map((t) => {
                 const pal = paletaDelTema(t, f.colorFondo, f.colorAcento);
                 const activo = f.tema === t;
@@ -382,9 +498,7 @@ export default function SeccionPagina({
             </div>
           </Grupo>
 
-          {/* 2 · TIPOGRAFÍA — cada ficha escrita con su propia cara:
-              elegir una letra por el nombre no le dice nada a quien
-              tiene un restaurante; verla escrita, sí. */}
+          {/* 2 · TIPOGRAFÍA — cada ficha escrita con su propia cara. */}
           <Grupo titulo="Tipografía" pie="Cada opción, escrita con su propia letra">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {FUENTES.map((x) => {
@@ -411,11 +525,8 @@ export default function SeccionPagina({
             </div>
           </Grupo>
 
-          {/* 3 · FORMA — tres controles segmentados, iguales, en una fila. */}
+          {/* 3 · FORMA — controles segmentados, iguales. */}
           <Grupo titulo="Forma" pie="Cómo se acomodan las piezas">
-            {/* Puertas y bordes comparten fila; la portada va sola
-                abajo porque tiene cuatro opciones y en un tercio de
-                ancho se cortaban («En l…», «Co…»). */}
             <div className="grid gap-4 sm:grid-cols-2">
               <Control rotulo="Tus puertas">
                 <Segmentos
@@ -433,64 +544,209 @@ export default function SeccionPagina({
                   opciones={REDONDEOS.map((r) => ({ id: r, nombre: ETIQUETA_REDONDEO[r] }))}
                 />
               </Control>
-              <div className="sm:col-span-2">
-              <Control
-                rotulo="Foto de portada"
-                nota={f.fotoPortadaUrl ? undefined : "Todavía no subiste una: cargala abajo, en «Nombre, logo y portada»."}
-              >
+              <Control rotulo="Espacio entre piezas">
                 <Segmentos
-                  etiqueta="Qué hace la foto de portada"
-                  valor={f.estiloPortada}
-                  alCambiar={(v) => set("estiloPortada", v)}
-                  opciones={PORTADAS.map((x) => ({ id: x, nombre: PORTADA[x].nombre, pie: PORTADA[x].pie }))}
+                  etiqueta="Densidad"
+                  valor={f.diseno.densidad}
+                  alCambiar={(v) => setDiseno("densidad", v)}
+                  opciones={opcionesDe(DENSIDADES, DISENO_OPCION.densidad)}
                 />
               </Control>
+              <Control rotulo="Alineación">
+                <Segmentos
+                  etiqueta="Alineación"
+                  valor={f.diseno.alineacion}
+                  alCambiar={(v) => setDiseno("alineacion", v)}
+                  opciones={opcionesDe(ALINEACIONES, DISENO_OPCION.alineacion)}
+                />
+              </Control>
+              <div className="sm:col-span-2">
+                <Control
+                  rotulo="Foto de portada"
+                  nota={f.fotoPortadaUrl ? undefined : "Todavía no subiste una: cargala abajo, en «Nombre, logo y portada»."}
+                >
+                  <Segmentos
+                    etiqueta="Qué hace la foto de portada"
+                    valor={f.estiloPortada}
+                    alCambiar={(v) => set("estiloPortada", v)}
+                    opciones={PORTADAS.map((x) => ({ id: x, nombre: PORTADA[x].nombre, pie: PORTADA[x].pie }))}
+                  />
+                </Control>
               </div>
             </div>
           </Grupo>
 
-          {/* 4 · EFECTO — cinco fichas con una VISTA PREVIA real: la
-              misma función que viste la página (`estiloDePieza`) pinta
-              una tarjeta chica con el tema y los bordes de ahora. Una
-              descripción («translúcido, con desenfoque») no le dice a
-              nadie cómo se ve; esto sí. */}
+          {/* 4 · EFECTO — fichas con una VISTA PREVIA real: la misma
+              función que viste la página (`estiloDePieza`). */}
           <Grupo titulo="Efecto de las tarjetas" pie="Así se ven con tu tema de ahora">
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {EFECTOS.map((x) => {
-                const pal = paletaDelTema(f.tema, f.colorFondo, f.colorAcento);
-                const activo = f.efecto === x;
-                return (
-                  <button
-                    key={x}
-                    type="button"
-                    onClick={() => set("efecto", x)}
-                    aria-pressed={activo}
-                    title={EFECTO[x].pie}
-                    className={`presionable overflow-hidden rounded-xl border text-left transition-colors ${
-                      activo ? "border-aventurea-navy ring-2 ring-aventurea-navy/20" : "border-aventurea-line hover:border-aventurea-navy/40"
-                    }`}
-                  >
-                    <span
-                      aria-hidden
-                      className="flex h-[68px] items-center justify-center p-3"
-                      style={{ background: `linear-gradient(135deg, ${pal.fondo}, ${pal.fondo2})` }}
-                    >
-                      <span
-                        className="flex h-10 w-full items-center gap-2 px-2.5"
-                        style={estiloDePieza(x, pal, { radio: Math.min(RADIOS[f.redondeo].pieza, 12) })}
-                      >
-                        <span className="h-4 w-4 shrink-0 rounded-full" style={{ background: pal.acento }} />
-                        <span className="h-1.5 flex-1 rounded-full" style={{ background: pal.tinta, opacity: 0.55 }} />
-                      </span>
-                    </span>
-                    <span className="block px-2 py-1.5">
-                      <span className="block truncate text-[12px] font-extrabold text-aventurea-ink">{EFECTO[x].nombre}</span>
-                    </span>
-                  </button>
-                );
-              })}
+            <Fichas
+              etiqueta="Efecto"
+              valor={f.efecto}
+              alCambiar={(v) => set("efecto", v)}
+              opciones={EFECTOS.map((x) => ({ id: x, nombre: EFECTO[x].nombre, pie: EFECTO[x].pie }))}
+              vista={(x) => (
+                <span aria-hidden className="flex h-[64px] items-center justify-center p-3" style={{ background: `linear-gradient(135deg, ${paleta.fondo}, ${paleta.fondo2})` }}>
+                  <span className="flex h-10 w-full items-center gap-2 px-2.5" style={estiloDePieza(x, paleta, { radio: Math.min(RADIOS[f.redondeo].pieza, 12), boton: f.diseno.boton })}>
+                    <span className="h-4 w-4 shrink-0 rounded-full" style={{ background: f.diseno.boton === "solido" ? conAlfa(paleta.tintaSobreAcento, 0.3) : paleta.acento }} />
+                    <span className="h-1.5 flex-1 rounded-full" style={{ background: f.diseno.boton === "solido" ? paleta.tintaSobreAcento : paleta.tinta, opacity: 0.55 }} />
+                  </span>
+                </span>
+              )}
+            />
+          </Grupo>
+
+          {/* 5 · BOTONES — por encima del efecto (0236). */}
+          <Grupo titulo="Botones" pie="El estilo de las puertas y de la fila de redes">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Control rotulo="Estilo del botón">
+                <Segmentos
+                  etiqueta="Estilo del botón"
+                  valor={f.diseno.boton}
+                  alCambiar={(v) => setDiseno("boton", v)}
+                  opciones={opcionesDe(BOTONES, DISENO_OPCION.boton)}
+                />
+              </Control>
+              <Control rotulo="Fila de redes" nota="Los enlaces marcados como «ícono de red», abajo en Enlaces.">
+                <Segmentos
+                  etiqueta="Dónde va la fila de redes"
+                  valor={f.diseno.redes}
+                  alCambiar={(v) => setDiseno("redes", v)}
+                  opciones={opcionesDe(REDES, DISENO_OPCION.redes)}
+                />
+              </Control>
             </div>
           </Grupo>
+
+          {/* 6 · ENCABEZADO — logo y titular (0236). */}
+          <Grupo titulo="Encabezado" pie="Tu logo y tu nombre">
+            {/* La forma del logo tiene cuatro opciones y va sola en su
+                fila: en un tercio de ancho se cortaban («Círc…», «Cua…»). */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <Control rotulo="Forma del logo">
+                  <Segmentos
+                    etiqueta="Forma del logo"
+                    valor={f.diseno.logoForma}
+                    alCambiar={(v) => setDiseno("logoForma", v)}
+                    opciones={LOGO_FORMAS.map((x) => ({ id: x, nombre: x === "auto" ? "Automática" : DISENO_OPCION.logoForma[x].nombre, pie: DISENO_OPCION.logoForma[x].pie || undefined }))}
+                  />
+                </Control>
+              </div>
+              <Control rotulo="Tamaño del logo">
+                <Segmentos
+                  etiqueta="Tamaño del logo"
+                  valor={f.diseno.logoTamano}
+                  alCambiar={(v) => setDiseno("logoTamano", v)}
+                  opciones={opcionesDe(LOGO_TAMANOS, DISENO_OPCION.logoTamano)}
+                />
+              </Control>
+              <Control rotulo="Titular">
+                <Segmentos
+                  etiqueta="Titular"
+                  valor={f.diseno.titulo}
+                  alCambiar={(v) => setDiseno("titulo", v)}
+                  opciones={opcionesDe(TITULOS, DISENO_OPCION.titulo)}
+                />
+              </Control>
+            </div>
+          </Grupo>
+
+          {/* 7 · FONDO — fichas con la trama de verdad (0236). Aurora y
+              burbujas se muestran quietas en la ficha; se mueven en la
+              previa. */}
+          <Grupo titulo="Fondo" pie="Detrás de todo. Aurora y burbujas se mueven">
+            <Fichas
+              etiqueta="Fondo"
+              valor={f.diseno.fondo}
+              alCambiar={(v) => setDiseno("fondo", v)}
+              opciones={opcionesDe(FONDOS, DISENO_OPCION.fondo)}
+              columnas="grid-cols-3 sm:grid-cols-4 lg:grid-cols-7"
+              vista={(x) => (
+                <span aria-hidden className="relative block h-[52px] overflow-hidden" style={fondoDePagina(x, paleta)}>
+                  {(x === "aurora" || x === "burbujas") && (
+                    <>
+                      <span className="absolute -left-3 -top-3 h-10 w-10 rounded-full" style={{ background: conAlfa(paleta.acento, 0.6), filter: x === "aurora" ? "blur(8px)" : undefined }} />
+                      <span className="absolute -bottom-4 right-2 h-9 w-9 rounded-full" style={{ background: conAlfa(paleta.acento, 0.35), filter: x === "aurora" ? "blur(8px)" : undefined }} />
+                    </>
+                  )}
+                </span>
+              )}
+            />
+          </Grupo>
+
+          {/* 8 · MOVIMIENTO — animación de entrada y hover (0236). */}
+          <Grupo titulo="Movimiento" pie="Cómo entra la página y qué hacen los botones al pasar el mouse">
+            <div className="grid gap-4">
+              <Control rotulo="Al abrir la página" nota="Con «reducir movimiento» activado en el teléfono, todo aparece quieto.">
+                <Fichas
+                  etiqueta="Animación de entrada"
+                  valor={f.diseno.animacion}
+                  alCambiar={(v) => setDiseno("animacion", v)}
+                  opciones={opcionesDe(ANIMACIONES, DISENO_OPCION.animacion)}
+                />
+              </Control>
+              <Control rotulo="Al pasar el mouse por un botón">
+                <Fichas
+                  etiqueta="Efecto al pasar el mouse"
+                  valor={f.diseno.hover}
+                  alCambiar={(v) => setDiseno("hover", v)}
+                  opciones={opcionesDe(HOVERS, DISENO_OPCION.hover)}
+                />
+              </Control>
+            </div>
+          </Grupo>
+        </Card>
+
+        {/* ── EL NEGOCIO: rubro, país y moneda (0236) ───────────── */}
+        <Card
+          eyebrow="Tu negocio"
+          titulo="Rubro, país y moneda"
+          accion={
+            <PildoraEstado estado="neutro">
+              {banderaDe(f.pais)} {PAIS[f.pais].nombre} · {simbolo} {f.moneda}
+            </PildoraEstado>
+          }
+        >
+          <p className="text-[12.5px] leading-snug text-aventurea-ink-soft">
+            El rubro decide cómo se llaman las cosas —{vocab.catalogo.toLowerCase()}, {vocab.items}, {vocab.pedir.toLowerCase()}— y qué formas
+            de pedir tienen sentido. El país pone el prefijo del WhatsApp y sugiere la moneda; la moneda es en la que escribís tus
+            precios.
+          </p>
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div>
+              <label htmlFor="rubro" className={ROTULO_CAMPO}>Rubro</label>
+              <select id="rubro" value={f.rubro} onChange={(e) => elegirRubro(e.target.value as Rubro)} className={`mt-1.5 ${CAMPO_PANEL}`}>
+                {grupos.map((g) => (
+                  <optgroup key={g} label={GRUPO_RUBRO[g]}>
+                    {RUBROS.filter((r) => RUBRO[r].grupo === g).map((r) => (
+                      <option key={r} value={r}>{RUBRO[r].nombre}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[11.5px] text-aventurea-ink-soft">{RUBRO[f.rubro].pie}</p>
+            </div>
+            <div>
+              <label htmlFor="pais" className={ROTULO_CAMPO}>País</label>
+              <select id="pais" value={f.pais} onChange={(e) => elegirPais(e.target.value as Pais)} className={`mt-1.5 ${CAMPO_PANEL}`}>
+                {PAISES.map((p) => (
+                  <option key={p} value={p}>{banderaDe(p)} {PAIS[p].nombre}</option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[11.5px] text-aventurea-ink-soft">WhatsApp con +{PAIS[f.pais].telefono}</p>
+            </div>
+            <div>
+              <label htmlFor="moneda" className={ROTULO_CAMPO}>Moneda de tus precios</label>
+              <select id="moneda" value={f.moneda} onChange={(e) => set("moneda", e.target.value as Moneda)} className={`mt-1.5 ${CAMPO_PANEL}`}>
+                {MONEDAS.map((m) => (
+                  <option key={m} value={m}>{MONEDA[m].simbolo} · {MONEDA[m].nombre} ({m})</option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[11.5px] text-aventurea-ink-soft">
+                {MONEDA[f.moneda].decimales === 0 ? "Sin centavos" : "Con dos decimales"}
+              </p>
+            </div>
+          </div>
         </Card>
 
         {/* ── EL CONTENIDO ─────────────────────────────────────── */}
@@ -502,18 +758,18 @@ export default function SeccionPagina({
             </div>
             <div>
               <label htmlFor="bajada" className={ROTULO_CAMPO}>La línea bajo el nombre</label>
-              <input id="bajada" type="text" value={f.bajada} maxLength={TOPES.bajada} placeholder="Café de especialidad · Escazú" onChange={(e) => set("bajada", e.target.value)} className={`mt-1.5 ${CAMPO_PANEL}`} />
+              <input id="bajada" type="text" value={f.bajada} maxLength={TOPES.bajada} placeholder={RUBRO[f.rubro].ejemploBajada} onChange={(e) => set("bajada", e.target.value)} className={`mt-1.5 ${CAMPO_PANEL}`} />
             </div>
-            <SubirImagen valor={f.logoUrl} alCambiar={(u) => set("logoUrl", u)} destino="logo" etiqueta="Logo" carpeta="solutions/logos" bucket="solutions-fotos" />
-            <SubirImagen valor={f.fotoPortadaUrl} alCambiar={(u) => set("fotoPortadaUrl", u)} destino="banner" etiqueta="Foto de portada" carpeta="solutions/portadas" bucket="solutions-fotos" />
+            <SubirImagen valor={f.logoUrl} alCambiar={(u) => set("logoUrl", u)} destino="logo" etiqueta="Logo" carpeta="solutions/logos" bucket="solutions-fotos" subidaDirecta={prepararSubidaSolutions} />
+            <SubirImagen valor={f.fotoPortadaUrl} alCambiar={(u) => set("fotoPortadaUrl", u)} destino="banner" etiqueta="Foto de portada" carpeta="solutions/portadas" bucket="solutions-fotos" subidaDirecta={prepararSubidaSolutions} />
           </div>
         </Card>
 
         <Card eyebrow="Para que te encuentren" titulo="Contacto">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="whatsapp" className={ROTULO_CAMPO}>WhatsApp (solo números)</label>
-              <input id="whatsapp" type="tel" value={f.whatsapp} placeholder="88887777" onChange={(e) => set("whatsapp", e.target.value)} className={`mt-1.5 ${CAMPO_PANEL}`} />
+              <label htmlFor="whatsapp" className={ROTULO_CAMPO}>WhatsApp (solo números, sin el +{PAIS[f.pais].telefono})</label>
+              <input id="whatsapp" type="tel" value={f.whatsapp} placeholder={ejemploTelefono(f.pais)} onChange={(e) => set("whatsapp", e.target.value)} className={`mt-1.5 ${CAMPO_PANEL}`} />
             </div>
             <div>
               <label htmlFor="direccion" className={ROTULO_CAMPO}>Dirección (abre en Google Maps)</label>
@@ -530,7 +786,7 @@ export default function SeccionPagina({
           <p className="break-all text-[13.5px] font-bold text-aventurea-ink">{urlPublica}</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <div>
-              <label htmlFor="slug" className={ROTULO_CAMPO}>Cambiar el enlace (bookea.lat/s/…)</label>
+              <label htmlFor="slug" className={ROTULO_CAMPO}>Cambiar el enlace (linksy.lat/…)</label>
               <input id="slug" type="text" value={f.slug} onChange={(e) => set("slug", e.target.value)} className={`mt-1.5 ${CAMPO_PANEL}`} />
             </div>
             <label className="flex items-center gap-2.5 text-[13px] font-bold text-aventurea-ink">
@@ -540,21 +796,33 @@ export default function SeccionPagina({
           </div>
         </Card>
 
-        <Card eyebrow="Las puertas" titulo="Menú y pedidos">
-          {/* ── EL MENÚ: solo con su add-on ────────────────────── */}
+        <Card eyebrow="Lo que vendés" titulo={`${vocab.catalogoLargo} y ${vocab.pedidosNombre.toLowerCase()}`}>
+          {/* ── EL CATÁLOGO: solo con su add-on ────────────────── */}
           {addons.menu ? (
             <>
               <label className="flex items-center gap-2.5 text-[13px] font-bold text-aventurea-ink">
                 <input type="checkbox" checked={f.mostrarMenu} onChange={(e) => set("mostrarMenu", e.target.checked)} className="h-4 w-4" />
-                Mostrar el menú en la página
+                Mostrar {vocab.catalogo === "Servicios" ? "los servicios" : `el ${vocab.catalogo.toLowerCase()}`} en la página
               </label>
 
-              {/* ── LOS IDIOMAS DEL MENÚ (0235) ──────────────────
-                  Pedido del dueño: «que el menú se pueda ver en cinco
-                  idiomas al mismo tiempo». Acá se prenden; se traducen
-                  en «Menú digital», a mano o con IA. */}
+              {/* ── LA VITRINA (0236): el catálogo adentro del link hub ── */}
               <div className="mt-4">
-                <p className={ROTULO_CAMPO}>Idiomas del menú (además del español)</p>
+                <Control
+                  rotulo={`Cómo aparece ${vocab.catalogo === "Servicios" ? "la lista de servicios" : `el ${vocab.catalogo.toLowerCase()}`} en tu página`}
+                  nota="«Destacados» muestra los primeros con foto y precio, como una vitrina; «Todo» pone el catálogo entero adentro de tu página."
+                >
+                  <Segmentos
+                    etiqueta="Vitrina"
+                    valor={f.diseno.vitrina}
+                    alCambiar={(v) => setDiseno("vitrina", v)}
+                    opciones={opcionesDe(VITRINAS, DISENO_OPCION.vitrina)}
+                  />
+                </Control>
+              </div>
+
+              {/* ── LOS IDIOMAS DEL CATÁLOGO (0235) ─────────────── */}
+              <div className="mt-4">
+                <p className={ROTULO_CAMPO}>Idiomas {vocab.catalogo === "Servicios" ? "de los servicios" : `del ${vocab.catalogo.toLowerCase()}`} (además del español)</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {IDIOMAS_EXTRA.map((i) => {
                     const activo = f.idiomasMenu.includes(i);
@@ -580,33 +848,31 @@ export default function SeccionPagina({
                   })}
                 </div>
                 <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">
-                  Tus clientes cambian el idioma arriba del menú. Las traducciones se cargan en «Menú digital», a mano o con
-                  IA de una vez.
+                  Tus clientes cambian el idioma arriba. Las traducciones se cargan en «{vocab.catalogoLargo}», a mano o con IA de
+                  una vez.
                 </p>
               </div>
             </>
           ) : (
             <p className={`rounded-xl p-3 text-[13px] ${ESTADO_AVISO.info}`}>
-              El menú digital es un add-on.{" "}
+              {vocab.catalogoLargo} es un add-on.{" "}
               <Link href="?tab=inicio" className="font-bold underline">Agregalo desde Inicio</Link> y acá aparecen
               sus opciones.
             </p>
           )}
 
-          {/* ── LOS PEDIDOS: tres modalidades, cada una con lo suyo ─
-              Las tres caen en el Modo restaurante (5 sep 2026); To go
-              y exprés traen los datos del cliente. Cada modalidad se
-              prende aparte porque un local puede tener mesas sin
-              exprés o exprés sin mesas. */}
+          {/* ── LOS PEDIDOS: cada modalidad, con lo suyo ───────────
+              Todas caen en el tablero (Modo restaurante / Ventas en
+              línea / Reservas). La mesa con QR es solo de comida. */}
           {addons.pedidos ? (
             <div className="mt-4 border-t border-aventurea-line pt-4">
-              <p className={ROTULO_CAMPO}>Cómo recibís pedidos</p>
+              <p className={ROTULO_CAMPO}>{vocab.decidir}</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-3">
                 {(
                   [
-                    { k: "aceptaPedidos", t: "En la mesa", d: "Desde el QR de cada mesa. Llega al Modo restaurante." },
-                    { k: "pedidosLlevar", t: "To go", d: "Pasa a recogerlo. Llega al Modo restaurante." },
-                    { k: "pedidosExpress", t: "Exprés", d: "Se lo llevás. Llega al Modo restaurante con la dirección." },
+                    ...(comida ? [{ k: "aceptaPedidos" as const, t: "En la mesa", d: `Desde el QR de cada mesa. Llega al ${vocab.tablero}.` }] : []),
+                    { k: "pedidosLlevar" as const, t: vocab.modalidades.llevar.rotulo, d: `${vocab.modalidades.llevar.pie} Llega a ${vocab.tablero}.` },
+                    { k: "pedidosExpress" as const, t: vocab.modalidades.express.rotulo, d: `${vocab.modalidades.express.pie} Llega a ${vocab.tablero} con la dirección.` },
                   ] as const
                 ).map((m) => (
                   <label
@@ -624,7 +890,7 @@ export default function SeccionPagina({
                 ))}
               </div>
 
-              {f.aceptaPedidos && (
+              {comida && f.aceptaPedidos && (
                 <div className="mt-4">
                   <label htmlFor="mesas" className={ROTULO_CAMPO}>Cuántas mesas tenés</label>
                   <input id="mesas" type="number" min={0} max={TOPES.mesas} value={f.mesas} onChange={(e) => set("mesas", Math.max(0, Math.min(TOPES.mesas, Number(e.target.value) || 0)))} className={`mt-1.5 w-[110px] ${CAMPO_PANEL}`} />
@@ -636,9 +902,9 @@ export default function SeccionPagina({
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   {f.pedidosExpress && (
                     <div>
-                      <label htmlFor="costoExpress" className={ROTULO_CAMPO}>Costo del envío (₡)</label>
-                      <input id="costoExpress" type="number" min={0} step={100} value={f.costoExpress} onChange={(e) => set("costoExpress", Math.max(0, Number(e.target.value) || 0))} className={`mt-1.5 w-[150px] ${CAMPO_PANEL}`} />
-                      <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">Se suma al pedido exprés. 0 = envío gratis.</p>
+                      <label htmlFor="costoExpress" className={ROTULO_CAMPO}>Costo de {vocab.modalidades.express.rotulo.toLowerCase()} ({simbolo})</label>
+                      <input id="costoExpress" type="number" min={0} step={pasoDePrecio(f.moneda)} value={f.costoExpress} onChange={(e) => set("costoExpress", Math.max(0, Number(e.target.value) || 0))} className={`mt-1.5 w-[150px] ${CAMPO_PANEL}`} />
+                      <p className="mt-1.5 text-[12px] text-aventurea-ink-soft">Se suma al pedido. 0 = sin costo.</p>
                     </div>
                   )}
                   <div className="sm:col-span-2">
@@ -675,7 +941,7 @@ export default function SeccionPagina({
             </div>
           ) : (
             <p className={`mt-4 rounded-xl p-3 text-[13px] ${ESTADO_AVISO.info}`}>
-              Los pedidos (mesa, para llevar y exprés) son un add-on.{" "}
+              {vocab.pedidosNombre} es un add-on.{" "}
               <Link href="?tab=inicio" className="font-bold underline">Agregalo desde Inicio</Link>.
             </p>
           )}
@@ -717,12 +983,15 @@ export default function SeccionPagina({
         <Telefono
           ancho={288}
           className="mx-auto lg:mx-0"
-          tinta={paletaDelTema(f.tema, f.colorFondo, f.colorAcento).tinta}
+          tinta={paleta.tinta}
         >
           {/* `inerte`: la previa no navega. Tocar un enlace acá sacaría al
               dueño de su panel a mitad de la edición.
-              `edicion`: los textos se escriben ACÁ ADENTRO. */}
+              `edicion`: los textos se escriben ACÁ ADENTRO.
+              `key`: cambiar la animación de entrada vuelve a montar la
+              página, así se ve entrar de nuevo con la opción elegida. */}
           <VistaPagina
+            key={f.diseno.animacion}
             datos={datosPrevia}
             inerte
             className="min-h-full"

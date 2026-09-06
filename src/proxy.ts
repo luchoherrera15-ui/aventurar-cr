@@ -1,6 +1,13 @@
 ﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { CABECERA_DOMINIO, destinoEnDominioPropio, esHostPropio, slugPorDominio } from "@/lib/solutions/dominios";
+import {
+  CABECERA_DOMINIO,
+  destinoEnDominioPropio,
+  destinoEnLinksy,
+  esHostLinksy,
+  esHostPropio,
+  slugPorDominio,
+} from "@/lib/solutions/dominios";
 
 // NOTA: en esta versión de Next.js el archivo "middleware.ts" pasó a
 // llamarse "proxy.ts" (mismo propósito: código que corre antes de que
@@ -77,7 +84,52 @@ export default async function proxy(request: NextRequest) {
    * Un host nuestro no paga nada: `esHostPropio` corta antes de tocar la
    * red. Un host ajeno que no es de nadie sigue su camino normal.
    */
-  const hostAjeno = request.headers.get("host") ?? "";
+  /**
+   * ══════════════════════════════════════════════════════════════════
+   *  LINKSY.LAT — EL DOMINIO DEL LINK HUB
+   * ══════════════════════════════════════════════════════════════════
+   * Pedido del dueño (6 sep 2026): el producto estrena dominio propio.
+   * `linksy.lat/pizza-lucia` sirve la misma página que
+   * `bookea.lat/s/pizza-lucia`, sin duplicar un solo archivo.
+   *
+   * VA PRIMERO, ANTES QUE EL DOMINIO PROPIO DE UN NEGOCIO. linksy.lat
+   * ahora es `esHostPropio`, así que la rama de abajo ya no lo mira; y
+   * tiene que ser así, porque si no un negocio podría reclamarlo como
+   * dominio suyo. El orden acá es la mitad de esa defensa; la otra
+   * mitad la pone `guardarDominio`, que rechaza lo que es nuestro.
+   *
+   * Mismo truco que usó food.bookea.lat y por la misma razón: el proxy
+   * corre ANTES del sistema de archivos, y es la única capa donde «/»
+   * puede servir otra página (ver el comentario grande de
+   * next.config.ts sobre el rewrite que nunca disparaba).
+   *
+   * El decidir cuál ruta es cuál NO vive acá: es una función pura,
+   * `destinoEnLinksy`, probada en dominios.test.ts. Acá solo se
+   * ejecuta lo que esa función decide.
+   */
+  const host = request.headers.get("host") ?? "";
+  if (esHostLinksy(host)) {
+    const destino = destinoEnLinksy(request.nextUrl.pathname);
+    if (destino.tipo === "login") {
+      // El login de Linksy vive en bookea.lat porque la cookie de sesión
+      // no cruza entre dominios de apex distinto (ver LINKSY_HOST).
+      // Absoluta a propósito: es otro sitio, no otra ruta de este. Con
+      // sesión ya abierta, esa página manda sola al panel.
+      const sitio = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
+      return NextResponse.redirect(new URL("/linksy/login", sitio));
+    }
+    if (destino.tipo === "redirect") {
+      return NextResponse.redirect(new URL(destino.pathname, request.url));
+    }
+    if (destino.tipo === "rewrite") {
+      const url = request.nextUrl.clone();
+      url.pathname = destino.pathname;
+      return NextResponse.rewrite(url);
+    }
+    // "pasar": sigue el camino normal (assets, /api, robots.txt…).
+  }
+
+  const hostAjeno = host;
   if (hostAjeno && !esHostPropio(hostAjeno)) {
     const slugDominio = await slugPorDominio(hostAjeno);
     if (slugDominio) {

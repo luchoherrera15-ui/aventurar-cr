@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { Card, PildoraEstado } from "@/components/panel/piezas";
 import { BOTON_PANEL, BOTON_PANEL_PRIMARIO, CAMPO_PANEL, ESTADO_AVISO, ROTULO_CAMPO } from "@/components/panel/sistema";
 import SubirImagen from "@/components/subir-imagen";
-import { fmtColones } from "@/lib/finanzas";
+import { fmtMoneda, MONEDA, pasoDePrecio, type Moneda } from "@/lib/monedas";
+import { vocabDe, type Rubro } from "@/lib/solutions/rubros";
 import type { MenuDelNegocio } from "@/lib/solutions/datos";
 import {
   ALERGENO,
@@ -19,6 +20,8 @@ import {
   type Traducciones,
 } from "@/lib/solutions/idiomas";
 import { TOPES, type ItemMenuSolutions } from "@/lib/solutions/tipos";
+import { prepararSubidaSolutions } from "../../subida-actions";
+import { conVariante } from "@/lib/solutions/fotos";
 import {
   borrarPlatoSolutions,
   borrarSeccionSolutions,
@@ -56,13 +59,20 @@ export default function SeccionMenu({
   negocioId,
   menu,
   idiomas,
+  moneda,
+  rubro,
 }: {
   negocioId: string;
   menu: MenuDelNegocio;
   /** Los idiomas que el negocio ofrece además del español. */
   idiomas: IdiomaExtra[];
+  /** La moneda de los precios y el rubro, que pone el vocabulario (0236). */
+  moneda: Moneda;
+  rubro: Rubro;
 }) {
   const router = useRouter();
+  const v = vocabDe(rubro);
+  const cat = v.catalogo.toLowerCase();
   const [ocupado, arrancar] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -111,12 +121,12 @@ export default function SeccionMenu({
     arrancar(async () => {
       const r = await traducirMenuSolutions(negocioId);
       if (!r.ok) return setError(r.motivo);
-      setAviso(`Listo: ${r.platos} platos y ${r.secciones} secciones traducidos a ${idiomas.map((i) => IDIOMA[i].nombre.toLowerCase()).join(", ")}. Revisá y corregí lo que quieras.`);
+      setAviso(`Listo: ${r.platos} ${v.items} y ${r.secciones} secciones traducidos a ${idiomas.map((i) => IDIOMA[i].nombre.toLowerCase()).join(", ")}. Revisá y corregí lo que quieras.`);
       router.refresh();
     });
   };
 
-  /** Cuántos platos ya tienen nombre en ese idioma. */
+  /** Cuántos ítems ya tienen nombre en ese idioma. */
   const traducidos = (i: IdiomaExtra) => menu.items.filter((it) => estaTraducido(it.traducciones, i)).length;
 
   const setTrad = (idioma: IdiomaExtra, parte: Partial<{ nombre: string; descripcion: string }>) => {
@@ -137,7 +147,7 @@ export default function SeccionMenu({
       {/* ── Idiomas ───────────────────────────────────────────── */}
       <Card
         eyebrow="En varios idiomas"
-        titulo="Idiomas del menú"
+        titulo={`Idiomas ${v.catalogo === "Servicios" ? "de los servicios" : `del ${cat}`}`}
         accion={
           idiomas.length > 0 ? (
             <button type="button" onClick={traducirTodo} disabled={ocupado || menu.items.length === 0} className={BOTON_PANEL_PRIMARIO}>
@@ -148,16 +158,16 @@ export default function SeccionMenu({
       >
         {idiomas.length === 0 ? (
           <p className="text-[13px] leading-snug text-aventurea-ink-soft">
-            Tu menú está solo en español. Prendé otros idiomas en{" "}
-            <Link href="?tab=pagina" className="font-bold underline">Mi página → Menú y pedidos</Link> y tus clientes
+            Tu {cat} está solo en español. Prendé otros idiomas en{" "}
+            <Link href="?tab=pagina" className="font-bold underline">Mi página → {v.catalogoLargo}</Link> y tus clientes
             podrán cambiarlo con un toque.
           </p>
         ) : (
           <>
             <p className="text-[13px] leading-snug text-aventurea-ink-soft">
-              Tus clientes eligen el idioma arriba del menú. Lo que no esté traducido se muestra en español, así que nunca
-              falta un plato. «Traducir todo con IA» completa lo que falte en un par de segundos; después corregís lo que
-              quieras plato por plato.
+              Tus clientes eligen el idioma arriba. Lo que no esté traducido se muestra en español, así que nunca
+              falta un {v.item}. «Traducir todo con IA» completa lo que falte en un par de segundos; después corregís lo que
+              quieras {v.item} por {v.item}.
             </p>
             <ul className="mt-3 flex flex-wrap gap-2">
               {idiomas.map((i) => (
@@ -189,10 +199,10 @@ export default function SeccionMenu({
                   }}
                   className={`min-w-0 flex-1 ${CAMPO_PANEL}`}
                 />
-                <span className="text-[11.5px] text-aventurea-ink-soft">{menu.items.filter((it) => it.seccion_id === s.id).length} platos</span>
+                <span className="text-[11.5px] text-aventurea-ink-soft">{menu.items.filter((it) => it.seccion_id === s.id).length} {v.items}</span>
                 <button type="button" aria-label="Subir" disabled={i === 0 || ocupado} onClick={() => { const ids = menu.secciones.map((x) => x.id); [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]]; correr(() => ordenarSeccionesSolutions(negocioId, ids)); }} className="presionable h-9 w-9 rounded-lg border border-aventurea-line text-[13px] disabled:opacity-40">↑</button>
                 <button type="button" aria-label="Bajar" disabled={i === menu.secciones.length - 1 || ocupado} onClick={() => { const ids = menu.secciones.map((x) => x.id); [ids[i], ids[i + 1]] = [ids[i + 1], ids[i]]; correr(() => ordenarSeccionesSolutions(negocioId, ids)); }} className="presionable h-9 w-9 rounded-lg border border-aventurea-line text-[13px] disabled:opacity-40">↓</button>
-                <button type="button" aria-label="Borrar sección" disabled={ocupado} onClick={() => { if (confirm(`¿Borrar la sección «${s.nombre}»? Los platos pasan a «Otros».`)) correr(() => borrarSeccionSolutions(negocioId, s.id)); }} className="presionable h-9 w-9 rounded-lg border border-aventurea-line text-[13px]">✕</button>
+                <button type="button" aria-label="Borrar sección" disabled={ocupado} onClick={() => { if (confirm(`¿Borrar la sección «${s.nombre}»? Los ${v.items} pasan a «Otros».`)) correr(() => borrarSeccionSolutions(negocioId, s.id)); }} className="presionable h-9 w-9 rounded-lg border border-aventurea-line text-[13px]">✕</button>
               </div>
               {idiomas.length > 0 && (
                 <div className="mt-2 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -224,23 +234,23 @@ export default function SeccionMenu({
             className="mt-3 flex gap-2"
             onSubmit={(e) => { e.preventDefault(); const v = nuevaSeccion.trim(); if (!v) return; correr(async () => { const r = await guardarSeccionSolutions(negocioId, { id: null, nombre: v }); if (r.ok) setNuevaSeccion(""); return r; }); }}
           >
-            <input type="text" value={nuevaSeccion} maxLength={TOPES.seccionNombre} placeholder="Entradas, Platos fuertes, Bebidas…" onChange={(e) => setNuevaSeccion(e.target.value)} className={`min-w-0 flex-1 ${CAMPO_PANEL}`} />
+            <input type="text" value={nuevaSeccion} maxLength={TOPES.seccionNombre} placeholder={v.seccionesEjemplo} onChange={(e) => setNuevaSeccion(e.target.value)} className={`min-w-0 flex-1 ${CAMPO_PANEL}`} />
             <button type="submit" disabled={ocupado || !nuevaSeccion.trim()} className={BOTON_PANEL}>+ Sección</button>
           </form>
         )}
       </Card>
 
-      {/* ── Platos ────────────────────────────────────────────── */}
+      {/* ── Los ítems: platos, servicios o productos ─────────── */}
       <Card
         eyebrow="Lo que se vende"
-        titulo="Platos"
+        titulo={v.Items}
         accion={
           <button type="button" onClick={() => abrirPlato({ seccion_id: menu.secciones[0]?.id ?? null, disponible: true })} className={BOTON_PANEL_PRIMARIO}>
-            + Nuevo plato
+            + {v.Item} nuevo
           </button>
         }
       >
-        {menu.agrupado.length === 0 && <p className="text-[13px] text-aventurea-ink-soft">Todavía no hay platos. Creá una sección y agregá el primero.</p>}
+        {menu.agrupado.length === 0 && <p className="text-[13px] text-aventurea-ink-soft">Todavía no hay {v.items}. Creá una sección y agregá el primero.</p>}
         <div className="flex flex-col gap-5">
           {menu.agrupado.map((g) => (
             <div key={g.seccion?.id ?? "otros"}>
@@ -250,14 +260,14 @@ export default function SeccionMenu({
                   <li key={it.id} className={`flex items-center gap-3 py-2.5 ${!it.disponible || it.agotado_hoy ? "opacity-60" : ""}`}>
                     {it.foto_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={it.foto_url} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+                      <img src={conVariante(it.foto_url, "thumb") ?? it.foto_url} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
                     ) : (
                       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-aventurea-cream-2 text-[11px] font-extrabold text-aventurea-ink-soft">sin foto</span>
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[14px] font-bold text-aventurea-ink">{it.nombre}</p>
                       <p className="truncate text-[12px] text-aventurea-ink-soft">
-                        {it.precio === null ? "Consultar" : fmtColones(it.precio)}
+                        {it.precio === null ? "Consultar" : fmtMoneda(it.precio, moneda)}
                         {!it.disponible && " · Oculto"}
                         {it.agotado_hoy && " · Agotado hoy"}
                         {it.nutricion && " · con ficha"}
@@ -276,11 +286,11 @@ export default function SeccionMenu({
         </div>
       </Card>
 
-      {/* ── Editor de plato ───────────────────────────────────── */}
+      {/* ── Editor del ítem ───────────────────────────────────── */}
       {editando && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/45 p-0 sm:items-center sm:p-4" onClick={() => setEditando(null)}>
-          <div role="dialog" aria-modal="true" aria-label="Plato" onClick={(e) => e.stopPropagation()} className="max-h-[92svh] w-full max-w-[600px] overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
-            <h3 className="text-[18px] font-extrabold text-aventurea-navy">{editando.id ? "Editar plato" : "Nuevo plato"}</h3>
+          <div role="dialog" aria-modal="true" aria-label={v.Item} onClick={(e) => e.stopPropagation()} className="max-h-[92svh] w-full max-w-[600px] overflow-y-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl">
+            <h3 className="text-[18px] font-extrabold text-aventurea-navy">{editando.id ? `Editar ${v.item}` : `${v.Item} nuevo`}</h3>
             <div className="mt-4 grid gap-3">
               <div>
                 <label className={ROTULO_CAMPO}>Nombre</label>
@@ -292,8 +302,8 @@ export default function SeccionMenu({
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className={ROTULO_CAMPO}>Precio en colones (vacío = consultar)</label>
-                  <input type="number" min={0} step={100} value={editando.precio ?? ""} onChange={(e) => setEditando({ ...editando, precio: e.target.value === "" ? null : Number(e.target.value) })} className={`mt-1.5 ${CAMPO_PANEL}`} />
+                  <label className={ROTULO_CAMPO}>Precio en {MONEDA[moneda].nombre.toLowerCase()} ({MONEDA[moneda].simbolo}) · vacío = consultar</label>
+                  <input type="number" min={0} step={pasoDePrecio(moneda)} value={editando.precio ?? ""} onChange={(e) => setEditando({ ...editando, precio: e.target.value === "" ? null : Number(e.target.value) })} className={`mt-1.5 ${CAMPO_PANEL}`} />
                 </div>
                 <div>
                   <label className={ROTULO_CAMPO}>Sección</label>
@@ -303,10 +313,10 @@ export default function SeccionMenu({
                   </select>
                 </div>
               </div>
-              <SubirImagen valor={editando.foto_url ?? ""} alCambiar={(u) => setEditando({ ...editando, foto_url: u })} destino="banner" etiqueta="Foto del plato" carpeta="solutions/platos" bucket="solutions-fotos" />
+              <SubirImagen valor={editando.foto_url ?? ""} alCambiar={(u) => setEditando({ ...editando, foto_url: u })} destino="banner" etiqueta={`Foto del ${v.item}`} carpeta="solutions/platos" bucket="solutions-fotos" subidaDirecta={prepararSubidaSolutions} />
               <label className="flex items-center gap-2.5 text-[13px] font-bold text-aventurea-ink">
                 <input type="checkbox" checked={editando.disponible !== false} onChange={(e) => setEditando({ ...editando, disponible: e.target.checked })} className="h-4 w-4" />
-                Visible en el menú
+                Visible en {v.catalogo === "Servicios" ? "la lista" : `el ${cat}`}
               </label>
 
               {/* ── Traducciones ────────────────────────────────── */}
@@ -416,10 +426,10 @@ export default function SeccionMenu({
               </div>
             </div>
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              <button type="button" onClick={guardarPlato} disabled={ocupado} className={BOTON_PANEL_PRIMARIO}>{ocupado ? "Guardando…" : "Guardar plato"}</button>
+              <button type="button" onClick={guardarPlato} disabled={ocupado} className={BOTON_PANEL_PRIMARIO}>{ocupado ? "Guardando…" : `Guardar ${v.item}`}</button>
               <button type="button" onClick={() => setEditando(null)} className={BOTON_PANEL}>Cancelar</button>
               {editando.id && (
-                <button type="button" disabled={ocupado} onClick={() => { if (confirm("¿Borrar este plato?")) correr(async () => { const r = await borrarPlatoSolutions(negocioId, editando.id as string); if (r.ok) setEditando(null); return r; }); }} className="ml-auto text-[13px] font-bold text-red-700 underline">
+                <button type="button" disabled={ocupado} onClick={() => { if (confirm(`¿Borrar este ${v.item}?`)) correr(async () => { const r = await borrarPlatoSolutions(negocioId, editando.id as string); if (r.ok) setEditando(null); return r; }); }} className="ml-auto text-[13px] font-bold text-red-700 underline">
                   Borrar
                 </button>
               )}

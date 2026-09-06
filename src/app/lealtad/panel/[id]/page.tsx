@@ -44,7 +44,8 @@ import {
 import { llaveDeTarjeta, tarjetaConLlaveDeFila } from "@/lib/lealtad/llave-tarjeta";
 import { cupoLleno, lasQueOcupanCupo } from "./cupo-tarjetas";
 import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
-import { registraCompraElTipo } from "@/lib/lealtad/mostrador";
+import { registraCompraElTipo, textosDelTipo } from "@/lib/lealtad/mostrador";
+import ListosRecompensa from "./listos-recompensa";
 import { permisosDeFila } from "@/lib/lealtad/permisos";
 import { cargarLealtad } from "./datos-lealtad";
 import ShellLealtad, { type GrupoLealtad } from "./shell-lealtad";
@@ -837,7 +838,28 @@ export default async function PanelNegocioLealtad({
    */
   const mostradorEsElInicio = !!p && permisos.acreditar;
 
+  // LISTOS PARA SU RECOMPENSA (dueño, 6 sep 2026): quién ya completó la
+  // tarjeta principal y no cobró, con el botón de entregar y reiniciar.
+  // Sale de las MISMAS fichas del tablero (`cargarLealtad`), así que no
+  // agrega consultas; solo existe cuando la tarjeta tiene meta.
+  const cuadroListos =
+    p && meta ? (
+      <ListosRecompensa
+        ranchoId={id}
+        listos={(datosLealtad?.fichas ?? [])
+          .filter((f) => f.puedeCanjear)
+          .map((f) => ({ miembroId: f.miembroId, nombre: f.nombre, contacto: f.contacto, saldo: f.saldo }))}
+        meta={meta.costo_puntos}
+        recompensa={{ id: meta.id, nombre: meta.nombre }}
+        unidad={textosDelTipo(tipoPrincipal).unidad}
+        verbo={textosDelTipo(tipoPrincipal).verboCanje}
+        puedeCanjear={permisos.canjear}
+      />
+    ) : null;
+
   const tablero = (
+    <>
+      {cuadroListos}
       <InicioLealtad
         negocioId={id}
         nombre={rancho.nombre}
@@ -881,6 +903,7 @@ export default async function PanelNegocioLealtad({
           ) : null
         }
       />
+    </>
   );
 
   const contenidos: Record<string, React.ReactNode> = {
@@ -901,6 +924,7 @@ export default async function PanelNegocioLealtad({
           </a>
         }
       >
+        {cuadroListos}
         <ModoMostrador
           ranchoId={id}
           programaId={p!.id}

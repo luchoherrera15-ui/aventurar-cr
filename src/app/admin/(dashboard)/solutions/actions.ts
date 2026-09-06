@@ -6,6 +6,8 @@ import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { ADDONS, esAddon, type AddonId } from "@/lib/solutions/addons";
 import { generarSlugSolutions } from "@/lib/solutions/slug";
 import { TOPES } from "@/lib/solutions/tipos";
+import { rubroDe } from "@/lib/solutions/rubros";
+import { monedaDelPais, paisDe } from "@/lib/monedas";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -57,6 +59,9 @@ export async function crearNegocioSolutionsDesdeAdmin(datos: {
   telefono: string;
   nombreNegocio: string;
   addons: Partial<Record<AddonId, boolean>>;
+  /** Rubro y país del cliente (0236). La moneda sale del país. */
+  rubro?: string;
+  pais?: string;
 }): Promise<ResultadoAltaSolutions> {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { ok: false, motivo: "No tenés permiso para esto." };
@@ -96,9 +101,11 @@ export async function crearNegocioSolutionsDesdeAdmin(datos: {
 
   // ── El negocio, igual que el alta pública ───────────────────────
   const slug = await generarSlugSolutions(admin, nombre);
+  const rubro = rubroDe(datos.rubro);
+  const pais = paisDe(datos.pais);
   const { data: negocio, error: eNegocio } = await admin
     .from("solutions_negocios")
-    .insert({ owner_id: ownerId, nombre, slug, origen: "admin", creado_por: quienCrea?.id ?? null })
+    .insert({ owner_id: ownerId, nombre, slug, origen: "admin", creado_por: quienCrea?.id ?? null, rubro, pais, moneda: monedaDelPais(pais) })
     .select("id")
     .single();
   if (eNegocio || !negocio) return { ok: false, motivo: "No se pudo crear el negocio: " + (eNegocio?.message ?? "sin respuesta") };

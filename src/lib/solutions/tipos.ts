@@ -27,8 +27,38 @@ export const ICONOS_LINK = [
   "youtube",
   "tienda",
   "menu",
+  // Redes para el link hub de cualquier negocio (0236).
+  "x",
+  "linkedin",
+  "spotify",
+  "telegram",
+  "pinterest",
 ] as const;
 export type IconoLink = (typeof ICONOS_LINK)[number];
+
+/**
+ * ── QUÉ ES CADA ENLACE EN LA PÁGINA (0236) ──────────────────────────
+ * Pedido del dueño (6 sep 2026): «que sea 100 % customizable, tipo
+ * Linktree». Un enlace ya no es solo un botón:
+ *   boton   la puerta de siempre, con descripción opcional debajo;
+ *   icono   va en la fila de redes (círculos chicos bajo el nombre);
+ *   titulo  un rótulo que separa grupos de botones («Nuestros servicios»);
+ *   texto   un párrafo corto (horario, una promo, un aviso).
+ * Título y texto no llevan a ningún lado: su URL puede quedar vacía.
+ */
+export const FORMATOS_LINK = ["boton", "icono", "titulo", "texto"] as const;
+export type FormatoLink = (typeof FORMATOS_LINK)[number];
+
+export const FORMATO_LINK: Record<FormatoLink, { nombre: string; pie: string }> = {
+  boton: { nombre: "Botón", pie: "Una puerta grande, con descripción opcional" },
+  icono: { nombre: "Ícono de red", pie: "Círculo chico en la fila de redes" },
+  titulo: { nombre: "Título", pie: "Separa un grupo de botones" },
+  texto: { nombre: "Texto", pie: "Un párrafo corto: horario, promo, aviso" },
+};
+
+export function formatoLinkDe(v: unknown): FormatoLink {
+  return (FORMATOS_LINK as readonly unknown[]).includes(v) ? (v as FormatoLink) : "boton";
+}
 
 /**
  * Cómo se llama cada ícono en el editor. El DIBUJO no vive acá: lo pone
@@ -50,6 +80,11 @@ export const ICONO_LINK: Record<IconoLink, { nombre: string }> = {
   youtube: { nombre: "YouTube" },
   tienda: { nombre: "Tienda" },
   menu: { nombre: "Menú" },
+  x: { nombre: "X (Twitter)" },
+  linkedin: { nombre: "LinkedIn" },
+  spotify: { nombre: "Spotify" },
+  telegram: { nombre: "Telegram" },
+  pinterest: { nombre: "Pinterest" },
 };
 
 export const ESTADOS_PEDIDO = ["nuevo", "preparando", "listo", "entregado", "cancelado"] as const;
@@ -119,8 +154,16 @@ export const TOPES = {
   nombre: 80,
   bajada: 140,
   direccion: 160,
-  links: 12,
+  /** 40 y no 12 (0236): con títulos, textos y la fila de redes, doce
+   *  filas se acababan en el primer negocio con tres redes. */
+  links: 40,
   etiquetaLink: 40,
+  /** Un enlace de formato «texto» es un párrafo: hasta 160 (0237). */
+  textoLink: 160,
+  descripcionLink: 80,
+  /** Cuántos ítems muestra la vitrina «destacados» del link hub. */
+  vitrinaDestacados: 4,
+  vitrinaTodo: 60,
   secciones: 20,
   seccionNombre: 40,
   items: 150,
@@ -140,10 +183,12 @@ export const TOPES = {
 
 // ── Las filas, ya tipadas ──────────────────────────────────────────
 
-import type { Efecto, EstiloLinks, EstiloPortada, Fuente, Redondeo, Tema } from "./temas";
+import type { Diseno, Efecto, EstiloLinks, EstiloPortada, Fuente, Redondeo, Tema } from "./temas";
 // Solo tipos: idiomas.ts importa TOPES de acá, y un import de valores
 // en las dos direcciones sería un ciclo en tiempo de ejecución.
 import type { IdiomaExtra, Nutricion, Traducciones } from "./idiomas";
+import type { Moneda, Pais } from "@/lib/monedas";
+import type { Rubro } from "./rubros";
 
 export type NegocioSolutions = {
   id: string;
@@ -185,6 +230,13 @@ export type NegocioSolutions = {
   idiomas_menu: IdiomaExtra[];
   /** Quién lo armó: el cliente (publico) o Bookea desde el admin (0235). */
   origen: "publico" | "admin";
+  /** País y moneda (0236): el prefijo del WhatsApp y cómo se escriben los precios. */
+  pais: Pais;
+  moneda: Moneda;
+  /** Tipo de negocio (0236): decide el vocabulario (menú / servicios / productos). */
+  rubro: Rubro;
+  /** Las opciones finas del editor (0236), ya saneadas. */
+  diseno: Diseno;
   creado_en: string;
 };
 
@@ -198,6 +250,10 @@ export type LinkSolutions = {
   visible: boolean;
   /** Foto detrás de esta puerta (0232). null = sin foto, que es lo normal. */
   fondo_url: string | null;
+  /** Botón, ícono de red, título o texto (0236). */
+  formato: FormatoLink;
+  /** La línea chica bajo el botón (0236). "" = no se dibuja. */
+  descripcion: string;
 };
 
 export type SeccionMenu = {
@@ -255,10 +311,44 @@ export type ColaboradorSolutions = {
   creado_en: string;
 };
 
-/** La URL pública de un negocio, con el mismo respaldo de env del resto. */
+/**
+ * La URL pública de un negocio.
+ *
+ * ── EL INTERRUPTOR DE linksy.lat (6 sep 2026) ───────────────────────
+ * Con `NEXT_PUBLIC_LINKSY_URL` puesta devuelve `linksy.lat/<slug>`;
+ * sin ella, el `bookea.lat/s/<slug>` de siempre. Las dos direcciones
+ * sirven la misma página —el proxy reescribe una a la otra—, así que
+ * ninguna deja de funcionar nunca; lo que decide la variable es cuál
+ * se MUESTRA y cuál se imprime en un QR.
+ *
+ * ⚠️ POR QUÉ ES UNA VARIABLE Y NO UNA CONSTANTE, AL REVÉS QUE
+ * `LINKSY_HOST`. Ese es una decisión de seguridad y se escribe en el
+ * código. Esta es una decisión de MOMENTO: hasta que el DNS propague
+ * y Vercel emita el certificado, linksy.lat no responde, y un QR
+ * impreso con una dirección que todavía no sirve es un QR roto —y los
+ * QR impresos no se re-apuntan nunca (0199). Poner la variable es el
+ * último paso del estreno, cuando el dominio ya contesta; quitarla
+ * revierte el cambio entero sin desplegar nada.
+ *
+ * ⚠️ NO se reutiliza `NEXT_PUBLIC_SITE_URL`: de esa cuelgan los pases
+ * de Wallet, y ya se rompieron una vez por un cambio de apex.
+ */
 export function urlPublicaSolutions(slug: string): string {
+  const linksy = process.env.NEXT_PUBLIC_LINKSY_URL?.trim().replace(/\/+$/, "");
+  if (linksy) return `${linksy}/${slug}`;
   const sitio = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
   return `${sitio}/s/${slug}`;
+}
+
+/**
+ * La misma dirección, como se ESCRIBE en un mensaje: sin `https://` ni
+ * `www.`. Es lo que firma los pedidos y consultas por WhatsApp
+ * (whatsapp.ts): «Enviado desde linksy.lat/casa-nostra». Un esquema en
+ * un chat es ruido, y el «www» es de la portada de Bookea, no de la
+ * página de un negocio.
+ */
+export function hostPublicoSolutions(slug: string): string {
+  return urlPublicaSolutions(slug).replace(/^https?:\/\//, "").replace(/^www\./, "");
 }
 
 /**

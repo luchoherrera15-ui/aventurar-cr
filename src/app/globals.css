@@ -95,6 +95,68 @@
 
    El contenedor lo pone `src/app/lealtad/layout.tsx`, que además
    carga Montserrat.  ─────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════════
+   IDENTIDAD DE LINKSY (.linksy) — capa ENCIMA de .lealtad, no copia
+   ═══════════════════════════════════════════════════════════════════
+
+   Pedido del dueño (6 sep 2026): «estilo Linktree: letras grandes,
+   cards grandes, minimalista, con colores — rojos, azules, verdes —
+   pero para Linksy». Linksy es un producto con dominio propio y
+   estrena identidad; esta es su paleta, y vive acá y no en el JSX por
+   la regla de siempre: un hex suelto en un componente no se audita.
+
+   Son BLOQUES de color, no acentos: cada sección de la landing se
+   pinta entera de uno, como Linktree. Por eso cada color trae su
+   tinta ya decidida —el par se mide junto, nunca se elige a ojo—:
+
+     lima     #c9f24c  con tinta #16301a ...... 12,9:1
+     azul     #2b4bf2  con tinta #ffffff ......  6,3:1
+     coral    #ff5d3a  con tinta #2a0d05 ......  6,6:1
+     lila     #d9c9ff  con tinta #241a4a ...... 11,4:1
+     amarillo #ffd43b  con tinta #2b2100 ...... 13,1:1
+     menta    #b8f2dc  con tinta #0e3a2a ...... 12,6:1
+     carbon   #101014  con tinta #ffffff ...... 19,0:1
+
+   Los radios son más grandes que los del sitio (32 px) a propósito:
+   es lo que hace «card grande» y no «tarjeta del panel». Solo dentro
+   de .linksy; el resto del sitio conserva su escala. */
+.linksy {
+  --linksy-tinta: #101014;
+  --linksy-tinta-suave: #4b4b57;
+  --linksy-papel: #ffffff;
+  --linksy-carbon: #101014;
+  --linksy-carbon-tinta: #ffffff;
+  --linksy-lima: #c9f24c;
+  --linksy-lima-tinta: #16301a;
+  --linksy-azul: #2b4bf2;
+  --linksy-azul-tinta: #ffffff;
+  --linksy-coral: #ff5d3a;
+  --linksy-coral-tinta: #2a0d05;
+  --linksy-lila: #d9c9ff;
+  --linksy-lila-tinta: #241a4a;
+  --linksy-amarillo: #ffd43b;
+  --linksy-amarillo-tinta: #2b2100;
+  --linksy-menta: #b8f2dc;
+  --linksy-menta-tinta: #0e3a2a;
+  --linksy-radio: 32px;
+  --linksy-radio-chico: 20px;
+}
+
+/* El carrusel de cards del héroe: scroll NATIVO con snap, para que se
+   pueda arrastrar con el dedo y con el mouse (misma decisión que el
+   desfile de rubros de /lealtad). La barra se esconde, el gesto no. */
+.linksy-carrusel {
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.linksy-carrusel::-webkit-scrollbar {
+  display: none;
+}
+.linksy-carrusel > * {
+  scroll-snap-align: center;
+}
+
 .lealtad {
   --navy: #062653; /* Azul principal    */
   --orange: #f39200; /* El naranja REAL del logo; acento, no acción */
@@ -2750,4 +2812,143 @@ body {
   .notif-sello {
     top: 4.6rem;
   }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   BOOKEA SOLUTIONS — el movimiento del link hub (0236, 6 sep 2026)
+   ════════════════════════════════════════════════════════════════════
+   Pedido del dueño: «que sea muy personalizable, con animaciones». Lo
+   que el negocio elige en Mi página (`diseno.animacion`, `.hover`,
+   `.fondo`) se traduce en estas clases; `vista-pagina.tsx` solo las
+   pone. Todo anima SOLO transform y opacity, con la curva y las
+   duraciones del sistema. Y todo se apaga con prefers-reduced-motion
+   al final del bloque — QUIETO, no ausente: el contenido nace visible.
+
+   ── La entrada, en cascada ──────────────────────────────────────────
+   Cada pieza lleva `--i` (su índice) y el retraso es `--i × 60 ms`,
+   TOPADO en 480 ms: sin tope, el botón 20 de una página larga esperaría
+   más de un segundo, y eso se lee como lentitud, no como estilo. */
+@keyframes sol-aparecer {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sol-subir {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes sol-escalar {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes sol-deslizar {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.sol-entra-aparecer .sol-pieza,
+.sol-entra-subir .sol-pieza,
+.sol-entra-escalar .sol-pieza,
+.sol-entra-deslizar .sol-pieza {
+  animation-duration: var(--duracion-revelado, 420ms);
+  animation-timing-function: var(--ease-bookea, cubic-bezier(0.22, 1, 0.36, 1));
+  animation-fill-mode: both;
+  animation-delay: min(calc(var(--i, 0) * 60ms), 480ms);
+}
+.sol-entra-aparecer .sol-pieza { animation-name: sol-aparecer; }
+.sol-entra-subir .sol-pieza { animation-name: sol-subir; }
+.sol-entra-escalar .sol-pieza { animation-name: sol-escalar; }
+.sol-entra-deslizar .sol-pieza { animation-name: sol-deslizar; }
+
+/* ── Al pasar el mouse ───────────────────────────────────────────────
+   «elevar» reusa la utilidad del sitio (`elevar`). Las otras tres van
+   acá. «crecer» NO lleva will-change a propósito: escalar una capa
+   rasterizada a 1× difumina el texto (ya pasó en el sitio). «brillo» es
+   un velo blanco cuya OPACIDAD cambia — no `filter`, que no está en la
+   lista de lo que se anima. */
+.sol-hover-suave { transition: opacity var(--duracion-micro, 200ms) var(--ease-bookea, ease-out); }
+.sol-hover-suave:hover { opacity: 0.9; }
+.sol-hover-crecer { transition: transform var(--duracion-card, 300ms) var(--ease-bookea, ease-out); }
+.sol-hover-crecer:hover { transform: scale(1.02); }
+.sol-hover-crecer:active { transform: scale(0.99); }
+.sol-hover-brillo { position: relative; }
+.sol-hover-brillo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #ffffff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duracion-micro, 200ms) var(--ease-bookea, ease-out);
+}
+.sol-hover-brillo:hover::after { opacity: 0.12; }
+
+/* ── Fondos que se mueven: aurora y burbujas ─────────────────────────
+   Tres manchas desenfocadas (aurora) o seis círculos que suben
+   (burbujas), detrás del contenido y sin recibir clics. El desenfoque
+   se aplica UNA vez (filter estático); lo que se anima es transform,
+   que va al compositor. `translate3d` y no translateX/Y: en teléfono,
+   con scroll activo, es lo que mantiene la capa en la GPU. */
+.sol-aurora, .sol-burbujas {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.sol-aurora > span {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(42px);
+  opacity: 0.55;
+  will-change: transform;
+}
+.sol-aurora > span:nth-child(1) { width: 60%; aspect-ratio: 1; left: -15%; top: -10%; animation: sol-aurora-1 22s ease-in-out infinite alternate; }
+.sol-aurora > span:nth-child(2) { width: 55%; aspect-ratio: 1; right: -20%; top: 25%; animation: sol-aurora-2 26s ease-in-out infinite alternate; }
+.sol-aurora > span:nth-child(3) { width: 50%; aspect-ratio: 1; left: 15%; bottom: -20%; animation: sol-aurora-3 30s ease-in-out infinite alternate; }
+@keyframes sol-aurora-1 {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(28%, 22%, 0) scale(1.15); }
+}
+@keyframes sol-aurora-2 {
+  from { transform: translate3d(0, 0, 0) scale(1.1); }
+  to { transform: translate3d(-30%, -18%, 0) scale(0.9); }
+}
+@keyframes sol-aurora-3 {
+  from { transform: translate3d(0, 0, 0) scale(0.95); }
+  to { transform: translate3d(22%, -30%, 0) scale(1.2); }
+}
+.sol-burbujas > span {
+  position: absolute;
+  bottom: -12%;
+  border-radius: 999px;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: sol-burbuja 14s linear infinite;
+}
+.sol-burbujas > span:nth-child(1) { left: 8%; width: 18%; aspect-ratio: 1; animation-duration: 16s; }
+.sol-burbujas > span:nth-child(2) { left: 30%; width: 9%; aspect-ratio: 1; animation-duration: 12s; animation-delay: -4s; }
+.sol-burbujas > span:nth-child(3) { left: 52%; width: 24%; aspect-ratio: 1; animation-duration: 20s; animation-delay: -9s; }
+.sol-burbujas > span:nth-child(4) { left: 70%; width: 7%; aspect-ratio: 1; animation-duration: 11s; animation-delay: -2s; }
+.sol-burbujas > span:nth-child(5) { left: 84%; width: 14%; aspect-ratio: 1; animation-duration: 18s; animation-delay: -12s; }
+.sol-burbujas > span:nth-child(6) { left: 42%; width: 5%; aspect-ratio: 1; animation-duration: 9s; animation-delay: -6s; }
+@keyframes sol-burbuja {
+  0% { transform: translate3d(0, 0, 0); opacity: 0; }
+  10% { opacity: 0.5; }
+  90% { opacity: 0.35; }
+  100% { transform: translate3d(0, -120vh, 0); opacity: 0; }
+}
+
+/* ⚠️ QUIETO, NO AUSENTE. Con prefers-reduced-motion las piezas nacen
+   en su lugar, las manchas de la aurora quedan fijas y las burbujas
+   desaparecen (un círculo quieto a media subida no dice nada). El color
+   y el foco siguen funcionando: son información, no adorno. */
+@media (prefers-reduced-motion: reduce) {
+  .sol-entra-aparecer .sol-pieza,
+  .sol-entra-subir .sol-pieza,
+  .sol-entra-escalar .sol-pieza,
+  .sol-entra-deslizar .sol-pieza {
+    animation: none;
+  }
+  .sol-aurora > span { animation: none; }
+  .sol-burbujas > span { animation: none; opacity: 0; }
+  .sol-hover-crecer:hover { transform: none; }
 }

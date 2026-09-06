@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Card, PildoraEstado } from "@/components/panel/piezas";
 import { BOTON_PANEL, CIFRA, ROTULO_CIFRA } from "@/components/panel/sistema";
 import { IconCheck } from "@/components/icons";
-import { fmtColones } from "@/lib/finanzas";
 import { ADDON, ADDONS, type EstadoAddons } from "@/lib/solutions/addons";
+import { esDeComida, vocabDe } from "@/lib/solutions/rubros";
 import type { NegocioSolutions } from "@/lib/solutions/tipos";
 import AddonToggle from "./addon-toggle";
 import EscanerSolutions from "./escaner-solutions";
@@ -80,6 +80,12 @@ export default function SeccionInicio({
 }) {
   const base = `/solutions/panel/${negocio.id}`;
   const lealtadActiva = addons.lealtad || tieneLealtad;
+  // El vocabulario del rubro (0236): «platos», «servicios» o «productos».
+  const vocab = vocabDe(negocio.rubro);
+  const comida = esDeComida(negocio.rubro);
+  /** El nombre del add-on para ESTE rubro; los demás, el genérico. */
+  const nombreDe = (id: (typeof ADDONS)[number]): string =>
+    id === "menu" ? vocab.catalogoLargo : id === "pedidos" ? vocab.pedidosNombre : ADDON[id].nombre;
 
   // ── Los pasos: solo los de lo que el negocio TIENE ────────────────
   // Sin el add-on de menú, «cargá tu menú» sería pedirle que haga algo
@@ -113,23 +119,23 @@ export default function SeccionInicio({
   if (addons.menu) {
     pasos.push({
       clave: "menu",
-      titulo: "Cargá tu menú",
-      detalle: "Secciones, platos, fotos y precios.",
+      titulo: vocab.cargar,
+      detalle: vocab.cargarDetalle,
       listo: totalPlatos > 0,
       href: `${base}?tab=menu`,
-      accion: "Agregar platos",
+      accion: `Agregar ${vocab.items}`,
     });
   }
   if (addons.pedidos) {
     pasos.push({
       clave: "pedidos",
-      titulo: "Decidí cómo recibís pedidos",
-      detalle: "Desde la mesa, To go o exprés, y con qué se paga.",
+      titulo: vocab.decidir,
+      detalle: vocab.decidirDetalle,
       listo: negocio.acepta_pedidos || negocio.pedidos_llevar || negocio.pedidos_express,
       href: `${base}?tab=pagina`,
       accion: "Configurar",
     });
-    if (negocio.acepta_pedidos) {
+    if (comida && negocio.acepta_pedidos) {
       pasos.push({
         clave: "mesas",
         titulo: "Imprimí tus QR de mesa",
@@ -147,24 +153,29 @@ export default function SeccionInicio({
 
   // ── Los números: solo los que tienen algo detrás ──────────────────
   const metricas: { r: string; v: string }[] = [{ r: "Enlaces visibles", v: String(totalLinks) }];
-  if (addons.menu) metricas.push({ r: "Platos en el menú", v: String(totalPlatos) });
+  if (addons.menu) metricas.push({ r: `${vocab.Items} en tu ${vocab.catalogo.toLowerCase()}`, v: String(totalPlatos) });
   if (addons.pedidos) metricas.push({ r: "Pedidos hoy", v: String(comandasHoy) });
 
   /** Qué dice cada add-on debajo del nombre, con lo que el negocio ya hizo. */
   const detalleDe = (id: (typeof ADDONS)[number]): string => {
     if (id === "linkhub") return urlPublica.replace(/^https?:\/\//, "");
-    if (id === "menu" && addons.menu) return totalPlatos > 0 ? `${totalPlatos} platos en ${totalSecciones || 1} secciones` : "Sin platos todavía";
+    if (id === "menu" && addons.menu) return totalPlatos > 0 ? `${totalPlatos} ${vocab.items} en ${totalSecciones || 1} secciones` : `Sin ${vocab.items} todavía`;
+    if (id === "menu") return vocab.cargarDetalle;
     if (id === "pedidos" && addons.pedidos) {
       const modos = [
-        negocio.acepta_pedidos && `mesa (${negocio.mesas})`,
-        negocio.pedidos_llevar && "to go",
-        negocio.pedidos_express && "exprés",
+        comida && negocio.acepta_pedidos && `mesa (${negocio.mesas})`,
+        negocio.pedidos_llevar && vocab.modalidades.llevar.rotulo.toLowerCase(),
+        negocio.pedidos_express && vocab.modalidades.express.rotulo.toLowerCase(),
       ].filter(Boolean);
       return modos.length > 0 ? `${modos.join(" · ")} · sin comisión` : "Sin modalidad elegida todavía";
     }
+    if (id === "pedidos") return vocab.pedidosPie;
     if (id === "lealtad" && lealtadActiva) return "Ya tenés una tarjeta en tu cuenta de Lealtad";
     return ADDON[id].pie;
   };
+  /** Qué trae cada add-on, con las palabras de este rubro. */
+  const incluyeDe = (id: (typeof ADDONS)[number]): string[] =>
+    id === "menu" ? vocab.catalogoIncluye : id === "pedidos" ? vocab.pedidosIncluye : ADDON[id].incluye;
 
   return (
     <div className="flex flex-col gap-4">
@@ -236,7 +247,7 @@ export default function SeccionInicio({
       <Card
         eyebrow="Tu cuenta"
         titulo="Tus add-ons"
-        accion={<PildoraEstado estado="info">Todo en ₡0 mientras dure la prueba</PildoraEstado>}
+        accion={<PildoraEstado estado="info">Gratis mientras dure la prueba</PildoraEstado>}
       >
         <p className="text-[12.5px] leading-snug text-aventurea-ink-soft">
           Una cuenta, tu negocio, y los add-ons que quieras. El link hub viene incluido; el resto lo
@@ -246,7 +257,9 @@ export default function SeccionInicio({
           {ADDONS.map((id) => {
             const def = ADDON[id];
             const activo = id === "lealtad" ? lealtadActiva : addons[id];
-            const precio = def.incluido ? "Gratis" : def.precioMes === 0 ? "₡0 · en prueba" : `${fmtColones(def.precioMes)}/mes`;
+            // El precio de lista de Bookea es uno para toda Latinoamérica:
+            // en dólares cuando exista (hoy, gratis en prueba).
+            const precio = def.incluido ? "Gratis" : def.precioMes === 0 ? "Gratis · en prueba" : `US$${def.precioMes}/mes`;
             return (
               <li key={id} className="flex flex-wrap items-center gap-3 py-3">
                 <span
@@ -259,7 +272,7 @@ export default function SeccionInicio({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-baseline gap-x-2">
-                    <span className="text-[14px] font-bold text-aventurea-ink">{def.nombre}</span>
+                    <span className="text-[14px] font-bold text-aventurea-ink">{nombreDe(id)}</span>
                     <span className="text-[11.5px] font-extrabold uppercase tracking-[0.1em] text-aventurea-ink-soft">
                       {precio}
                     </span>
@@ -267,7 +280,7 @@ export default function SeccionInicio({
                   <span className="block truncate text-[12.5px] text-aventurea-ink-soft">{detalleDe(id)}</span>
                   {!activo && (
                     <span className="mt-0.5 block text-[11.5px] text-aventurea-ink-soft">
-                      {def.incluye.join(" · ")}
+                      {incluyeDe(id).join(" · ")}
                     </span>
                   )}
                 </span>
@@ -292,7 +305,7 @@ export default function SeccionInicio({
           <a href={urlPublica} target="_blank" rel="noopener noreferrer" className={BOTON_PANEL}>
             Ver como cliente →
           </a>
-          {addons.pedidos && negocio.acepta_pedidos && (
+          {comida && addons.pedidos && negocio.acepta_pedidos && (
             <Link href={`${base}/mesas`} className={BOTON_PANEL}>
               Imprimir QR de mesas →
             </Link>

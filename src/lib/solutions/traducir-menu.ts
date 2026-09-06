@@ -46,9 +46,9 @@ export async function traducirPiezas(
 
   const nombres = idiomas.map((i) => `${i} (${IDIOMA[i].propio})`).join(", ");
   const system = [
-    "Sos un traductor gastronómico profesional para restaurantes de Costa Rica.",
-    "Traducís del español nombres y descripciones de platos de un menú. Tono corto y apetitoso, fiel al original: no inventás ingredientes ni agregás adjetivos.",
-    "Los nombres propios y platos típicos (Casado, Gallo pinto, Tiramisú, Chifrijo) se conservan tal cual, y si hace falta se aclara entre paréntesis en la descripción.",
+    "Sos un traductor profesional para negocios de Latinoamérica: restaurantes, tiendas, lavacar, salones de belleza, servicios.",
+    "Traducís del español nombres y descripciones de los ítems de un catálogo (platos, productos o servicios). Tono corto y atractivo, fiel al original: no inventás ingredientes, características ni adjetivos.",
+    "Los nombres propios, marcas y platos típicos (Casado, Gallo pinto, Tiramisú, Chifrijo, Ceviche) se conservan tal cual, y si hace falta se aclara entre paréntesis en la descripción.",
     "Respondé ÚNICAMENTE con JSON válido, sin texto antes ni después, con esta forma exacta:",
     '{"<id>": {"<idioma>": {"nombre": "...", "descripcion": "..."}, ...}, ...}',
     "Si una pieza no tiene descripción, omití la clave descripcion en esa pieza.",

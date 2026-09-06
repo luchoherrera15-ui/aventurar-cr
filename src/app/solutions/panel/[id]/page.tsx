@@ -26,7 +26,8 @@ import {
   negocioPorId,
   pedidosDelNegocio,
 } from "@/lib/solutions/datos";
-import { urlDelNegocio } from "@/lib/solutions/tipos";
+import { urlDelNegocio, TOPES } from "@/lib/solutions/tipos";
+import { esDeComida, vocabDe } from "@/lib/solutions/rubros";
 import SeccionInicio from "./seccion-inicio";
 import SeccionPagina from "./seccion-pagina";
 import SeccionMenu from "./seccion-menu";
@@ -35,7 +36,7 @@ import EscanerSolutions from "./escaner-solutions";
 import CompletarPerfil from "../completar-perfil";
 import { estadoDelPerfil } from "@/lib/solutions/perfil";
 
-export const metadata: Metadata = { title: "Panel · Bookea Solutions" };
+export const metadata: Metadata = { title: "Panel · Linksy" };
 
 /**
  * /solutions/panel/<id> — EL PANEL DE UN NEGOCIO DE SOLUTIONS.
@@ -91,6 +92,16 @@ export default async function PanelSolutionsPage({
   ]);
 
   const vivas = pedidos.filter((p) => p.estado === "nuevo" || p.estado === "preparando" || p.estado === "listo").length;
+
+  // El vocabulario del rubro (0236): «Menú digital» y «Modo restaurante»
+  // en un restaurante; «Catálogo de productos» y «Ventas en línea» en
+  // una tienda; «Lista de servicios» y «Reservas» en un lavacar.
+  const vocab = vocabDe(negocio.rubro);
+  const comida = esDeComida(negocio.rubro);
+  // Los ítems públicos, para la vitrina de la previa de Mi página.
+  const vitrina = menu.agrupado
+    .flatMap((g) => g.items.filter((it) => it.disponible && !it.agotado_hoy).map((it) => ({ id: it.id, nombre: it.nombre, precio: it.precio, fotoUrl: it.foto_url, seccion: g.seccion?.nombre ?? "Otros" })))
+    .slice(0, TOPES.vitrinaTodo);
 
   // Las comandas de HOY, en hora de Costa Rica — el tablero las muestra
   // como el único número «de hoy» que existe de verdad.
@@ -169,14 +180,14 @@ export default async function PanelSolutionsPage({
   if (addons.pedidos) {
     tabs.push({
       id: "restaurante",
-      label: "Modo restaurante",
-      descripcion: "Comandas en vivo: mesa, To go y exprés",
+      label: vocab.tablero,
+      descripcion: vocab.tableroPie,
       icon: <IconClipboard />,
       badge: vivas,
       href: `/solutions/panel/${id}/restaurante`,
     });
   } else {
-    tabs.push({ id: "restaurante", label: "Modo restaurante", icon: <IconClipboard />, bloqueado: bloqueada });
+    tabs.push({ id: "restaurante", label: vocab.tablero, icon: <IconClipboard />, bloqueado: bloqueada });
   }
 
   // EL ESCÁNER DE PASES (dueño, 5 sep 2026): el mismo de Lealtad,
@@ -236,6 +247,7 @@ export default async function PanelSolutionsPage({
             links={links}
             seccionesMenu={menu.agrupado.map((g) => g.seccion?.nombre ?? "Otros")}
             hayMenu={menu.items.length > 0}
+            vitrina={vitrina}
             urlPublica={urlPublica}
             recienCreado={recienCreado}
             addons={addons}
@@ -247,16 +259,17 @@ export default async function PanelSolutionsPage({
     if (addons.menu) {
       tabs.push({
         id: "menu",
-        label: "Menú digital",
-        descripcion: "Secciones, platos y precios",
+        label: vocab.catalogoLargo,
+        descripcion: vocab.cargarDetalle,
         icon: <IconCloche />,
         badge: menu.items.length,
-        content: <SeccionMenu negocioId={id} menu={menu} idiomas={negocio.idiomas_menu} />,
+        content: <SeccionMenu negocioId={id} menu={menu} idiomas={negocio.idiomas_menu} moneda={negocio.moneda} rubro={negocio.rubro} />,
       });
     } else {
-      tabs.push({ id: "menu", label: "Menú digital", icon: <IconCloche />, bloqueado: bloqueada });
+      tabs.push({ id: "menu", label: vocab.catalogoLargo, icon: <IconCloche />, bloqueado: bloqueada });
     }
-    if (addons.pedidos && negocio.acepta_pedidos) {
+    // El QR de mesa es de la comida: una boutique no tiene mesas.
+    if (comida && addons.pedidos && negocio.acepta_pedidos) {
       tabs.push({
         id: "mesas",
         label: "QR de mesas",
@@ -264,7 +277,7 @@ export default async function PanelSolutionsPage({
         icon: <IconChair />,
         href: `/solutions/panel/${id}/mesas`,
       });
-    } else if (!addons.pedidos) {
+    } else if (comida && !addons.pedidos) {
       tabs.push({ id: "mesas", label: "QR de mesas", icon: <IconChair />, bloqueado: bloqueada });
     }
     tabs.push({
@@ -335,7 +348,9 @@ export default async function PanelSolutionsPage({
         </span>
         <span>
           Agregar add-ons
-          <span className="block text-[11.5px] font-medium text-aventurea-rail">Menú, pedidos, lealtad</span>
+          <span className="block text-[11.5px] font-medium text-aventurea-rail">
+            {vocab.catalogo}, {vocab.pedidosNombre.toLowerCase()}, lealtad
+          </span>
         </span>
       </Link>
     ) : undefined;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codigoDePedido, enlaceDeWhatsapp, numeroParaWhatsapp, textoAvisoListo, textoDelPedido } from "./whatsapp";
+import { codigoDePedido, enlaceDeWhatsapp, numeroParaWhatsapp, textoAvisoListo, textoDelPedido, textoConsulta } from "./whatsapp";
 
 const base = {
   negocio: "Casa Nostra",
@@ -33,7 +33,7 @@ describe("textoDelPedido", () => {
     // lee de un vistazo porque siempre está igual.
     const iNombre = lineas.findIndex((l) => l.startsWith("Nombre:"));
     const iTel = lineas.findIndex((l) => l.startsWith("Teléfono:"));
-    const iCed = lineas.findIndex((l) => l.startsWith("Cédula:"));
+    const iCed = lineas.findIndex((l) => l.startsWith("Documento:"));
     const iPago = lineas.findIndex((l) => l.startsWith("Pago:"));
     const iNota = lineas.findIndex((l) => l.startsWith("Nota:"));
     expect([iNombre, iTel, iCed, iPago, iNota]).toEqual([...[iNombre, iTel, iCed, iPago, iNota]].sort((a, b) => a - b));
@@ -61,7 +61,7 @@ describe("textoDelPedido", () => {
       total: 24200,
       cliente: { ...base.cliente, cedula: "", nota: "" },
     });
-    expect(t).not.toContain("Cédula:");
+    expect(t).not.toContain("Documento:");
     expect(t).not.toContain("Nota:");
   });
 
@@ -103,5 +103,22 @@ describe("textoAvisoListo", () => {
     expect(textoAvisoListo({ cliente: "  ", codigo: "A1B2", negocio: "Casa Nostra", modalidad: "express" })).toBe(
       "Hola, tu pedido #A1B2 de Casa Nostra ya va en camino.",
     );
+  });
+});
+
+describe("moneda y país (0236)", () => {
+  it("el pedido se escribe en la moneda del negocio", () => {
+    const t = textoDelPedido({ ...base, moneda: "MXN", modalidad: "llevar", costoEnvio: 0, total: 24200 });
+    expect(t).toContain("*Total: $24,200.00*");
+  });
+  it("el número recibe el prefijo de su país", () => {
+    expect(numeroParaWhatsapp("55 1234 5678", "MX")).toBe("525512345678");
+    expect(enlaceDeWhatsapp("11 2345 6789", "hola", "AR").startsWith("https://wa.me/5491123456789?")).toBe(true);
+  });
+  it("la consulta desde el catálogo lleva el ítem y el precio en su moneda", () => {
+    const t = textoConsulta({ negocio: "Lavacar Pro", item: "Encerado completo", precio: 80, moneda: "PEN", slug: "lavacar-pro" });
+    expect(t).toContain("Encerado completo (S/ 80.00)");
+    expect(t).toContain("bookea.lat/s/lavacar-pro");
+    expect(textoConsulta({ negocio: "X", item: "Corte", precio: null, moneda: "CRC", slug: "x" })).toContain("Corte.");
   });
 });

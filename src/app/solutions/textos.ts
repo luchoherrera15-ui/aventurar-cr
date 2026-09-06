@@ -23,7 +23,7 @@ export type TextosLanding = {
   otroIdioma: { etiqueta: string; href: string };
   nav: { enlaces: { href: string; label: string }[]; cta: string; ingresar: string };
   hero: { kicker: string; titulo: string; tituloAcento: string; bajada: string; bajadaFuerte: string; cta: string; ver: string; nota: string };
-  looks: Record<"completa" | "fondo" | "tarjeta" | "menu" | "marca", { nombre: string; pie: string }>;
+  looks: Record<"tienda" | "lavacar" | "completa" | "fondo" | "tarjeta" | "menu" | "marca", { nombre: string; pie: string }>;
   carrusel: { anterior: string; siguiente: string; lista: string };
   productos: {
     kicker: string;
@@ -65,6 +65,8 @@ export const TEXTOS: Record<IdiomaLanding, TextosLanding> = {
       nota: "Sin tarjeta. Empezás con el plan Gratis y subís cuando lo necesités.",
     },
     looks: {
+      tienda: { nombre: "Tienda con vitrina", pie: "Productos con foto y precio adentro de la página · Neón · Técnica" },
+      lavacar: { nombre: "Servicios y reservas", pie: "Un lavacar: servicios, redes y WhatsApp · Cielo · Redonda" },
       completa: { nombre: "Portada completa", pie: "La foto de borde a borde · Noche · Elegante" },
       fondo: { nombre: "Foto de fondo", pie: "La foto viste la página entera · Vino · Condensada" },
       tarjeta: { nombre: "Foto en la tarjeta", pie: "Solo en el encabezado · Crema · Editorial" },
@@ -193,6 +195,8 @@ export const TEXTOS: Record<IdiomaLanding, TextosLanding> = {
       nota: "No card required. Start on the Free plan and upgrade when you need to.",
     },
     looks: {
+      tienda: { nombre: "Shop with a showcase", pie: "Products with photo and price inside the page · Neon · Technical" },
+      lavacar: { nombre: "Services and bookings", pie: "A car wash: services, socials and WhatsApp · Sky · Round" },
       completa: { nombre: "Full-bleed cover", pie: "Edge-to-edge photo · Night · Elegant" },
       fondo: { nombre: "Background photo", pie: "The photo dresses the whole page · Wine · Condensed" },
       tarjeta: { nombre: "Photo in the card", pie: "Header only · Cream · Editorial" },

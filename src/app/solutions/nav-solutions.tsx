@@ -15,17 +15,22 @@ import { cerrarSesionSolutions } from "./sesion-actions";
  * `MarcaNav` en nav-lealtad.tsx). Lo único de Solutions es esto.
  */
 export const MARCA_SOLUTIONS: MarcaNav = {
-  etiqueta: "Solutions",
+  // «Linksy» desde el 6 sep 2026: el producto estrena nombre y dominio
+  // (linksy.lat). Las RUTAS siguen bajo /solutions —renombrar carpetas
+  // y tablas por una marca es lo que el repo no hace (ver `ranchos`)—;
+  // lo que cambia es lo que la persona lee.
+  etiqueta: "Linksy",
   enlaces: [
-    { href: "/solutions#productos", label: "Add-ons y precios" },
-    { href: "/solutions#como-funciona", label: "Cómo funciona" },
+    { href: "/linksy#lealtad", label: "Lealtad" },
+    { href: "/linksy#vender", label: "Vender" },
+    { href: "/linksy#dominio", label: "Tu dominio" },
   ],
   itemsCuenta: [
-    { href: "/solutions/panel", label: "Mis negocios" },
+    { href: "/solutions/panel", label: "Mis páginas" },
     { href: "/lealtad/panel", label: "Mis tarjetas de lealtad" },
     { href: "/cuenta", label: "Configuración de perfil" },
   ],
-  hrefIngresar: "/cuenta?volver=solutions",
+  hrefIngresar: "/linksy/login",
   cta: { href: "/solutions/crear", label: "Crear mi página gratis" },
   cerrarSesion: cerrarSesionSolutions,
   industrias: false,

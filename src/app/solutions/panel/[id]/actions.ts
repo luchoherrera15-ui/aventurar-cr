@@ -18,6 +18,7 @@ import {
   vercelConfigurado,
 } from "@/lib/solutions/vercel-dominios";
 import {
+  disenoDe,
   efectoDe,
   estiloLinksDe,
   fuenteDe,
@@ -31,12 +32,17 @@ import {
   ICONOS_LINK,
   ROLES_COLABORADOR,
   TOPES,
+  formatoLinkDe,
   metodosPagoDe,
   type EstadoDominio,
   type EstadoPedido,
+  type FormatoLink,
   type IconoLink,
   type RolColaborador,
 } from "@/lib/solutions/tipos";
+import { monedaDe, paisDe, redondearMonto } from "@/lib/monedas";
+import { rubroDe } from "@/lib/solutions/rubros";
+import { esUrlDeCloudflare } from "@/lib/solutions/fotos";
 
 /**
  * LAS ACTIONS DEL PANEL DE SOLUTIONS.
@@ -78,6 +84,12 @@ async function portonComandas(negocioId: string) {
 async function fotoValida(url: string): Promise<{ ok: true; url: string | null } | { ok: false; motivo: string }> {
   const limpia = (url ?? "").trim();
   if (!limpia) return { ok: true, url: null };
+  // Cloudflare Images (0236, «todo lo que sean imágenes desde
+  // Cloudflare»): una URL de entrega de NUESTRA cuenta (el hash se
+  // compara contra la variable del servidor). No hace falta mirar los
+  // magic bytes: Cloudflare rechaza al subir lo que no es una imagen,
+  // y lo que devuelve es lo que él mismo procesó.
+  if (esUrlDeCloudflare(limpia, process.env.CLOUDFLARE_IMAGES_DELIVERY_URL)) return { ok: true, url: limpia };
   if (!esUrlDeNuestroStorage(limpia, BUCKET)) return { ok: false, motivo: "La foto tiene que subirse desde el panel." };
   const r = await comprobarImagenSubida(limpia, { maxBytes: MAX_BYTES_FOTO });
   if (!r.ok) return { ok: false, motivo: r.motivo };
@@ -127,6 +139,11 @@ export async function guardarPaginaSolutions(
     whatsappPedidos: string;
     /** Idiomas del menú además del español (0235). */
     idiomasMenu: string[];
+    /** País, moneda, rubro y diseño fino (0236). Listas cerradas, saneadas acá. */
+    pais?: string;
+    moneda?: string;
+    rubro?: string;
+    diseno?: unknown;
   },
 ): Promise<R> {
   const p = await portonEditar(negocioId);
@@ -160,12 +177,19 @@ export async function guardarPaginaSolutions(
   if (whatsappPedidos && (whatsappPedidos.length < 8 || whatsappPedidos.length > 15)) {
     return { ok: false, motivo: "El WhatsApp de pedidos tiene que tener entre 8 y 15 dígitos." };
   }
-  const costoExpress = Math.max(0, Math.round(Number(d.costoExpress) || 0));
+  const moneda = monedaDe(d.moneda);
+  // El costo del envío se redondea a los decimales de SU moneda: en
+  // colones no hay centavos; en pesos mexicanos, dos.
+  const costoExpress = Math.max(0, redondearMonto(Number(d.costoExpress) || 0, moneda));
   const metodosPago = metodosPagoDe(d.metodosPago);
 
   const { error } = await p.admin
     .from("solutions_negocios")
     .update({
+      pais: paisDe(d.pais),
+      moneda,
+      rubro: rubroDe(d.rubro),
+      diseno: disenoDe(d.diseno),
       nombre,
       slug,
       bajada: d.bajada.trim().slice(0, TOPES.bajada),
@@ -388,7 +412,16 @@ export async function traducirMenuSolutions(
 
 export async function guardarLinksSolutions(
   negocioId: string,
-  links: { etiqueta: string; url: string; icono: string; visible: boolean; fondoUrl?: string | null }[],
+  links: {
+    etiqueta: string;
+    url: string;
+    icono: string;
+    visible: boolean;
+    fondoUrl?: string | null;
+    /** Botón, ícono de red, título o texto (0236). */
+    formato?: string;
+    descripcion?: string;
+  }[],
 ): Promise<R> {
   const p = await portonEditar(negocioId);
   if (!p.ok) return p;
@@ -401,15 +434,24 @@ export async function guardarLinksSolutions(
     orden: number;
     visible: boolean;
     fondo_url: string | null;
+    formato: FormatoLink;
+    descripcion: string;
   }[] = [];
   for (const l of Array.isArray(links) ? links.slice(0, TOPES.links) : []) {
-    const etiqueta = String(l.etiqueta ?? "").trim().slice(0, TOPES.etiquetaLink);
+    const formato = formatoLinkDe(l.formato);
+    // Un texto es un párrafo (160); botón, ícono y título, un rótulo (40).
+    const etiqueta = String(l.etiqueta ?? "").trim().slice(0, formato === "texto" ? TOPES.textoLink : TOPES.etiquetaLink);
     let url = String(l.url ?? "").trim();
     if (!etiqueta && !url) continue; // fila vacía: se ignora
     if (!etiqueta) return { ok: false, motivo: "Cada enlace necesita un texto." };
     if (/^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(url)) url = `https://${url}`;
-    if (!/^(https?:\/\/|mailto:|tel:)/i.test(url)) return { ok: false, motivo: `«${etiqueta}» necesita una dirección válida.` };
+    // Un título o un texto no llevan a ningún lado: la URL es opcional.
+    const sinDestino = formato === "titulo" || formato === "texto";
+    if (sinDestino && !url) url = "";
+    if (url && !/^(https?:\/\/|mailto:|tel:)/i.test(url)) return { ok: false, motivo: `«${etiqueta}» necesita una dirección válida.` };
+    if (!sinDestino && !url) return { ok: false, motivo: `«${etiqueta}» necesita una dirección válida.` };
     const icono = (ICONOS_LINK as readonly string[]).includes(l.icono) ? (l.icono as IconoLink) : "link";
+    const descripcion = String(l.descripcion ?? "").trim().slice(0, TOPES.descripcionLink);
 
     // La foto de fondo pasa por el MISMO portero que el logo y la
     // portada: tiene que estar en nuestro storage y ser una imagen de
@@ -429,6 +471,8 @@ export async function guardarLinksSolutions(
       orden: limpios.length,
       visible: l.visible !== false,
       fondo_url: fondo.url,
+      formato,
+      descripcion,
     });
   }
 
@@ -530,10 +574,14 @@ export async function guardarPlatoSolutions(
   if (!nombre) return { ok: false, motivo: "El plato necesita un nombre." };
   const foto = await fotoValida(d.fotoUrl);
   if (!foto.ok) return foto;
+  // Dos decimales y no entero (0236): en pesos mexicanos o soles un
+  // precio lleva centavos. La columna es numeric(12,2) desde la 0230;
+  // lo que se muestra lo redondea `fmtMoneda` a los decimales de la
+  // moneda del negocio.
   const precio =
     d.precio === null || d.precio === undefined || Number.isNaN(Number(d.precio))
       ? null
-      : Math.max(0, Math.round(Number(d.precio)));
+      : Math.max(0, Math.round(Number(d.precio) * 100) / 100);
 
   const fila = {
     seccion_id: d.seccionId || null,

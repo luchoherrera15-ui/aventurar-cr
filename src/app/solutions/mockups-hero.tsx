@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Telefono from "@/components/solutions/telefono";
-import VistaPagina from "@/components/solutions/vista-pagina";
+import VistaPagina, { type DatosPagina } from "@/components/solutions/vista-pagina";
 import { MockupCarta, MUESTRA_PAGINA as MUESTRA } from "@/components/solutions/mockup-pantallas";
 import { IconChevronLeft, IconChevronRight } from "@/components/icons";
 import {
@@ -60,6 +60,12 @@ type Look = {
   efecto: Efecto;
   estiloPortada: EstiloPortada;
   foto: string | null;
+  /**
+   * Otro negocio de muestra (0236): el link hub ya no es solo de
+   * restaurantes. Un look puede traer su propio nombre, sus enlaces
+   * (con íconos de redes), su rubro, su vitrina y su diseño fino.
+   */
+  muestra?: Partial<DatosPagina>;
 };
 
 const FOTO = {
@@ -67,9 +73,93 @@ const FOTO = {
   mesa: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=900&q=70",
   bowl: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=900&q=70",
   pizza: "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=900&q=70",
+  lavacar: "https://images.unsplash.com/photo-1520340356584-f9917d1eea6f?w=900&q=70",
+  tenis: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=70",
+  reloj: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=70",
+  bolso: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=600&q=70",
+  lentes: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=600&q=70",
+};
+
+/** Una boutique: la vitrina adentro del link hub, como la tienda de Linktree. */
+const TIENDA: Partial<DatosPagina> = {
+  nombre: "Nova Studio",
+  bajada: "Moda y accesorios · envíos a todo el país",
+  whatsapp: "5512345678",
+  direccion: null,
+  rubro: "boutique",
+  moneda: "MXN",
+  pais: "MX",
+  links: [
+    { id: "ig", etiqueta: "Instagram", url: "#", icono: "instagram", formato: "icono" },
+    { id: "tk", etiqueta: "TikTok", url: "#", icono: "tiktok", formato: "icono" },
+    { id: "wa", etiqueta: "WhatsApp", url: "#", icono: "whatsapp", formato: "icono" },
+    { id: "t1", etiqueta: "Nueva colección", url: "#", icono: "link", formato: "titulo" },
+    { id: "l1", etiqueta: "Ver todo el catálogo", url: "#", icono: "tienda", formato: "boton", descripcion: "Envío gratis desde $999" },
+  ],
+  seccionesMenu: ["Novedades", "Accesorios"],
+  hayMenu: true,
+  aceptaPedidos: false,
+  vitrina: [
+    { id: "p1", nombre: "Tenis Runner", precio: 1899, fotoUrl: FOTO.tenis, seccion: "Novedades" },
+    { id: "p2", nombre: "Reloj Minimal", precio: 2450, fotoUrl: FOTO.reloj, seccion: "Accesorios" },
+    { id: "p3", nombre: "Bolso Tote", precio: 1290, fotoUrl: FOTO.bolso, seccion: "Accesorios" },
+    { id: "p4", nombre: "Lentes Sol", precio: 690, fotoUrl: FOTO.lentes, seccion: "Accesorios" },
+  ],
+  diseno: { animacion: "subir", hover: "elevar", fondo: "liso", boton: "solido", logoForma: "circulo", logoTamano: "medio", alineacion: "centro", densidad: "compacta", vitrina: "destacados", redes: "arriba", titulo: "normal" },
+};
+
+/** Un lavacar: servicios con precio y reserva por WhatsApp. */
+const LAVACAR: Partial<DatosPagina> = {
+  nombre: "AutoBrillo",
+  bajada: "Lavado a mano, encerado y detailing · Bogotá",
+  whatsapp: "3001234567",
+  direccion: "Calle 85 #12-30",
+  rubro: "lavacar",
+  moneda: "COP",
+  pais: "CO",
+  links: [
+    { id: "ig", etiqueta: "Instagram", url: "#", icono: "instagram", formato: "icono" },
+    { id: "fb", etiqueta: "Facebook", url: "#", icono: "facebook", formato: "icono" },
+    { id: "l1", etiqueta: "Reservar un turno", url: "#", icono: "reservar", formato: "boton", descripcion: "Lunes a sábado, 8 a 18" },
+    { id: "l2", etiqueta: "Cómo llegar", url: "#", icono: "mapa", formato: "boton" },
+    { id: "l3", etiqueta: "Escribinos", url: "#", icono: "whatsapp", formato: "boton" },
+  ],
+  seccionesMenu: ["Lavado", "Detailing"],
+  hayMenu: true,
+  aceptaPedidos: false,
+  vitrina: [],
+  diseno: { animacion: "aparecer", hover: "brillo", fondo: "puntos", boton: "acabado", logoForma: "redondeado", logoTamano: "grande", alineacion: "izquierda", densidad: "normal", vitrina: "boton", redes: "arriba", titulo: "normal" },
 };
 
 const LOOKS: Look[] = [
+  {
+    id: "tienda",
+    nombre: "Tienda con vitrina",
+    pie: "Productos con foto y precio adentro de la página · Neón · Técnica",
+    pieza: "links",
+    tema: "neon",
+    fuente: "tecnica",
+    estiloLinks: "lista",
+    redondeo: "redondo",
+    efecto: "plano",
+    estiloPortada: "sin",
+    foto: null,
+    muestra: TIENDA,
+  },
+  {
+    id: "lavacar",
+    nombre: "Servicios y reservas",
+    pie: "Un lavacar: servicios, redes y WhatsApp · Cielo · Redonda",
+    pieza: "links",
+    tema: "cielo",
+    fuente: "redonda",
+    estiloLinks: "lista",
+    redondeo: "suave",
+    efecto: "elevado",
+    estiloPortada: "card",
+    foto: FOTO.lavacar,
+    muestra: LAVACAR,
+  },
   {
     id: "completa",
     nombre: "Portada completa",
@@ -160,6 +250,7 @@ function Pantalla({ look }: { look: Look }) {
       className="min-h-full"
       datos={{
         ...MUESTRA,
+        ...(look.muestra ?? {}),
         fotoPortadaUrl: look.foto,
         colorAcento: acento,
         tema: look.tema,

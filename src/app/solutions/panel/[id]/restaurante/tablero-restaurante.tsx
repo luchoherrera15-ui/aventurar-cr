@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { PildoraEstado } from "@/components/panel/piezas";
 import { BOTON_PANEL, BOTON_PANEL_PRIMARIO } from "@/components/panel/sistema";
 import { IconWhatsapp } from "@/components/icons";
-import { fmtColones } from "@/lib/finanzas";
+import { fmtMoneda, PAIS, type Moneda, type Pais } from "@/lib/monedas";
+import { vocabDe, type Rubro } from "@/lib/solutions/rubros";
 import {
   ESTADO_PEDIDO,
   METODO_PAGO,
@@ -41,6 +42,11 @@ import { cambiarEstadoPedidoSolutions, marcarAgotadoSolutions } from "../actions
  * cliente cada 30 s y NO se calcula en el render (react-hooks/purity):
  * arranca vacío en el servidor y aparece al montar.
  *
+ * ── EL RUBRO Y LA MONEDA (0236) ────────────────────────────────────
+ * El título («Modo restaurante» / «Ventas en línea» / «Reservas y
+ * pedidos») y los rótulos de las modalidades siguen el rubro; los
+ * montos van en la moneda del negocio y el WhatsApp con su país.
+ *
  * ── EL AVISO AL CLIENTE, OPCIONAL ──────────────────────────────────
  * Un pedido To go o Exprés trae el teléfono del cliente. Cuando pasa a
  * «Listo», la tarjeta ofrece «Avisar por WhatsApp»: abre wa.me con el
@@ -59,6 +65,9 @@ export default function TableroRestaurante({
   items,
   modalidades,
   puedeEditar,
+  moneda,
+  pais,
+  rubro,
 }: {
   negocioId: string;
   negocioNombre: string;
@@ -67,8 +76,16 @@ export default function TableroRestaurante({
   /** Qué modalidades tiene prendidas el negocio: decide qué filtros se ofrecen. */
   modalidades: Modalidad[];
   puedeEditar: boolean;
+  /** Moneda de los montos, país del WhatsApp y rubro para los rótulos (0236). */
+  moneda: Moneda;
+  pais: Pais;
+  rubro: Rubro;
 }) {
   const router = useRouter();
+  const v = vocabDe(rubro);
+  /** «To go» en un restaurante es «Recoger en tienda» en una boutique. */
+  const rotulo = (m: Modalidad) => (m === "mesa" ? MODALIDAD.mesa.rotulo : v.modalidades[m].rotulo);
+  const $ = (n: number) => fmtMoneda(n, moneda);
   const [ocupado, arrancar] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("todas");
@@ -123,11 +140,11 @@ export default function TableroRestaurante({
   };
   /** «Mesa 4» o «To go #A1B2»: el título de una comanda. */
   const titulo = (p: PedidoSolutions) =>
-    p.modalidad === "mesa" ? `Mesa ${p.mesa ?? "?"}` : `${MODALIDAD[p.modalidad].rotulo} #${codigoDePedido(p.id)}`;
+    p.modalidad === "mesa" ? `Mesa ${p.mesa ?? "?"}` : `${rotulo(p.modalidad)} #${codigoDePedido(p.id)}`;
 
   const filtros: { id: Filtro; nombre: string }[] = [
     { id: "todas", nombre: "Todas" },
-    ...modalidades.map((m) => ({ id: m, nombre: MODALIDAD[m].rotulo })),
+    ...modalidades.map((m) => ({ id: m, nombre: rotulo(m) })),
   ];
   const cuenta = (m: Filtro) => pedidos.filter((p) => VIVOS.includes(p.estado) && (m === "todas" || p.modalidad === m)).length;
 
@@ -139,7 +156,7 @@ export default function TableroRestaurante({
           <Link href={`/solutions/panel/${negocioId}?tab=inicio`} className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink">
             ← Volver al panel
           </Link>
-          <h1 className="titulo mt-1 text-[clamp(22px,3vw,30px)] text-aventurea-navy">Modo restaurante</h1>
+          <h1 className="titulo mt-1 text-[clamp(22px,3vw,30px)] text-aventurea-navy">{v.tablero}</h1>
           <p className="mt-0.5 text-[13px] text-aventurea-ink-soft">
             {negocioNombre} · se actualiza solo cada 12 segundos
           </p>
@@ -221,7 +238,7 @@ export default function TableroRestaurante({
                           </p>
                         </div>
                         <PildoraEstado estado={esMesa ? "neutro" : p.modalidad === "express" ? "info" : "aviso"}>
-                          {MODALIDAD[p.modalidad].rotulo}
+                          {rotulo(p.modalidad)}
                         </PildoraEstado>
                       </div>
 
@@ -229,14 +246,14 @@ export default function TableroRestaurante({
                         {p.items.map((it) => (
                           <li key={it.id} className="flex justify-between gap-3">
                             <span><span className="font-extrabold tabular-nums">{it.cantidad}×</span> {it.nombre}</span>
-                            <span className="tabular-nums text-aventurea-ink-soft">{fmtColones(it.precio * it.cantidad)}</span>
+                            <span className="tabular-nums text-aventurea-ink-soft">{$(it.precio * it.cantidad)}</span>
                           </li>
                         ))}
                       </ul>
                       {p.costo_envio > 0 && (
                         <p className="mt-1 flex justify-between text-[13px] text-aventurea-ink-soft">
                           <span>Envío</span>
-                          <span className="tabular-nums">{fmtColones(p.costo_envio)}</span>
+                          <span className="tabular-nums">{$(p.costo_envio)}</span>
                         </p>
                       )}
                       {p.nota && (
@@ -247,18 +264,18 @@ export default function TableroRestaurante({
                       {!esMesa && (
                         <div className="mt-3 rounded-xl border border-aventurea-line bg-[#f7f9fc] px-3 py-2.5 text-[13px] leading-snug text-aventurea-ink">
                           {p.telefono && <p>Tel. {p.telefono}</p>}
-                          {p.cedula && <p>Cédula {p.cedula}</p>}
+                          {p.cedula && <p>{PAIS[pais].documento} {p.cedula}</p>}
                           {p.direccion && <p>{p.direccion}</p>}
                           {p.metodo_pago && <p className="font-bold">Paga con {METODO_PAGO[p.metodo_pago].toLowerCase()}</p>}
                         </div>
                       )}
 
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-aventurea-line pt-3">
-                        <span className="text-[16px] font-extrabold tabular-nums text-aventurea-navy">{fmtColones(p.total)}</span>
+                        <span className="text-[16px] font-extrabold tabular-nums text-aventurea-navy">{$(p.total)}</span>
                         <div className="flex flex-wrap gap-2">
                           {avisable && (
                             <a
-                              href={enlaceDeWhatsapp(p.telefono as string, textoAvisoListo({ cliente: p.nombre, codigo: codigoDePedido(p.id), negocio: negocioNombre, modalidad: p.modalidad as "llevar" | "express" }))}
+                              href={enlaceDeWhatsapp(p.telefono as string, textoAvisoListo({ cliente: p.nombre, codigo: codigoDePedido(p.id), negocio: negocioNombre, modalidad: p.modalidad as "llevar" | "express" }), pais)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className={`${BOTON_PANEL} inline-flex items-center gap-1.5`}
@@ -300,10 +317,10 @@ export default function TableroRestaurante({
               {cerradas.map((p) => (
                 <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-[13px]">
                   <span className="text-aventurea-ink">
-                    <strong>{titulo(p)}</strong> · {hora(p.creado_en)} · {p.items.reduce((s, it) => s + it.cantidad, 0)} platos
+                    <strong>{titulo(p)}</strong> · {hora(p.creado_en)} · {p.items.reduce((s, it) => s + it.cantidad, 0)} {v.items}
                   </span>
                   <span className="flex items-center gap-3">
-                    <span className="tabular-nums text-aventurea-ink-soft">{fmtColones(p.total)}</span>
+                    <span className="tabular-nums text-aventurea-ink-soft">{$(p.total)}</span>
                     <PildoraEstado estado={p.estado === "cancelado" ? "alerta" : "neutro"}>{ESTADO_PEDIDO[p.estado].rotulo}</PildoraEstado>
                   </span>
                 </li>

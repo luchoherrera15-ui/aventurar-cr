@@ -4,25 +4,37 @@ import { notFound } from "next/navigation";
 import { paginaPublica, mesaDeBusqueda } from "@/lib/solutions/datos";
 import MenuConCarrito from "./menu-con-carrito";
 import { idiomaDeBusqueda, textoEn, type Idioma } from "@/lib/solutions/idiomas";
+import { nombreDeMoneda } from "@/lib/monedas";
+import { rotulosDe, vocabDe } from "@/lib/solutions/rubros";
+import { conVariante } from "@/lib/solutions/fotos";
 
-/** El título y la bajada del menú, en el idioma del cliente. */
-const TITULO: Record<Idioma, { titulo: string; mesa: string; llevar: string; solo: string }> = {
-  es: { titulo: "El menú", mesa: "Elegí y pedí desde tu mesa · precios en colones", llevar: "Elegí y pedí To go o Exprés · precios en colones", solo: "Precios en colones" },
-  en: { titulo: "The menu", mesa: "Choose and order from your table · prices in colones", llevar: "Choose and order to go or for delivery · prices in colones", solo: "Prices in colones" },
-  fr: { titulo: "Le menu", mesa: "Choisissez et commandez depuis votre table · prix en colones", llevar: "Choisissez et commandez à emporter ou en livraison · prix en colones", solo: "Prix en colones" },
-  it: { titulo: "Il menù", mesa: "Scegli e ordina dal tuo tavolo · prezzi in colones", llevar: "Scegli e ordina da asporto o a domicilio · prezzi in colones", solo: "Prezzi in colones" },
-  pt: { titulo: "O menu", mesa: "Escolha e peça da sua mesa · preços em colones", llevar: "Escolha e peça para viagem ou entrega · preços em colones", solo: "Preços em colones" },
-  de: { titulo: "Die Speisekarte", mesa: "Wähle und bestelle von deinem Tisch · Preise in Colones", llevar: "Wähle und bestelle zum Mitnehmen oder liefern · Preise in Colones", solo: "Preise in Colones" },
+/**
+ * La bajada bajo el título, en el idioma del cliente. El título viene
+ * del rubro (`rotulosDe`: «El menú» / «Nuestros servicios» /
+ * «Catálogo») y la moneda del negocio (0236): antes decía «precios en
+ * colones» aunque el negocio estuviera en Lima.
+ */
+const BAJADA: Record<Idioma, { mesa: string; llevar: string; precios: string }> = {
+  es: { mesa: "Elegí y pedí desde tu mesa", llevar: "Elegí y pedí desde acá", precios: "Precios en" },
+  en: { mesa: "Choose and order from your table", llevar: "Choose and order right here", precios: "Prices in" },
+  fr: { mesa: "Choisissez et commandez depuis votre table", llevar: "Choisissez et commandez ici", precios: "Prix en" },
+  it: { mesa: "Scegli e ordina dal tuo tavolo", llevar: "Scegli e ordina da qui", precios: "Prezzi in" },
+  pt: { mesa: "Escolha e peça da sua mesa", llevar: "Escolha e peça por aqui", precios: "Preços em" },
+  de: { mesa: "Wähle und bestelle von deinem Tisch", llevar: "Wähle und bestelle hier", precios: "Preise in" },
 };
 
 /**
- * /s/<slug>/menu — LA CARTA, y desde la mesa, EL PEDIDO.
+ * /s/<slug>/menu — EL CATÁLOGO (menú, servicios o productos), y desde
+ * la mesa o desde la página, EL PEDIDO.
  *
  * El servidor arma los datos y decide si se puede pedir (el negocio
- * lo tiene prendido Y hay número de mesa en el QR). El componente
- * cliente pinta la carta, el carrito y manda la comanda. Sin mesa la
- * carta es solo lectura — así el mismo link sirve para mirar desde
- * casa sin que nadie «pida» a una mesa que no existe.
+ * lo tiene prendido Y hay número de mesa en el QR, o To go / envío
+ * prendidos). El componente cliente pinta el catálogo, el carrito y
+ * manda el pedido. Sin nada de eso el catálogo es solo lectura — y si
+ * el negocio tiene WhatsApp, cada ítem se consulta por ahí.
+ *
+ * `?item=<id>` (0236) abre la ficha de ese ítem al entrar: es a donde
+ * lleva cada tarjeta de la vitrina del link hub.
  */
 
 type Props = {
@@ -34,7 +46,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const datos = await paginaPublica(slug);
   if (!datos) return { title: "Página no encontrada" };
-  return { title: `El menú · ${datos.negocio.nombre}`, description: `Platos y precios de ${datos.negocio.nombre}.` };
+  const v = vocabDe(datos.negocio.rubro);
+  return { title: `${v.catalogo} · ${datos.negocio.nombre}`, description: `${v.Items} y precios de ${datos.negocio.nombre}.` };
 }
 
 export default async function MenuSolutionsPage({ params, searchParams }: Props) {
@@ -48,14 +61,19 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
   // Desde la mesa: el add-on de pedidos, el interruptor y el número de
   // mesa del QR. To go / exprés (0233): el add-on y la modalidad
   // prendida — y SIN mesa, porque desde la mesa se pide a la cocina.
-  // Las tres caen en el Modo restaurante del panel.
+  // Todas caen en el tablero del panel.
   const puedePedir = addons.pedidos && negocio.acepta_pedidos && mesa !== null;
   const llevar = addons.pedidos && negocio.pedidos_llevar;
   const express = addons.pedidos && negocio.pedidos_express;
   const paraLlevar = mesa === null && (llevar || express);
   // El idioma viene en ?idioma= y solo vale si el negocio lo ofrece (0235).
   const idioma = idiomaDeBusqueda(busqueda.idioma, negocio.idiomas_menu);
-  const tt = TITULO[idioma];
+  const rotulos = rotulosDe(negocio.rubro, idioma);
+  const b = BAJADA[idioma];
+  const precios = `${b.precios} ${nombreDeMoneda(negocio.moneda, idioma)}`;
+  const itemCrudo = Array.isArray(busqueda.item) ? busqueda.item[0] : busqueda.item;
+  const itemInicial = itemCrudo && /^[0-9a-f-]{36}$/i.test(itemCrudo) ? itemCrudo : null;
+  const portada = conVariante(negocio.foto_portada_url, "hero");
 
   return (
     <main className="min-h-svh pb-32" style={{ background: paleta.fondo, color: paleta.tinta }}>
@@ -78,10 +96,10 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
           )}
         </header>
 
-        {negocio.foto_portada_url && (
+        {portada && (
           <div className="relative -mx-5 mt-4 h-[150px] overflow-hidden sm:mx-0 sm:rounded-2xl" aria-hidden>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={negocio.foto_portada_url} alt="" className="h-full w-full object-cover" />
+            <img src={portada} alt="" className="h-full w-full object-cover" />
             <div
               className="absolute inset-0"
               style={{ background: `linear-gradient(180deg, transparent 40%, ${paleta.fondo} 100%)` }}
@@ -89,9 +107,9 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
           </div>
         )}
 
-        <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.02em]">{tt.titulo}</h1>
+        <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.02em]">{rotulos.titulo}</h1>
         <p className="mt-0.5 text-[12.5px]" style={{ color: paleta.suave }}>
-          {puedePedir ? tt.mesa : paraLlevar ? tt.llevar : tt.solo}
+          {puedePedir ? `${b.mesa} · ${precios.toLowerCase()}` : paraLlevar ? `${b.llevar} · ${precios.toLowerCase()}` : precios}
         </p>
       </div>
 
@@ -119,6 +137,12 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
         express={express}
         costoExpress={negocio.costo_express}
         metodosPago={negocio.metodos_pago}
+        moneda={negocio.moneda}
+        pais={negocio.pais}
+        rotulos={rotulos}
+        negocioNombre={negocio.nombre}
+        whatsapp={negocio.whatsapp}
+        itemInicial={itemInicial}
       />
     </main>
   );

@@ -1070,3 +1070,52 @@ export function IconMovil({ className = base }: IconProps) {
     </svg>
   );
 }
+
+/* ── Redes para el link hub de Solutions (6 sep 2026) ───────────────
+   X, LinkedIn, Spotify, Telegram y Pinterest: los que una tienda o un
+   creador ponen en su fila de redes. Mismo trazo de 1,7 px y
+   currentColor que el resto, para que hereden la tinta del tema. */
+
+export function IconXSocial({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" className={className}>
+      <path d="M4 4l16 16M20 4L4 20" />
+    </svg>
+  );
+}
+
+export function IconLinkedin({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="3" y="3" width="18" height="18" rx="3" />
+      <path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 10v7" />
+    </svg>
+  );
+}
+
+export function IconSpotify({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M7.5 9.5c3-1 6.5-.8 9 .7M8 12.5c2.5-.8 5.3-.6 7.5.6M8.5 15.3c2-.6 4-.5 5.8.4" />
+    </svg>
+  );
+}
+
+export function IconTelegram({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M21 4L3 11l6 2 2 6 3-4 5 3z" />
+      <path d="M9 13l9-7" />
+    </svg>
+  );
+}
+
+export function IconPinterest({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M10 20l2.2-7.5M9.2 13.2a3.5 3.5 0 1 1 5.6.6c-.9 1.6-2.6 1.5-3 .6" />
+    </svg>
+  );
+}

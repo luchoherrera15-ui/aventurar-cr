@@ -40,7 +40,7 @@ export default async function PaginaSolutions({ params, searchParams }: Props) {
   const datos = await paginaPublica(slug);
   if (!datos) notFound();
 
-  const { negocio, links, menu, addons } = datos;
+  const { negocio, links, menu, addons, vitrina } = datos;
   const mesa = mesaDeBusqueda(busqueda.mesa, negocio.mesas);
   const sufijoMesa = mesa ? `?mesa=${mesa}` : "";
 
@@ -71,6 +71,8 @@ export default async function PaginaSolutions({ params, searchParams }: Props) {
             url: l.url,
             icono: l.icono,
             fondoUrl: l.fondo_url,
+            formato: l.formato,
+            descripcion: l.descripcion,
           })),
           seccionesMenu: menu.map((g) => g.seccion?.nombre ?? "Otros"),
           // El menú es un add-on (0233): sin él no hay puerta, tenga o no platos.
@@ -78,6 +80,12 @@ export default async function PaginaSolutions({ params, searchParams }: Props) {
           aceptaPedidos: negocio.acepta_pedidos,
           mesa,
           hrefMenu: `/s/${negocio.slug}/menu${sufijoMesa}`,
+          // 0236: el diseño fino, la moneda, el país, el rubro y la vitrina.
+          diseno: negocio.diseno,
+          moneda: negocio.moneda,
+          pais: negocio.pais,
+          rubro: negocio.rubro,
+          vitrina,
         }}
         className="min-h-svh"
       />

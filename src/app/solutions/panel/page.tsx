@@ -9,7 +9,7 @@ import { ADDON, ADDONS, addonsDeVarios } from "@/lib/solutions/addons";
 import { estadoDelPerfil } from "@/lib/solutions/perfil";
 import CompletarPerfil from "./completar-perfil";
 
-export const metadata: Metadata = { title: "Mis negocios · Bookea Solutions" };
+export const metadata: Metadata = { title: "Mis páginas · Linksy" };
 
 /** /solutions/panel — la lista de negocios de la cuenta (propios y donde colabora). */
 export default async function PanelSolutionsIndex() {

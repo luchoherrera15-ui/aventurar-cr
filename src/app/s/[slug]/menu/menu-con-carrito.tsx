@@ -1,7 +1,11 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { fmtColones } from "@/lib/finanzas";
+import { IconWhatsapp } from "@/components/icons";
+import { fmtMoneda, PAIS, type Moneda, type Pais } from "@/lib/monedas";
+import type { RotulosCatalogo } from "@/lib/solutions/rubros";
+import { enlaceDeWhatsapp, textoConsulta } from "@/lib/solutions/whatsapp";
+import { conVariante } from "@/lib/solutions/fotos";
 import { ALERGENO, IDIOMA, type Alergeno, type Idioma, type IdiomaExtra, type Nutricion } from "@/lib/solutions/idiomas";
 import { TOPES, type MetodoPago } from "@/lib/solutions/tipos";
 import { pedirDesdeLaMesa, pedirParaLlevar } from "./pedir-actions";
@@ -232,6 +236,12 @@ export default function MenuConCarrito({
   express = false,
   costoExpress = 0,
   metodosPago = ["efectivo"],
+  moneda = "CRC",
+  pais = "CR",
+  rotulos,
+  negocioNombre = "",
+  whatsapp = null,
+  itemInicial = null,
 }: {
   negocioId: string;
   slug: string;
@@ -248,14 +258,32 @@ export default function MenuConCarrito({
   express?: boolean;
   costoExpress?: number;
   metodosPago?: MetodoPago[];
+  /** La moneda de los precios y el país del WhatsApp (0236). */
+  moneda?: Moneda;
+  pais?: Pais;
+  /** Los rótulos que cambian con el rubro: «To go» / «Recoger en tienda»… (0236). */
+  rotulos?: RotulosCatalogo;
+  negocioNombre?: string;
+  /** El WhatsApp del negocio: si no vende en línea, cada ítem se consulta por ahí. */
+  whatsapp?: string | null;
+  /** `?item=`: abre la ficha de ese ítem al entrar (viene de la vitrina del link hub). */
+  itemInicial?: string | null;
 }) {
-  const t = T[idioma];
+  // Los rótulos por rubro van POR ENCIMA del diccionario del idioma:
+  // en una tienda «To go» es «Recoger en tienda» y «Enviar pedido» es
+  // «Confirmar compra», en los seis idiomas.
+  const t = { ...T[idioma], ...(rotulos ?? {}) };
+  const $ = (n: number) => fmtMoneda(n, moneda);
+  // El documento de identidad se llama distinto en cada país.
+  const rotuloDocumento = pais === "CR" ? t.cedula : t.cedula.replace(/^[^(]+/, `${PAIS[pais].documento} `);
   const paraLlevar = mesa === null && (llevar || express);
   const puedeAgregar = puedePedir || paraLlevar;
 
   const [carrito, setCarrito] = useState<Record<string, number>>({});
   const [abierto, setAbierto] = useState(false);
-  const [detalle, setDetalle] = useState<Item | null>(null);
+  const [detalle, setDetalle] = useState<Item | null>(
+    () => (itemInicial ? grupos.flatMap((g) => g.items).find((it) => it.id === itemInicial) ?? null : null),
+  );
   const [nombre, setNombre] = useState("");
   const [nota, setNota] = useState("");
   const [modalidad, setModalidad] = useState<"llevar" | "express">(llevar ? "llevar" : "express");
@@ -350,7 +378,7 @@ export default function MenuConCarrito({
               <>
                 <p className="text-[15px] font-extrabold">✓ {t.enviadoMesa} {mesa}</p>
                 <p className="mt-1 text-[13px]" style={{ color: paleta.suave }}>
-                  {enviado.renglones} · {fmtColones(enviado.total)}. {t.enviadoMesaPie}
+                  {enviado.renglones} · {$(enviado.total)}. {t.enviadoMesaPie}
                 </p>
               </>
             ) : (
@@ -359,7 +387,7 @@ export default function MenuConCarrito({
                   ✓ {t.recibido} #{enviado.codigo} · {enviado.tipo === "express" ? t.express : t.llevar}
                 </p>
                 <p className="mt-1 text-[13px]" style={{ color: paleta.suave }}>
-                  {fmtColones(enviado.total)} · {t.pagas} {t.metodos[enviado.metodoPago].toLowerCase()}.{" "}
+                  {$(enviado.total)} · {t.pagas} {t.metodos[enviado.metodoPago].toLowerCase()}.{" "}
                   {enviado.tipo === "express" ? `${t.teLlevamos} ${enviado.direccion}.` : t.pasaARecoger} {t.teAvisamos}{" "}
                   {enviado.telefono}. {t.guardaCodigo}
                 </p>
@@ -425,7 +453,7 @@ export default function MenuConCarrito({
                     <button type="button" onClick={() => setDetalle(it)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
                       {it.foto_url && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={it.foto_url} alt="" className="h-[60px] w-[60px] shrink-0 rounded-xl object-cover" />
+                        <img src={conVariante(it.foto_url, "thumb") ?? it.foto_url} alt="" loading="lazy" className="h-[60px] w-[60px] shrink-0 rounded-xl object-cover" />
                       )}
                       <span className="min-w-0 flex-1">
                         <span className="block text-[15px] font-extrabold leading-tight">{it.nombre}</span>
@@ -435,11 +463,23 @@ export default function MenuConCarrito({
                           </span>
                         )}
                         <span className="mt-1 block text-[14px] font-bold tabular-nums" style={{ color: paleta.acento }}>
-                          {it.precio === null ? t.consultar : fmtColones(it.precio)}
+                          {it.precio === null ? t.consultar : $(it.precio)}
                           {it.nutricion && <span className="ml-2 text-[11px] font-bold" style={{ color: paleta.suave }}>ⓘ</span>}
                         </span>
                       </span>
                     </button>
+                    {!puedeAgregar && whatsapp && (
+                      <a
+                        href={enlaceDeWhatsapp(whatsapp, textoConsulta({ negocio: negocioNombre, item: it.nombre, precio: it.precio, moneda, slug }), pais)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`${t.consultarWhatsapp}: ${it.nombre}`}
+                        className="presionable grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+                        style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}
+                      >
+                        <IconWhatsapp className="h-5 w-5" />
+                      </a>
+                    )}
                     {pedible &&
                       (cant === 0 ? (
                         <button type="button" onClick={() => ajustar(it.id, 1)} aria-label={`${t.agregar} ${it.nombre}`} className="presionable grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[20px] font-extrabold" style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}>
@@ -475,7 +515,7 @@ export default function MenuConCarrito({
               </div>
               {detalle.descripcion && <p className="mt-2 text-[14px] leading-relaxed" style={{ color: paleta.suave }}>{detalle.descripcion}</p>}
               <p className="mt-3 text-[18px] font-extrabold tabular-nums" style={{ color: paleta.acento }}>
-                {detalle.precio === null ? t.consultar : fmtColones(detalle.precio)}
+                {detalle.precio === null ? t.consultar : $(detalle.precio)}
               </p>
 
               {detalle.nutricion && (
@@ -502,6 +542,18 @@ export default function MenuConCarrito({
                   + {t.agregar}
                 </button>
               )}
+              {!puedeAgregar && whatsapp && (
+                <a
+                  href={enlaceDeWhatsapp(whatsapp, textoConsulta({ negocio: negocioNombre, item: detalle.nombre, precio: detalle.precio, moneda, slug }), pais)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="presionable mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-[15px] font-extrabold"
+                  style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}
+                >
+                  <IconWhatsapp className="h-5 w-5" />
+                  {t.consultarWhatsapp}
+                </a>
+              )}
             </div>
           </div>
         </div>
@@ -512,7 +564,7 @@ export default function MenuConCarrito({
         <div className="fixed inset-x-0 bottom-0 z-20 px-4 pb-4">
           <button type="button" onClick={() => setAbierto(true)} className="presionable mx-auto flex w-full max-w-[520px] items-center justify-between rounded-2xl px-5 py-4 text-[15px] font-extrabold shadow-flotante" style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}>
             <span>{t.verPedido} · {cantidadTotal}</span>
-            <span className="tabular-nums">{fmtColones(subtotal)} →</span>
+            <span className="tabular-nums">{$(subtotal)} →</span>
           </button>
         </div>
       )}
@@ -533,7 +585,7 @@ export default function MenuConCarrito({
                 return (
                   <li key={id} className="flex items-center justify-between gap-3 text-[14px]">
                     <span className="min-w-0 flex-1 truncate"><span className="font-extrabold tabular-nums">{c}×</span> {it.nombre}</span>
-                    <span className="tabular-nums" style={{ color: paleta.suave }}>{fmtColones((it.precio ?? 0) * c)}</span>
+                    <span className="tabular-nums" style={{ color: paleta.suave }}>{$((it.precio ?? 0) * c)}</span>
                     <button type="button" onClick={() => ajustar(id, -c)} aria-label={`${t.quitar} ${it.nombre}`} className="text-[12px] font-bold underline">{t.quitar}</button>
                   </li>
                 );
@@ -550,7 +602,7 @@ export default function MenuConCarrito({
                   </Opcion>
                   <Opcion paleta={paleta} activo={modalidad === "express"} onClick={() => setModalidad("express")}>
                     {t.express}
-                    <span className="block text-[11px] font-bold opacity-80">{costoExpress > 0 ? `+${fmtColones(costoExpress)}` : t.envioGratis}</span>
+                    <span className="block text-[11px] font-bold opacity-80">{costoExpress > 0 ? `+${$(costoExpress)}` : t.envioGratis}</span>
                   </Opcion>
                 </div>
               </div>
@@ -560,12 +612,12 @@ export default function MenuConCarrito({
               {envio > 0 && (
                 <div className="flex items-center justify-between" style={{ color: paleta.suave }}>
                   <span>{t.envio}</span>
-                  <span className="tabular-nums">{fmtColones(envio)}</span>
+                  <span className="tabular-nums">{$(envio)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between text-[16px] font-extrabold">
                 <span>{t.total}</span>
-                <span className="tabular-nums">{fmtColones(total)}</span>
+                <span className="tabular-nums">{$(total)}</span>
               </div>
             </div>
 
@@ -573,7 +625,7 @@ export default function MenuConCarrito({
               <div className="mt-4 grid gap-3">
                 <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} maxLength={TOPES.pedidoNombre} placeholder={t.nombre} autoComplete="name" className={campo} style={estiloCampo} />
                 <input type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} maxLength={TOPES.telefono + 4} placeholder={t.telefono} autoComplete="tel" className={campo} style={estiloCampo} />
-                <input type="text" value={cedula} onChange={(e) => setCedula(e.target.value)} maxLength={TOPES.cedula} placeholder={t.cedula} className={campo} style={estiloCampo} />
+                <input type="text" value={cedula} onChange={(e) => setCedula(e.target.value)} maxLength={TOPES.cedula} placeholder={rotuloDocumento} className={campo} style={estiloCampo} />
                 {modalidad === "express" && (
                   <textarea value={direccion} onChange={(e) => setDireccion(e.target.value)} maxLength={TOPES.direccionPedido} rows={2} placeholder={t.direccion} autoComplete="street-address" className={`${campo} text-[14px]`} style={estiloCampo} />
                 )}
@@ -597,7 +649,7 @@ export default function MenuConCarrito({
             {error && <p className="mt-3 rounded-xl bg-red-600/15 p-3 text-[13px] font-bold text-red-200">{error}</p>}
 
             <button type="button" onClick={paraLlevar ? enviarParaLlevar : enviarALaMesa} disabled={enviando || renglones.length === 0} className="presionable mt-4 w-full rounded-2xl py-4 text-[15px] font-extrabold disabled:opacity-60" style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}>
-              {enviando ? t.enviando : `${t.enviar} · ${fmtColones(total)}`}
+              {enviando ? t.enviando : `${t.enviar} · ${$(total)}`}
             </button>
             <p className="mt-2 text-center text-[11.5px]" style={{ color: paleta.suave }}>
               {paraLlevar ? t.pieLlevar : t.pieMesa}

@@ -52,22 +52,26 @@ export type DefinicionAddon = {
 export const ADDON: Record<AddonId, DefinicionAddon> = {
   linkhub: {
     nombre: "Link hub",
-    pie: "Tu página bookea.lat/s/… con tus enlaces",
-    incluye: ["Hasta doce enlaces, con foto de fondo", "Seis temas, seis fuentes, cinco efectos", "Un QR para todo"],
+    pie: "Tu página linksy.lat/… con tus enlaces y redes",
+    incluye: ["Botones, íconos de redes, títulos y textos", "Trece temas, seis fuentes, animaciones y fondos", "Tu QR y tu propio dominio"],
     precioMes: 0,
     incluido: true,
   },
+  // Los nombres de estos dos cambian con el RUBRO del negocio («Menú
+  // digital» / «Lista de servicios» / «Catálogo de productos»; «Pedidos»
+  // / «Reservas en línea» / «Ventas en línea»): ver `vocabDe` en
+  // rubros.ts. Acá va el nombre genérico, para el admin y la landing.
   menu: {
-    nombre: "Menú digital",
-    pie: "Secciones, platos, fotos y precios",
-    incluye: ["Menú con tu marca", "«Agotado hoy» con un toque", "Se abre desde tu página"],
+    nombre: "Catálogo / menú digital",
+    pie: "Secciones, ítems, fotos y precios en tu moneda",
+    incluye: ["Con tu marca, en hasta seis idiomas", "«Agotado hoy» con un toque", "Vitrina adentro de tu página"],
     precioMes: 0,
     incluido: false,
   },
   pedidos: {
-    nombre: "Pedidos",
-    pie: "Desde la mesa, para llevar y exprés",
-    incluye: ["QR por mesa y comandas en vivo", "Para llevar y exprés por WhatsApp", "Sin comisión: cobrás en tu caja"],
+    nombre: "Ventas y pedidos en línea",
+    pie: "Carrito, mesa con QR, recoger o envío",
+    incluye: ["Carrito con tus precios, sin comisión", "Mesa con QR (comida), recoger o envío", "Tablero en vivo para atenderlos"],
     precioMes: 0,
     incluido: false,
   },

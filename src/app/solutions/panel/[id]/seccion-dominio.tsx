@@ -56,7 +56,7 @@ export default function SeccionDominio({ negocio }: { negocio: NegocioSolutions 
   };
 
   const quitar = () => {
-    if (!confirm(`¿Quitar ${dominio}? Tu página sigue en bookea.lat/s/${negocio.slug}.`)) return;
+    if (!confirm(`¿Quitar ${dominio}? Tu página sigue en linksy.lat/${negocio.slug}.`)) return;
     setMsg(null);
     arrancar(async () => {
       const r = await quitarDominioSolutions(negocio.id);
@@ -158,7 +158,7 @@ export default function SeccionDominio({ negocio }: { negocio: NegocioSolutions 
             </button>
           </div>
           <p className="mt-2 text-[11.5px] text-aventurea-ink-soft">
-            Tu página sigue disponible en bookea.lat/s/{negocio.slug}; el QR que ya imprimiste no cambia.
+            Tu página sigue disponible en linksy.lat/{negocio.slug}; el QR que ya imprimiste no cambia.
           </p>
         </>
       )}

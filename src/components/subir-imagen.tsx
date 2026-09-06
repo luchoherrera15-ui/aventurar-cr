@@ -101,6 +101,7 @@ export default function SubirImagen({
   carpeta,
   alAnalizar,
   bucket = BUCKET,
+  subidaDirecta,
 }: {
   /** La URL actual, o "" si no hay. */
   valor: string;
@@ -109,6 +110,23 @@ export default function SubirImagen({
   etiqueta: string;
   /** Prefijo de la ruta en el bucket. */
   carpeta: string;
+  /**
+   * CLOUDFLARE IMAGES (6 sep 2026): «todo lo que sean imágenes desde
+   * Cloudflare». Si viene, se le pide un permiso de subida directa
+   * (una URL de un solo uso) y el archivo va a Cloudflare en vez del
+   * bucket de Supabase; `urlFinal` es lo que se guarda. Si el permiso
+   * vuelve `configurado: false` —el entorno no tiene las variables—
+   * se cae al bucket de siempre, sin que el dueño note nada.
+   *
+   * Es una función y no un booleano para que este componente no
+   * importe una server action de Solutions: quien lo usa le pasa la
+   * suya (`prepararSubidaSolutions`).
+   */
+  subidaDirecta?: () => Promise<
+    | { ok: true; configurado: true; uploadURL: string; urlFinal: string }
+    | { ok: true; configurado: false }
+    | { ok: false; motivo: string }
+  >;
   /**
    * A qué bucket subir. Por defecto «ranchos-fotos», el de siempre.
    * Solutions (3 sep 2026) tiene el suyo, «solutions-fotos», porque el
@@ -154,6 +172,31 @@ export default function SubirImagen({
         const mb = (liviano.size / 1024 / 1024).toFixed(1);
         setError(`Aun comprimida pesa ${mb} MB y el máximo es ${MAX_MB} MB. Probá con otra.`);
         return;
+      }
+
+      // ── Cloudflare Images, si quien nos monta lo pide ─────────────
+      // El navegador manda el archivo DIRECTO a la URL de un solo uso
+      // que devolvió Cloudflare (multipart, campo `file`). Ni Vercel ni
+      // Supabase ven el archivo.
+      if (subidaDirecta) {
+        const permiso = await subidaDirecta();
+        if (!permiso.ok) {
+          setError(permiso.motivo);
+          return;
+        }
+        if (permiso.configurado) {
+          const form = new FormData();
+          form.set("file", liviano, liviano.name);
+          const r = await fetch(permiso.uploadURL, { method: "POST", body: form });
+          if (!r.ok) {
+            setError("No se pudo subir a Cloudflare. Probá de nuevo en un momento.");
+            return;
+          }
+          if (alAnalizar) alAnalizar(await analizarImagen(liviano));
+          alCambiar(permiso.urlFinal);
+          return;
+        }
+        // Sin Cloudflare configurado: sigue al bucket de siempre.
       }
 
       const supabase = createClient();

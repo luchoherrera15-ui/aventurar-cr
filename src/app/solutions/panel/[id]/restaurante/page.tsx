@@ -7,7 +7,7 @@ import { menuDelNegocio, negocioPorId, pedidosDelNegocio } from "@/lib/solutions
 import type { Modalidad } from "@/lib/solutions/tipos";
 import TableroRestaurante from "./tablero-restaurante";
 
-export const metadata: Metadata = { title: "Modo restaurante · Bookea Solutions" };
+export const metadata: Metadata = { title: "Pedidos en vivo · Linksy" };
 
 /**
  * /solutions/panel/<id>/restaurante — MODO RESTAURANTE.
@@ -55,6 +55,9 @@ export default async function ModoRestaurantePage({ params }: { params: Promise<
         items={menu.items}
         modalidades={modalidades}
         puedeEditar={acceso.puedeEditar}
+        moneda={negocio.moneda}
+        pais={negocio.pais}
+        rubro={negocio.rubro}
       />
     </main>
   );

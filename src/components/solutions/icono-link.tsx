@@ -5,12 +5,17 @@ import {
   IconFacebook,
   IconGlobe,
   IconInstagram,
+  IconLinkedin,
   IconMail,
   IconPin,
+  IconPinterest,
+  IconSpotify,
   IconStore,
   IconTelefono,
+  IconTelegram,
   IconTiktok,
   IconWhatsapp,
+  IconXSocial,
   IconYoutube,
 } from "@/components/icons";
 import type { IconoLink } from "@/lib/solutions/tipos";
@@ -45,6 +50,11 @@ const MAPA: Record<IconoLink, (p: { className?: string }) => React.ReactElement>
   youtube: IconYoutube,
   tienda: IconStore,
   menu: IconCloche,
+  x: IconXSocial,
+  linkedin: IconLinkedin,
+  spotify: IconSpotify,
+  telegram: IconTelegram,
+  pinterest: IconPinterest,
 };
 
 export default function IconoLinkSVG({
@@ -56,4 +66,40 @@ export default function IconoLinkSVG({
 }) {
   const Dibujo = MAPA[icono as IconoLink] ?? IconEnlace;
   return <Dibujo className={className} />;
+}
+
+/**
+ * Adivina el ícono por la dirección: pegar instagram.com/… y que el
+ * botón ya salga con su logo, sin buscarlo en un <select>. Es lo que
+ * hace Linktree y lo que el dueño mostró como referencia (6 sep 2026).
+ */
+export function iconoPorUrl(url: string): IconoLink | null {
+  const u = (url ?? "").trim().toLowerCase();
+  if (!u) return null;
+  if (u.startsWith("tel:")) return "telefono";
+  if (u.startsWith("mailto:")) return "correo";
+  const pares: [string, IconoLink][] = [
+    ["instagram.com", "instagram"],
+    ["facebook.com", "facebook"],
+    ["fb.com", "facebook"],
+    ["tiktok.com", "tiktok"],
+    ["wa.me", "whatsapp"],
+    ["whatsapp.com", "whatsapp"],
+    ["youtube.com", "youtube"],
+    ["youtu.be", "youtube"],
+    ["maps.google", "mapa"],
+    ["goo.gl/maps", "mapa"],
+    ["maps.app.goo.gl", "mapa"],
+    ["waze.com", "mapa"],
+    ["x.com", "x"],
+    ["twitter.com", "x"],
+    ["linkedin.com", "linkedin"],
+    ["spotify.com", "spotify"],
+    ["t.me", "telegram"],
+    ["telegram.me", "telegram"],
+    ["pinterest.com", "pinterest"],
+    ["pin.it", "pinterest"],
+  ];
+  for (const [host, icono] of pares) if (u.includes(host)) return icono;
+  return null;
 }

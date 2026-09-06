@@ -37,6 +37,16 @@ export const RESERVED_SLUGS = new Set([
   "soluciones",
   // /s/<slug>: la página pública de un negocio de Solutions (0230).
   "s",
+  // ── LAS TRES DE linksy.lat (6 sep 2026) ──────────────────────────
+  // En bookea.lat el slug vive bajo /s/, así que «crear» no chocaba
+  // con nada. En linksy.lat el slug está en la RAÍZ —linksy.lat/<slug>—
+  // y ahí sí choca: un negocio llamado «crear» taparía el alta. La
+  // lista viva es `RUTAS_LINKSY` en src/lib/solutions/dominios.ts;
+  // estas tres la espejan para que ningún alta nueva las tome.
+  "linksy",
+  "crear",
+  "entrar",
+  "login",
   "mi-negocio",
   "publicar",
   "puntaleona-web",

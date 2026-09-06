@@ -1,7 +1,10 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { addonsDelNegocio } from "./addons";
 import { idiomasMenuDe, nutricionDe, traduccionesDe } from "./idiomas";
+import { monedaDe, paisDe } from "@/lib/monedas";
+import { rubroDe } from "./rubros";
 import {
+  disenoDe,
   efectoDe,
   estiloLinksDe,
   fuenteDe,
@@ -12,6 +15,7 @@ import {
 } from "./temas";
 import {
   estadoDominioDe,
+  formatoLinkDe,
   metodoPagoDe,
   metodosPagoDe,
   modalidadDe,
@@ -72,6 +76,13 @@ function conVestido(d: Record<string, unknown>): NegocioSolutions {
     // 0235
     idiomas_menu: idiomasMenuDe(d.idiomas_menu),
     origen: d.origen === "admin" ? "admin" : "publico",
+    // 0236: país, moneda, rubro y el diseño fino. Sin las columnas (o
+    // con un valor fuera de lista) cada uno cae a lo que había:
+    // Costa Rica, colones, restaurante, la página de siempre.
+    pais: paisDe(d.pais),
+    moneda: monedaDe(d.moneda),
+    rubro: rubroDe(d.rubro),
+    diseno: disenoDe(d.diseno),
   };
 }
 
@@ -92,7 +103,15 @@ export async function linksDelNegocio(admin: Admin, negocioId: string): Promise<
     .eq("negocio_id", negocioId)
     .order("orden", { ascending: true })
     .limit(TOPES.links);
-  return (data ?? []).map((d) => fila<LinkSolutions>(d));
+  return (data ?? []).map((d) => {
+    const crudo = d as Record<string, unknown>;
+    return {
+      ...fila<LinkSolutions>(d),
+      // 0236: sin la columna, un enlace es un botón sin descripción.
+      formato: formatoLinkDe(crudo.formato),
+      descripcion: typeof crudo.descripcion === "string" ? crudo.descripcion : "",
+    };
+  });
 }
 
 export type MenuDelNegocio = {
@@ -217,13 +236,20 @@ export async function paginaPublica(slug: string) {
     menuDelNegocio(admin, negocio.id),
     addonsDelNegocio(admin, negocio.id),
   ]);
+  // El menú público solo existe si el add-on está prendido (0233):
+  // lo que el negocio no contrató no sale a la calle, tenga o no
+  // platos cargados.
+  const publico = addons.menu ? menuPublico(menu) : [];
   return {
     negocio,
     links: links.filter((l) => l.visible),
-    // El menú público solo existe si el add-on está prendido (0233):
-    // lo que el negocio no contrató no sale a la calle, tenga o no
-    // platos cargados.
-    menu: addons.menu ? menuPublico(menu) : [],
+    menu: publico,
+    // La vitrina del link hub (0236): los ítems públicos, planos, con
+    // el nombre de su sección. Cuántos se muestran lo decide el
+    // renderizador según `diseno.vitrina`; acá van todos, topados.
+    vitrina: publico
+      .flatMap((g) => g.items.map((it) => ({ id: it.id, nombre: it.nombre, precio: it.precio, fotoUrl: it.foto_url, seccion: g.seccion?.nombre ?? "Otros" })))
+      .slice(0, negocio.diseno.vitrina === "destacados" ? TOPES.vitrinaDestacados : TOPES.vitrinaTodo),
     addons,
     paleta: paletaDelTema(negocio.tema, negocio.color_fondo, negocio.color_acento),
   };

@@ -4,7 +4,8 @@
  * ════════════════════════════════════════════════════════════════════
  *
  * Pedido del dueño (4 sep 2026): que el negocio elija el diseño y el
- * tipo de card, «casi un creador de mini-websites».
+ * tipo de card, «casi un creador de mini-websites». Y el 6 sep 2026:
+ * «que sea MUY personalizable, con animaciones, tipo Linktree».
  *
  * Cada tema es un JUEGO COMPLETO de superficies y tintas, no un color
  * suelto: fondo, tinta principal, tinta suave, superficie de las
@@ -21,9 +22,21 @@
  * el mismo tema no se vean iguales. Lo único que el tema decide del
  * acento es la TINTA que va encima, calculada por luminancia — un
  * acento claro con letra blanca es ilegible y no depende del gusto.
+ *
+ * ── LAS OPCIONES FINAS VIVEN EN `Diseno` (0236) ─────────────────────
+ * Animación de entrada, efecto al pasar, fondo, estilo de botón, forma
+ * y tamaño del logo, alineación, densidad, vitrina y fila de redes.
+ * Se guardan en UN jsonb (`solutions_negocios.diseno`) y se sanean
+ * acá con `disenoDe`, llave por llave, igual que `temaDe` sanea el
+ * tema: la base guarda, este archivo decide qué vale.
  */
 
-export const TEMAS = ["marca", "noche", "claro", "crema", "bosque", "vino"] as const;
+export const TEMAS = [
+  "marca", "noche", "claro", "crema", "bosque", "vino",
+  // 0236: siete más, para que un lavacar, una boutique o un creador
+  // encuentren el suyo sin pasar por «restaurante de noche».
+  "arena", "cielo", "grafito", "menta", "neon", "lavanda", "oceano",
+] as const;
 export type Tema = (typeof TEMAS)[number];
 
 export const ESTILOS_LINKS = ["lista", "grilla"] as const;
@@ -93,6 +106,188 @@ export const EFECTO: Record<Efecto, { nombre: string; pie: string }> = {
   contorno: { nombre: "Contorno", pie: "Solo el borde, sin relleno" },
   degradado: { nombre: "Degradado", pie: "Se funde hacia tu acento" },
 };
+
+// ════════════════════════════════════════════════════════════════════
+//  LAS OPCIONES FINAS (0236) — cada una, una lista cerrada
+// ════════════════════════════════════════════════════════════════════
+
+/** Cómo entran las piezas cuando se abre la página. */
+export const ANIMACIONES = ["ninguna", "aparecer", "subir", "escalar", "deslizar"] as const;
+export type Animacion = (typeof ANIMACIONES)[number];
+
+/** Qué hace un botón cuando el mouse pasa por encima. */
+export const HOVERS = ["suave", "elevar", "crecer", "brillo", "ninguno"] as const;
+export type Hover = (typeof HOVERS)[number];
+
+/** El fondo de la página, detrás de todo. */
+export const FONDOS = ["liso", "diagonal", "puntos", "cuadricula", "rayas", "aurora", "burbujas"] as const;
+export type Fondo = (typeof FONDOS)[number];
+
+/** El estilo del botón, por encima del acabado. */
+export const BOTONES = ["acabado", "solido", "contorno", "sombra"] as const;
+export type Boton = (typeof BOTONES)[number];
+
+export const LOGO_FORMAS = ["auto", "circulo", "redondeado", "cuadrado"] as const;
+export type LogoForma = (typeof LOGO_FORMAS)[number];
+
+export const LOGO_TAMANOS = ["medio", "chico", "grande"] as const;
+export type LogoTamano = (typeof LOGO_TAMANOS)[number];
+
+export const ALINEACIONES = ["auto", "izquierda", "centro"] as const;
+export type Alineacion = (typeof ALINEACIONES)[number];
+
+export const DENSIDADES = ["normal", "compacta", "amplia"] as const;
+export type Densidad = (typeof DENSIDADES)[number];
+
+/** Cómo aparece el catálogo en el link hub: un botón, los destacados o entero. */
+export const VITRINAS = ["boton", "destacados", "todo"] as const;
+export type Vitrina = (typeof VITRINAS)[number];
+
+/** Dónde va la fila de íconos de redes. */
+export const REDES = ["arriba", "abajo", "ocultas"] as const;
+export type Redes = (typeof REDES)[number];
+
+/** El titular: normal, grande o en mayúsculas espaciadas. */
+export const TITULOS = ["normal", "grande", "mayusculas"] as const;
+export type Titulo = (typeof TITULOS)[number];
+
+export type Diseno = {
+  animacion: Animacion;
+  hover: Hover;
+  fondo: Fondo;
+  boton: Boton;
+  logoForma: LogoForma;
+  logoTamano: LogoTamano;
+  alineacion: Alineacion;
+  densidad: Densidad;
+  vitrina: Vitrina;
+  redes: Redes;
+  titulo: Titulo;
+};
+
+/** Los defaults = cómo se veía la página antes de la 0236. */
+export const DISENO_BASE: Diseno = {
+  animacion: "ninguna",
+  hover: "suave",
+  fondo: "liso",
+  boton: "acabado",
+  logoForma: "auto",
+  logoTamano: "medio",
+  alineacion: "auto",
+  densidad: "normal",
+  vitrina: "boton",
+  redes: "arriba",
+  titulo: "normal",
+};
+
+type Opcion = { nombre: string; pie: string };
+
+/** Cómo se llama cada opción en el editor. */
+export const DISENO_OPCION: {
+  animacion: Record<Animacion, Opcion>;
+  hover: Record<Hover, Opcion>;
+  fondo: Record<Fondo, Opcion>;
+  boton: Record<Boton, Opcion>;
+  logoForma: Record<LogoForma, Opcion>;
+  logoTamano: Record<LogoTamano, Opcion>;
+  alineacion: Record<Alineacion, Opcion>;
+  densidad: Record<Densidad, Opcion>;
+  vitrina: Record<Vitrina, Opcion>;
+  redes: Record<Redes, Opcion>;
+  titulo: Record<Titulo, Opcion>;
+} = {
+  animacion: {
+    ninguna: { nombre: "Sin animación", pie: "Todo aparece de una" },
+    aparecer: { nombre: "Aparecer", pie: "Se funde, pieza por pieza" },
+    subir: { nombre: "Subir", pie: "Entra desde abajo, en cascada" },
+    escalar: { nombre: "Escalar", pie: "Crece hasta su tamaño" },
+    deslizar: { nombre: "Deslizar", pie: "Entra desde la izquierda" },
+  },
+  hover: {
+    suave: { nombre: "Suave", pie: "Se atenúa un poco" },
+    elevar: { nombre: "Elevar", pie: "Sube 3 px con sombra" },
+    crecer: { nombre: "Crecer", pie: "Se agranda apenas" },
+    brillo: { nombre: "Brillo", pie: "Se ilumina" },
+    ninguno: { nombre: "Ninguno", pie: "Quieto" },
+  },
+  fondo: {
+    liso: { nombre: "Liso", pie: "El degradado del tema" },
+    diagonal: { nombre: "Diagonal", pie: "Con un toque de tu acento" },
+    puntos: { nombre: "Puntos", pie: "Trama de puntos finos" },
+    cuadricula: { nombre: "Cuadrícula", pie: "Líneas finas, tipo papel" },
+    rayas: { nombre: "Rayas", pie: "Diagonales muy suaves" },
+    aurora: { nombre: "Aurora", pie: "Manchas de color que se mueven" },
+    burbujas: { nombre: "Burbujas", pie: "Círculos que suben despacio" },
+  },
+  boton: {
+    acabado: { nombre: "Del efecto", pie: "Sigue el acabado de arriba" },
+    solido: { nombre: "Sólido", pie: "Relleno con tu acento" },
+    contorno: { nombre: "Contorno", pie: "Borde de tu acento" },
+    sombra: { nombre: "Sombra", pie: "Borde grueso y sombra desplazada, tipo cartel" },
+  },
+  logoForma: {
+    auto: { nombre: "Automática", pie: "Círculo en cuadrícula, redondeado en lista" },
+    circulo: { nombre: "Círculo", pie: "" },
+    redondeado: { nombre: "Redondeado", pie: "" },
+    cuadrado: { nombre: "Cuadrado", pie: "" },
+  },
+  logoTamano: {
+    chico: { nombre: "Chico", pie: "" },
+    medio: { nombre: "Medio", pie: "" },
+    grande: { nombre: "Grande", pie: "" },
+  },
+  alineacion: {
+    auto: { nombre: "Automática", pie: "Centrado en cuadrícula, a la izquierda en lista" },
+    izquierda: { nombre: "Izquierda", pie: "" },
+    centro: { nombre: "Centrado", pie: "" },
+  },
+  densidad: {
+    compacta: { nombre: "Compacta", pie: "Más piezas a la vista" },
+    normal: { nombre: "Normal", pie: "" },
+    amplia: { nombre: "Amplia", pie: "Más aire entre piezas" },
+  },
+  vitrina: {
+    boton: { nombre: "Un botón", pie: "«Ver el catálogo» lleva a la página" },
+    destacados: { nombre: "Destacados", pie: "Los primeros, con foto y precio" },
+    todo: { nombre: "Todo", pie: "El catálogo entero en la página" },
+  },
+  redes: {
+    arriba: { nombre: "Bajo el nombre", pie: "" },
+    abajo: { nombre: "Al pie", pie: "" },
+    ocultas: { nombre: "Ocultas", pie: "" },
+  },
+  titulo: {
+    normal: { nombre: "Normal", pie: "" },
+    grande: { nombre: "Grande", pie: "" },
+    mayusculas: { nombre: "Mayúsculas", pie: "Espaciadas" },
+  },
+};
+
+function unoDe<T extends string>(lista: readonly T[], v: unknown, base: T): T {
+  return (lista as readonly unknown[]).includes(v) ? (v as T) : base;
+}
+
+/** Lee el jsonb crudo y devuelve un `Diseno` completo y válido. */
+export function disenoDe(v: unknown): Diseno {
+  const d = (typeof v === "object" && v !== null ? v : {}) as Record<string, unknown>;
+  return {
+    animacion: unoDe(ANIMACIONES, d.animacion, DISENO_BASE.animacion),
+    hover: unoDe(HOVERS, d.hover, DISENO_BASE.hover),
+    fondo: unoDe(FONDOS, d.fondo, DISENO_BASE.fondo),
+    boton: unoDe(BOTONES, d.boton, DISENO_BASE.boton),
+    logoForma: unoDe(LOGO_FORMAS, d.logoForma, DISENO_BASE.logoForma),
+    logoTamano: unoDe(LOGO_TAMANOS, d.logoTamano, DISENO_BASE.logoTamano),
+    alineacion: unoDe(ALINEACIONES, d.alineacion, DISENO_BASE.alineacion),
+    densidad: unoDe(DENSIDADES, d.densidad, DISENO_BASE.densidad),
+    vitrina: unoDe(VITRINAS, d.vitrina, DISENO_BASE.vitrina),
+    redes: unoDe(REDES, d.redes, DISENO_BASE.redes),
+    titulo: unoDe(TITULOS, d.titulo, DISENO_BASE.titulo),
+  };
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  LA PALETA
+// ════════════════════════════════════════════════════════════════════
 
 export type Paleta = {
   fondo: string;
@@ -194,6 +389,90 @@ export const PRESETS: Record<Tema, PresetTema> = {
     borde: "rgba(255,255,255,0.16)",
     acentoSugerido: "#e8a0b6",
   },
+  arena: {
+    id: "arena",
+    nombre: "Arena",
+    pie: "Tierra y sol",
+    fondo: "#efe6d6",
+    fondo2: "#e6d9c2",
+    tinta: "#2d261c",
+    suave: "rgba(45,38,28,0.66)",
+    superficie: "rgba(45,38,28,0.06)",
+    borde: "rgba(45,38,28,0.16)",
+    acentoSugerido: "#c2543f",
+  },
+  cielo: {
+    id: "cielo",
+    nombre: "Cielo",
+    pie: "Azul claro, fresco",
+    fondo: "#eaf3fb",
+    fondo2: "#dbe9f7",
+    tinta: "#0f2a44",
+    suave: "rgba(15,42,68,0.64)",
+    superficie: "rgba(255,255,255,0.7)",
+    borde: "rgba(15,42,68,0.14)",
+    acentoSugerido: "#1f6fd6",
+  },
+  grafito: {
+    id: "grafito",
+    nombre: "Grafito",
+    pie: "Gris carbón, moderno",
+    fondo: "#1b1b1f",
+    fondo2: "#26262c",
+    tinta: "#f4f4f5",
+    suave: "rgba(244,244,245,0.66)",
+    superficie: "rgba(255,255,255,0.07)",
+    borde: "rgba(255,255,255,0.14)",
+    acentoSugerido: "#ff6a3d",
+  },
+  menta: {
+    id: "menta",
+    nombre: "Menta",
+    pie: "Verde claro, natural",
+    fondo: "#e8f5ee",
+    fondo2: "#d8ecdf",
+    tinta: "#0f2e23",
+    suave: "rgba(15,46,35,0.64)",
+    superficie: "rgba(255,255,255,0.65)",
+    borde: "rgba(15,46,35,0.14)",
+    acentoSugerido: "#1f8a5b",
+  },
+  neon: {
+    id: "neon",
+    nombre: "Neón",
+    pie: "Negro con lima, para destacar",
+    fondo: "#0c0c0c",
+    fondo2: "#161616",
+    tinta: "#ffffff",
+    suave: "rgba(255,255,255,0.66)",
+    superficie: "rgba(255,255,255,0.08)",
+    borde: "rgba(255,255,255,0.18)",
+    acentoSugerido: "#d4ff3b",
+  },
+  lavanda: {
+    id: "lavanda",
+    nombre: "Lavanda",
+    pie: "Lila suave",
+    fondo: "#ede9f8",
+    fondo2: "#e1dbf3",
+    tinta: "#2a1f4d",
+    suave: "rgba(42,31,77,0.64)",
+    superficie: "rgba(255,255,255,0.65)",
+    borde: "rgba(42,31,77,0.14)",
+    acentoSugerido: "#6b4de6",
+  },
+  oceano: {
+    id: "oceano",
+    nombre: "Océano",
+    pie: "Azul profundo",
+    fondo: "#06283d",
+    fondo2: "#0b3a55",
+    tinta: "#eef7fb",
+    suave: "rgba(238,247,251,0.66)",
+    superficie: "rgba(255,255,255,0.07)",
+    borde: "rgba(255,255,255,0.15)",
+    acentoSugerido: "#47b5ff",
+  },
 };
 
 /** Radio en px de cada pieza, según el redondeo elegido. */
@@ -223,6 +502,17 @@ function mover(hex: string, delta: number): string {
     return Math.max(0, Math.min(255, v + delta));
   });
   return "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
+}
+
+/** Un hex con alfa, como rgba(). Un color que no sea hex vuelve gris translúcido. */
+export function conAlfa(hex: string, alfa: number): string {
+  const h = (hex || "").replace("#", "");
+  if (h.length !== 6) return `rgba(127,127,127,${alfa})`;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  if ([r, g, b].some(Number.isNaN)) return `rgba(127,127,127,${alfa})`;
+  return `rgba(${r},${g},${b},${alfa})`;
 }
 
 /**
@@ -297,13 +587,17 @@ export function efectoDe(v: unknown): Efecto {
  * `destacada` es la puerta del menú: es el producto, y en todos los
  * acabados se distingue por el acento. No es un color aparte, es el
  * mismo acabado subido de tono.
+ *
+ * `boton` (0236) va POR ENCIMA del acabado: «sólido» rellena con el
+ * acento, «contorno» deja solo el borde del acento y «sombra» pone el
+ * borde grueso con sombra desplazada. «acabado» = lo de siempre.
  */
 export function estiloDePieza(
   efecto: Efecto,
   p: Paleta,
-  opciones: { destacada?: boolean; radio: number; conFoto?: boolean } = { radio: 14 },
+  opciones: { destacada?: boolean; radio: number; conFoto?: boolean; boton?: Boton } = { radio: 14 },
 ): React.CSSProperties {
-  const { destacada = false, radio, conFoto = false } = opciones;
+  const { destacada = false, radio, conFoto = false, boton = "acabado" } = opciones;
   const base: React.CSSProperties = { borderRadius: radio };
 
   // Con foto detrás, el relleno lo pone la foto y su velo: cualquier
@@ -312,8 +606,40 @@ export function estiloDePieza(
   if (conFoto) {
     return {
       ...base,
-      border: `1px solid ${destacada ? p.acento : p.borde}`,
-      boxShadow: efecto === "elevado" ? "0 10px 24px -12px rgba(0,0,0,.55)" : undefined,
+      border: `${boton === "sombra" ? 2 : 1}px solid ${destacada || boton === "contorno" ? p.acento : p.borde}`,
+      boxShadow:
+        boton === "sombra"
+          ? `4px 4px 0 ${p.tinta}`
+          : efecto === "elevado"
+            ? "0 10px 24px -12px rgba(0,0,0,.55)"
+            : undefined,
+    };
+  }
+
+  // ── El estilo del botón manda sobre el acabado (0236) ──────────────
+  if (boton === "solido") {
+    return {
+      ...base,
+      background: p.acento,
+      color: p.tintaSobreAcento,
+      border: `1px solid ${p.acento}`,
+      boxShadow: efecto === "elevado" ? `0 12px 26px -14px ${conAlfa(p.acento, 0.7)}` : undefined,
+    };
+  }
+  if (boton === "contorno") {
+    return {
+      ...base,
+      background: destacada ? conAlfa(p.acento, 0.12) : "transparent",
+      border: `2px solid ${p.acento}`,
+    };
+  }
+  if (boton === "sombra") {
+    return {
+      ...base,
+      background: destacada ? p.acento : p.fondo,
+      color: destacada ? p.tintaSobreAcento : p.tinta,
+      border: `2px solid ${p.tinta}`,
+      boxShadow: `4px 4px 0 ${p.tinta}`,
     };
   }
 
@@ -356,6 +682,41 @@ export function estiloDePieza(
       };
     default:
       return { ...base, background: p.superficie, border: `1px solid ${destacada ? p.acento : p.borde}` };
+  }
+}
+
+/**
+ * El fondo de la página según `diseno.fondo` (0236).
+ *
+ * Todo son capas de `background` sobre el degradado del tema: la trama
+ * (puntos, cuadrícula, rayas) se dibuja con la TINTA del tema a muy
+ * baja alfa, así que sale clara sobre oscuro y oscura sobre claro sin
+ * elegir nada más. Aurora y burbujas no van acá: son piezas animadas
+ * que el renderizador monta aparte (`FondoAnimado`), porque un
+ * `background` no se puede animar sin disparar repintado.
+ */
+export function fondoDePagina(fondo: Fondo, p: Paleta): React.CSSProperties {
+  const base = `linear-gradient(180deg, ${p.fondo} 0%, ${p.fondo2} 100%)`;
+  const tinta = (a: number) => conAlfa(p.tinta, a);
+  switch (fondo) {
+    case "diagonal":
+      return { background: `linear-gradient(135deg, ${p.fondo} 0%, ${p.fondo2} 55%, ${conAlfa(p.acento, 0.28)} 100%)` };
+    case "puntos":
+      return {
+        backgroundImage: `radial-gradient(${tinta(0.16)} 1px, transparent 1.6px), ${base}`,
+        backgroundSize: "18px 18px, 100% 100%",
+      };
+    case "cuadricula":
+      return {
+        backgroundImage: `linear-gradient(${tinta(0.09)} 1px, transparent 1px), linear-gradient(90deg, ${tinta(0.09)} 1px, transparent 1px), ${base}`,
+        backgroundSize: "28px 28px, 28px 28px, 100% 100%",
+      };
+    case "rayas":
+      return {
+        backgroundImage: `repeating-linear-gradient(135deg, ${tinta(0.06)} 0 10px, transparent 10px 26px), ${base}`,
+      };
+    default:
+      return { background: base };
   }
 }
 
