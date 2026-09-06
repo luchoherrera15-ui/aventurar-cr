@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import sharp, { type OverlayOptions } from "sharp";
-import { dibujarBanda, dibujarIcono, dibujarLogo, dibujarTiraDeSellos } from "./imagenes";
+import { dibujarBanda, dibujarIcono, dibujarLogo, dibujarTiraDeSellos, nombreParaLogo } from "./imagenes";
 import { ICONOS_SELLO_ID } from "@/lib/lealtad/iconos-sello";
 
 /**
@@ -439,6 +439,44 @@ describe("dibujarLogo", () => {
     let opacos = 0;
     for (let i = 3; i < data.length; i += 4) if (data[i] > 20) opacos++;
     expect(opacos).toBeGreaterThan(100);
+  });
+
+  /** Cuenta píxeles con tinta en una franja horizontal [desde, hasta) del PNG. */
+  async function tintaEntre(png: Buffer, desde: number, hasta: number): Promise<number> {
+    const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    let opacos = 0;
+    for (let y = 0; y < info.height; y++) {
+      for (let x = desde; x < hasta; x++) if (data[(y * info.width + x) * 4 + 3] > 20) opacos++;
+    }
+    return opacos;
+  }
+
+  it("con logo subido, el logo va en un cuadrado a la izquierda y el nombre a su derecha (6 sep 2026)", async () => {
+    // Un «logo» apaisado y opaco, como el de un lavacar con su marca.
+    const imagen = await sharp({ create: { width: 600, height: 200, channels: 4, background: "#ff8800" } }).png().toBuffer();
+    const logo = await dibujarLogo({ nombre: "El PADRINO DETAILING CAR.🚘", imagen, ancho: 320, alto: 100 });
+    const m = await sharp(logo).metadata();
+    expect([m.width, m.height]).toEqual([320, 100]);
+    // La imagen queda encajada en el cuadrado de 100×100 de la izquierda…
+    expect(await tintaEntre(logo, 0, 100)).toBeGreaterThan(100 * 20);
+    // …y NO se estira sobre la franja entera: a la derecha hay nombre,
+    // que es tinta más rala que un bloque naranja.
+    const derecha = await tintaEntre(logo, 130, 320);
+    expect(derecha).toBeGreaterThan(200);
+    expect(derecha).toBeLessThan(190 * 100 * 0.6);
+  });
+
+  it("sin nombre que escribir (solo emojis), el logo va solo y no revienta", async () => {
+    const imagen = await sharp({ create: { width: 100, height: 100, channels: 4, background: "#123456" } }).png().toBuffer();
+    const logo = await dibujarLogo({ nombre: "🚘🚘", imagen, ancho: 160, alto: 50 });
+    const m = await sharp(logo).metadata();
+    expect([m.width, m.height]).toEqual([160, 50]);
+    expect(await tintaEntre(logo, 70, 160)).toBe(0);
+  });
+
+  it("nombreParaLogo quita los emojis y los espacios de más", () => {
+    expect(nombreParaLogo("El PADRINO DETAILING CAR.🚘")).toBe("El PADRINO DETAILING CAR.");
+    expect(nombreParaLogo("  Pura   Matcha 🌿 ")).toBe("Pura Matcha");
   });
 });
 

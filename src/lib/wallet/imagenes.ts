@@ -492,9 +492,123 @@ export async function recortarBordes(imagen: Buffer | null): Promise<Buffer | nu
   }
 }
 
+/** Pinta un PNG con alfa de blanco: el fondo de la tarjeta es oscuro. */
+async function pintarBlanco(png: Buffer): Promise<Buffer> {
+  return sharp(png)
+    .composite([
+      {
+        input: Buffer.from([255, 255, 255, 255]),
+        raw: { width: 1, height: 1, channels: 4 },
+        tile: true,
+        blend: "in",
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
+/**
+ * El nombre como texto para el logo: sin emojis ni símbolos de imagen
+ * (Montserrat no los tiene y Pango dibujaría un cuadro), sin espacios
+ * dobles. «El PADRINO DETAILING CAR.🚘» → «El PADRINO DETAILING CAR.».
+ */
+export function nombreParaLogo(nombre: string): string {
+  return nombre
+    .replace(/\p{Extended_Pictographic}|️|‍/gu, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * El nombre en blanco, del tamaño más grande que ENTRE en la caja.
+ *
+ * Se prueba de mayor a menor en UNA línea; si ni el tamaño chico entra
+ * (un nombre de cinco palabras), se deja que Pango lo parta en dos
+ * renglones dentro de la caja. Siempre devuelve algo que cabe: la caja
+ * es lo que Apple dibuja a la derecha del logo, y un texto que se sale
+ * se corta sin aviso.
+ */
+/**
+ * Parte un nombre en `n` renglones por los espacios, lo más parejos
+ * posible. «El PADRINO DETAILING CAR.» en dos: «El PADRINO» /
+ * «DETAILING CAR.». Sin espacios suficientes, devuelve menos renglones.
+ */
+export function partirEnRenglones(texto: string, n: number): string {
+  const palabras = texto.split(" ").filter(Boolean);
+  if (n <= 1 || palabras.length <= 1) return palabras.join(" ");
+  const objetivo = texto.length / n;
+  const renglones: string[] = [];
+  let actual = "";
+  for (const p of palabras) {
+    const candidato = actual ? `${actual} ${p}` : p;
+    if (actual && candidato.length > objetivo && renglones.length < n - 1) {
+      renglones.push(actual);
+      actual = p;
+    } else {
+      actual = candidato;
+    }
+  }
+  if (actual) renglones.push(actual);
+  return renglones.join("\n");
+}
+
+async function nombreQueEntra(texto: string, anchoMax: number, altoMax: number): Promise<Buffer> {
+  const ESCALA = 4; // se dibuja a 4× y se baja: letras nítidas en @3x.
+  const dibujar = (t: string, factor: number) =>
+    sharp({
+      text: {
+        text: t,
+        fontfile: FUENTE,
+        font: `Montserrat SemiBold ${Math.max(6, Math.round(altoMax * factor))}`,
+        rgba: true,
+        dpi: 72 * ESCALA,
+      },
+    })
+      .png()
+      .toBuffer();
+
+  // Un renglón grande; si no entra, dos más chicos; si tampoco, tres.
+  // Los tamaños bajan hasta donde todavía se lee en la franja de 50 pt.
+  const intentos: [number, number[]][] = [
+    [1, [0.46, 0.4, 0.34, 0.29, 0.25]],
+    [2, [0.34, 0.3, 0.26, 0.23, 0.2]],
+    [3, [0.22, 0.19, 0.17]],
+  ];
+  let ultimo: Buffer | null = null;
+  for (const [renglones, factores] of intentos) {
+    const t = partirEnRenglones(texto, renglones);
+    for (const factor of factores) {
+      const png = await pintarBlanco(await dibujar(t, factor));
+      const m = await sharp(png).metadata();
+      const w = (m.width ?? 0) / ESCALA;
+      const h = (m.height ?? 0) / ESCALA;
+      ultimo = png;
+      if (w <= anchoMax && h <= altoMax) {
+        return sharp(png).resize(Math.max(1, Math.round(w)), Math.max(1, Math.round(h))).png().toBuffer();
+      }
+    }
+  }
+  // Un nombre kilométrico: se encaja como venga, antes que salirse.
+  return sharp(ultimo as Buffer).resize(anchoMax, altoMax, { fit: "inside" }).png().toBuffer();
+}
+
 /**
  * El logo de arriba a la izquierda: el nombre del negocio en
- * Montserrat Light, blanco. Si el negocio subió su logo se usa ese.
+ * Montserrat, blanco. Si el negocio subió su logo, el logo va en una
+ * caja CUADRADA a la izquierda y el nombre a su derecha.
+ *
+ * ── POR QUÉ EL NOMBRE VA DIBUJADO Y NO EN `logoText` ───────────────
+ * Pedido del dueño (6 sep 2026): «en el pase de El Padrino sale el logo
+ * pero al lado no sale el nombre». Antes, con logo, esta función
+ * devolvía SOLO la imagen estirada a los 160×50 pt enteros — y como
+ * Apple pone el `logoText` DESPUÉS del ancho de la imagen, aunque se
+ * mandara, no quedaba lugar. Un logo cuadrado dejaba media franja
+ * vacía, sin nombre; un logo apaisado la llenaba entera, sin nombre.
+ *
+ * Ahora la imagen se encaja en un cuadrado de `alto × alto` (50 pt) y
+ * el nombre se dibuja al lado, al tamaño más grande que entre. Es una
+ * sola imagen, así que se ve igual en iPhone y en Google (que dibuja
+ * `issuerName` aparte y no lo necesita, pero no molesta).
  */
 export async function dibujarLogo({
   nombre,
@@ -507,43 +621,55 @@ export async function dibujarLogo({
   ancho: number;
   alto: number;
 }): Promise<Buffer> {
+  const transparente = { r: 0, g: 0, b: 0, alpha: 0 };
+  const texto = nombreParaLogo(nombre);
+
   if (imagen) {
     // Sin `.trim()`: la imagen ya llega recortada por `recortarBordes`,
     // una sola vez por pase. Ver el comentario grande de esa función.
-    return sharp(imagen)
-      .resize(ancho, alto, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    const lado = alto;
+    const hueco = Math.round(alto * 0.24);
+    const logo = await sharp(imagen)
+      .resize(lado, lado, { fit: "inside", background: transparente })
+      .png()
+      .toBuffer();
+    const capas: OverlayOptions[] = [{ input: logo, gravity: "west" }];
+
+    const anchoTexto = ancho - lado - hueco;
+    if (texto && anchoTexto >= alto) {
+      const nombrePng = await nombreQueEntra(texto, anchoTexto, alto);
+      const m = await sharp(nombrePng).metadata();
+      capas.push({
+        input: nombrePng,
+        left: lado + hueco,
+        top: Math.max(0, Math.round((alto - (m.height ?? alto)) / 2)),
+      });
+    }
+
+    return sharp({ create: { width: ancho, height: alto, channels: 4, background: transparente } })
+      .composite(capas)
       .png()
       .toBuffer();
   }
 
-  const texto = await sharp({
-    text: {
-      text: nombre,
-      fontfile: FUENTE,
-      font: `Montserrat Light ${Math.round(alto * 0.62)}`,
-      rgba: true,
-      dpi: 72 * 4,
-    },
-  })
-    .png()
-    .toBuffer();
-
-  // Se pinta blanco: el fondo de la tarjeta es oscuro.
-  const blanco = await sharp(texto)
-    .composite([
-      {
-        input: Buffer.from([255, 255, 255, 255]),
-        raw: { width: 1, height: 1, channels: 4 },
-        tile: true,
-        blend: "in",
+  const png = await pintarBlanco(
+    await sharp({
+      text: {
+        text: texto || nombre,
+        fontfile: FUENTE,
+        font: `Montserrat Light ${Math.round(alto * 0.62)}`,
+        rgba: true,
+        dpi: 72 * 4,
       },
-    ])
-    .toBuffer();
+    })
+      .png()
+      .toBuffer(),
+  );
 
-  const encajado = await sharp(blanco).resize(ancho, alto, { fit: "inside" }).toBuffer();
+  const encajado = await sharp(png).resize(ancho, alto, { fit: "inside" }).toBuffer();
 
   return sharp({
-    create: { width: ancho, height: alto, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+    create: { width: ancho, height: alto, channels: 4, background: transparente },
   })
     .composite([{ input: encajado, gravity: "west" }])
     .png()
