@@ -142,19 +142,40 @@
   --linksy-radio-chico: 20px;
 }
 
-/* El carrusel de cards del héroe: scroll NATIVO con snap, para que se
-   pueda arrastrar con el dedo y con el mouse (misma decisión que el
-   desfile de rubros de /lealtad). La barra se esconde, el gesto no. */
-.linksy-carrusel {
-  scroll-snap-type: x mandatory;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
+/* ── LA VITRINA DEL HÉROE DE LINKSY (7 sep 2026) ────────────────────
+   Tres escenas apiladas; la activa se ve, las otras esperan un 4 %
+   más grandes y transparentes, y el cambio es un fundido cruzado con
+   la duración y la curva del sistema. Sobre la activa corre un zoom
+   lento de 9 s (Ken Burns) — solo `transform`, nunca layout. Los
+   `var(…, fallback)` son por si estas clases se usan fuera de donde
+   están definidos los tokens de motion. */
+.linksy-escena {
+  opacity: 0;
+  transform: scale(1.04);
+  transition:
+    opacity var(--duracion-revelado, 420ms) var(--ease-bookea, ease),
+    transform var(--duracion-revelado, 420ms) var(--ease-bookea, ease);
+  will-change: opacity;
 }
-.linksy-carrusel::-webkit-scrollbar {
-  display: none;
+.linksy-escena[data-activo] {
+  opacity: 1;
+  transform: scale(1);
 }
-.linksy-carrusel > * {
-  scroll-snap-align: center;
+.linksy-escena[data-activo] .linksy-escena-foto {
+  animation: linksy-kenburns 9s var(--ease-bookea, ease) forwards;
+}
+@keyframes linksy-kenburns {
+  from { transform: scale(1); }
+  to { transform: scale(1.07); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .linksy-escena {
+    transition: none;
+    transform: none;
+  }
+  .linksy-escena[data-activo] .linksy-escena-foto {
+    animation: none;
+  }
 }
 
 .lealtad {

@@ -7,6 +7,7 @@ import {
   esHostLinksy,
   esHostPropio,
   slugPorDominio,
+  urlBookea,
 } from "@/lib/solutions/dominios";
 
 // NOTA: en esta versión de Next.js el archivo "middleware.ts" pasó a
@@ -110,13 +111,13 @@ export default async function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   if (esHostLinksy(host)) {
     const destino = destinoEnLinksy(request.nextUrl.pathname);
-    if (destino.tipo === "login") {
-      // El login de Linksy vive en bookea.lat porque la cookie de sesión
-      // no cruza entre dominios de apex distinto (ver LINKSY_HOST).
-      // Absoluta a propósito: es otro sitio, no otra ruta de este. Con
-      // sesión ya abierta, esa página manda sola al panel.
-      const sitio = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
-      return NextResponse.redirect(new URL("/linksy/login", sitio));
+    if (destino.tipo === "bookea") {
+      // El mundo con sesión (alta, login, panel, cuenta) vive en
+      // bookea.lat porque la cookie no cruza entre dominios de apex
+      // distinto (ver LINKSY_HOST). Absoluta a propósito: es otro sitio,
+      // no otra ruta de este. La query viaja intacta: `?nombre=…` del
+      // reclamo del link y `?volver=solutions` del alta sin sesión.
+      return NextResponse.redirect(new URL(destino.pathname + request.nextUrl.search, urlBookea("/")));
     }
     if (destino.tipo === "redirect") {
       return NextResponse.redirect(new URL(destino.pathname, request.url));

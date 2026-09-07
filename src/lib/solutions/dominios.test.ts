@@ -7,7 +7,9 @@ import {
   esHostPropio,
   instruccionesDns,
   normalizarDominio,
+  PREFIJOS_BOOKEA,
   RUTAS_LINKSY,
+  urlBookea,
 } from "./dominios";
 import { RESERVED_SLUGS } from "@/lib/slug";
 
@@ -110,14 +112,33 @@ describe("destinoEnLinksy", () => {
     expect(destinoEnLinksy("/pizza-lucia/menu")).toEqual({ tipo: "rewrite", pathname: "/s/pizza-lucia/menu" });
   });
 
-  it("las tres rutas del producto", () => {
-    expect(destinoEnLinksy("/crear")).toEqual({ tipo: "rewrite", pathname: "/solutions/crear" });
-    expect(destinoEnLinksy("/entrar")).toEqual({ tipo: "login" });
+  it("el alta y el login van a bookea.lat, donde vive la sesión", () => {
+    expect(destinoEnLinksy("/crear")).toEqual({ tipo: "bookea", pathname: "/solutions/crear" });
+    expect(destinoEnLinksy("/entrar")).toEqual({ tipo: "bookea", pathname: "/linksy/login" });
     // Lo que la gente escribe de verdad: mismo destino.
-    expect(destinoEnLinksy("/login")).toEqual({ tipo: "login" });
+    expect(destinoEnLinksy("/login")).toEqual({ tipo: "bookea", pathname: "/linksy/login" });
     // Repetir el nombre del producto en su propio dominio no lleva a
     // ningún lado: la landing es la raíz.
     expect(destinoEnLinksy("/linksy")).toEqual({ tipo: "redirect", pathname: "/" });
+  });
+
+  /**
+   * LA REGRESIÓN DEL ESTRENO (7 sep 2026). Los links de la landing y las
+   * redirecciones del alta son relativos al mundo de Bookea; pedidos en
+   * linksy.lat caían en un slug inexistente o en un 404.
+   */
+  it("todo el mundo con sesión de Bookea se manda allá con su ruta intacta", () => {
+    expect(destinoEnLinksy("/solutions/crear")).toEqual({ tipo: "bookea", pathname: "/solutions/crear" });
+    expect(destinoEnLinksy("/solutions/panel/abc")).toEqual({ tipo: "bookea", pathname: "/solutions/panel/abc" });
+    expect(destinoEnLinksy("/cuenta")).toEqual({ tipo: "bookea", pathname: "/cuenta" });
+    expect(destinoEnLinksy("/linksy/login")).toEqual({ tipo: "bookea", pathname: "/linksy/login" });
+    expect(destinoEnLinksy("/lealtad/panel")).toEqual({ tipo: "bookea", pathname: "/lealtad/panel" });
+    expect(destinoEnLinksy("/auth/callback")).toEqual({ tipo: "bookea", pathname: "/auth/callback" });
+  });
+
+  it("urlBookea arma la absoluta con el sitio del entorno, o bookea.lat por defecto", () => {
+    expect(urlBookea("/solutions/crear")).toMatch(/^https:\/\/[^/]+\/solutions\/crear$/);
+    expect(urlBookea("cuenta")).toMatch(/\/cuenta$/);
   });
 
   it("los archivos de la raíz pasan de largo: un slug nunca lleva punto", () => {
@@ -137,15 +158,19 @@ describe("destinoEnLinksy", () => {
     // Una tercera rama bajo un negocio cae en su página, no en la raíz:
     // se pierde la ruta, no el negocio.
     expect(destinoEnLinksy("/pizza-lucia/algo/mas")).toEqual({ tipo: "redirect", pathname: "/pizza-lucia" });
-    expect(destinoEnLinksy("/crear/algo")).toEqual({ tipo: "redirect", pathname: "/" });
+    // Cualquier cosa bajo /crear es el alta: se manda a bookea.lat.
+    expect(destinoEnLinksy("/crear/algo")).toEqual({ tipo: "bookea", pathname: "/solutions/crear" });
   });
 
-  it("el resto de Bookea NO se sirve bajo linksy.lat", () => {
-    // `lealtad` y `eventos` son slugs válidos por forma, así que caen
-    // en /s/… y de ahí en notFound. Lo importante es que NUNCA sirven
-    // la sección de Bookea que lleva ese nombre.
-    expect(destinoEnLinksy("/lealtad")).toEqual({ tipo: "rewrite", pathname: "/s/lealtad" });
-    expect(destinoEnLinksy("/admin")).toEqual({ tipo: "rewrite", pathname: "/s/admin" });
+  it("el resto de Bookea NO se sirve bajo linksy.lat: se manda a bookea.lat o cae en un slug", () => {
+    // Lo que es del mundo con sesión va a bookea.lat con su ruta.
+    expect(destinoEnLinksy("/lealtad")).toEqual({ tipo: "bookea", pathname: "/lealtad" });
+    expect(destinoEnLinksy("/admin")).toEqual({ tipo: "bookea", pathname: "/admin" });
+    // Una sección pública de Bookea que no está en la lista (`eventos`)
+    // es un slug válido por forma: cae en /s/… y de ahí en notFound.
+    // Lo importante es que NUNCA sirve la sección de Bookea bajo el
+    // dominio de Linksy.
+    expect(destinoEnLinksy("/eventos")).toEqual({ tipo: "rewrite", pathname: "/s/eventos" });
   });
 });
 
@@ -158,6 +183,11 @@ describe("las rutas de linksy.lat están reservadas contra las altas", () => {
   it("cada ruta de RUTAS_LINKSY está en RESERVED_SLUGS", () => {
     for (const ruta of RUTAS_LINKSY) {
       expect(RESERVED_SLUGS.has(ruta), `falta "${ruta}" en RESERVED_SLUGS`).toBe(true);
+    }
+  });
+  it("cada prefijo de Bookea también: un negocio llamado «cuenta» taparía el login", () => {
+    for (const p of PREFIJOS_BOOKEA) {
+      expect(RESERVED_SLUGS.has(p), `falta "${p}" en RESERVED_SLUGS`).toBe(true);
     }
   });
 });

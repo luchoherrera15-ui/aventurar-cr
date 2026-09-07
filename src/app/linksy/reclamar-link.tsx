@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 import { slugSolutions } from "@/lib/solutions/slug";
 import { TOPES } from "@/lib/solutions/tipos";
+import { urlBookea } from "@/lib/solutions/dominios";
 
 /**
  * EL RECLAMO DEL LINK — la píldora grande de Linktree.
@@ -23,7 +23,6 @@ import { TOPES } from "@/lib/solutions/tipos";
 const HOST_VISIBLE = "linksy.lat/";
 
 export default function ReclamarLink({ tono = "lima" }: { tono?: "lima" | "carbon" }) {
-  const router = useRouter();
   const [nombre, setNombre] = useState("");
   const idCampo = useId();
   const idPista = useId();
@@ -33,7 +32,10 @@ export default function ReclamarLink({ tono = "lima" }: { tono?: "lima" | "carbo
     e.preventDefault();
     const limpio = nombre.trim();
     if (limpio.length < 2) return;
-    router.push(`/solutions/crear?nombre=${encodeURIComponent(limpio)}`);
+    // Navegación DURA y ABSOLUTA a bookea.lat: el alta necesita sesión y
+    // la sesión vive allá. Un `router.push` relativo desde linksy.lat
+    // pedía `/solutions/crear` en el dominio equivocado.
+    window.location.href = urlBookea(`/solutions/crear?nombre=${encodeURIComponent(limpio)}`);
   };
 
   // El botón invierte el bloque: oscuro sobre lima, lima sobre carbón.

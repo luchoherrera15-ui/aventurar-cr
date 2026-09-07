@@ -1,14 +1,12 @@
-import Image from "next/image";
 import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
 import ReclamarLink from "./reclamar-link";
-import CarruselRubros from "./carrusel-rubros";
+import VitrinaEscenas, { type Bloque, type Escena } from "./vitrina-escenas";
 import { CLASES_FUENTES } from "@/app/solutions/fuentes";
 import { MockupPase } from "@/components/solutions/mockup-pantallas";
 import { PRESETS } from "@/lib/solutions/temas";
-import IconoLinkSVG from "@/components/solutions/icono-link";
-import type { IconoLink } from "@/lib/solutions/tipos";
+import { urlBookea } from "@/lib/solutions/dominios";
 import { IconChartBars, IconGlobe, IconStar, IconWallet } from "@/components/icons";
 
 /**
@@ -16,12 +14,11 @@ import { IconChartBars, IconGlobe, IconStar, IconWallet } from "@/components/ico
  *  LA LANDING DE LINKSY — linksy.lat, estilo Linktree
  * ════════════════════════════════════════════════════════════════════
  *
- * Pedido del dueño (6 sep 2026), con linktr.ee abierto al lado:
+ * Pedido del dueño (6–7 sep 2026), con linktr.ee abierto al lado:
  * «letras grandes, cards grandes, minimalista, con colores. El héroe
- * en dos columnas: texto y píldora a la izquierda; a la derecha cards
- * cuadrados con imágenes de fondo —un gimnasio, un lavacar, cosas
- * bonitas— que avanzan solos hacia la derecha. Y lealtad con énfasis:
- * es el valor agregado».
+ * en dos columnas: texto y píldora a la izquierda; a la derecha las
+ * escenas del producto —un gimnasio, un restaurante, un lavacar— con
+ * una buena transición. Y lealtad con énfasis: es el valor agregado».
  *
  * ── LA ESTRUCTURA ES LA DE LINKTREE ─────────────────────────────────
  * Bloques de color de borde a borde, uno por sección, cada uno con un
@@ -29,178 +26,45 @@ import { IconChartBars, IconGlobe, IconStar, IconWallet } from "@/components/ico
  * colores son la paleta `.linksy` de globals.css, cada uno con su
  * tinta ya medida; acá no hay un hex.
  *
- * ── LOS CARDS DEL HÉROE ─────────────────────────────────────────────
- * Cada card es una FOTO del rubro (Unsplash, mismo host que los seeds
- * de demo y los mockups de Solutions) con la mini página del negocio
- * montada encima, como el teléfono en las fotos de Linktree. La mini
- * página es un dibujo chico a propósito —avatar, nombre, dirección y
- * tres botones— y no `VistaPagina` entero: a ese tamaño el
- * renderizador real se veía como un formulario, y lo que vende acá es
- * la foto. Los íconos de los botones sí son los del producto
- * (`IconoLinkSVG`), para que lo que se ve exista en el editor.
+ * ── LAS ESCENAS DEL HÉROE ───────────────────────────────────────────
+ * Tres imágenes hechas para Linksy (referencia/imagenes, optimizadas a
+ * WebP en public/linksy) que ya traen el teléfono con la página
+ * adentro. `VitrinaEscenas` las funde una en otra; acá solo se declaran.
+ *
+ * ── LOS LINKS AL MUNDO CON SESIÓN SON ABSOLUTOS ─────────────────────
+ * «Ingresar», «Crear gratis» y el reclamo del link van a bookea.lat con
+ * `urlBookea`: el alta y el panel viven allá porque la cookie de sesión
+ * no cruza entre dominios de apex distinto. Bajo bookea.lat son el
+ * mismo origen. El proxy además redirige allá cualquier ruta de ese
+ * mundo pedida en linksy.lat (`PREFIJOS_BOOKEA`) — dos cinturones.
  */
 
 const retraso = (i: number) => ({ "--reveal-delay": `${Math.min(i * 60, 320)}ms` }) as React.CSSProperties;
-
-type Bloque = "lima" | "azul" | "coral" | "lila" | "amarillo" | "menta" | "carbon";
 const bloque = (b: Bloque) => ({ background: `var(--linksy-${b})`, color: `var(--linksy-${b}-tinta)` });
 
-// ── Los cards del héroe ─────────────────────────────────────────────
-
-type Tarjeta = {
-  rubro: string;
-  bloque: Bloque;
-  foto: string;
-  alt: string;
-  nombre: string;
-  slug: string;
-  links: { icono: IconoLink; etiqueta: string }[];
-};
-
-const FOTO = (id: string) => `https://images.unsplash.com/${id}?w=1200&q=75&auto=format&fit=crop`;
-
-const TARJETAS: Tarjeta[] = [
+const ESCENAS: Escena[] = [
   {
-    rubro: "Gimnasios",
+    src: "/linksy/gimnasio.webp",
+    alt: "Entrenadora junto a un teléfono con su página de Linksy: planes, nutrición, comunidad",
+    rubro: "Gimnasios y coaches",
+    marca: "shaep",
     bloque: "lima",
-    foto: FOTO("photo-1534438327276-14e5300c3a48"),
-    alt: "Sala de pesas de un gimnasio",
-    nombre: "Fuerza Norte",
-    slug: "fuerzanorte",
-    links: [
-      { icono: "reservar", etiqueta: "Reservar una clase" },
-      { icono: "menu", etiqueta: "Planes y precios" },
-      { icono: "whatsapp", etiqueta: "Escribinos" },
-    ],
   },
   {
+    src: "/linksy/restaurante.webp",
+    alt: "Plato de un restaurante y un teléfono con su página de Linksy: menú, reservas, lealtad",
     rubro: "Restaurantes",
+    marca: "Sabores",
     bloque: "coral",
-    foto: FOTO("photo-1414235077428-338989a2e8c0"),
-    alt: "Mesa servida en un restaurante",
-    nombre: "Casa Nostra",
-    slug: "casanostra",
-    links: [
-      { icono: "menu", etiqueta: "Ver el menú" },
-      { icono: "reservar", etiqueta: "Reservar mesa" },
-      { icono: "tienda", etiqueta: "Pedir para llevar" },
-    ],
   },
   {
-    rubro: "Lavacar",
+    src: "/linksy/lavacar.webp",
+    alt: "Auto recién lavado y un teléfono con la página de Linksy del lavacar: servicios y citas",
+    rubro: "Lavacar y detailing",
+    marca: "Auto Spa",
     bloque: "azul",
-    foto: FOTO("photo-1520340356584-f9917d1eea6f"),
-    alt: "Auto recién lavado en un lavacar",
-    nombre: "AutoBrillo",
-    slug: "autobrillo",
-    links: [
-      { icono: "menu", etiqueta: "Servicios y precios" },
-      { icono: "reservar", etiqueta: "Reservar un turno" },
-      { icono: "mapa", etiqueta: "Cómo llegar" },
-    ],
-  },
-  {
-    rubro: "Tiendas",
-    bloque: "lila",
-    foto: FOTO("photo-1441986300917-64674bd600d8"),
-    alt: "Perchero de ropa en una boutique",
-    nombre: "Nova Studio",
-    slug: "novastudio",
-    links: [
-      { icono: "tienda", etiqueta: "Ver el catálogo" },
-      { icono: "instagram", etiqueta: "Nueva colección" },
-      { icono: "whatsapp", etiqueta: "Pedir por WhatsApp" },
-    ],
-  },
-  {
-    rubro: "Cafés",
-    bloque: "amarillo",
-    foto: FOTO("photo-1509042239860-f550ce710b93"),
-    alt: "Taza de café con arte latte",
-    nombre: "Café Aroma",
-    slug: "cafearoma",
-    links: [
-      { icono: "menu", etiqueta: "Ver el menú" },
-      { icono: "tienda", etiqueta: "Pedir para recoger" },
-      { icono: "instagram", etiqueta: "Instagram" },
-    ],
-  },
-  {
-    rubro: "Barberías",
-    bloque: "menta",
-    foto: FOTO("photo-1503951914875-452162b0f3f1"),
-    alt: "Barbero afeitando a un cliente",
-    nombre: "Barbería Norte",
-    slug: "barberianorte",
-    links: [
-      { icono: "reservar", etiqueta: "Reservar un turno" },
-      { icono: "menu", etiqueta: "Cortes y precios" },
-      { icono: "mapa", etiqueta: "Cómo llegar" },
-    ],
   },
 ];
-
-/** Un card del héroe: la foto, el rubro arriba y la mini página abajo. */
-function TarjetaRubro({ t, prioridad }: { t: Tarjeta; prioridad: boolean }) {
-  return (
-    <article
-      className="relative aspect-[4/5] w-[min(84vw,400px)] flex-none overflow-hidden shadow-flotante sm:w-[400px]"
-      style={{ borderRadius: "var(--linksy-radio)" }}
-    >
-      <Image
-        src={t.foto}
-        alt={t.alt}
-        fill
-        sizes="(min-width: 640px) 400px, 84vw"
-        priority={prioridad}
-        className="object-cover"
-      />
-      {/* El velo: garantiza que la mini página y el rótulo se lean sobre
-          cualquier foto. Lo pone el diseño, no la foto. */}
-      <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-black/0" />
-
-      <span
-        className="titulo absolute left-5 top-5 rounded-full px-4 py-2 text-[15px] font-extrabold"
-        style={bloque(t.bloque)}
-      >
-        {t.rubro}
-      </span>
-
-      <div
-        className="absolute inset-x-5 bottom-5 p-4 shadow-elevado"
-        style={{ background: "var(--linksy-papel)", color: "var(--linksy-tinta)", borderRadius: "var(--linksy-radio-chico)" }}
-      >
-        <div className="flex items-center gap-3">
-          <span
-            aria-hidden
-            className="titulo grid h-11 w-11 flex-none place-items-center rounded-full text-[18px] font-extrabold"
-            style={bloque(t.bloque)}
-          >
-            {t.nombre[0]}
-          </span>
-          <div className="min-w-0">
-            <p className="titulo truncate text-[17px] font-extrabold leading-tight">{t.nombre}</p>
-            <p className="truncate text-[12.5px] font-semibold" style={{ color: "var(--linksy-tinta-suave)" }}>
-              linksy.lat/{t.slug}
-            </p>
-          </div>
-        </div>
-        <ul className="mt-3 flex flex-col gap-2">
-          {t.links.map((l) => (
-            <li
-              key={l.etiqueta}
-              className="flex items-center gap-2.5 rounded-full border-2 px-4 py-2.5 text-[14px] font-bold"
-              style={{ borderColor: "var(--linksy-tinta)" }}
-            >
-              <IconoLinkSVG icono={l.icono} className="h-4 w-4 flex-none" />
-              <span className="truncate">{l.etiqueta}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </article>
-  );
-}
 
 /** El nav de Linktree: la marca a la izquierda, dos píldoras a la derecha. */
 function NavLinksy() {
@@ -219,20 +83,20 @@ function NavLinksy() {
           <a href="#dominio">Tu dominio</a>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/linksy/login"
+          <a
+            href={urlBookea("/linksy/login")}
             className="presionable hidden min-h-[44px] items-center rounded-full px-5 text-[15px] font-bold sm:inline-flex"
             style={{ background: "var(--linksy-lila)", color: "var(--linksy-lila-tinta)" }}
           >
             Ingresar
-          </Link>
-          <Link
-            href="/solutions/crear"
+          </a>
+          <a
+            href={urlBookea("/solutions/crear")}
             className="presionable inline-flex min-h-[44px] items-center rounded-full px-5 text-[15px] font-extrabold"
             style={{ background: "var(--linksy-carbon)", color: "var(--linksy-carbon-tinta)" }}
           >
             Crear gratis
-          </Link>
+          </a>
         </div>
       </nav>
     </header>
@@ -245,9 +109,9 @@ export default function LandingLinksy() {
       <RevealOnScroll />
       <NavLinksy />
 
-      {/* ══ 1 · HÉROE — texto a la izquierda, cards a la derecha ═ */}
+      {/* ══ 1 · HÉROE — texto a la izquierda, las escenas a la derecha ═ */}
       <section className="px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:pb-24" style={bloque("lima")}>
-        <div className="mx-auto grid w-[min(1280px,100%)] items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-10">
+        <div className="mx-auto grid w-[min(1280px,100%)] items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-12">
           <div>
             <h1 className="titulo max-w-[11ch] text-balance text-[clamp(48px,7.5vw,104px)] font-extrabold leading-[0.95] tracking-[-0.03em]">
               Todo tu negocio. Un solo link.
@@ -261,14 +125,8 @@ export default function LandingLinksy() {
             </div>
           </div>
 
-          {/* Los cards: a la derecha del texto, y pasan solos. En
-              teléfono bajan debajo del texto, a todo el ancho. */}
           <div className="min-w-0">
-            <CarruselRubros>
-              {TARJETAS.map((t, i) => (
-                <TarjetaRubro key={t.slug} t={t} prioridad={i === 0} />
-              ))}
-            </CarruselRubros>
+            <VitrinaEscenas escenas={ESCENAS} />
           </div>
         </div>
       </section>

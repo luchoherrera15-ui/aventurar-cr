@@ -163,11 +163,32 @@ export type DestinoLinksy =
   | { tipo: "rewrite"; pathname: string }
   | { tipo: "redirect"; pathname: string }
   /**
-   * Al login de Linksy, que vive en bookea.lat (/linksy/login) porque
-   * la sesión tiene que nacer ahí. El proxy arma la URL absoluta.
+   * A bookea.lat, con esa ruta y la query intacta. Es el mundo CON
+   * SESIÓN —alta, login, panel, cuenta, lealtad— que no puede vivir en
+   * linksy.lat porque la cookie no cruza entre apex distintos (ver
+   * LINKSY_HOST). El proxy arma la URL absoluta con NEXT_PUBLIC_SITE_URL.
    */
-  | { tipo: "login" }
+  | { tipo: "bookea"; pathname: string }
   | { tipo: "pasar" };
+
+/**
+ * Los prefijos que son de Bookea aunque se pidan en linksy.lat.
+ *
+ * Sin esto, el primer clic real de la landing rompía todo: «Crear mi
+ * Linksy» iba a `/solutions/crear`, que en linksy.lat es un slug de dos
+ * segmentos y caía en la página de un negocio inexistente; el alta sin
+ * sesión redirigía a `/cuenta?volver=solutions` RELATIVO, y en
+ * linksy.lat `/cuenta` es un 404. Se vio el 7 sep 2026, el día del
+ * estreno. Todos están además en `RESERVED_SLUGS`: ningún negocio se
+ * puede llamar así.
+ */
+export const PREFIJOS_BOOKEA = new Set(["solutions", "cuenta", "lealtad", "auth", "admin", "mi-negocio", "linksy"]);
+
+/** La URL absoluta de una ruta en bookea.lat. Sirve en cliente y servidor. */
+export function urlBookea(pathname: string): string {
+  const base = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat").trim().replace(/\/+$/, "");
+  return `${base}${pathname.startsWith("/") ? pathname : `/${pathname}`}`;
+}
 
 /**
  * Las TRES palabras que en linksy.lat no son el slug de un negocio.
@@ -220,14 +241,20 @@ export function destinoEnLinksy(pathname: string): DestinoLinksy {
   // recibe el propio rewrite de acá cuando Next lo vuelve a evaluar.
   if (primero === "s") return { tipo: "pasar" };
 
-  if (RUTAS_LINKSY.has(primero)) {
-    if (partes.length > 1) return { tipo: "redirect", pathname: "/" };
-    if (primero === "crear") return { tipo: "rewrite", pathname: "/solutions/crear" };
-    if (primero === "entrar" || primero === "login") return { tipo: "login" };
-    // `/linksy` es la ruta interna de la landing: por el dominio del
-    // producto se llega a ella por la raíz, no repitiendo el nombre.
-    return { tipo: "redirect", pathname: "/" };
-  }
+  // `/linksy` a secas es la landing: por el dominio del producto se
+  // llega a ella por la raíz, no repitiendo el nombre. Con algo detrás
+  // (`/linksy/login`) es del mundo de Bookea, abajo.
+  if (primero === "linksy" && partes.length === 1) return { tipo: "redirect", pathname: "/" };
+
+  // El mundo con sesión vive en bookea.lat: el alta, el login, el
+  // panel, la cuenta. Se manda allá con la ruta tal cual — el alta que
+  // redirige a `/cuenta?volver=solutions` sigue funcionando porque
+  // `/cuenta` también cae acá.
+  if (primero === "crear") return { tipo: "bookea", pathname: "/solutions/crear" };
+  if (primero === "entrar" || primero === "login") return { tipo: "bookea", pathname: "/linksy/login" };
+  if (PREFIJOS_BOOKEA.has(primero)) return { tipo: "bookea", pathname: p };
+
+  if (RUTAS_LINKSY.has(primero)) return { tipo: "redirect", pathname: "/" };
 
   if (!/^[a-z0-9-]{2,60}$/.test(primero)) return { tipo: "redirect", pathname: "/" };
   if (partes.length === 1) return { tipo: "rewrite", pathname: `/s/${primero}` };
