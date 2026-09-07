@@ -109,6 +109,7 @@
    pinta entera de uno, como Linktree. Por eso cada color trae su
    tinta ya decidida —el par se mide junto, nunca se elige a ojo—:
 
+     celeste  #bfe4ff  con tinta #0d2b4a ...... 10,3:1  (el héroe, 7 sep)
      lima     #c9f24c  con tinta #16301a ...... 12,9:1
      azul     #2b4bf2  con tinta #ffffff ......  6,3:1
      coral    #ff5d3a  con tinta #2a0d05 ......  6,6:1
@@ -126,6 +127,8 @@
   --linksy-papel: #ffffff;
   --linksy-carbon: #101014;
   --linksy-carbon-tinta: #ffffff;
+  --linksy-celeste: #bfe4ff;
+  --linksy-celeste-tinta: #0d2b4a;
   --linksy-lima: #c9f24c;
   --linksy-lima-tinta: #16301a;
   --linksy-azul: #2b4bf2;

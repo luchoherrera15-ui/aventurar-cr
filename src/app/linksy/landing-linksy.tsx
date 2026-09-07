@@ -1,13 +1,13 @@
-import Link from "next/link";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
 import ReclamarLink from "./reclamar-link";
 import VitrinaEscenas, { type Bloque, type Escena } from "./vitrina-escenas";
+import NavLinksy from "./menu-productos";
 import { CLASES_FUENTES } from "@/app/solutions/fuentes";
 import { MockupPase } from "@/components/solutions/mockup-pantallas";
-import { PRESETS } from "@/lib/solutions/temas";
+import { PRESETS, TEMAS } from "@/lib/solutions/temas";
 import { urlBookea } from "@/lib/solutions/dominios";
-import { IconChartBars, IconGlobe, IconStar, IconWallet } from "@/components/icons";
+import { IconChartBars, IconGlobe, IconInstagram, IconStar, IconWallet } from "@/components/icons";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -17,26 +17,22 @@ import { IconChartBars, IconGlobe, IconStar, IconWallet } from "@/components/ico
  * Pedido del dueño (6–7 sep 2026), con linktr.ee abierto al lado:
  * «letras grandes, cards grandes, minimalista, con colores. El héroe
  * en dos columnas: texto y píldora a la izquierda; a la derecha las
- * escenas del producto —un gimnasio, un restaurante, un lavacar— con
- * una buena transición. Y lealtad con énfasis: es el valor agregado».
+ * escenas del producto con una buena transición. Lealtad con énfasis.
+ * Y el menú superior como el de ellos, con nuestros productos».
  *
  * ── LA ESTRUCTURA ES LA DE LINKTREE ─────────────────────────────────
  * Bloques de color de borde a borde, uno por sección, cada uno con un
- * titular enorme y una sola idea. La página se lee de lejos. Los
- * colores son la paleta `.linksy` de globals.css, cada uno con su
- * tinta ya medida; acá no hay un hex.
+ * titular enorme y una sola idea. Los colores son la paleta `.linksy`
+ * de globals.css, cada uno con su tinta medida; acá no hay un hex.
  *
- * ── LAS ESCENAS DEL HÉROE ───────────────────────────────────────────
- * Tres imágenes hechas para Linksy (referencia/imagenes, optimizadas a
- * WebP en public/linksy) que ya traen el teléfono con la página
- * adentro. `VitrinaEscenas` las funde una en otra; acá solo se declaran.
+ * Las secciones tienen `id` porque el menú «Productos» (menu-productos.tsx)
+ * apunta a ellas: #lealtad, #vender, #instagram, #disenos, #dominio.
+ * Si se renombra una, el menú se rompe en silencio: buscar el id ahí.
  *
  * ── LOS LINKS AL MUNDO CON SESIÓN SON ABSOLUTOS ─────────────────────
  * «Ingresar», «Crear gratis» y el reclamo del link van a bookea.lat con
- * `urlBookea`: el alta y el panel viven allá porque la cookie de sesión
- * no cruza entre dominios de apex distinto. Bajo bookea.lat son el
- * mismo origen. El proxy además redirige allá cualquier ruta de ese
- * mundo pedida en linksy.lat (`PREFIJOS_BOOKEA`) — dos cinturones.
+ * `urlBookea`: el alta y el panel viven allá. El proxy además redirige
+ * allá cualquier ruta de ese mundo pedida en linksy.lat.
  */
 
 const retraso = (i: number) => ({ "--reveal-delay": `${Math.min(i * 60, 320)}ms` }) as React.CSSProperties;
@@ -66,51 +62,17 @@ const ESCENAS: Escena[] = [
   },
 ];
 
-/** El nav de Linktree: la marca a la izquierda, dos píldoras a la derecha. */
-function NavLinksy() {
-  return (
-    <header className="sticky top-0 z-30 px-4 pt-4 sm:px-6">
-      <nav
-        className="mx-auto flex h-[68px] w-[min(1280px,100%)] items-center justify-between rounded-full px-5 shadow-elevado sm:px-7"
-        style={{ background: "var(--linksy-papel)", color: "var(--linksy-tinta)" }}
-      >
-        <Link href="/linksy" className="titulo text-[26px] font-extrabold tracking-tight" style={{ color: "var(--linksy-tinta)" }}>
-          Linksy
-        </Link>
-        <div className="hidden items-center gap-7 text-[15px] font-bold lg:flex">
-          <a href="#lealtad">Lealtad</a>
-          <a href="#vender">Vender</a>
-          <a href="#dominio">Tu dominio</a>
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={urlBookea("/linksy/login")}
-            className="presionable hidden min-h-[44px] items-center rounded-full px-5 text-[15px] font-bold sm:inline-flex"
-            style={{ background: "var(--linksy-lila)", color: "var(--linksy-lila-tinta)" }}
-          >
-            Ingresar
-          </a>
-          <a
-            href={urlBookea("/solutions/crear")}
-            className="presionable inline-flex min-h-[44px] items-center rounded-full px-5 text-[15px] font-extrabold"
-            style={{ background: "var(--linksy-carbon)", color: "var(--linksy-carbon-tinta)" }}
-          >
-            Crear gratis
-          </a>
-        </div>
-      </nav>
-    </header>
-  );
-}
+/** Los 13 temas reales del editor, para la sección «Diseños». */
+const DISENOS = TEMAS.map((t) => PRESETS[t]);
 
 export default function LandingLinksy() {
   return (
-    <main className={`min-h-svh ${CLASES_FUENTES}`} lang="es" style={bloque("lima")}>
+    <main className={`min-h-svh ${CLASES_FUENTES}`} lang="es" style={bloque("celeste")}>
       <RevealOnScroll />
       <NavLinksy />
 
-      {/* ══ 1 · HÉROE — texto a la izquierda, las escenas a la derecha ═ */}
-      <section className="px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:pb-24" style={bloque("lima")}>
+      {/* ══ 1 · HÉROE — celeste, texto a la izquierda, las escenas a la derecha ═ */}
+      <section className="px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:pb-24" style={bloque("celeste")}>
         <div className="mx-auto grid w-[min(1280px,100%)] items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-12">
           <div>
             <h1 className="titulo max-w-[11ch] text-balance text-[clamp(48px,7.5vw,104px)] font-extrabold leading-[0.95] tracking-[-0.03em]">
@@ -121,10 +83,9 @@ export default function LandingLinksy() {
               página que se ve como vos.
             </p>
             <div className="mt-9">
-              <ReclamarLink tono="lima" />
+              <ReclamarLink tono="celeste" />
             </div>
           </div>
-
           <div className="min-w-0">
             <VitrinaEscenas escenas={ESCENAS} />
           </div>
@@ -158,6 +119,9 @@ export default function LandingLinksy() {
                 </li>
               ))}
             </ul>
+            <a href={urlBookea("/lealtad/planes")} className="presionable mt-8 inline-flex min-h-[50px] items-center rounded-full px-7 text-[15px] font-extrabold" style={bloque("lima")}>
+              Ver los planes de lealtad →
+            </a>
           </div>
           <div data-reveal aria-hidden className="mx-auto w-[min(100%,380px)] overflow-hidden shadow-flotante" style={{ borderRadius: "var(--linksy-radio)" }}>
             <div className="h-[560px]">
@@ -177,7 +141,7 @@ export default function LandingLinksy() {
             {[
               { b: "coral" as Bloque, n: "01", t: "Menú o catálogo", d: "Secciones, fotos, precios en tu moneda. Hasta seis idiomas. «Agotado hoy» con un toque." },
               { b: "amarillo" as Bloque, n: "02", t: "Pedidos sin comisión", d: "Carrito con tus precios. Mesa con QR, para recoger o con envío. Te llega por WhatsApp." },
-              { b: "menta" as Bloque, n: "03", t: "Tu propio dominio", d: "Empezás con linksy.lat/tu-negocio y, cuando quieras, la misma página responde en tu dominio." },
+              { b: "menta" as Bloque, n: "03", t: "Vitrina en tu página", d: "Tus productos con foto y precio adentro del link, como la tienda de Linktree." },
             ].map((c, i) => (
               <article key={c.t} data-reveal style={{ ...retraso(i), ...bloque(c.b), borderRadius: "var(--linksy-radio)" }} className="flex min-h-[320px] flex-col justify-between p-8">
                 <span className="titulo text-[20px] font-extrabold opacity-70">{c.n}</span>
@@ -191,7 +155,91 @@ export default function LandingLinksy() {
         </div>
       </section>
 
-      {/* ══ 4 · DOMINIO Y QR — blanco ════════════════════════════ */}
+      {/* ══ 4 · INSTAGRAM AUTO REPLY — lima ═════════════════════ */}
+      <section id="instagram" className="px-4 py-20 sm:px-6 sm:py-28" style={bloque("lima")}>
+        <div className="mx-auto grid w-[min(1280px,100%)] items-center gap-12 lg:grid-cols-[1fr_1fr]">
+          <div data-reveal>
+            <p className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[13px] font-extrabold uppercase tracking-[0.12em]" style={bloque("carbon")}>
+              <IconInstagram className="h-4 w-4" /> Instagram Auto Reply
+            </p>
+            <h2 className="titulo mt-6 max-w-[14ch] text-balance text-[clamp(40px,6vw,84px)] font-extrabold leading-[0.98] tracking-[-0.02em]">
+              Comentan «precio». Reciben tu link por DM.
+            </h2>
+            <p className="mt-6 max-w-[44ch] text-[clamp(17px,1.9vw,22px)] font-semibold leading-snug">
+              Elegís una publicación y una palabra clave. Cada comentario con esa palabra recibe tu
+              mensaje privado con el enlace, al instante, y si querés una respuesta pública debajo.
+              Con la API oficial de Instagram: sin contraseñas ni trucos.
+            </p>
+            <ul className="mt-9 grid gap-3 sm:grid-cols-3">
+              {[
+                { t: "Palabra clave", d: "«precio», «info», «menú»… sin importar mayúsculas ni acentos." },
+                { t: "DM automático", d: "Tu texto y tu enlace, uno por comentario, en segundos." },
+                { t: "Estadísticas", d: "Comentarios, DMs enviados, tasa de respuesta." },
+              ].map((x, i) => (
+                <li key={x.t} data-reveal style={{ ...retraso(i), ...bloque("carbon"), borderRadius: "var(--linksy-radio-chico)" }} className="p-5">
+                  <p className="text-[18px] font-extrabold leading-tight">{x.t}</p>
+                  <p className="mt-1 text-[14px] font-medium opacity-90">{x.d}</p>
+                </li>
+              ))}
+            </ul>
+            <a href={urlBookea("/solutions/panel")} className="presionable mt-8 inline-flex min-h-[50px] items-center rounded-full px-7 text-[15px] font-extrabold" style={bloque("carbon")}>
+              Activarlo en mi panel →
+            </a>
+          </div>
+          {/* La conversación, dibujada: un comentario y la respuesta. */}
+          <div data-reveal aria-hidden className="mx-auto flex w-[min(100%,440px)] flex-col gap-3 p-6 shadow-flotante" style={{ background: "var(--linksy-papel)", color: "var(--linksy-tinta)", borderRadius: "var(--linksy-radio)" }}>
+            <p className="text-[12px] font-extrabold uppercase tracking-[0.12em]" style={{ color: "var(--linksy-tinta-suave)" }}>Comentarios</p>
+            <div className="rounded-2xl px-4 py-3 text-[15px] font-bold" style={{ background: "var(--linksy-celeste)", color: "var(--linksy-celeste-tinta)" }}>
+              <span style={{ color: "var(--linksy-tinta-suave)" }}>@ana.cliente</span> ¿Cuál es el PRECIO? 👀
+            </div>
+            <div className="ml-8 rounded-2xl px-4 py-3 text-[15px] font-bold" style={{ background: "var(--linksy-lila)", color: "var(--linksy-lila-tinta)" }}>
+              <span style={{ color: "var(--linksy-tinta-suave)" }}>@cafearoma</span> ¡Te escribimos por DM! 👋
+            </div>
+            <p className="mt-2 text-[12px] font-extrabold uppercase tracking-[0.12em]" style={{ color: "var(--linksy-tinta-suave)" }}>Mensaje privado</p>
+            <div className="rounded-2xl px-4 py-3 text-[15px] font-bold" style={bloque("carbon")}>
+              ¡Hola! 👋 Gracias por comentar. Acá tenés los precios:
+              <br />
+              <span className="underline underline-offset-2">linksy.lat/cafearoma</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ══ 5 · DISEÑOS — los 13 temas reales, amarillo ══════════ */}
+      <section id="disenos" className="px-4 py-20 sm:px-6 sm:py-28" style={bloque("amarillo")}>
+        <div className="mx-auto w-[min(1280px,100%)]">
+          <h2 className="titulo max-w-[16ch] text-balance text-[clamp(40px,6vw,84px)] font-extrabold leading-[0.98] tracking-[-0.02em]">
+            Trece temas, seis fuentes, y tus dos colores.
+          </h2>
+          <p className="mt-6 max-w-[44ch] text-[clamp(17px,1.9vw,22px)] font-semibold leading-snug">
+            Elegís uno, lo afinás con animaciones, fondos y forma de los botones, y lo ves cambiar mientras
+            lo tocás. La vista previa es tu página de verdad.
+          </p>
+          <ul className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {DISENOS.map((d, i) => (
+              <li
+                key={d.id}
+                data-reveal
+                style={{
+                  ...retraso(i),
+                  background: d.fondo ?? "linear-gradient(135deg, var(--linksy-celeste), var(--linksy-lila))",
+                  color: d.tinta ?? "var(--linksy-tinta)",
+                  borderRadius: "var(--linksy-radio-chico)",
+                }}
+                className="flex min-h-[112px] flex-col justify-between p-4 shadow-plano"
+              >
+                <span aria-hidden className="h-5 w-5 rounded-full" style={{ background: d.acentoSugerido }} />
+                <div>
+                  <p className="titulo text-[17px] font-extrabold leading-none">{d.nombre}</p>
+                  <p className="mt-1 text-[12px] font-semibold opacity-80">{d.pie}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ══ 6 · DOMINIO Y QR — blanco ════════════════════════════ */}
       <section id="dominio" className="px-4 py-20 sm:px-6 sm:py-28" style={{ background: "var(--linksy-papel)", color: "var(--linksy-tinta)" }}>
         <div className="mx-auto grid w-[min(1280px,100%)] gap-5 lg:grid-cols-2">
           <div data-reveal style={{ ...bloque("carbon"), borderRadius: "var(--linksy-radio)" }} className="p-8 sm:p-12">
@@ -202,7 +250,7 @@ export default function LandingLinksy() {
               tu dominio de verdad y responde: nunca vas a imprimir un QR que no abre.
             </p>
           </div>
-          <div data-reveal style={{ ...retraso(1), ...bloque("lima"), borderRadius: "var(--linksy-radio)" }} className="p-8 sm:p-12">
+          <div data-reveal style={{ ...retraso(1), ...bloque("menta"), borderRadius: "var(--linksy-radio)" }} className="p-8 sm:p-12">
             <IconChartBars className="h-10 w-10" />
             <h2 className="titulo mt-6 text-[clamp(32px,4vw,56px)] font-extrabold leading-none tracking-tight">Un QR para todo.</h2>
             <p className="mt-5 max-w-[40ch] text-[18px] font-semibold leading-snug">
@@ -213,7 +261,7 @@ export default function LandingLinksy() {
         </div>
       </section>
 
-      {/* ══ 5 · CIERRE — carbón ═════════════════════════════════ */}
+      {/* ══ 7 · CIERRE — carbón ═════════════════════════════════ */}
       <section className="px-4 py-24 sm:px-6 sm:py-32" style={bloque("carbon")}>
         <div className="mx-auto flex w-[min(1280px,100%)] flex-col items-start gap-9">
           <h2 className="titulo max-w-[12ch] text-balance text-[clamp(44px,8vw,110px)] font-extrabold leading-[0.95] tracking-[-0.03em]">

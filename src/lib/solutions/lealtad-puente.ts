@@ -38,6 +38,15 @@ import { elegirDeFilasCrudas } from "@/lib/wallet/programa-principal";
 
 export type EscanerLealtad = {
   ranchoId: string;
+  /** La tarjeta principal (programa_lealtad.id) y su modo: lo que la
+   *  página de Lealtad del panel necesita para pedir el ledger y las
+   *  estadísticas de ESA tarjeta y no de otra. */
+  programaId: string;
+  modo: string | null;
+  /** Para resolver el paquete con `contextoDeCuenta` sin volver a
+   *  leer el programa: la cuenta (0134) y el plan del rancho de respaldo. */
+  cuentaId: string | null;
+  planRancho: string | null;
   /** El negocio de Lealtad (puede llamarse distinto que el de Solutions). */
   negocio: string;
   tarjeta: string;
@@ -52,7 +61,7 @@ type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 export async function escaneresDeLaCuenta(admin: Admin, ownerId: string): Promise<EscanerLealtad[]> {
   const { data: ranchos } = await admin
     .from("ranchos")
-    .select("id, nombre")
+    .select("id, nombre, plan_lealtad")
     .eq("owner_id", ownerId)
     .order("created_at", { ascending: true })
     .limit(20);
@@ -86,6 +95,10 @@ export async function escaneresDeLaCuenta(admin: Admin, ownerId: string): Promis
 
     salida.push({
       ranchoId: r.id as string,
+      programaId: p.id as string,
+      modo: (p.modo as string | null) ?? null,
+      cuentaId: typeof p.cuenta_id === "string" && p.cuenta_id ? p.cuenta_id : null,
+      planRancho: (r.plan_lealtad as string | null) ?? null,
       negocio: (r.nombre as string) ?? "Mi negocio",
       tarjeta: (p.nombre as string) ?? "Tarjeta",
       pideMonto: registraCompraElTipo(tipoDe(p.modo as string | null)),

@@ -22,7 +22,7 @@ import { urlBookea } from "@/lib/solutions/dominios";
  */
 const HOST_VISIBLE = "linksy.lat/";
 
-export default function ReclamarLink({ tono = "lima" }: { tono?: "lima" | "carbon" }) {
+export default function ReclamarLink({ tono = "celeste" }: { tono?: "celeste" | "lima" | "carbon" }) {
   const [nombre, setNombre] = useState("");
   const idCampo = useId();
   const idPista = useId();
@@ -38,12 +38,13 @@ export default function ReclamarLink({ tono = "lima" }: { tono?: "lima" | "carbo
     window.location.href = urlBookea(`/solutions/crear?nombre=${encodeURIComponent(limpio)}`);
   };
 
-  // El botón invierte el bloque: oscuro sobre lima, lima sobre carbón.
+  // El botón invierte el bloque: oscuro sobre un bloque claro (celeste o
+  // lima), lima sobre carbón. La pista toma la tinta del bloque.
   const boton =
     tono === "carbon"
       ? { background: "var(--linksy-lima)", color: "var(--linksy-lima-tinta)" }
       : { background: "var(--linksy-carbon)", color: "var(--linksy-carbon-tinta)" };
-  const pista = tono === "carbon" ? "var(--linksy-carbon-tinta)" : "var(--linksy-lima-tinta)";
+  const pista = `var(--linksy-${tono}-tinta)`;
 
   return (
     <form onSubmit={enviar} className="w-full max-w-[640px]">

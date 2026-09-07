@@ -6,8 +6,6 @@ import { ADDON, ADDONS, type EstadoAddons } from "@/lib/solutions/addons";
 import { esDeComida, vocabDe } from "@/lib/solutions/rubros";
 import type { NegocioSolutions } from "@/lib/solutions/tipos";
 import AddonToggle from "./addon-toggle";
-import EscanerSolutions from "./escaner-solutions";
-import type { EscanerLealtad } from "@/lib/solutions/lealtad-puente";
 
 /**
  * INICIO — el tablero que abre el panel.
@@ -55,7 +53,6 @@ export default function SeccionInicio({
   tieneLealtad,
   addons,
   puedeEditar,
-  escaneres,
 }: {
   negocio: NegocioSolutions;
   urlPublica: string;
@@ -75,8 +72,6 @@ export default function SeccionInicio({
   /** Qué tiene prendido el negocio (0233). */
   addons: EstadoAddons;
   puedeEditar: boolean;
-  /** Los escáneres de pases de la cuenta (5 sep 2026). Vacío = no se muestra. */
-  escaneres: EscanerLealtad[];
 }) {
   const base = `/solutions/panel/${negocio.id}`;
   const lealtadActiva = addons.lealtad || tieneLealtad;
@@ -217,21 +212,6 @@ export default function SeccionInicio({
           </ul>
         )}
       </Card>
-
-      {/* ── EL ESCÁNER DE PASES (dueño, 5 sep 2026) ──────────────
-          Solo cuando la cuenta tiene una tarjeta de Lealtad con la que
-          acreditar. Es el mismo escáner del panel de Lealtad, montado
-          acá para que la caja no cambie de producto para sumar un
-          sello. */}
-      {escaneres.length > 0 && (
-        <Card eyebrow="Tu tarjeta de lealtad" titulo="Escanear el pase de un cliente">
-          <p className="mb-3 text-[12.5px] leading-snug text-aventurea-ink-soft">
-            Apuntá la cámara al QR del pase y se le suma el sello o los puntos. La cámara se pide
-            recién al tocar el botón.
-          </p>
-          <EscanerSolutions opciones={escaneres} />
-        </Card>
-      )}
 
       {/* ── LO QUE ESTÁ FUNCIONANDO HOY ──────────────────────────── */}
       <div className={`grid gap-3 ${metricas.length === 3 ? "sm:grid-cols-3" : metricas.length === 2 ? "sm:grid-cols-2" : ""}`}>

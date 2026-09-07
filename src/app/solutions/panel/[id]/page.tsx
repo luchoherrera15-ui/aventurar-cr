@@ -4,16 +4,15 @@ import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hoyISOCR } from "@/lib/fechas";
 import {
-  IconCamera,
   IconChair,
   IconClipboard,
   IconHome,
   IconCloche,
+  IconInstagram,
   IconTagLine,
   IconUsers,
+  IconWallet,
 } from "@/components/icons";
-import { Card } from "@/components/panel/piezas";
-import { BOTON_PANEL_PRIMARIO } from "@/components/panel/sistema";
 import PanelSidebar, { type Tab } from "@/app/mi-negocio/[id]/panel-sidebar";
 import { CLASES_FUENTES } from "@/app/solutions/fuentes";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
@@ -32,7 +31,6 @@ import SeccionInicio from "./seccion-inicio";
 import SeccionPagina from "./seccion-pagina";
 import SeccionMenu from "./seccion-menu";
 import SeccionEquipo from "./seccion-equipo";
-import EscanerSolutions from "./escaner-solutions";
 import CompletarPerfil from "../completar-perfil";
 import { estadoDelPerfil } from "@/lib/solutions/perfil";
 
@@ -135,9 +133,9 @@ export default async function PanelSolutionsPage({
   const urlPublica = urlDelNegocio(negocio);
   const recienCreado = busqueda.nuevo === "1";
 
-  // El escáner de pases (5 sep 2026): solo para el dueño, que es quien
-  // tiene acceso en Lealtad. Un colaborador de Solutions no es equipo
-  // del rancho y el servidor le diría que no al escanear.
+  // Las tarjetas de Lealtad de la cuenta (5 sep 2026): deciden qué dice
+  // la pestaña «Lealtad». Solo para el dueño, que es quien tiene acceso
+  // en Lealtad; un colaborador de Solutions no es equipo del rancho.
   const escaneres =
     acceso.esDueno && (addons.lealtad || tieneLealtad) ? await escaneresDeLaCuenta(admin, negocio.owner_id) : [];
 
@@ -162,7 +160,6 @@ export default async function PanelSolutionsPage({
           tieneLealtad={tieneLealtad}
           addons={addons}
           puedeEditar={acceso.puedeEditar}
-          escaneres={escaneres}
         />
       ),
     },
@@ -190,45 +187,22 @@ export default async function PanelSolutionsPage({
     tabs.push({ id: "restaurante", label: vocab.tablero, icon: <IconClipboard />, bloqueado: bloqueada });
   }
 
-  // EL ESCÁNER DE PASES (dueño, 5 sep 2026): el mismo de Lealtad,
-  // montado acá. Solo el dueño (ver `escaneres` arriba).
+  // LEALTAD (dueño, 7 sep 2026): «un botón a la izquierda dedicado a
+  // los pases, y que ahí también se vean estadísticas y demás». Es una
+  // página propia, como Instagram: escáner, cifras, listos para su
+  // recompensa, estadísticas y ventas. Antes era «Escanear pases» y
+  // además una card en Inicio; las dos se fundieron acá.
   if (acceso.esDueno) {
-    if (escaneres.length > 0) {
+    if (escaneres.length > 0 || addons.lealtad || tieneLealtad) {
       tabs.push({
-        id: "escanear",
-        label: "Escanear pases",
-        descripcion: "Sumá sellos o puntos al cliente",
-        icon: <IconCamera />,
-        content: (
-          <Card eyebrow="Tu tarjeta de lealtad" titulo="Escanear el pase de un cliente">
-            <p className="mb-3 text-[12.5px] leading-snug text-aventurea-ink-soft">
-              Apuntá la cámara al QR del pase y se le suma el sello o los puntos. Es el mismo
-              escáner de tu panel de Lealtad.
-            </p>
-            <EscanerSolutions opciones={escaneres} abierto />
-          </Card>
-        ),
-      });
-    } else if (addons.lealtad || tieneLealtad) {
-      tabs.push({
-        id: "escanear",
-        label: "Escanear pases",
-        descripcion: "Primero armá tu tarjeta",
-        icon: <IconCamera />,
-        content: (
-          <Card eyebrow="Tu tarjeta de lealtad" titulo="Todavía no tenés una tarjeta que escanear">
-            <p className="text-[13px] leading-snug text-aventurea-ink-soft">
-              El escáner suma sellos o puntos a un pase. Armá tu tarjeta en Bookea Lealtad con esta
-              misma cuenta y acá aparece la cámara.
-            </p>
-            <Link href="/lealtad/crear" className={`mt-3 inline-flex ${BOTON_PANEL_PRIMARIO}`}>
-              Armar mi tarjeta →
-            </Link>
-          </Card>
-        ),
+        id: "lealtad",
+        label: "Lealtad",
+        descripcion: escaneres.length > 0 ? "Escaneá, premios y estadísticas" : "Primero armá tu tarjeta",
+        icon: <IconWallet />,
+        href: `/solutions/panel/${id}/lealtad`,
       });
     } else {
-      tabs.push({ id: "escanear", label: "Escanear pases", icon: <IconCamera />, bloqueado: bloqueada });
+      tabs.push({ id: "lealtad", label: "Lealtad", icon: <IconWallet />, bloqueado: bloqueada });
     }
   }
 
@@ -280,6 +254,15 @@ export default async function PanelSolutionsPage({
     } else if (comida && !addons.pedidos) {
       tabs.push({ id: "mesas", label: "QR de mesas", icon: <IconChair />, bloqueado: bloqueada });
     }
+    // Instagram Auto Reply (7 sep 2026): comentario con palabra clave →
+    // DM automático. Vive en su propia página, como las mesas.
+    tabs.push({
+      id: "instagram",
+      label: "Instagram",
+      descripcion: "Respuestas automáticas",
+      icon: <IconInstagram />,
+      href: `/solutions/panel/${id}/instagram`,
+    });
     tabs.push({
       id: "equipo",
       label: "Equipo",

@@ -29,7 +29,7 @@ import { IconChevronLeft, IconChevronRight } from "@/components/icons";
  * reinicia — el efecto de las dependencias del `useEffect`.
  */
 
-export type Bloque = "lima" | "azul" | "coral" | "lila" | "amarillo" | "menta" | "carbon";
+export type Bloque = "celeste" | "lima" | "azul" | "coral" | "lila" | "amarillo" | "menta" | "carbon";
 
 export type Escena = {
   /** Ruta bajo /public. `next/image` la sirve optimizada por ancho. */
