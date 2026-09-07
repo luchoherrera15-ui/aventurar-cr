@@ -15,7 +15,7 @@ import BotonVolver from "@/components/boton-volver";
 import { ROTULO } from "@/components/lealtad/ficha-tokens";
 import CampoColor from "@/components/campo-color";
 import SubirImagen from "@/components/subir-imagen";
-import { PAISES, COSTA_RICA } from "@/lib/paises";
+import { PAISES, COSTA_RICA, paisDePrefijoUno } from "@/lib/paises";
 import VistaPase, { type DatosVista } from "@/components/lealtad/vista-pase";
 import FormularioAuth from "@/app/cuenta/formulario-auth";
 import { contraste } from "@/lib/invitaciones/paleta";
@@ -311,12 +311,18 @@ function CampoTelefono({
   alCambiar: (telefono: string) => void;
 }) {
   const guardado = valor.trim();
-  const pais =
+  const candidato =
     PREFIJOS_POR_LARGO.find((p) => guardado.startsWith(p.prefijoTelefono)) ??
     COSTA_RICA;
-  const numero = guardado.startsWith(pais.prefijoTelefono)
-    ? guardado.slice(pais.prefijoTelefono.length).trim()
+  const numero = guardado.startsWith(candidato.prefijoTelefono)
+    ? guardado.slice(candidato.prefijoTelefono.length).trim()
     : guardado;
+  // El +1 lo comparten República Dominicana y Puerto Rico (6 sep 2026,
+  // con los 21 países): lo decide el código de área del número.
+  const pais =
+    candidato.prefijoTelefono === "+1"
+      ? (PAISES.find((p) => p.codigo === paisDePrefijoUno(numero)) ?? candidato)
+      : candidato;
 
   /* Se vuelve a unir en cada cambio. Si el número está vacío se manda
      vacío y NO «+506 » solo: `puedeGuardar` mira `telefono.trim()`, y un
@@ -346,11 +352,17 @@ function CampoTelefono({
           }}
           className={`${CAMPO_BASE} w-[104px] shrink-0 cursor-pointer px-2.5`}
         >
-          {PAISES.map((p) => (
-            <option key={p.codigo} value={p.codigo}>
-              {p.bandera} {p.prefijoTelefono}
-            </option>
-          ))}
+          {PAISES.map((p) => {
+            // Si dos países comparten prefijo (+1: República Dominicana
+            // y Puerto Rico), el código ISO los distingue en la lista.
+            const compartido = PAISES.some((o) => o !== p && o.prefijoTelefono === p.prefijoTelefono);
+            return (
+              <option key={p.codigo} value={p.codigo} title={p.nombre}>
+                {p.bandera} {p.prefijoTelefono}
+                {compartido ? ` ${p.codigo.toUpperCase()}` : ""}
+              </option>
+            );
+          })}
         </select>
         {/* `min-w-0` sobre un hijo de flex NO es de adorno: por defecto
             un input tiene `min-width:auto`, o sea que se niega a

@@ -112,7 +112,8 @@ describe("esPais", () => {
   });
 
   it("rechaza lo que no es un código conocido", () => {
-    expect(esPais("ar")).toBe(false);
+    // «es» (España) y no «ar»: Argentina entró al catálogo el 6 sep 2026.
+    expect(esPais("es")).toBe(false);
     expect(esPais("")).toBe(false);
     expect(esPais(null)).toBe(false);
     expect(esPais(undefined)).toBe(false);
