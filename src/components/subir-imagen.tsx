@@ -1,8 +1,23 @@
 "use client";
 
 import { useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import { analizarImagen, comprimirImagen, type AnalisisImagen } from "@/lib/comprimir-imagen";
+import type { PropuestaColores } from "@/lib/colores-imagen";
+import { coloresDeArchivo } from "@/lib/colores-imagen-navegador";
+
+/**
+ * El recortador (7 sep 2026) se carga solo cuando alguien lo pide
+ * (`recortar`): el uploader se monta en muchas pantallas que no lo usan.
+ */
+const RecortarImagen = dynamic(() => import("./recortar-imagen"), { ssr: false });
+
+/** «3 / 1» → 3. La relación del preset, como número para el recortador. */
+function relacionNumerica(texto: string): number {
+  const [a, b] = texto.split("/").map((x) => Number(x.trim()));
+  return a > 0 && b > 0 ? a / b : 1;
+}
 
 /**
  * SUBIR UNA IMAGEN, sin pedirle una URL a nadie.
@@ -102,6 +117,8 @@ export default function SubirImagen({
   alAnalizar,
   bucket = BUCKET,
   subidaDirecta,
+  recortar = false,
+  alColores,
 }: {
   /** La URL actual, o "" si no hay. */
   valor: string;
@@ -144,12 +161,27 @@ export default function SubirImagen({
    * junto con ella.
    */
   alAnalizar?: (analisis: AnalisisImagen | null) => void;
+  /**
+   * RECORTAR ANTES DE SUBIR (7 sep 2026, «como Linktree»): al elegir el
+   * archivo se abre el recortador con la proporción del destino (1:1
+   * un logo, 3:1 una portada) y lo que se sube es el recorte. Opcional
+   * y apagado por defecto: las pantallas que no lo piden no cambian.
+   */
+  recortar?: boolean;
+  /**
+   * Los colores de la imagen (`colores-imagen.ts`), leídos del archivo
+   * ANTES de subirlo. Se avisa después de que la subida terminó, para
+   * que el color aparezca junto con la imagen; y con null al quitarla.
+   */
+  alColores?: (colores: PropuestaColores | null) => void;
 }) {
   const preset = PRESETS[destino];
   const input = useRef<HTMLInputElement | null>(null);
   const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [encima, setEncima] = useState(false);
+  /** El archivo elegido, esperando en el recortador. */
+  const [pendiente, setPendiente] = useState<File | null>(null);
 
   async function tomar(archivo: File | undefined) {
     if (!archivo) return;
@@ -160,6 +192,14 @@ export default function SubirImagen({
       return;
     }
 
+    if (recortar) {
+      setPendiente(archivo);
+      return;
+    }
+    await subir(archivo);
+  }
+
+  async function subir(archivo: File) {
     setSubiendo(true);
     try {
       const liviano = await comprimirImagen(archivo, {
@@ -173,6 +213,10 @@ export default function SubirImagen({
         setError(`Aun comprimida pesa ${mb} MB y el máximo es ${MAX_MB} MB. Probá con otra.`);
         return;
       }
+
+      // Los colores se leen del archivo YA comprimido, en el navegador,
+      // antes de subir: es instantáneo y no depende de la red.
+      const colores = alColores ? await coloresDeArchivo(liviano) : null;
 
       // ── Cloudflare Images, si quien nos monta lo pide ─────────────
       // El navegador manda el archivo DIRECTO a la URL de un solo uso
@@ -194,6 +238,7 @@ export default function SubirImagen({
           }
           if (alAnalizar) alAnalizar(await analizarImagen(liviano));
           alCambiar(permiso.urlFinal);
+          alColores?.(colores);
           return;
         }
         // Sin Cloudflare configurado: sigue al bucket de siempre.
@@ -226,6 +271,7 @@ export default function SubirImagen({
 
       const { data } = supabase.storage.from(bucket).getPublicUrl(ruta);
       alCambiar(data.publicUrl);
+      alColores?.(colores);
     } catch {
       setError("No se pudo procesar la imagen. Probá con otra.");
     } finally {
@@ -259,6 +305,7 @@ export default function SubirImagen({
               alCambiar("");
               setError(null);
               alAnalizar?.(null);
+              alColores?.(null);
             }}
             className="shrink-0 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-bookea-gris underline hover:text-bookea-tinta"
           >
@@ -308,6 +355,21 @@ export default function SubirImagen({
       />
 
       {error && <p className="mt-1.5 text-[12px] font-bold text-red-600">{error}</p>}
+
+      {pendiente && (
+        <RecortarImagen
+          archivo={pendiente}
+          relacion={relacionNumerica(preset.relacion)}
+          conservarAlfa={preset.conservarAlfa}
+          ladoMax={preset.ladoMax}
+          titulo={`Recortar: ${etiqueta}`}
+          alConfirmar={(f) => {
+            setPendiente(null);
+            void subir(f);
+          }}
+          alCancelar={() => setPendiente(null)}
+        />
+      )}
     </div>
   );
 }
