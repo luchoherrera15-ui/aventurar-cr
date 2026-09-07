@@ -548,7 +548,8 @@ export default function InicioLealtad({
                       {c.nombre}
                     </span>
                     <span className={`shrink-0 ${DETALLE}`}>
-                      ₡{c.gastoTotal.toLocaleString("es-CR")}
+                      {/* Valor sin moneda (7 sep 2026): Lealtad vende en 21 países. */}
+                      {c.gastoTotal.toLocaleString("es-CR")}
                     </span>
                   </li>
                 ))}

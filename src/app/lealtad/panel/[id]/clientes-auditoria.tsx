@@ -43,10 +43,53 @@ const TONO: Record<TramoCliente, "exito" | "aviso" | "alerta" | "neutro"> = {
   perdido: "alerta",
 };
 
-type Orden = "recientes" | "antiguos" | "mas_gasto" | "mas_visitas" | "nombre";
+type Orden = "recientes" | "antiguos" | "mas_gasto" | "mas_visitas" | "nombre" | "mas_canjes" | "mas_saldo" | "mas_ticket";
 
+/** El valor SIN moneda (7 sep 2026): Lealtad vende en 21 países. */
 function formatoColones(monto: number): string {
-  return `₡${monto.toLocaleString("es-CR")}`;
+  return monto.toLocaleString("es-CR");
+}
+
+/** Cómo se llama cada orden, para el selector y para los encabezados. */
+const ORDEN_ETIQUETA: Record<Orden, string> = {
+  recientes: "Más días sin venir primero",
+  antiguos: "Vino hace menos primero",
+  mas_gasto: "Mayor valor consumido",
+  mas_visitas: "Más visitas",
+  mas_canjes: "Más canjes",
+  mas_saldo: "Mayor saldo",
+  mas_ticket: "Mayor ticket promedio",
+  nombre: "Nombre (A-Z)",
+};
+
+/** El CSV de la lista filtrada, armado a mano (las columnas ya están en pantalla). */
+function exportarClientes(clientes: ClienteAuditado[]) {
+  const escapar = (v: string | number | null) => {
+    const s = v === null ? "" : String(v);
+    return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const filas = [
+    ["Cliente", "Contacto", "Tramo", "Visitas", "Última visita", "Valor consumido", "Ticket promedio", "Canjes", "Saldo", "Cliente desde"],
+    ...clientes.map((c) => [
+      c.nombre,
+      c.contacto.join(" · "),
+      TRAMOS[c.tramo].etiqueta,
+      c.visitas,
+      c.ultimaVisita ?? "",
+      c.ventasConMonto > 0 ? c.gastoTotal : "",
+      c.ticketPromedio ?? "",
+      c.canjes,
+      c.saldo,
+      c.desde,
+    ]),
+  ];
+  const texto = filas.map((f) => f.map(escapar).join(";")).join("\n");
+  const url = URL.createObjectURL(new Blob(["﻿" + texto], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "clientes.csv";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function formatoFecha(iso: string | null): string {
@@ -128,6 +171,12 @@ export default function ClientesAuditoria({
           return b.gastoTotal - a.gastoTotal;
         case "mas_visitas":
           return b.visitas - a.visitas;
+        case "mas_canjes":
+          return b.canjes - a.canjes;
+        case "mas_saldo":
+          return b.saldo - a.saldo;
+        case "mas_ticket":
+          return (b.ticketPromedio ?? -1) - (a.ticketPromedio ?? -1);
         case "nombre":
           return a.nombre.localeCompare(b.nombre, "es");
         case "recientes":
@@ -267,7 +316,7 @@ export default function ClientesAuditoria({
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className={ROTULO_CAMPO}>Gasto acumulado (mínimo ₡)</span>
+            <span className={ROTULO_CAMPO}>Valor consumido (mínimo)</span>
             <input
               type="number"
               min={0}
@@ -284,11 +333,9 @@ export default function ClientesAuditoria({
               onChange={(e) => setOrden(e.target.value as Orden)}
               className={CAMPO_PANEL}
             >
-              <option value="recientes">Más días sin venir primero</option>
-              <option value="antiguos">Vino hace menos primero</option>
-              <option value="mas_gasto">Mayor gasto</option>
-              <option value="mas_visitas">Más visitas</option>
-              <option value="nombre">Nombre (A-Z)</option>
+              {(Object.keys(ORDEN_ETIQUETA) as Orden[]).map((o) => (
+                <option key={o} value={o}>{ORDEN_ETIQUETA[o]}</option>
+              ))}
             </select>
           </label>
         </div>
@@ -370,10 +417,14 @@ export default function ClientesAuditoria({
 
       {/* ── La tabla ──────────────────────────────────────────────── */}
       <Card sinPadding>
-        <div className="flex items-center justify-between gap-3 border-b border-aventurea-line px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-aventurea-line px-4 py-3">
           <p className={CUERPO}>
             {filtrados.length} de {datos.clientes.length} clientes
+            <span className={`ml-2 ${DETALLE}`}>· tocá un encabezado para ordenar</span>
           </p>
+          <button type="button" onClick={() => exportarClientes(filtrados)} disabled={filtrados.length === 0} className={BOTON_PANEL}>
+            Exportar CSV
+          </button>
           {rescatablesFiltrados.length > 0 && (
             <button
               type="button"
@@ -392,19 +443,37 @@ export default function ClientesAuditoria({
             <thead>
               <tr className="border-b border-aventurea-line text-[11px] font-bold uppercase tracking-wide text-aventurea-ink-soft">
                 <th scope="col" className="w-10 px-4 py-2.5" />
-                <th scope="col" className="px-2 py-2.5">Cliente</th>
-                <th scope="col" className="px-2 py-2.5">Tramo</th>
-                <th scope="col" className="px-2 py-2.5">Visitas</th>
-                <th scope="col" className="px-2 py-2.5">Última visita</th>
-                <th scope="col" className="px-2 py-2.5">Gasto acumulado</th>
-                <th scope="col" className="px-2 py-2.5">Ticket prom.</th>
-                <th scope="col" className="px-2 py-2.5">Saldo</th>
+                {/* Cada encabezado ordena por su columna (7 sep 2026). Los
+                    que tienen dos sentidos (última visita) alternan. */}
+                {(
+                  [
+                    ["Cliente", "nombre"],
+                    ["Tramo", null],
+                    ["Visitas", "mas_visitas"],
+                    ["Última visita", orden === "recientes" ? "antiguos" : "recientes"],
+                    ["Valor consumido", "mas_gasto"],
+                    ["Ticket prom.", "mas_ticket"],
+                    ["Canjes", "mas_canjes"],
+                    ["Saldo", "mas_saldo"],
+                  ] as [string, Orden | null][]
+                ).map(([titulo, o]) => (
+                  <th key={titulo} scope="col" className="px-2 py-2.5" aria-sort={o && orden === o ? "descending" : "none"}>
+                    {o ? (
+                      <button type="button" onClick={() => setOrden(o)} className={`inline-flex items-center gap-1 hover:text-aventurea-navy ${orden === o || (titulo === "Última visita" && (orden === "recientes" || orden === "antiguos")) ? "text-aventurea-navy" : ""}`}>
+                        {titulo}
+                        <span aria-hidden className="text-[9px]">{orden === o || (titulo === "Última visita" && (orden === "recientes" || orden === "antiguos")) ? "▼" : "◇"}</span>
+                      </button>
+                    ) : (
+                      titulo
+                    )}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {filtrados.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-[13px] text-aventurea-ink-soft">
+                  <td colSpan={9} className="px-4 py-8 text-center text-[13px] text-aventurea-ink-soft">
                     Nadie coincide con estos filtros.
                   </td>
                 </tr>
@@ -496,6 +565,7 @@ function FilaCliente({
         <td className={`px-2 py-2.5 ${CUERPO}`}>
           {cliente.ticketPromedio !== null ? formatoColones(cliente.ticketPromedio) : "—"}
         </td>
+        <td className={`px-2 py-2.5 ${CUERPO}`}>{cliente.canjes}</td>
         <td className={`px-2 py-2.5 ${CUERPO}`}>
           {cliente.saldo}
           {cliente.puedeCanjear && (
@@ -505,7 +575,7 @@ function FilaCliente({
       </tr>
       {abierto && (
         <tr>
-          <td colSpan={8} className="border-b border-aventurea-line bg-aventurea-cream-2 px-4 py-4">
+          <td colSpan={9} className="border-b border-aventurea-line bg-aventurea-cream-2 px-4 py-4">
             <FichaAuditoria ranchoId={ranchoId} programaId={programaId} cliente={cliente} />
           </td>
         </tr>

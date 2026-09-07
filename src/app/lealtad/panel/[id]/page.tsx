@@ -71,12 +71,13 @@ import SeccionPlan from "./seccion-plan";
 import FacturacionConTarjeta from "./facturacion-tarjeta";
 import { suscripcionDelNegocio } from "@/lib/pagos/puerta-supabase";
 import { AvisoError, AvisoGuardado, ProveedorPrograma } from "./programa-contexto";
-import MetricasLealtad from "./metricas";
 import ImpactoComercial from "./impacto-comercial";
-import AuditoriaResumen from "./auditoria-resumen";
+import EstadisticasLealtad from "./estadisticas-lealtad";
+import { cargarEstadisticas } from "./estadisticas-datos";
+import { puede, PLANES, PLANES_OFRECIDOS } from "@/lib/lealtad/planes";
 import EquipoLealtad, { type MiembroEquipo } from "./equipo-cliente";
 import LinkScanLealtad from "./link-scan";
-import { ActividadLealtad, IntegracionesLealtad, WalletLealtad } from "./lealtad-secciones";
+import { IntegracionesLealtad, WalletLealtad } from "./lealtad-secciones";
 import SeccionDevelopers from "./seccion-developers";
 import SeccionUbicaciones from "./seccion-ubicaciones";
 import type { UbicacionFila } from "./ubicaciones-actions";
@@ -746,7 +747,7 @@ export default async function PanelNegocioLealtad({
           : []),
         { id: "clientes", etiqueta: "Clientes", icono: "clientes" as const },
         ...(permisos.auditoria
-          ? [{ id: "metricas", etiqueta: "Métricas", icono: "metricas" as const }]
+          ? [{ id: "metricas", etiqueta: "Estadísticas", icono: "metricas" as const }]
           : []),
         ...(puedeDisenar ? [{ id: "marketing", etiqueta: "Marketing", icono: "campana" as const }] : []),
         ...(puedeDisenar
@@ -906,6 +907,14 @@ export default async function PanelNegocioLealtad({
     </>
   );
 
+  // ESTADÍSTICAS (7 sep 2026): el libro entero de la tarjeta que se
+  // mira, cruzado con ventas y canjes. Solo para quien audita; el
+  // cliente filtra y agrupa sin volver a la base.
+  const estadisticas =
+    pVista && permisos.auditoria
+      ? await cargarEstadisticas(pVista.id as string, id, (pVista.modo as string | null) ?? null)
+      : null;
+
   const contenidos: Record<string, React.ReactNode> = {
     // Inicio: el mostrador para quien puede acreditar; el tablero para
     // quien no. Ver el comentario de `mostradorEsElInicio`.
@@ -972,7 +981,7 @@ export default async function PanelNegocioLealtad({
       <Seccion
         eyebrow="Quién se afilió"
         titulo="Clientes"
-        bajada="Quién se afilió, cuánto lleva cada quien y a quién le toca su regalía."
+        bajada="Atendé en el mostrador, o revisá a cada cliente: visitas, valor consumido, tramo del ciclo y su historial. Los movimientos por fecha viven en Estadísticas."
       >
         <SelectorTarjetaActiva
           ranchoId={id}
@@ -993,21 +1002,10 @@ export default async function PanelNegocioLealtad({
               auditoria={
                 <ClientesAuditoria ranchoId={id} programaId={pVista.id} datos={datosClientes} />
               }
-              // La pestaña Actividad (0163: se fundió acá desde su
-              // propio ítem del rail) — mismo candado que tenía como
-              // sección propia.
-              actividad={
-                permisos.auditoria ? (
-                  <>
-                    <Rotulo>Quién hizo qué — últimos 30 días</Rotulo>
-                    <AuditoriaResumen programaId={pVista?.id ?? null} />
-                    <Rotulo className="mt-6">El libro, movimiento por movimiento</Rotulo>
-                    <ActividadLealtad ranchoId={id} programaId={pVista?.id ?? null} />
-                    <Rotulo className="mt-6">Canjes por pasar a la caja</Rotulo>
-                    <IntegracionesLealtad ranchoId={id} programaId={pVista?.id ?? null} />
-                  </>
-                ) : null
-              }
+              // La pestaña Actividad (0163) se fue a ESTADÍSTICAS (7 sep
+              // 2026): el libro de movimientos, quién hizo qué y los
+              // canjes por pasar a la caja viven ahí, con filtros.
+              actividad={null}
             />
           ) : (
             // Sin llave de servicio (entorno local sin configurar) la
@@ -1105,9 +1103,9 @@ export default async function PanelNegocioLealtad({
       ? {
           metricas: (
             <Seccion
-              eyebrow="Cómo va creciendo"
-              titulo="Métricas"
-              bajada="¿Está creciendo el programa? Los últimos 30 días contra los 30 anteriores, y cuánto vendés con la tarjeta."
+              eyebrow="Los números de tu tarjeta"
+              titulo="Estadísticas"
+              bajada="Filtrá por fecha, tipo, canal, colaborador o cliente: entregas de sellos, canjes, ajustes, cuánto consume cada cliente y qué se vende más. Todo se exporta a CSV."
             >
               <SelectorTarjetaActiva
                 ranchoId={id}
@@ -1116,27 +1114,45 @@ export default async function PanelNegocioLealtad({
                 seccion="metricas"
               />
               <TabsContenido
-                etiquetaGrupo="Qué métricas ver"
+                etiquetaGrupo="Qué estadísticas ver"
                 pestanas={[
                   {
-                    id: "crecimiento",
-                    etiqueta: "Crecimiento",
-                    contenido: (
-                      <>
-                        <MetricasLealtad
-                          programaId={pVista?.id ?? null}
-                          plan={plan}
-                          meta={metaVista?.costo_puntos ?? null}
-                        />
-                        <Rotulo className="mt-6">Estado de las tarjetas</Rotulo>
-                        <WalletLealtad programaId={pVista?.id ?? null} />
-                      </>
+                    id: "estadisticas",
+                    etiqueta: "Estadísticas",
+                    contenido: estadisticas ? (
+                      <EstadisticasLealtad
+                        datos={estadisticas}
+                        listosParaCanjear={datosClientes?.clientes.filter((c) => c.puedeCanjear).length ?? 0}
+                        enRiesgo={(datosClientes?.totales.enRiesgo ?? 0) + (datosClientes?.totales.dormidos ?? 0)}
+                        tieneProyeccion={puede(plan, "proyeccion_metricas")}
+                        abreProyeccion={
+                          PLANES_OFRECIDOS.map((pid) => PLANES[pid]).find((x) => x.capacidades.includes("proyeccion_metricas"))?.nombre ?? null
+                        }
+                        limiteClientes={definicionDe(plan)?.limites.clientesActivos ?? null}
+                      />
+                    ) : (
+                      <CardVacia>Cuando la tarjeta tenga movimientos, acá se ven las estadísticas.</CardVacia>
                     ),
                   },
                   {
                     id: "ventas",
                     etiqueta: "Ventas",
                     contenido: <ImpactoComercial ranchoId={id} />,
+                  },
+                  {
+                    id: "caja",
+                    etiqueta: "Caja",
+                    contenido: (
+                      <>
+                        <Rotulo>Canjes por pasar a la caja</Rotulo>
+                        <IntegracionesLealtad ranchoId={id} programaId={pVista?.id ?? null} />
+                      </>
+                    ),
+                  },
+                  {
+                    id: "wallet",
+                    etiqueta: "Tarjetas en el teléfono",
+                    contenido: <WalletLealtad programaId={pVista?.id ?? null} />,
                   },
                 ]}
               />

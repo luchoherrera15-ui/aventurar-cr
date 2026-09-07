@@ -1,5 +1,4 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { formatearCRC } from "@/lib/dinero";
 import { Card, CardVacia } from "@/components/panel/piezas";
 import { GAP_METRICAS } from "@/components/panel/sistema";
 import {
@@ -132,9 +131,10 @@ const AVISO_SIN_TABLA =
   "El registro de compras todavía no está activo en la base (migración 0197). " +
   "Cuando el equipo de Bookea lo active, acá se ven las ventas que pasan por tu tarjeta.";
 
-/** ₡ ya formateado, o «—» cuando el dato no existe (nunca un 0 falso). */
+/** El valor sin moneda (Lealtad vende en 21 países), o «—» cuando el
+ *  dato no existe (nunca un 0 falso). */
 function colonesODato(valor: number | null): string {
-  return valor === null ? "—" : formatearCRC(Math.round(valor));
+  return valor === null ? "—" : Math.round(valor).toLocaleString("es-CR");
 }
 
 /**
@@ -251,7 +251,7 @@ function LoQueMasVenden({ top }: { top: ProductoVendido[] }) {
                 {p.ventas.toLocaleString("es-CR")} venta{p.ventas === 1 ? "" : "s"}
               </span>
               <span className="text-[13.5px] font-extrabold tabular-nums text-aventurea-ink">
-                {formatearCRC(p.total)}
+                {Math.round(p.total).toLocaleString("es-CR")}
               </span>
             </span>
           </li>

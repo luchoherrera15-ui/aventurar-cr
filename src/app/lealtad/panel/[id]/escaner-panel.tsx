@@ -460,7 +460,7 @@ export default function EscanerPanel({
             htmlFor="escaner-monto"
             className="mb-1.5 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
           >
-            Monto de la compra (₡)
+            Valor de la compra
           </label>
           <input
             id="escaner-monto"
@@ -493,7 +493,7 @@ export default function EscanerPanel({
             className="mb-1.5 mt-3 block text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft"
             htmlFor="escaner-producto"
           >
-            Producto/concepto
+            Detalle (opcional)
           </label>
           <input
             id="escaner-producto"
@@ -507,7 +507,7 @@ export default function EscanerPanel({
               // que es la clase de dato que no se puede auditar después.
               if (productoId) setProductoId(null);
             }}
-            placeholder="Opcional — «Matcha latte»"
+            placeholder="«Hamburguesas», «Matcha latte»…"
             className="w-full rounded-[10px] border border-aventurea-line bg-aventurea-cream-2 px-3 py-2.5 text-[13.5px] text-aventurea-ink placeholder:text-zinc-500"
           />
         </div>

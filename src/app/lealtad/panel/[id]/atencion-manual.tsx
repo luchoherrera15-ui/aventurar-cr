@@ -145,6 +145,8 @@ function FilaCliente({
 }) {
   const [ocupado, setOcupado] = useState<null | "sello" | "canje" | "estado">(null);
   const [monto, setMonto] = useState("");
+  /** El detalle libre de la compra («hamburguesas»), opcional (7 sep 2026). */
+  const [detalle, setDetalle] = useState("");
   /** El producto del catálogo elegido para ESTA fila. null = a mano. */
   const [productoId, setProductoId] = useState<string | null>(null);
   const [avisoMonto, setAvisoMonto] = useState<string | null>(null);
@@ -194,7 +196,9 @@ function FilaCliente({
       cliente.miembroId,
       lectura.monto,
       `mostrador:${intento.current}`,
-      null,
+      // El detalle viaja como concepto de la venta (0197); si eligió
+      // un producto del catálogo, el nombre lo resuelve el servidor.
+      detalle.trim() || null,
       productoId,
     )
       .then((res) => {
@@ -206,6 +210,7 @@ function FilaCliente({
         }
         if (!res.yaEstaba) {
           setMonto("");
+          setDetalle("");
           setProductoId(null);
         }
         onNovedad(cliente.miembroId, {
@@ -402,21 +407,40 @@ function FilaCliente({
               )}
 
               {pideMonto && (
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={monto}
-                  onChange={(e) => {
-                    setMonto(e.target.value);
-                    if (avisoMonto) setAvisoMonto(null);
-                  }}
-                  placeholder="Monto ₡"
-                  aria-label={`Monto de la compra de ${cliente.nombre}`}
-                  className={`w-[110px] rounded-[10px] border bg-white px-2.5 py-2 text-[13px] text-aventurea-ink placeholder:text-zinc-500 ${
-                    avisoMonto ? "border-red-500" : "border-aventurea-line"
-                  }`}
-                />
+                <>
+                  {/* «Valor», sin moneda (7 sep 2026): Lealtad vende en 21
+                      países y el colón no es de todos. Al lado, el detalle
+                      opcional («hamburguesas»), que va a la venta y a las
+                      estadísticas. */}
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={monto}
+                    onChange={(e) => {
+                      setMonto(e.target.value);
+                      if (avisoMonto) setAvisoMonto(null);
+                    }}
+                    placeholder="Valor"
+                    aria-label={`Valor de la compra de ${cliente.nombre}`}
+                    className={`w-[100px] rounded-[10px] border bg-white px-2.5 py-2 text-[13px] text-aventurea-ink placeholder:text-zinc-500 ${
+                      avisoMonto ? "border-red-500" : "border-aventurea-line"
+                    }`}
+                  />
+                  <input
+                    type="text"
+                    maxLength={120}
+                    value={detalle}
+                    onChange={(e) => {
+                      setDetalle(e.target.value);
+                      // Escribir a mano desata el enlace al catálogo, igual que en el escáner.
+                      if (productoId) setProductoId(null);
+                    }}
+                    placeholder="Detalle (opcional)"
+                    aria-label={`Detalle de la compra de ${cliente.nombre}`}
+                    className="w-[150px] rounded-[10px] border border-aventurea-line bg-white px-2.5 py-2 text-[13px] text-aventurea-ink placeholder:text-zinc-500"
+                  />
+                </>
               )}
               <button
                 type="button"

@@ -10,11 +10,9 @@ import {
   ROTULO_CIFRA,
   SUPERFICIE_PANEL,
 } from "@/components/panel/sistema";
-import { formatearCRC } from "@/lib/dinero";
 import { identidadesDeMiembros, miembrosConIdentidad } from "@/lib/lealtad/identidades-db";
 import { fichaVisible, numeroCorto, SIN_DATOS } from "@/lib/lealtad/identidad-miembro";
-import { canalDelMovimiento } from "@/lib/lealtad/canal-del-sello";
-import { ActividadFiltrable, CanjePendientePos } from "./lealtad-secciones-cliente";
+import { CanjePendientePos } from "./lealtad-secciones-cliente";
 
 /**
  * Las secciones de consulta del programa: Actividad (el ledger en
@@ -75,167 +73,8 @@ async function nombresDeMiembros(
   );
 }
 
-// ── Actividad: el libro mayor ───────────────────────────────────────
-export async function ActividadLealtad({
-  ranchoId,
-  programaId,
-}: {
-  ranchoId: string;
-  programaId: string | null;
-}) {
-  const db = createAdminClient();
-  if (!db || !programaId) return <Vacio texto="Todavía no hay programa." />;
-
-  const nombres = await nombresDeMiembros(db, programaId, ranchoId);
-  const ids = [...nombres.keys()];
-  if (ids.length === 0) return <Vacio texto="Todavía no hay movimientos." />;
-
-  // `referencia` y `llave_id` no estaban en este `select`, y son
-  // exactamente los dos datos que contestan «¿por dónde entró este
-  // sello?» (ver `canal-del-sello.ts`). Estaban guardados desde la 0060
-  // y la 0178 y no se mostraban en ninguna pantalla.
-  //
-  // `llave_id` se pide aparte: la 0178 puede no estar pegada, y nombrar
-  // una columna que no existe hace fallar la consulta ENTERA — o sea
-  // que la Actividad quedaría vacía en vez de degradada.
-  const columnas =
-    "id, miembro_id, tipo, puntos, motivo, referencia, saldo_posterior, reversion_de, usuario_id, created_at";
-  const conLlave = await db
-    .from("transacciones_puntos")
-    .select(`${columnas}, llave_id`)
-    .in("miembro_id", ids)
-    .order("created_at", { ascending: false })
-    .limit(200);
-  const { data: tx } = conLlave.error
-    ? await db
-        .from("transacciones_puntos")
-        .select(columnas)
-        .in("miembro_id", ids)
-        .order("created_at", { ascending: false })
-        .limit(200)
-    : conLlave;
-
-  const filas = (tx ?? []) as unknown as {
-    id: string;
-    miembro_id: string;
-    tipo: string;
-    puntos: number;
-    motivo: string | null;
-    referencia: string | null;
-    saldo_posterior: number | null;
-    reversion_de: string | null;
-    usuario_id: string | null;
-    llave_id?: string | null;
-    created_at: string;
-  }[];
-  if (filas.length === 0) return <Vacio texto="Todavía no hay movimientos." />;
-
-  // LA COMPRA DETRÁS DEL SELLO (0197): si el evento comercial existe,
-  // la fila del ledger deja de decir «Compra (escaneo)» y dice la
-  // compra de verdad — «Compra registrada · ₡4.500 · Matcha» — con el
-  // +N y la hora que la fila ya trae. Se cruza por la MISMA referencia
-  // de idempotencia que entró al ledger. Sin la 0197 la consulta falla
-  // y la Actividad queda EXACTAMENTE como hoy: degradada, no rota.
-  const referencias = filas
-    .map((t) => t.referencia)
-    .filter((r): r is string => typeof r === "string" && r.length > 0);
-  const compras = new Map<string, { monto: number | null; producto: string | null }>();
-  if (referencias.length) {
-    const { data: eventos } = await db
-      .from("lealtad_transacciones")
-      .select("referencia, monto, producto")
-      .eq("programa_id", programaId)
-      .in("referencia", referencias);
-    for (const c of (eventos ?? []) as {
-      referencia: string | null;
-      monto: number | null;
-      producto: string | null;
-    }[]) {
-      if (c.referencia) {
-        compras.set(c.referencia, {
-          monto: c.monto === null ? null : Number(c.monto),
-          producto: c.producto,
-        });
-      }
-    }
-  }
-
-  // QUIÉN lo hizo: el colaborador o dueño que escaneó/canjeó/ajustó.
-  // usuario_id null = lo hizo el sistema (ej. puntos por cita cumplida).
-  const operadores = [...new Set(filas.map((t) => t.usuario_id).filter((v): v is string => !!v))];
-  const { data: perfilesOp } = operadores.length
-    ? await db.from("perfiles").select("id, nombre").in("id", operadores)
-    : { data: [] };
-  const nombreOperador = new Map(
-    ((perfilesOp ?? []) as { id: string; nombre: string | null }[]).map((p) => [
-      p.id,
-      (p.nombre ?? "").trim() || "Colaborador",
-    ]),
-  );
-
-  // Los datos planos para el cliente: él filtra (nombre, fechas) sin
-  // volver a consultar nada.
-  const filasParaFiltrar = filas.map((t) => ({
-    transaccionId: t.id,
-    miembroId: t.miembro_id,
-    nombre: nombres.get(t.miembro_id) ?? SIN_DATOS,
-    tipo: t.tipo,
-    puntos: t.puntos,
-    motivo: motivoConCompra(t, compras),
-    // Los dos datos de auditoría que faltaban. La `referencia` es el
-    // número de factura, el serial escaneado o la llave del intento:
-    // es lo único con lo que se puede cruzar un reclamo del cliente
-    // contra el POS del negocio.
-    referencia: t.referencia,
-    canal: canalDelMovimiento({
-      referencia: t.referencia,
-      llaveId: t.llave_id ?? null,
-      usuarioId: t.usuario_id,
-    }),
-    saldoPosterior: t.saldo_posterior,
-    esReversion: t.reversion_de !== null,
-    porQuien: t.usuario_id ? (nombreOperador.get(t.usuario_id) ?? "Colaborador") : null,
-    fecha: FECHA.format(new Date(t.created_at)),
-    // YYYY-MM-DD en hora de Costa Rica, para el filtro por fechas.
-    fechaISO: new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/Costa_Rica",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date(t.created_at)),
-  }));
-
-  return (
-    <ActividadFiltrable
-      ranchoId={ranchoId}
-      filas={filasParaFiltrar}
-      totalMiembros={nombres.size}
-    />
-  );
-}
-
-/**
- * El motivo de una fila del libro, con su compra adelante si la hay.
- *
- * Solo movimientos GANADOS con un evento comercial que diga algo
- * (monto o producto): un canje, una reversión o un sello sin compra
- * registrada conservan su motivo de siempre. El «+1 sello» y la hora
- * no van acá — la fila ya los pinta.
- */
-function motivoConCompra(
-  t: { tipo: string; referencia: string | null; motivo: string | null },
-  compras: Map<string, { monto: number | null; producto: string | null }>,
-): string {
-  const base = t.motivo ?? "";
-  if (t.tipo !== "ganado" || !t.referencia) return base;
-  const compra = compras.get(t.referencia);
-  if (!compra || (compra.monto === null && !compra.producto)) return base;
-
-  const partes = ["Compra registrada"];
-  if (compra.monto !== null) partes.push(formatearCRC(compra.monto));
-  if (compra.producto) partes.push(compra.producto);
-  return partes.join(" · ");
-}
+// La Actividad (el libro de movimientos) se fue a Estadísticas el 7 sep
+// 2026: `estadisticas-datos.ts` + `estadisticas-lealtad.tsx`, con filtros.
 
 // ── Wallet: los pases emitidos ──────────────────────────────────────
 export async function WalletLealtad({ programaId }: { programaId: string | null }) {
