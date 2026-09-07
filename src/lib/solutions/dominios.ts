@@ -303,3 +303,19 @@ export async function slugPorDominio(host: string): Promise<string | null> {
   cache.set(h, { slug, hasta: ahora + TTL_MS });
   return slug;
 }
+
+/**
+ * LA PORTADA DE LINKSY — a dónde vuelve quien sale del producto.
+ *
+ * Pedido del dueño (7 sep 2026): «me devolvió a /solutions cuando salí
+ * de linksy.lat». La landing vieja de Solutions ya no existe como
+ * destino: cerrar sesión, y cualquier ruta que antes llevara ahí, vuelve
+ * a la portada de Linksy. En producción es `https://linksy.lat/`
+ * (`NEXT_PUBLIC_LINKSY_URL`, la misma variable que arma los links y los
+ * QR); sin la variable —local, previews— es `/linksy`, la misma página
+ * servida desde bookea.lat.
+ */
+export function urlLinksy(): string {
+  const base = (process.env.NEXT_PUBLIC_LINKSY_URL ?? "").trim().replace(/[/]+$/, "");
+  return base ? `${base}/` : "/linksy";
+}

@@ -1,14 +1,7 @@
-import type { Metadata } from "next";
-import LandingSolutions from "../landing-solutions";
-import { TEXTOS } from "../textos";
+import { permanentRedirect } from "next/navigation";
+import { urlLinksy } from "@/lib/solutions/dominios";
 
-/** /solutions/en — the same landing, in English (owner, Sep 5 2026). */
-export const metadata: Metadata = {
-  title: TEXTOS.en.meta.title,
-  description: TEXTOS.en.meta.description,
-  alternates: { canonical: "/solutions/en", languages: { es: "/solutions", en: "/solutions/en" } },
-};
-
+/** /solutions/en — la landing vieja en inglés: a la portada de Linksy (ver ../page.tsx). */
 export default function SolutionsEnPage() {
-  return <LandingSolutions idioma="en" />;
+  permanentRedirect(urlLinksy());
 }

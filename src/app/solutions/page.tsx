@@ -1,19 +1,15 @@
-import type { Metadata } from "next";
-import LandingSolutions from "./landing-solutions";
-import { TEXTOS } from "./textos";
+import { permanentRedirect } from "next/navigation";
+import { urlLinksy } from "@/lib/solutions/dominios";
 
 /**
- * /solutions — la landing en español. La versión en inglés vive en
- * /solutions/en y /soluciones es un alias de esta (dueño, 5 sep 2026).
- * Las tres montan el MISMO componente (landing-solutions.tsx) con su
- * diccionario (textos.ts).
+ * /solutions — LA LANDING VIEJA, AHORA UNA REDIRECCIÓN.
+ *
+ * Desde el 7 sep 2026 el producto se llama Linksy y su portada es
+ * linksy.lat (servida también en /linksy). Esta ruta sigue existiendo
+ * solo para los links viejos (correos, QR, marcadores): manda a la
+ * portada de Linksy con 308. `landing-solutions.tsx` y `textos.ts`
+ * quedan en el árbol sin uso, por si hay que rescatar un texto.
  */
-export const metadata: Metadata = {
-  title: TEXTOS.es.meta.title,
-  description: TEXTOS.es.meta.description,
-  alternates: { canonical: "/solutions", languages: { es: "/solutions", en: "/solutions/en" } },
-};
-
 export default function SolutionsPage() {
-  return <LandingSolutions idioma="es" />;
+  permanentRedirect(urlLinksy());
 }
