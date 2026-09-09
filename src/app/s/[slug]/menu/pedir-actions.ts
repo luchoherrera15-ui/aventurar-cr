@@ -4,6 +4,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { addonsDelNegocio } from "@/lib/solutions/addons";
 import { TOPES, metodoPagoDe, metodosPagoDe, type MetodoPago } from "@/lib/solutions/tipos";
 import { codigoDePedido } from "@/lib/solutions/whatsapp";
+import {
+  detalleDeLinea,
+  eleccionDe,
+  personalizacionDe,
+  precioDeLinea,
+} from "@/lib/solutions/personalizacion";
 
 /**
  * EL PEDIDO ENTRA POR ACÁ — y solo por acá.
@@ -16,7 +22,8 @@ import { codigoDePedido } from "@/lib/solutions/whatsapp";
  *   · cada renglón es un plato de ESE negocio, disponible, no agotado
  *     y CON precio (uno «a consultar» no tiene monto que congelar);
  *   · el total se calcula acá con los precios de la base — nunca con
- *     los que mandó el navegador.
+ *     los que mandó el navegador, y eso incluye los EXTRAS (0241): el
+ *     teléfono manda QUÉ extra eligió, el servidor pone cuánto vale.
  *
  * Un renglón inválido descarta el pedido entero con un motivo claro,
  * no lo recorta en silencio: el cliente cree que pidió tres cosas y la
@@ -31,22 +38,28 @@ import { codigoDePedido } from "@/lib/solutions/whatsapp";
 
 type Admin = NonNullable<ReturnType<typeof createAdminClient>>;
 type Renglon = { item_id: string; nombre: string; precio: number; cantidad: number };
+/** Un renglón, más cómo lo armó el cliente — para la cocina. */
+type RenglonArmado = Renglon & { detalles: string[] };
 type Falla = { ok: false; motivo: string };
 
 async function renglonesDe(
   admin: Admin,
   negocioId: string,
-  crudos: { itemId: string; cantidad: number }[],
-): Promise<{ ok: true; items: Renglon[]; subtotal: number } | Falla> {
+  crudos: { itemId: string; cantidad: number; eleccion?: unknown }[],
+): Promise<{ ok: true; items: RenglonArmado[]; subtotal: number } | Falla> {
   const renglones = (Array.isArray(crudos) ? crudos : [])
-    .map((r) => ({ itemId: String(r.itemId ?? ""), cantidad: Math.trunc(Number(r.cantidad)) }))
+    .map((r) => ({
+      itemId: String(r.itemId ?? ""),
+      cantidad: Math.trunc(Number(r.cantidad)),
+      eleccion: r.eleccion,
+    }))
     .filter((r) => r.itemId && r.cantidad >= 1 && r.cantidad <= TOPES.cantidadPorRenglon)
     .slice(0, TOPES.renglonesPorPedido);
   if (renglones.length === 0) return { ok: false, motivo: "Agregá al menos un plato." };
 
   const { data: platos } = await admin
     .from("solutions_menu_items")
-    .select("id, nombre, precio, disponible, agotado_hoy")
+    .select("id, nombre, precio, disponible, agotado_hoy, personalizacion")
     .eq("negocio_id", negocioId)
     .in(
       "id",
@@ -54,13 +67,24 @@ async function renglonesDe(
     );
   const porId = new Map((platos ?? []).map((p) => [p.id as string, p]));
 
-  const items: Renglon[] = [];
+  const items: RenglonArmado[] = [];
   for (const r of renglones) {
     const p = porId.get(r.itemId);
     if (!p || !p.disponible || p.agotado_hoy || p.precio === null) {
       return { ok: false, motivo: `«${p?.nombre ?? "Un plato"}» ya no está disponible. Revisá tu pedido.` };
     }
-    items.push({ item_id: p.id as string, nombre: p.nombre as string, precio: Number(p.precio), cantidad: r.cantidad });
+    // Lo que el cliente armó, comprobado contra las listas de ESTE
+    // plato: un extra inventado desde el teléfono no existe, y por lo
+    // tanto no suma ni aparece en la comanda.
+    const personalizacion = personalizacionDe((p as { personalizacion?: unknown }).personalizacion);
+    const eleccion = eleccionDe(r.eleccion, personalizacion);
+    items.push({
+      item_id: p.id as string,
+      nombre: p.nombre as string,
+      precio: precioDeLinea(Number(p.precio), personalizacion, eleccion),
+      cantidad: r.cantidad,
+      detalles: detalleDeLinea(personalizacion, eleccion),
+    });
   }
   return { ok: true, items, subtotal: items.reduce((s, it) => s + it.precio * it.cantidad, 0) };
 }
@@ -69,13 +93,15 @@ async function renglonesDe(
 async function guardarPedido(
   admin: Admin,
   cabecera: Record<string, unknown>,
-  items: Renglon[],
+  items: RenglonArmado[],
 ): Promise<{ ok: true; id: string } | Falla> {
   const { data: pedido, error } = await admin.from("solutions_pedidos").insert(cabecera).select("id").single();
   if (error || !pedido) return { ok: false, motivo: "No se pudo enviar el pedido. Probá de nuevo." };
   const { error: eItems } = await admin
     .from("solutions_pedido_items")
-    .insert(items.map((it) => ({ ...it, pedido_id: pedido.id })));
+    // `detalles` viaja en la nota del pedido, no en la fila del
+    // renglón: la tabla no tiene esa columna todavía.
+    .insert(items.map(({ detalles: _d, ...it }) => ({ ...it, pedido_id: pedido.id })));
   if (eItems) {
     // Sin renglones la comanda no sirve: se borra para no dejar una
     // cabecera huérfana que la cocina vea vacía.

@@ -1,12 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { personalizacionDe } from "@/lib/solutions/personalizacion";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { comprobarImagenSubida } from "@/lib/media/comprobar-imagen-subida";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import { generarSlugSolutions } from "@/lib/solutions/slug";
 import { esAddon } from "@/lib/solutions/addons";
+import { HOSTS_MARCA, hostMarcaDe, planLinksyDe, sanearParaPlan, esPro } from "@/lib/solutions/planes";
+import {
+  ajustesMenuDe,
+  estiloMenuDe,
+  estiloMenuParaPlan,
+  fuenteMenuDe,
+  portadaMenuDe,
+} from "@/lib/solutions/menu-estilos";
 import { esHostPropio, normalizarDominio } from "@/lib/solutions/dominios";
 import { idiomasMenuDe, nutricionDe, traduccionesDe } from "@/lib/solutions/idiomas";
 import { traducirPiezas } from "@/lib/solutions/traducir-menu";
@@ -17,15 +26,7 @@ import {
   sondaDominio,
   vercelConfigurado,
 } from "@/lib/solutions/vercel-dominios";
-import {
-  disenoDe,
-  efectoDe,
-  estiloLinksDe,
-  fuenteDe,
-  portadaDe,
-  redondeoDe,
-  temaDe,
-} from "@/lib/solutions/temas";
+import { disenoDe, efectoDe, estiloLinksDe, fuenteDe, portadaDe, redondeoDe, temaDe, FUENTES } from "@/lib/solutions/temas";
 import {
   ESTADOS_PEDIDO,
   HEX,
@@ -155,8 +156,21 @@ export async function guardarPaginaSolutions(
   // El slug lo puede cambiar el dueño (para que el QR diga lo que él
   // quiere), pero pasa por el mismo generador: minúsculas, guiones,
   // único, no reservado.
-  const { data: actual } = await p.admin.from("solutions_negocios").select("slug").eq("id", negocioId).single();
+  const { data: actual } = await p.admin.from("solutions_negocios").select("slug, plan").eq("id", negocioId).single();
   let slug = actual?.slug as string;
+  // EL PLAN MANDA (0239): lo que es Pro vuelve a su valor gratis si el
+  // negocio no tiene Pro, aunque el cliente lo mande a mano.
+  const vestido = sanearParaPlan(
+    {
+      tema: temaDe(d.tema),
+      estiloLinks: estiloLinksDe(d.estiloLinks),
+      fuente: fuenteDe(d.fuente),
+      estiloPortada: portadaDe(d.estiloPortada),
+      efecto: efectoDe(d.efecto),
+      diseno: disenoDe(d.diseno),
+    },
+    planLinksyDe((actual as { plan?: unknown } | null)?.plan),
+  );
   const pedido = d.slug.trim().toLowerCase();
   if (pedido && pedido !== slug) {
     const candidato = await generarSlugSolutions(p.admin, pedido);
@@ -189,7 +203,7 @@ export async function guardarPaginaSolutions(
       pais: paisDe(d.pais),
       moneda,
       rubro: rubroDe(d.rubro),
-      diseno: disenoDe(d.diseno),
+      diseno: vestido.diseno,
       nombre,
       slug,
       bajada: d.bajada.trim().slice(0, TOPES.bajada),
@@ -202,12 +216,12 @@ export async function guardarPaginaSolutions(
       publicado: d.publicado === true,
       mostrar_menu: d.mostrarMenu !== false,
       acepta_pedidos: d.aceptaPedidos === true,
-      tema: temaDe(d.tema),
-      estilo_links: estiloLinksDe(d.estiloLinks),
+      tema: vestido.tema,
+      estilo_links: vestido.estiloLinks,
       redondeo: redondeoDe(d.redondeo),
-      fuente: fuenteDe(d.fuente),
-      estilo_portada: portadaDe(d.estiloPortada),
-      efecto: efectoDe(d.efecto),
+      fuente: vestido.fuente,
+      estilo_portada: vestido.estiloPortada,
+      efecto: vestido.efecto,
       pedidos_llevar: d.pedidosLlevar === true,
       pedidos_express: d.pedidosExpress === true,
       costo_express: costoExpress,
@@ -566,6 +580,8 @@ export async function guardarPlatoSolutions(
     traducciones?: unknown;
     /** La ficha nutricional; null o vacía = no la tiene (0235). */
     nutricion?: unknown;
+    /** Ingredientes que se pueden quitar y extras con precio (0241). */
+    personalizacion?: unknown;
   },
 ): Promise<R & { id?: string }> {
   const p = await portonEditar(negocioId);
@@ -592,6 +608,9 @@ export async function guardarPlatoSolutions(
     disponible: d.disponible !== false,
     traducciones: traduccionesDe(d.traducciones),
     nutricion: nutricionDe(d.nutricion),
+    // Se sanea acá y no en la pantalla: los precios de los extras
+    // terminan cobrándose, así que la lista buena es la del servidor.
+    personalizacion: personalizacionDe(d.personalizacion),
   };
 
   if (d.id) {
@@ -699,4 +718,110 @@ export async function quitarColaboradorSolutions(negocioId: string, correo: stri
 async function refrescarPorId(admin: NonNullable<ReturnType<typeof createAdminClient>>, negocioId: string) {
   const { data } = await admin.from("solutions_negocios").select("slug").eq("id", negocioId).single();
   refrescar(negocioId, data?.slug as string | undefined);
+}
+
+// ── EL DOMINIO DE MARCA (0239) ───────────────────────────────────────
+
+/**
+ * En qué dirección se muestra la página: linksy.lat/<slug> o
+ * bookea.lat/s/<slug>. Las dos sirven; esto decide cuál se enseña,
+ * se comparte y va en el QR.
+ */
+/**
+ * EL DISEÑO DEL CATÁLOGO (8 sep 2026).
+ *
+ * Se guarda dentro del jsonb `diseno` —el mismo de la 0232— y no en
+ * una columna nueva: no hace falta migración y `disenoDe` ya tolera
+ * campos que no conoce. Se LEE primero para no pisar el resto del
+ * vestido (animación, fondo, encabezado…) con un objeto de un campo.
+ *
+ * El plan se hace cumplir acá y no en la pantalla: un diseño Pro que
+ * llegue de un negocio Gratis vuelve al base, igual que en
+ * `sanearParaPlan`.
+ */
+/**
+ * TODOS LOS AJUSTES DEL CATÁLOGO, DE UNA (9 sep 2026).
+ *
+ * El editor manda el objeto entero —tema, colores, letra, tamaño,
+ * disposición, foto, separador, precio, aire, esquinas y portada— y acá
+ * se sanea con `ajustesMenuDe`: lo que no sea una opción conocida cae
+ * en su valor base, y un color que no sea #rrggbb se descarta.
+ *
+ * Todo esto es afinado fino: Pro. Sin Pro se guarda solo la plantilla
+ * (que es lo que el plan Gratis puede elegir) y el resto queda como
+ * estaba.
+ */
+export async function guardarAjustesMenuSolutions(negocioId: string, crudo: unknown): Promise<R> {
+  const p = await portonEditar(negocioId);
+  if (!p.ok) return p;
+
+  const { data: fila } = await p.admin
+    .from("solutions_negocios")
+    .select("slug, diseno, plan")
+    .eq("id", negocioId)
+    .single();
+
+  const pro = esPro(planLinksyDe(fila?.plan));
+  const previo = disenoDe(fila?.diseno);
+  const pedido = ajustesMenuDe(crudo, FUENTES);
+  const plantilla = estiloMenuParaPlan(pedido.plantilla, pro);
+  const menuAjustes = pro ? { ...pedido, plantilla } : { ...previo.menuAjustes, plantilla };
+
+  const diseno = { ...previo, menu: plantilla, menuAjustes };
+  const { error } = await p.admin.from("solutions_negocios").update({ diseno }).eq("id", negocioId);
+  if (error) return { ok: false, motivo: "No se pudo guardar el diseño del menú." };
+
+  refrescar(negocioId, (fila?.slug as string | null) ?? null);
+  return { ok: true };
+}
+
+export async function elegirEstiloMenuSolutions(
+  negocioId: string,
+  estilo: string,
+  /** La letra («auto» = la del diseño) y la portada, del mismo editor. */
+  extra?: { fuente?: string; portada?: string },
+): Promise<R> {
+  const p = await portonEditar(negocioId);
+  if (!p.ok) return p;
+
+  const { data: fila } = await p.admin
+    .from("solutions_negocios")
+    .select("slug, diseno, plan")
+    .eq("id", negocioId)
+    .single();
+
+  const pro = esPro(planLinksyDe(fila?.plan));
+  const elegido = estiloMenuParaPlan(estiloMenuDe(estilo), pro);
+  const previo = disenoDe(fila?.diseno);
+  const diseno = {
+    ...previo,
+    menu: elegido,
+    // La letra suelta y la portada son afinado fino: Pro. Sin Pro se
+    // queda lo que ya había, que es lo que su plan permite.
+    menuFuente: pro ? fuenteMenuDe(extra?.fuente ?? previo.menuFuente, FUENTES) : previo.menuFuente,
+    menuPortada: pro ? portadaMenuDe(extra?.portada ?? previo.menuPortada) : previo.menuPortada,
+  };
+
+  const { error } = await p.admin.from("solutions_negocios").update({ diseno }).eq("id", negocioId);
+  if (error) return { ok: false, motivo: "No se pudo guardar el diseño del menú." };
+
+  refrescar(negocioId, (fila?.slug as string | null) ?? null);
+  return { ok: true };
+}
+
+export async function elegirDominioMarcaSolutions(negocioId: string, host: string): Promise<R> {
+  const p = await portonEditar(negocioId);
+  if (!p.ok) return p;
+  if (!(HOSTS_MARCA as readonly string[]).includes(host)) return { ok: false, motivo: "Elegí linksy.lat o bookea.lat." };
+  const { data: fila } = await p.admin.from("solutions_negocios").select("slug").eq("id", negocioId).single();
+  const { error } = await p.admin
+    .from("solutions_negocios")
+    .update({ host_marca: hostMarcaDe(host) })
+    .eq("id", negocioId);
+  if (error) {
+    // Sin la 0239 aplicada la columna no existe: se dice, no se disfraza.
+    return { ok: false, motivo: error.message.includes("host_marca") ? "Falta aplicar la migración 0239 para elegir el dominio." : "No se pudo guardar el dominio." };
+  }
+  refrescar(negocioId, (fila?.slug as string | null) ?? null);
+  return { ok: true };
 }

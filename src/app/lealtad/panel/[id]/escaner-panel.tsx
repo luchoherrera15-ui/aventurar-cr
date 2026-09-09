@@ -2,21 +2,54 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
-import { leerMontoColones, llaveDeIntento, textosDelTipo } from "@/lib/lealtad/mostrador";
+import { leerMontoColones, llaveDeIntento, textosDelTipo, unidadDe } from "@/lib/lealtad/mostrador";
 import type { ProductoDeVenta } from "@/lib/lealtad/productos";
 import { ACCION, ACCION_TINTA, BOTON_ACCION, BOTON_LEALTAD } from "../sistema-lealtad";
 import { sumarSelloEscaneado, type ResultadoEscaneo } from "./escaner-actions";
 import { canjearRecompensa } from "./lealtad-operar-actions";
 import SelectorProducto from "./selector-producto";
 
+/** El lado más largo del cuadro que se decodifica. Un QR en la pantalla
+ *  de un teléfono se lee de sobra a esta escala. */
+const LADO_MAX = 640;
+
+/** Tope de lecturas por segundo: más que esto es hilo quemado. */
+const LECTURAS_POR_SEGUNDO = 12;
+
+/** El lector del sistema operativo, cuando el navegador lo trae. */
+type LectorNativo = { detect(fuente: CanvasImageSource): Promise<{ rawValue: string }[]> };
+type VentanaConLector = {
+  BarcodeDetector?: new (opciones: { formats: string[] }) => LectorNativo;
+};
+
 /**
  * Escanear la tarjeta del cliente para sumarle un sello.
  *
- * El QR del pase lleva el `serial_number`. Se decodifica con jsQR y no
- * con `BarcodeDetector`: esa API nativa no existe en Safari, y el
- * personal de un local costarricense usa iPhone tanto como Android.
- * Una sola ruta para los dos evita que "funciona en mi teléfono" sea
- * una respuesta válida.
+ * El QR del pase lleva el `serial_number`.
+ *
+ * ── CÓMO SE LEE, Y POR QUÉ POR DOS CAMINOS (8 sep 2026) ─────────────
+ * El dueño reportó que «los QR no se están leyendo tan rápido». Lo
+ * eran: cada cuadro de la cámara se decodificaba ENTERO —a la
+ * resolución que diera el aparato, hasta 1920×1080— con jsQR, que es
+ * JavaScript puro y corre en el mismo hilo que dibuja la pantalla. Dos
+ * millones de píxeles por cuadro, sesenta veces por segundo: el hilo no
+ * daba abasto, la vista previa se trababa y el código tardaba en caer.
+ *
+ * Ahora:
+ *   · si el navegador trae `BarcodeDetector` (Chrome y Edge en Android,
+ *     que es lo que hay en casi todo mostrador), lo lee el sistema
+ *     operativo, fuera del hilo de la pantalla y con años de trabajo
+ *     encima que jsQR no puede igualar;
+ *   · si no —Safari, iPhone—, sigue jsQR, pero sobre un cuadro ACHICADO
+ *     a 640 px de lado: escalar lo hace la GPU en `drawImage` y un QR de
+ *     la pantalla de un teléfono se lee igual de bien con la cuarta
+ *     parte de los píxeles;
+ *   · y en los dos casos se lee un máximo de doce veces por segundo. El
+ *     resto del tiempo el hilo queda libre para pintar la cámara, que
+ *     es lo que hace que apuntar se sienta rápido.
+ *
+ * jsQR NO se saca: es el único camino en iPhone, y sigue siendo el que
+ * responde si el lector nativo falla.
  *
  * La cámara se pide SOLO al tocar el botón. Pedirla al montar hace que
  * el navegador muestre el permiso apenas se abre la pestaña, que es la
@@ -88,6 +121,11 @@ export default function EscanerPanel({
    */
   const intento = useRef<{ serial: string; id: string } | null>(null);
 
+  /** El lector nativo, si este navegador lo tiene. null = jsQR. */
+  const lector = useRef<LectorNativo | null>(null);
+  /** Cuándo se decodificó por última vez, para no pasarse del tope. */
+  const ultimaLectura = useRef(0);
+
   const [activo, setActivo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resultado, setResultado] = useState<ResultadoEscaneo | null>(null);
@@ -156,6 +194,19 @@ export default function EscanerPanel({
         video: { facingMode: "environment" },
         audio: false,
       });
+      // El lector nativo se arma acá y no al montar: construirlo abre
+      // el servicio de códigos del sistema, y no hay por qué hacerlo
+      // hasta que alguien vaya a escanear de verdad.
+      if (lector.current === null) {
+        const Lector = (window as unknown as VentanaConLector).BarcodeDetector;
+        try {
+          lector.current = Lector ? new Lector({ formats: ["qr_code"] }) : null;
+        } catch {
+          // El navegador lo anuncia pero no sabe leer QR: jsQR.
+          lector.current = null;
+        }
+      }
+
       flujo.current = stream;
       if (video.current) {
         video.current.srcObject = stream;
@@ -180,7 +231,9 @@ export default function EscanerPanel({
     }
   }
 
-  function leer() {
+  /** `ahora` lo pasa `requestAnimationFrame`: milisegundos desde que se
+   *  abrió la página. Se usa para el tope de lecturas por segundo. */
+  async function leer(ahora: number) {
     if (!buscando.current) return;
 
     const v = video.current;
@@ -190,18 +243,47 @@ export default function EscanerPanel({
       return;
     }
 
-    c.width = v.videoWidth;
-    c.height = v.videoHeight;
-    const ctx = c.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return;
+    // El tope de lecturas por segundo. Sin esto se decodifica en cada
+    // cuadro y el hilo que decodifica es el mismo que pinta la cámara:
+    // apuntar se siente lento justo por intentar leer de más.
+    if (ahora - ultimaLectura.current < 1000 / LECTURAS_POR_SEGUNDO) {
+      requestAnimationFrame(leer);
+      return;
+    }
+    ultimaLectura.current = ahora;
 
-    ctx.drawImage(v, 0, 0, c.width, c.height);
-    const imagen = ctx.getImageData(0, 0, c.width, c.height);
-    const codigo = jsQR(imagen.data, imagen.width, imagen.height, {
-      inversionAttempts: "dontInvert",
-    });
+    let dato: string | null = null;
 
-    if (!codigo?.data) {
+    if (lector.current) {
+      // Camino nativo: se le pasa el VIDEO, sin copiar nada al lienzo.
+      try {
+        const [codigo] = await lector.current.detect(v);
+        dato = codigo?.rawValue ?? null;
+      } catch {
+        // Falló el lector del sistema: de acá en adelante, jsQR.
+        lector.current = null;
+      }
+    } else {
+      // Camino jsQR: el cuadro se ACHICA antes de decodificar. El
+      // escalado lo hace la GPU dentro de `drawImage`; lo caro es
+      // recorrer los píxeles en JavaScript, y así son cuatro veces
+      // menos.
+      const escala = Math.min(1, LADO_MAX / Math.max(v.videoWidth, v.videoHeight, 1));
+      c.width = Math.max(1, Math.round(v.videoWidth * escala));
+      c.height = Math.max(1, Math.round(v.videoHeight * escala));
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+
+      ctx.drawImage(v, 0, 0, c.width, c.height);
+      const imagen = ctx.getImageData(0, 0, c.width, c.height);
+      dato =
+        jsQR(imagen.data, imagen.width, imagen.height, { inversionAttempts: "dontInvert" })?.data ??
+        null;
+    }
+
+    if (!buscando.current) return; // se apagó mientras se decodificaba
+
+    if (!dato) {
       requestAnimationFrame(leer);
       return;
     }
@@ -211,7 +293,7 @@ export default function EscanerPanel({
     // diez peticiones. Lo que de verdad impide el sello doble es la
     // referencia por minuto del servidor.
     buscando.current = false;
-    canjear(codigo.data);
+    canjear(dato);
   }
 
   function confirmarCanje() {
@@ -255,11 +337,33 @@ export default function EscanerPanel({
     }
 
     setProcesando(true);
+    mandarSello(serial, lectura.monto, 0);
+  }
+
+  /**
+   * El viaje al servidor, con UN reintento automático.
+   *
+   * ── POR QUÉ (8 sep 2026) ────────────────────────────────────────
+   * El dueño reportó que al escanear «salía un error y que se intentara
+   * después». Ese texto es el `catch` de acá: el server action no
+   * llegó a contestar. En un mostrador eso pasa por lo de siempre —el
+   * wifi del local, los datos del teléfono— y también por algo nuestro:
+   * cuando se publica una versión nueva, las páginas que quedaron
+   * abiertas apuntan a acciones que ya no existen en el servidor.
+   *
+   * Un reintento solo no arregla el segundo caso (para eso hay que
+   * recargar, y el mensaje ahora lo dice), pero sí el primero, que es
+   * el que pasa todos los días. Y es SEGURO: la llave del intento se
+   * conserva mientras no se sepa el resultado, así que si el primer
+   * viaje sí había escrito, el segundo rebota contra el único del
+   * ledger y el cliente no recibe dos sellos.
+   */
+  function mandarSello(serial: string, montoCompra: number | null, vuelta: number) {
     sumarSelloEscaneado(
       ranchoId,
       serial,
-      lectura.monto,
-      intento.current.id,
+      montoCompra,
+      intento.current?.id,
       producto || null,
       productoId,
     )
@@ -285,12 +389,23 @@ export default function EscanerPanel({
           setProductoId(null);
         }
         apagar();
+        setProcesando(false);
       })
-      // Acá SÍ se conserva: no se sabe si el servidor llegó a escribir.
-      // Reintentar con la misma llave es lo único que garantiza que el
-      // cliente no reciba dos sellos por una compra.
-      .catch(() => setError("No se pudo registrar el sello. Probá de nuevo."))
-      .finally(() => setProcesando(false));
+      // La llave SÍ se conserva: no se sabe si el servidor llegó a
+      // escribir. Reintentar con la misma es lo único que garantiza que
+      // el cliente no reciba dos sellos por una compra.
+      .catch(() => {
+        if (vuelta === 0) {
+          // Medio segundo: lo que tarda un mostrador en recuperar la
+          // señal, y poco como para que nadie alcance a tocar nada.
+          setTimeout(() => mandarSello(serial, montoCompra, 1), 500);
+          return;
+        }
+        setError(
+          "No se pudo registrar el sello. Revisá la conexión y volvé a escanear; si sigue fallando, recargá la página.",
+        );
+        setProcesando(false);
+      });
   }
 
   /** Cerrar el turno a mano: deja la pantalla lista para el siguiente. */
@@ -375,14 +490,14 @@ export default function EscanerPanel({
                 <p className="mt-0.5 text-[12.5px] leading-relaxed text-amber-900">
                   <strong className="font-bold">No se sumó de nuevo.</strong>{" "}
                   {textos.muestraSaldo
-                    ? `Sigue en ${resultado.saldo} ${textos.unidad}.`
+                    ? `Sigue en ${resultado.saldo} ${unidadDe(resultado.saldo, textos)}.`
                     : "La tarjeta ya estaba leída."}{" "}
                   Esta lectura ya había entrado. Si es otra venta, volvé a escanear.
                 </p>
               ) : (
                 textos.muestraSaldo && (
                   <p className="mt-0.5 text-[12.5px] text-aventurea-ink-soft">
-                    +{resultado.puntos} — lleva {resultado.saldo} {textos.unidad} en total.
+                    +{resultado.puntos} — lleva {resultado.saldo} {unidadDe(resultado.saldo, textos)} en total.
                   </p>
                 )
               )}

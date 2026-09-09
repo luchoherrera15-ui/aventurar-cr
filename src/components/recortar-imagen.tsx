@@ -72,8 +72,17 @@ export default function RecortarImagen({
   const [arrastrando, setArrastrando] = useState(false);
   const arrastre = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const [procesando, setProcesando] = useState(false);
+  const [fallo, setFallo] = useState(false);
 
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  // La URL del archivo se libera al CERRAR, no al desmontar: en
+  // desarrollo React monta y desmonta el componente dos veces (Strict
+  // Mode) y una limpieza en el desmontaje simulado revocaba la URL con la
+  // imagen todavía cargando — el diálogo quedaba en «Cargando…» para
+  // siempre (7 sep 2026).
+  const cerrar = () => {
+    URL.revokeObjectURL(url);
+    alCancelar();
+  };
 
   // El ancho real del visor, para dimensionar el marco.
   useEffect(() => {
@@ -89,11 +98,12 @@ export default function RecortarImagen({
   // Escape cancela.
   useEffect(() => {
     const teclado = (e: KeyboardEvent) => {
-      if (e.key === "Escape") alCancelar();
+      if (e.key === "Escape") cerrar();
     };
     document.addEventListener("keydown", teclado);
     return () => document.removeEventListener("keydown", teclado);
-  }, [alCancelar]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alCancelar, url]);
 
   // ── La geometría (todo derivado, nada guardado) ───────────────────
   // El marco ocupa el 88 % del visor en su lado limitante.
@@ -169,9 +179,11 @@ export default function RecortarImagen({
       const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, tipo, 0.92));
       if (!blob) throw new Error("sin blob");
       const base = archivo.name.replace(/\.[^.]+$/, "") || "imagen";
+      URL.revokeObjectURL(url);
       alConfirmar(new File([blob], `${base}-recorte.${conservarAlfa ? "png" : "jpg"}`, { type: tipo }));
     } catch {
       // Si el recorte falla, se sube la imagen entera: nunca sin imagen.
+      URL.revokeObjectURL(url);
       alConfirmar(archivo);
     } finally {
       setProcesando(false);
@@ -184,13 +196,13 @@ export default function RecortarImagen({
     <div role="dialog" aria-modal="true" aria-labelledby="recorte-titulo" className="fixed inset-0 z-[80] grid place-items-center bg-black/55 p-3">
       <div className="w-[min(560px,100%)] overflow-hidden rounded-3xl bg-white shadow-flotante">
         <div className="flex items-center justify-between gap-3 px-5 pt-4">
-          <button type="button" onClick={alCancelar} className="rounded-lg px-2 py-1 text-[13px] font-bold text-bookea-gris hover:text-bookea-tinta" aria-label="Volver">
+          <button type="button" onClick={cerrar} className="rounded-lg px-2 py-1 text-[13px] font-bold text-bookea-gris hover:text-bookea-tinta" aria-label="Volver">
             ←
           </button>
           <h2 id="recorte-titulo" className="text-[15px] font-extrabold text-bookea-tinta">
             {titulo}
           </h2>
-          <button type="button" onClick={alCancelar} className="rounded-lg px-2 py-1 text-[16px] font-bold text-bookea-gris hover:text-bookea-tinta" aria-label="Cerrar">
+          <button type="button" onClick={cerrar} className="rounded-lg px-2 py-1 text-[16px] font-bold text-bookea-gris hover:text-bookea-tinta" aria-label="Cerrar">
             ×
           </button>
         </div>
@@ -226,6 +238,7 @@ export default function RecortarImagen({
               alt=""
               draggable={false}
               onLoad={(e) => setNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
+              onError={() => setFallo(true)}
               className="absolute max-w-none"
               style={{ left: offEfectivo.x, top: offEfectivo.y, width: dibujoW || undefined, height: dibujoH || undefined, opacity: listo ? 1 : 0 }}
             />
@@ -237,7 +250,11 @@ export default function RecortarImagen({
               <span className="absolute inset-x-0 top-2/3 h-px bg-white/45" />
             </div>
           </div>
-          {!listo && <p className="absolute inset-0 grid place-items-center text-[13px] font-bold text-bookea-gris">Cargando la imagen…</p>}
+          {!listo && (
+            <p className="absolute inset-0 grid place-items-center px-6 text-center text-[13px] font-bold text-bookea-gris">
+              {fallo ? "El navegador no puede abrir este archivo (¿es HEIC del iPhone?). Probá con JPG o PNG, o subila entera." : "Cargando la imagen…"}
+            </p>
+          )}
         </div>
 
         {/* Acercar */}
@@ -267,7 +284,10 @@ export default function RecortarImagen({
           </button>
           <button
             type="button"
-            onClick={() => alConfirmar(archivo)}
+            onClick={() => {
+              URL.revokeObjectURL(url);
+              alConfirmar(archivo);
+            }}
             disabled={procesando}
             className="presionable inline-flex min-h-[44px] items-center justify-center rounded-full border border-bookea-linea px-5 text-[13px] font-bold text-bookea-tinta"
           >

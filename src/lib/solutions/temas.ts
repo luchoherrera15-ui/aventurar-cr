@@ -31,6 +31,19 @@
  * tema: la base guarda, este archivo decide qué vale.
  */
 
+import {
+  ajustesDePlantilla,
+  ajustesMenuDe,
+  ESTILO_MENU_BASE,
+  estiloMenuDe,
+  fuenteMenuDe,
+  portadaMenuDe,
+  type AjustesMenu,
+  type EstiloMenu,
+  type FuenteMenu,
+  type PortadaMenu,
+} from "./menu-estilos";
+
 export const TEMAS = [
   "marca", "noche", "claro", "crema", "bosque", "vino",
   // 0236: siete más, para que un lavacar, una boutique o un creador
@@ -151,6 +164,24 @@ export type Redes = (typeof REDES)[number];
 export const TITULOS = ["normal", "grande", "mayusculas"] as const;
 export type Titulo = (typeof TITULOS)[number];
 
+/**
+ * El encabezado (7 sep 2026, «que no sea card el de arriba; poder
+ * ponerlo como grabado»): dentro de una tarjeta como siempre, LIBRE
+ * sobre el fondo, o libre con el nombre en relieve. Con la portada
+ * «Banner» (foto dentro de la tarjeta) manda la tarjeta.
+ */
+export const ENCABEZADOS = ["tarjeta", "libre", "grabado"] as const;
+export type Encabezado = (typeof ENCABEZADOS)[number];
+
+/**
+ * Las piezas (7 sep 2026, «que los botones y el catálogo también puedan
+ * ir sin card, directo»): en tarjeta, con el efecto elegido, o SUELTAS
+ * sobre el fondo: la foto conserva su radio, el texto va directo, sin
+ * superficie ni borde. El encabezado tiene su propia opción.
+ */
+export const PIEZAS = ["tarjeta", "suelta"] as const;
+export type Piezas = (typeof PIEZAS)[number];
+
 export type Diseno = {
   animacion: Animacion;
   hover: Hover;
@@ -163,6 +194,23 @@ export type Diseno = {
   vitrina: Vitrina;
   redes: Redes;
   titulo: Titulo;
+  encabezado: Encabezado;
+  piezas: Piezas;
+  /** El diseño del CATÁLOGO, que es una página aparte del link hub
+   *  (ver menu-estilos.ts). Vive acá y no en su propia columna porque
+   *  el jsonb de la 0232 ya está y aguanta campos nuevos. */
+  menu: EstiloMenu;
+  /** La letra del catálogo. «auto» = la del diseño (9 sep 2026). */
+  menuFuente: FuenteMenu;
+  /** Cómo entra la foto de portada en el catálogo. */
+  menuPortada: PortadaMenu;
+  /**
+   * TODO lo que se puede tocar del catálogo (9 sep 2026): tema, colores
+   * propios, letra, tamaño, disposición, foto, separador, precio, aire y
+   * esquinas. Manda sobre `menu`/`menuFuente`/`menuPortada`, que
+   * quedan como el recuerdo de la plantilla elegida.
+   */
+  menuAjustes: AjustesMenu;
 };
 
 /** Los defaults = cómo se veía la página antes de la 0236. */
@@ -178,6 +226,12 @@ export const DISENO_BASE: Diseno = {
   vitrina: "boton",
   redes: "arriba",
   titulo: "normal",
+  encabezado: "tarjeta",
+  piezas: "tarjeta",
+  menu: ESTILO_MENU_BASE,
+  menuFuente: "auto",
+  menuPortada: "tarjeta",
+  menuAjustes: ajustesDePlantilla(ESTILO_MENU_BASE),
 };
 
 type Opcion = { nombre: string; pie: string };
@@ -195,6 +249,8 @@ export const DISENO_OPCION: {
   vitrina: Record<Vitrina, Opcion>;
   redes: Record<Redes, Opcion>;
   titulo: Record<Titulo, Opcion>;
+  encabezado: Record<Encabezado, Opcion>;
+  piezas: Record<Piezas, Opcion>;
 } = {
   animacion: {
     ninguna: { nombre: "Sin animación", pie: "Todo aparece de una" },
@@ -261,6 +317,15 @@ export const DISENO_OPCION: {
     grande: { nombre: "Grande", pie: "" },
     mayusculas: { nombre: "Mayúsculas", pie: "Espaciadas" },
   },
+  encabezado: {
+    tarjeta: { nombre: "En tarjeta", pie: "Con el efecto de las tarjetas" },
+    libre: { nombre: "Libre", pie: "Sobre el fondo, sin tarjeta" },
+    grabado: { nombre: "Grabado", pie: "Sin tarjeta, el nombre en relieve" },
+  },
+  piezas: {
+    tarjeta: { nombre: "En tarjeta", pie: "Con el efecto elegido" },
+    suelta: { nombre: "Sueltas", pie: "Sin tarjeta, directo sobre el fondo" },
+  },
 };
 
 function unoDe<T extends string>(lista: readonly T[], v: unknown, base: T): T {
@@ -282,6 +347,37 @@ export function disenoDe(v: unknown): Diseno {
     vitrina: unoDe(VITRINAS, d.vitrina, DISENO_BASE.vitrina),
     redes: unoDe(REDES, d.redes, DISENO_BASE.redes),
     titulo: unoDe(TITULOS, d.titulo, DISENO_BASE.titulo),
+    encabezado: unoDe(ENCABEZADOS, d.encabezado, DISENO_BASE.encabezado),
+    piezas: unoDe(PIEZAS, d.piezas, DISENO_BASE.piezas),
+    menu: estiloMenuDe(d.menu),
+    menuFuente: fuenteMenuDe(d.menuFuente, FUENTES),
+    menuPortada: portadaMenuDe(d.menuPortada),
+    // Sin ajustes guardados (todo negocio anterior al 9 sep 2026), se
+    // arman con la plantilla, la letra y la portada que ya tenía: la
+    // página no cambia de aspecto por estrenar el editor.
+    menuAjustes: d.menuAjustes
+      ? ajustesMenuDe(d.menuAjustes, FUENTES)
+      : {
+          ...ajustesDePlantilla(estiloMenuDe(d.menu)),
+          fuente: fuenteMenuDe(d.menuFuente, FUENTES),
+          portada: portadaMenuDe(d.menuPortada),
+        },
+  };
+}
+
+/**
+ * El nombre en relieve («grabado»): un filo de luz debajo y una sombra
+ * fina arriba, como letras hundidas en el material. Sobre fondo oscuro
+ * la luz es tenue y la sombra fuerte; sobre claro, al revés.
+ */
+export function relieveDelTitulo(p: Paleta): React.CSSProperties {
+  const oscuro = esOscuro(p.fondo);
+  return {
+    color: oscuro ? conAlfa(p.tinta, 0.92) : p.tinta,
+    textShadow: oscuro
+      ? "0 1px 0 rgba(255,255,255,0.16), 0 -1px 1px rgba(0,0,0,0.65)"
+      : "0 1px 0 rgba(255,255,255,0.95), 0 -1px 1px rgba(0,0,0,0.28)",
+    letterSpacing: "0.01em",
   };
 }
 
@@ -595,10 +691,17 @@ export function efectoDe(v: unknown): Efecto {
 export function estiloDePieza(
   efecto: Efecto,
   p: Paleta,
-  opciones: { destacada?: boolean; radio: number; conFoto?: boolean; boton?: Boton } = { radio: 14 },
+  opciones: { destacada?: boolean; radio: number; conFoto?: boolean; boton?: Boton; suelta?: boolean } = { radio: 14 },
 ): React.CSSProperties {
-  const { destacada = false, radio, conFoto = false, boton = "acabado" } = opciones;
+  const { destacada = false, radio, conFoto = false, boton = "acabado", suelta = false } = opciones;
   const base: React.CSSProperties = { borderRadius: radio };
+
+  // PIEZAS SUELTAS (7 sep 2026): ni superficie, ni borde, ni sombra. La
+  // foto conserva el radio; la destacada (la puerta del catálogo) se
+  // distingue por el color del acento en el texto, no por un relleno.
+  if (suelta) {
+    return conFoto ? base : { ...base, background: "transparent", color: destacada ? p.acento : undefined };
+  }
 
   // Con foto detrás, el relleno lo pone la foto y su velo: cualquier
   // superficie encima la taparía. Lo único que sobrevive del acabado es
@@ -644,14 +747,24 @@ export function estiloDePieza(
   }
 
   switch (efecto) {
-    case "vidrio":
+    case "vidrio": {
+      // VIDRIO COMO EL DE iOS (dueño, 7 sep 2026: «como las burbujas de
+      // los menús de Apple, transparentes»): una capa blanca casi
+      // transparente, el fondo desenfocado y saturado detrás, un filo de
+      // luz arriba (el inset) y un borde blanco tenue. Sobre un tema
+      // oscuro la capa es más fina para que no se lea gris. La destacada
+      // lleva un velo del acento, no un borde: el vidrio no tiene marco.
+      const oscuro = esOscuro(p.fondo);
+      const capa = destacada ? conAlfa(p.acento, oscuro ? 0.28 : 0.2) : oscuro ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.42)";
       return {
         ...base,
-        background: p.superficie,
-        border: `1px solid ${destacada ? p.acento : p.borde}`,
-        backdropFilter: "blur(14px) saturate(1.3)",
-        WebkitBackdropFilter: "blur(14px) saturate(1.3)",
+        background: capa,
+        border: `1px solid ${oscuro ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.65)"}`,
+        boxShadow: `inset 0 1px 0 ${oscuro ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.9)"}, 0 10px 30px -14px rgba(0,0,0,${oscuro ? 0.6 : 0.25})`,
+        backdropFilter: "blur(22px) saturate(1.7)",
+        WebkitBackdropFilter: "blur(22px) saturate(1.7)",
       };
+    }
     case "elevado":
       // Sin borde a propósito: el borde y la sombra juntos ensucian el
       // canto. La sombra es azul de marca con alfa, como las tres del

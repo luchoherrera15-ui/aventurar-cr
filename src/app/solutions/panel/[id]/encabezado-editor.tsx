@@ -6,11 +6,12 @@ import { BOTON_PANEL, CAMPO_PANEL, ROTULO_CAMPO } from "@/components/panel/siste
 import SubirImagen from "@/components/subir-imagen";
 import type { PropuestaColores } from "@/lib/colores-imagen";
 import { coloresDeUrl } from "@/lib/colores-imagen-navegador";
-import { DISENO_OPCION, LOGO_FORMAS, LOGO_TAMANOS, TITULOS, conAlfa, type Diseno, type EstiloPortada, type Paleta, type Tema } from "@/lib/solutions/temas";
+import { DISENO_OPCION, ENCABEZADOS, LOGO_FORMAS, LOGO_TAMANOS, TITULOS, conAlfa, type Diseno, type EstiloPortada, type Paleta, type Tema } from "@/lib/solutions/temas";
 import { TOPES } from "@/lib/solutions/tipos";
+import { esPro, type PlanLinksy } from "@/lib/solutions/planes";
 import { prepararSubidaSolutions } from "../../subida-actions";
 import { coloresDeImagenSolutions } from "./colores-actions";
-import { Control, Fichas, Grupo, Segmentos, opcionesDe } from "./piezas-estudio";
+import { Control, Fichas, Grupo, PildoraPro, Segmentos, opcionesDe } from "./piezas-estudio";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -52,6 +53,7 @@ export type ValoresEncabezado = {
   logoForma: Diseno["logoForma"];
   logoTamano: Diseno["logoTamano"];
   titulo: Diseno["titulo"];
+  encabezado: Diseno["encabezado"];
   tema: Tema;
   colorFondo: string;
   colorAcento: string;
@@ -131,12 +133,18 @@ export default function EncabezadoEditor({
   paleta,
   ejemploBajada,
   alCambiar,
+  plan,
+  hrefPro,
 }: {
   valores: ValoresEncabezado;
   paleta: Paleta;
   ejemploBajada: string;
   alCambiar: (cambios: Partial<ValoresEncabezado>) => void;
+  /** El plan del negocio (0239): decide qué lleva candado. */
+  plan: PlanLinksy;
+  hrefPro: string;
 }) {
+  const pro = esPro(plan);
   const [propuestas, setPropuestas] = useState<Record<Origen, PropuestaColores | null>>({ logo: null, portada: null });
   const [detectando, setDetectando] = useState<Origen | null>(null);
   const [errorColor, setErrorColor] = useState<string | null>(null);
@@ -204,6 +212,7 @@ export default function EncabezadoEditor({
           valor={v.estiloPortada}
           alCambiar={(id) => alCambiar({ estiloPortada: id })}
           opciones={DISENOS}
+          bloqueadas={pro ? [] : (["completa", "fondo"] as const)}
           columnas="grid-cols-2 sm:grid-cols-4"
           vista={(id) => <MiniEncabezado id={id} p={paleta} foto={v.fotoPortadaUrl || null} />}
         />
@@ -212,6 +221,14 @@ export default function EncabezadoEditor({
             «{disenoActual.nombre}» usa la foto de portada: subila acá abajo. Mientras tanto la página se ve como «Clásico».
           </p>
         )}
+        <div className="mt-4">
+          <Control
+            rotulo="El marco del encabezado"
+            nota={v.estiloPortada === "card" ? "Con «Banner» la foto va dentro de la tarjeta, así que el encabezado siempre lleva tarjeta." : "«Libre» quita la tarjeta; «Grabado» además pone tu nombre en relieve sobre el fondo."}
+          >
+            <Segmentos etiqueta="Marco del encabezado" valor={v.encabezado} alCambiar={(x) => alCambiar({ encabezado: x })} opciones={opcionesDe(ENCABEZADOS, DISENO_OPCION.encabezado)} bloqueadas={pro ? [] : (["libre", "grabado"] as const)} />
+          </Control>
+        </div>
       </Grupo>
 
       {/* 2 · IMÁGENES — con recorte al subir y los colores leídos. */}
@@ -242,7 +259,16 @@ export default function EncabezadoEditor({
         </div>
 
         {/* ── LOS COLORES DE TUS IMÁGENES ──────────────────────── */}
-        {origenes.length > 0 && (
+        {origenes.length > 0 && !pro && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
+            <PildoraPro />
+            <p className="min-w-0 flex-1 text-[12.5px] font-bold text-aventurea-ink">Con Pro, Linksy lee los colores de tu foto y arma el tema por vos.</p>
+            <a href={hrefPro} className={BOTON_PANEL}>
+              Pasar a Pro →
+            </a>
+          </div>
+        )}
+        {origenes.length > 0 && pro && (
           <div className="mt-4 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="text-[12px] font-extrabold uppercase tracking-[0.1em] text-aventurea-navy">Colores de tus imágenes</p>

@@ -7,6 +7,10 @@ import { idiomaDeBusqueda, textoEn, type Idioma } from "@/lib/solutions/idiomas"
 import { nombreDeMoneda } from "@/lib/monedas";
 import { rotulosDe, vocabDe } from "@/lib/solutions/rubros";
 import { conVariante } from "@/lib/solutions/fotos";
+import { CLASES_FUENTES } from "@/app/solutions/fuentes";
+import { ajustesMenuDe, estiloDeAjustes } from "@/lib/solutions/menu-estilos";
+import { FUENTES } from "@/lib/solutions/temas";
+import { pintaDeEstilo } from "@/lib/solutions/menu-pinta";
 
 /**
  * La bajada bajo el título, en el idioma del cliente. El título viene
@@ -75,42 +79,139 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
   const itemInicial = itemCrudo && /^[0-9a-f-]{36}$/i.test(itemCrudo) ? itemCrudo : null;
   const portada = conVariante(negocio.foto_portada_url, "hero");
 
+  // EL DISEÑO DEL CATÁLOGO (8 sep 2026): una carta aparte del link hub,
+  // con su papel, su letra y su forma de apilar los platos. Se guarda
+  // en `diseno.menu` y el plan ya lo hizo cumplir AL GUARDAR
+  // (`sanearParaPlan`), así que acá se pinta lo que hay.
+  // LA PREVIA DEL PANEL. `?previa=` solo cambia cómo se PINTA esta
+  // página; no escribe nada y no cambia ningún dato. El panel la usa
+  // dentro de un teléfono para que el dueño vea el diseño de verdad
+  // —el mismo renderizador, la misma carta— antes de guardarlo.
+  const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  const previa = uno(busqueda.previa) === "1";
+  const crudoPrevia = previa ? uno(busqueda.ajustes) : undefined;
+  let ajustes = negocio.diseno.menuAjustes;
+  if (crudoPrevia) {
+    // El panel manda los ajustes sin guardar para que el dueño VEA lo
+    // que está tocando. Pasan por el mismo saneo que los guardados: un
+    // parámetro roto no puede romper la página.
+    try {
+      ajustes = ajustesMenuDe(JSON.parse(crudoPrevia), FUENTES);
+    } catch {
+      // Un JSON inválido no vale un 500: se pinta lo guardado.
+    }
+  }
+  const portadaComo = ajustes.portada;
+  const estilo = estiloDeAjustes(ajustes);
+  const pinta = pintaDeEstilo(
+    estilo,
+    {
+    fondo: paleta.fondo,
+    tinta: paleta.tinta,
+    suave: paleta.suave,
+    superficie: paleta.superficie,
+    borde: paleta.borde,
+    acento: paleta.acento,
+      sobreAcento: paleta.tintaSobreAcento,
+    },
+    ajustes.tamano,
+  );
+  const c = pinta.paleta;
+
   return (
-    <main className="min-h-svh pb-32" style={{ background: paleta.fondo, color: paleta.tinta }}>
-      <div className="mx-auto w-full max-w-[520px] px-5 pt-5">
+    <main
+      className={`min-h-svh pb-32 ${CLASES_FUENTES}`}
+      style={{ background: c.fondo, color: c.tinta, fontFamily: pinta.familia, ["--ancho-menu" as string]: pinta.ancho }}
+    >
+      <div className="mx-auto w-full max-w-[var(--ancho-menu)] px-5 pt-5">
+        {/* EL NEGOCIO, ARRIBA DE TODO (9 sep 2026). El catálogo es una
+            página aparte del link hub —se llega por un link, se comparte
+            sola y tiene su propio QR—, así que tiene que presentarse:
+            logo, nombre y a dónde volver. Sin esto se leía como una
+            lista de precios sin dueño. */}
         <header className="flex items-center justify-between gap-3">
           <Link
             href={`/s/${negocio.slug}${mesa ? `?mesa=${mesa}` : ""}`}
-            className="rounded-xl border px-3 py-1.5 text-[12.5px] font-bold"
-            style={{ borderColor: paleta.borde, color: paleta.suave }}
+            className="flex min-w-0 items-center gap-2.5"
+            aria-label={`Volver a ${negocio.nombre}`}
           >
-            ← {negocio.nombre}
+            {negocio.logo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={conVariante(negocio.logo_url, "thumb") ?? negocio.logo_url}
+                alt=""
+                className="h-11 w-11 shrink-0 object-cover"
+                style={{
+                  borderRadius: negocio.diseno.logoForma === "cuadrado" ? 8 : negocio.diseno.logoForma === "redondeado" ? 12 : 999,
+                  border: `1px solid ${c.borde}`,
+                }}
+              />
+            ) : (
+              <span
+                aria-hidden
+                className="grid h-11 w-11 shrink-0 place-items-center text-[17px] font-extrabold"
+                style={{ background: c.acento, color: c.sobreAcento, borderRadius: 999 }}
+              >
+                {negocio.nombre.trim().charAt(0).toUpperCase()}
+              </span>
+            )}
+            <span className="min-w-0">
+              <span className="block truncate text-[15px] font-extrabold leading-tight" style={{ color: c.tinta }}>
+                {negocio.nombre}
+              </span>
+              <span className="block text-[11.5px] font-bold" style={{ color: c.suave }}>
+                ← Volver a los enlaces
+              </span>
+            </span>
           </Link>
           {mesa && (
             <span
               className="rounded-full px-3 py-1 text-[12px] font-bold"
-              style={{ background: paleta.superficie, border: `1px solid ${paleta.borde}` }}
+              style={{ background: c.superficie, border: `1px solid ${c.borde}` }}
             >
               Mesa {mesa}
             </span>
           )}
         </header>
 
-        {portada && (
+        {/* LA PORTADA, en el tratamiento que el negocio eligió (0241):
+            tarjeta recortada, a sangre con el título encima, fundida con
+            el fondo, o ninguna. */}
+        {portada && portadaComo === "tarjeta" && (
           <div className="relative -mx-5 mt-4 h-[150px] overflow-hidden sm:mx-0 sm:rounded-2xl" aria-hidden>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={portada} alt="" className="h-full w-full object-cover" />
-            <div
-              className="absolute inset-0"
-              style={{ background: `linear-gradient(180deg, transparent 40%, ${paleta.fondo} 100%)` }}
-            />
+          </div>
+        )}
+        {portada && portadaComo === "degradado" && (
+          <div className="relative -mx-5 mt-4 h-[190px] overflow-hidden" aria-hidden>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={portada} alt="" className="h-full w-full object-cover" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 30%, ${c.fondo} 100%)` }} />
           </div>
         )}
 
-        <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.02em]">{rotulos.titulo}</h1>
-        <p className="mt-0.5 text-[12.5px]" style={{ color: paleta.suave }}>
-          {puedePedir ? `${b.mesa} · ${precios.toLowerCase()}` : paraLlevar ? `${b.llevar} · ${precios.toLowerCase()}` : precios}
-        </p>
+        {portada && portadaComo === "completa" ? (
+          // A sangre y con el título ENCIMA: la foto es el encabezado.
+          <div className="relative -mx-5 mt-4 h-[260px] overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={portada} alt="" className="h-full w-full object-cover" aria-hidden />
+            <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(0,0,0,.72) 100%)" }} aria-hidden />
+            <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+              <h1 className="text-[30px] font-extrabold leading-none tracking-[-0.02em]">{rotulos.titulo}</h1>
+              <p className="mt-1 text-[12.5px] opacity-85">
+                {puedePedir ? `${b.mesa} · ${precios.toLowerCase()}` : paraLlevar ? `${b.llevar} · ${precios.toLowerCase()}` : precios}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <h1 className="mt-5 text-[26px] font-extrabold tracking-[-0.02em]">{rotulos.titulo}</h1>
+            <p className="mt-0.5 text-[12.5px]" style={{ color: c.suave }}>
+              {puedePedir ? `${b.mesa} · ${precios.toLowerCase()}` : paraLlevar ? `${b.llevar} · ${precios.toLowerCase()}` : precios}
+            </p>
+          </>
+        )}
       </div>
 
       <MenuConCarrito
@@ -128,9 +229,11 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
             precio: it.precio,
             foto_url: it.foto_url,
             nutricion: it.nutricion,
+            personalizacion: it.personalizacion,
           })),
         }))}
         paleta={paleta}
+        estilo={estilo}
         idioma={idioma}
         idiomas={negocio.idiomas_menu}
         llevar={llevar}

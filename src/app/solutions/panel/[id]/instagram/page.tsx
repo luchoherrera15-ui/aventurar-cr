@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import { negocioPorId } from "@/lib/solutions/datos";
 import { urlDelNegocio } from "@/lib/solutions/tipos";
-import { CLASES_FUENTES } from "@/app/solutions/fuentes";
 import { Card, Metrica } from "@/components/panel/piezas";
-import { BAJADA_PANTALLA, CUERPO_SUAVE, GRILLA_METRICAS, LIENZO_PANEL, TITULO_PANTALLA } from "@/components/panel/sistema";
+import { CUERPO_SUAVE, GRILLA_METRICAS } from "@/components/panel/sistema";
 import { configMeta, faltantesMeta } from "@/lib/instagram/config";
 import { cuentaDelNegocio, refrescarSiToca } from "@/lib/instagram/cuentas";
 import { automatizacionesDelNegocio, eventosDelNegocio, resumenGlobal, resumenPorAutomatizacion } from "@/lib/instagram/datos";
 import { estadoDelToken } from "@/lib/instagram/tokens";
 import { codigoErrorDe, EXPLICACION_ERROR, type EventoIg } from "@/lib/instagram/tipos";
 import SeccionCuenta from "./seccion-cuenta";
+import MarcoLinksy from "../marco-linksy";
+import { navDelPanel } from "../nav-datos";
 import ListaAutomatizaciones, { type AutomatizacionConResumen } from "./lista-automatizaciones";
 
 export const metadata: Metadata = { title: "Instagram · Linksy" };
@@ -111,16 +111,17 @@ export default async function InstagramPage({
   const puedeCrear = conectada && estadoToken !== "vencido" && cuenta?.estado !== "reconectar";
   const motivoNoCrear = !cfg ? "Instagram no está configurado." : !conectada ? "Conectá tu Instagram para crear la primera." : "Instagram necesita reconectar esta cuenta.";
 
+  const marco = await navDelPanel(admin, negocio, acceso);
+
   return (
-    <main className={`min-h-svh ${LIENZO_PANEL} ${CLASES_FUENTES}`}>
-      <div className="mx-auto w-[min(1080px,94vw)] py-6 sm:py-8">
-        <Link href={`/solutions/panel/${id}`} className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink">
-          ← Volver al panel
-        </Link>
-        <h1 className={`mt-1 ${TITULO_PANTALLA}`}>Instagram · Respuestas automáticas</h1>
-        <p className={`mt-1 ${BAJADA_PANTALLA}`}>
-          Alguien comenta una publicación de <strong>{negocio.nombre}</strong> con una palabra clave y recibe tu mensaje por DM. Como Linktree, con la API oficial de Instagram.
-        </p>
+    <MarcoLinksy
+      negocio={marco.barra}
+      items={marco.items}
+      activo="instagram"
+      titulo="Instagram Auto Reply"
+      bajada={`Alguien comenta una publicación de ${negocio.nombre} con una palabra clave y recibe tu mensaje por DM. Con la API oficial de Instagram.`}
+    >
+      <div>
 
         {aviso && (
           <p className={`mt-4 rounded-xl border px-4 py-3 text-[13px] font-bold ${aviso.tono === "exito" ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-700"}`}>
@@ -188,6 +189,6 @@ export default async function InstagramPage({
           </div>
         </div>
       </div>
-    </main>
+    </MarcoLinksy>
   );
 }

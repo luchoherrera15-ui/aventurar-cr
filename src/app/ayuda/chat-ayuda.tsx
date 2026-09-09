@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   iniciarHilo,
@@ -54,7 +55,11 @@ export default function ChatAyuda({
   const [hilo, setHilo] = useState(hiloInicial);
   const [nombre, setNombre] = useState("");
   const [contacto, setContacto] = useState("");
-  const [mensaje, setMensaje] = useState("");
+  // `?mensaje=` prellena el chat (8 sep 2026): el panel de Linksy manda
+  // acá «Quiero Pro» con el negocio ya escrito. Solo el texto; enviar
+  // sigue siendo un clic de la persona.
+  const mensajeInicial = useSearchParams().get("mensaje");
+  const [mensaje, setMensaje] = useState(() => (mensajeInicial ?? "").slice(0, 500));
   const [panal, setPanal] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();

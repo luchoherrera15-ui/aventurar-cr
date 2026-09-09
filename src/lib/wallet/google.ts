@@ -848,6 +848,15 @@ export async function generarPaseGoogle({
     await db.from("miembros").update({ cliente_id: clienteId }).eq("id", miembro.id);
   }
 
+  // EL SALDO SE LEE ANTES DE CREAR EL PASE (sep 2026).
+  // Se leía después, y la fila nacía con `saldo_cache: 0` aunque el
+  // cliente ya tuviera sellos: quien agregaba la tarjeta a Google
+  // DESPUÉS de su primera compra dejaba el espejo en cero para
+  // siempre —el pase se dibuja con este `saldo`, así que el cliente
+  // veía bien sus sellos, pero el panel y cualquier revisión del
+  // espejo leían un cero que no era cierto—. Apple ya lo hacía así
+  // (`generar.ts`).
+  const saldo = (await consultarSaldo(miembro.id)) ?? 0;
   // Un pase por miembro y plataforma, con serial estable (el QR).
   let { data: pase } = await db
     .from("pases_wallet")
@@ -865,7 +874,7 @@ export async function generarPaseGoogle({
         // Google no autentica con esto (no hay web service propio),
         // pero la columna es not null y única por diseño.
         auth_token: randomBytes(32).toString("hex"),
-        saldo_cache: 0,
+        saldo_cache: saldo,
       })
       .select("serial_number")
       .single();
@@ -875,7 +884,6 @@ export async function generarPaseGoogle({
     pase = nuevo;
   }
 
-  const saldo = (await consultarSaldo(miembro.id)) ?? 0;
   const { data: recompensa } = await db
     .from("recompensas")
     .select("nombre, costo_puntos")

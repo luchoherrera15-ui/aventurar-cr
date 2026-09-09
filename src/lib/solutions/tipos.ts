@@ -184,9 +184,11 @@ export const TOPES = {
 // ── Las filas, ya tipadas ──────────────────────────────────────────
 
 import type { Diseno, Efecto, EstiloLinks, EstiloPortada, Fuente, Redondeo, Tema } from "./temas";
+import type { HostMarca, PlanLinksy } from "./planes";
 // Solo tipos: idiomas.ts importa TOPES de acá, y un import de valores
 // en las dos direcciones sería un ciclo en tiempo de ejecución.
 import type { IdiomaExtra, Nutricion, Traducciones } from "./idiomas";
+import type { Personalizacion } from "./personalizacion";
 import type { Moneda, Pais } from "@/lib/monedas";
 import type { Rubro } from "./rubros";
 
@@ -237,6 +239,10 @@ export type NegocioSolutions = {
   rubro: Rubro;
   /** Las opciones finas del editor (0236), ya saneadas. */
   diseno: Diseno;
+  /** La membresía (0239): gratis (link hub) o pro (personalización). */
+  plan: PlanLinksy;
+  /** Dónde se muestra la página (0239): linksy.lat/<slug> o bookea.lat/s/<slug>. */
+  host_marca: HostMarca;
   creado_en: string;
 };
 
@@ -280,6 +286,8 @@ export type ItemMenuSolutions = {
   traducciones: Traducciones;
   /** La ficha nutricional, si la cargó (0235). */
   nutricion: Nutricion | null;
+  /** Qué se le puede quitar y qué se le puede agregar (0241). */
+  personalizacion: Personalizacion;
 };
 
 export type PedidoSolutions = {
@@ -356,8 +364,15 @@ export function hostPublicoSolutions(slug: string): string {
  * está activo (una sonda lo confirmó); si no, bookea.lat/s/<slug>. Un
  * QR impreso con un dominio que todavía no sirve sería un QR roto.
  */
-export function urlDelNegocio(n: Pick<NegocioSolutions, "slug" | "dominio" | "dominio_estado">): string {
-  return n.dominio && n.dominio_estado === "activo" ? `https://${n.dominio}` : urlPublicaSolutions(n.slug);
+export function urlDelNegocio(n: Pick<NegocioSolutions, "slug" | "dominio" | "dominio_estado"> & { host_marca?: HostMarca }): string {
+  if (n.dominio && n.dominio_estado === "activo") return `https://${n.dominio}`;
+  // El dominio de marca elegido (0239): bookea.lat/s/<slug> aunque exista
+  // linksy.lat. Sin elección, lo de siempre (`urlPublicaSolutions`).
+  if (n.host_marca === "bookea") {
+    const sitio = process.env.NEXT_PUBLIC_SITE_URL || "https://www.bookea.lat";
+    return `${sitio}/s/${n.slug}`;
+  }
+  return urlPublicaSolutions(n.slug);
 }
 
 /**

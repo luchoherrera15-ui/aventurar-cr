@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, PildoraEstado } from "@/components/panel/piezas";
 import {
   BOTON_PANEL,
@@ -11,7 +12,7 @@ import {
   ROTULO_CAMPO,
 } from "@/components/panel/sistema";
 import Telefono from "@/components/solutions/telefono";
-import VistaPagina, { type ItemVitrina } from "@/components/solutions/vista-pagina";
+import VistaPagina from "@/components/solutions/vista-pagina";
 import {
   ALINEACIONES,
   ANIMACIONES,
@@ -25,12 +26,12 @@ import {
   FUENTE,
   FUENTES,
   HOVERS,
+  PIEZAS,
   PRESETS,
   RADIOS,
   REDES,
   REDONDEOS,
   TEMAS,
-  VITRINAS,
   conAlfa,
   estiloDePieza,
   fondoDePagina,
@@ -67,11 +68,13 @@ import {
   type Pais,
 } from "@/lib/monedas";
 import { esDeComida, GRUPO_RUBRO, RUBRO, RUBROS, vocabDe, type Rubro } from "@/lib/solutions/rubros";
-import { guardarLinksSolutions, guardarPaginaSolutions } from "./actions";
-import SeccionLinks from "./seccion-links";
+import { elegirDominioMarcaSolutions, guardarLinksSolutions, guardarPaginaSolutions } from "./actions";
+import { HOST_MARCA, HOSTS_MARCA, TEMAS_GRATIS, esPro } from "@/lib/solutions/planes";
+import SeccionLinks, { type FilaEnlace } from "./seccion-links";
 import SeccionDominio from "./seccion-dominio";
+import { LP_BOTON_CHICO, LP_BOTON_CHICO_SUAVE } from "./sistema-linksy";
 import EncabezadoEditor, { type ValoresEncabezado } from "./encabezado-editor";
-import { Control, Fichas, Grupo, Segmentos, opcionesDe } from "./piezas-estudio";
+import { Control, Fichas, Grupo, PildoraPro, Segmentos, opcionesDe } from "./piezas-estudio";
 
 /**
  * MI PÁGINA — el editor, con la página de verdad al lado.
@@ -109,7 +112,6 @@ export default function SeccionPagina({
   links,
   seccionesMenu,
   hayMenu,
-  vitrina,
   urlPublica,
   recienCreado,
   addons,
@@ -120,8 +122,6 @@ export default function SeccionPagina({
   links: LinkSolutions[];
   seccionesMenu: string[];
   hayMenu: boolean;
-  /** Los ítems públicos, para la vitrina de la previa (0236). */
-  vitrina: ItemVitrina[];
   urlPublica: string;
   recienCreado: boolean;
   /** Qué tiene prendido el negocio (0233): decide qué controles se muestran. */
@@ -163,6 +163,23 @@ export default function SeccionPagina({
   });
   const [msg, setMsg] = useState<{ tono: "exito" | "alerta"; texto: string } | null>(null);
   const [guardando, arrancar] = useTransition();
+
+  // ── LA VISTA: Enlaces, Diseño o Ajustes (8 sep 2026, como Linktree) ──
+  // Las tres pestañas del panel muestran ESTE mismo componente —la misma
+  // instancia: PanelLinksy las apunta al mismo contenido— y acá se elige
+  // qué parte se ve. Así lo que se edita en una pestaña sigue vivo en la
+  // otra hasta que se guarda.
+  const tab = useSearchParams().get("tab");
+  const vista: "diseno" | "enlaces" | "ajustes" = tab === "enlaces" || tab === "links" ? "enlaces" : tab === "ajustes" ? "ajustes" : "diseno";
+  const router = useRouter();
+
+  // ── EL PLAN (0239): lo Pro se ve con candado si el negocio no lo tiene ──
+  const pro = esPro(negocio.plan);
+  const hrefPro = `/solutions/panel/${negocio.id}/plan`;
+
+  // ── EL DOMINIO DE MARCA (0239): se guarda al elegirlo ──────────────
+  const [hostMarca, setHostMarca] = useState(negocio.host_marca);
+  const [cambiandoHost, arrancarHost] = useTransition();
   const set = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) =>
     setF((p) => ({ ...p, [k]: v }));
   const setDiseno = <K extends keyof Diseno>(k: K, v: Diseno[K]) =>
@@ -170,7 +187,7 @@ export default function SeccionPagina({
   /** Lo que cambia el editor del encabezado: campos planos + tres del `diseno`. */
   const cambiarEncabezado = (c: Partial<ValoresEncabezado>) =>
     setF((p) => {
-      const { logoForma, logoTamano, titulo, ...planos } = c;
+      const { logoForma, logoTamano, titulo, encabezado, ...planos } = c;
       return {
         ...p,
         ...planos,
@@ -179,6 +196,7 @@ export default function SeccionPagina({
           ...(logoForma ? { logoForma } : {}),
           ...(logoTamano ? { logoTamano } : {}),
           ...(titulo ? { titulo } : {}),
+          ...(encabezado ? { encabezado } : {}),
         },
       };
     });
@@ -199,15 +217,15 @@ export default function SeccionPagina({
    * y mandar solo la etiqueta borraba el resto.
    */
   const [etiquetas, setEtiquetas] = useState<Record<string, string>>({});
-  const linksParaPrevia = links.filter((l) => l.visible).map((l) => ({
-    id: l.id,
-    etiqueta: etiquetas[l.id] ?? l.etiqueta,
-    url: l.url,
-    icono: l.icono,
-    fondoUrl: l.fondo_url,
-    formato: l.formato,
-    descripcion: l.descripcion,
-  }));
+  /** Las filas tal como están en «Tus enlaces» ahora mismo (guardadas o no). */
+  const [linksVivos, setLinksVivos] = useState<FilaEnlace[] | null>(null);
+  const linksParaPrevia = (
+    linksVivos
+      ? linksVivos.map((f, i) => ({ id: f.id ?? `nuevo-${i}`, etiqueta: f.etiqueta, url: f.url, icono: f.icono, visible: f.visible, fondoUrl: f.fondoUrl || null, formato: f.formato, descripcion: f.descripcion }))
+      : links.map((l) => ({ id: l.id, etiqueta: l.etiqueta, url: l.url, icono: l.icono, visible: l.visible, fondoUrl: l.fondo_url, formato: l.formato, descripcion: l.descripcion }))
+  )
+    .filter((l) => l.visible)
+    .map((l) => ({ id: l.id, etiqueta: etiquetas[l.id] ?? l.etiqueta, url: l.url, icono: l.icono, fondoUrl: l.fondoUrl, formato: l.formato, descripcion: l.descripcion }));
   const hayEtiquetasTocadas = links.some(
     (l) => etiquetas[l.id] !== undefined && etiquetas[l.id] !== l.etiqueta,
   );
@@ -289,14 +307,30 @@ export default function SeccionPagina({
     moneda: f.moneda,
     pais: f.pais,
     rubro: f.rubro,
-    vitrina: f.diseno.vitrina === "destacados" ? vitrina.slice(0, TOPES.vitrinaDestacados) : vitrina,
   };
+
+  /** «Guardar la página» + «Ver como cliente»: en Diseño y en Ajustes. */
+  const barraGuardar = (
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={guardar} disabled={guardando} className={BOTON_PANEL_PRIMARIO}>
+                {guardando ? "Guardando…" : "Guardar la página"}
+              </button>
+              <a href={urlPublica} target="_blank" rel="noopener noreferrer" className={BOTON_PANEL}>
+                Ver como cliente →
+              </a>
+              {msg && (
+                <p className={`text-[13px] font-bold ${msg.tono === "exito" ? "text-green-700" : "text-red-700"}`}>
+                  {msg.texto}
+                </p>
+              )}
+            </div>
+  );
 
   const simbolo = MONEDA[f.moneda].simbolo;
   const grupos = Array.from(new Set(RUBROS.map((r) => RUBRO[r].grupo)));
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6">
+    <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
       {/* ── LOS CONTROLES ────────────────────────────────────────── */}
       <div className="flex flex-col gap-4">
         {recienCreado && (
@@ -306,6 +340,8 @@ export default function SeccionPagina({
           </p>
         )}
 
+        {vista === "diseno" && (
+          <>
         {/* ── EL ENCABEZADO (7 sep 2026): el «Header» de Linktree ── */}
         <EncabezadoEditor
           valores={{
@@ -317,6 +353,7 @@ export default function SeccionPagina({
             logoForma: f.diseno.logoForma,
             logoTamano: f.diseno.logoTamano,
             titulo: f.diseno.titulo,
+            encabezado: f.diseno.encabezado,
             tema: f.tema,
             colorFondo: f.colorFondo,
             colorAcento: f.colorAcento,
@@ -324,6 +361,8 @@ export default function SeccionPagina({
           paleta={paleta}
           ejemploBajada={RUBRO[f.rubro].ejemploBajada}
           alCambiar={cambiarEncabezado}
+          plan={negocio.plan}
+          hrefPro={hrefPro}
         />
 
         {/* ── EL ESTUDIO ─────────────────────────────────────────
@@ -331,6 +370,7 @@ export default function SeccionPagina({
             fino: TEMA, TIPOGRAFÍA, FORMA, EFECTO, BOTONES, ENCABEZADO,
             FONDO, MOVIMIENTO. Cada grupo tiene UNA fila de controles del
             mismo tamaño, y la píldora de arriba resume la elección. */}
+        <span id="estudio" className="block scroll-mt-24" aria-hidden />
         <Card
           eyebrow="El diseño"
           titulo="Tu estilo"
@@ -342,22 +382,29 @@ export default function SeccionPagina({
         >
           {/* 1 · TEMA — trece fichas del mismo tamaño. La miniatura se
               pinta con la MISMA paleta que la página. */}
-          <Grupo titulo="Tema" pie="La paleta de tu página" primero>
+          <Grupo titulo="Tema" pie={pro ? "La paleta de tu página" : "Tres temas gratis; los demás con Pro"} primero>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-5 lg:grid-cols-7">
               {TEMAS.map((t) => {
                 const pal = paletaDelTema(t, f.colorFondo, f.colorAcento);
                 const activo = f.tema === t;
+                const bloqueado = !pro && !TEMAS_GRATIS.includes(t);
                 return (
                   <button
                     key={t}
                     type="button"
-                    onClick={() => elegirTema(t)}
+                    onClick={() => !bloqueado && elegirTema(t)}
                     aria-pressed={activo}
-                    title={PRESETS[t].pie}
-                    className={`presionable overflow-hidden rounded-xl border text-left transition-colors ${
-                      activo ? "border-aventurea-navy ring-2 ring-aventurea-navy/20" : "border-aventurea-line hover:border-aventurea-navy/40"
+                    aria-disabled={bloqueado || undefined}
+                    title={bloqueado ? "Con el plan Pro" : PRESETS[t].pie}
+                    className={`presionable relative overflow-hidden rounded-xl border text-left transition-colors ${
+                      activo ? "border-aventurea-navy ring-2 ring-aventurea-navy/20" : bloqueado ? "cursor-not-allowed border-aventurea-line opacity-60" : "border-aventurea-line hover:border-aventurea-navy/40"
                     }`}
                   >
+                    {bloqueado && (
+                      <span className="absolute right-1.5 top-1.5">
+                        <PildoraPro />
+                      </span>
+                    )}
                     <span
                       aria-hidden
                       className="flex h-11 items-end gap-1 p-2"
@@ -392,7 +439,7 @@ export default function SeccionPagina({
           </Grupo>
 
           {/* 2 · TIPOGRAFÍA — cada ficha escrita con su propia cara. */}
-          <Grupo titulo="Tipografía" pie="Cada opción, escrita con su propia letra">
+          <Grupo titulo="Tipografía" pie="Cada opción, escrita con su propia letra" pro bloqueado={!pro} hrefPro={hrefPro}>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {FUENTES.map((x) => {
                 const activo = f.fuente === x;
@@ -424,9 +471,19 @@ export default function SeccionPagina({
               <Control rotulo="Tus puertas">
                 <Segmentos
                   etiqueta="Cómo se ven las puertas"
+                  bloqueadas={pro ? [] : (["grilla"] as const)}
                   valor={f.estiloLinks}
                   alCambiar={(v) => set("estiloLinks", v)}
                   opciones={ESTILOS_LINKS.map((e) => ({ id: e, nombre: ETIQUETA_ESTILO[e].nombre, pie: ETIQUETA_ESTILO[e].pie }))}
+                />
+              </Control>
+              <Control rotulo="Las piezas" nota={f.diseno.piezas === "suelta" ? "Botones y catálogo sin tarjeta, directo sobre el fondo. El encabezado tiene su propia opción arriba." : undefined}>
+                <Segmentos
+                  etiqueta="Las piezas"
+                  bloqueadas={pro ? [] : (["suelta"] as const)}
+                  valor={f.diseno.piezas}
+                  alCambiar={(v) => setDiseno("piezas", v)}
+                  opciones={opcionesDe(PIEZAS, DISENO_OPCION.piezas)}
                 />
               </Control>
               <Control rotulo="Bordes">
@@ -458,17 +515,34 @@ export default function SeccionPagina({
 
           {/* 4 · EFECTO — fichas con una VISTA PREVIA real: la misma
               función que viste la página (`estiloDePieza`). */}
-          <Grupo titulo="Efecto de las tarjetas" pie="Así se ven con tu tema de ahora">
+          {/* Las fichas muestran el EFECTO puro (botón «Del efecto») sobre
+              manchas de color: el vidrio necesita algo detrás para verse
+              vidrio. Y elegir un efecto devuelve el botón a «Del efecto»:
+              con «Sólido» puesto, el dueño elegía Vidrio y no veía nada
+              cambiar (7 sep 2026). */}
+          <Grupo
+            titulo="Efecto de las tarjetas"
+            pro
+            bloqueado={!pro}
+            hrefPro={hrefPro}
+            pie={
+              f.diseno.boton === "acabado"
+                ? "Así se ven con tu tema de ahora"
+                : `Tu botón está en «${DISENO_OPCION.boton[f.diseno.boton].nombre}» y tapa el efecto; al elegir uno, vuelve a «Del efecto»`
+            }
+          >
             <Fichas
               etiqueta="Efecto"
               valor={f.efecto}
-              alCambiar={(v) => set("efecto", v)}
+              alCambiar={(v) => setF((p) => ({ ...p, efecto: v, diseno: { ...p.diseno, boton: "acabado" } }))}
               opciones={EFECTOS.map((x) => ({ id: x, nombre: EFECTO[x].nombre, pie: EFECTO[x].pie }))}
               vista={(x) => (
-                <span aria-hidden className="flex h-[64px] items-center justify-center p-3" style={{ background: `linear-gradient(135deg, ${paleta.fondo}, ${paleta.fondo2})` }}>
-                  <span className="flex h-10 w-full items-center gap-2 px-2.5" style={estiloDePieza(x, paleta, { radio: Math.min(RADIOS[f.redondeo].pieza, 12), boton: f.diseno.boton })}>
-                    <span className="h-4 w-4 shrink-0 rounded-full" style={{ background: f.diseno.boton === "solido" ? conAlfa(paleta.tintaSobreAcento, 0.3) : paleta.acento }} />
-                    <span className="h-1.5 flex-1 rounded-full" style={{ background: f.diseno.boton === "solido" ? paleta.tintaSobreAcento : paleta.tinta, opacity: 0.55 }} />
+                <span aria-hidden className="relative flex h-[64px] items-center justify-center overflow-hidden p-3" style={{ background: `linear-gradient(135deg, ${paleta.fondo}, ${paleta.fondo2})` }}>
+                  <span className="absolute -left-3 -top-5 h-12 w-12 rounded-full" style={{ background: conAlfa(paleta.acento, 0.85) }} />
+                  <span className="absolute -bottom-6 right-2 h-12 w-12 rounded-full" style={{ background: conAlfa(paleta.tinta, 0.35) }} />
+                  <span className="relative flex h-10 w-full items-center gap-2 px-2.5" style={estiloDePieza(x, paleta, { radio: Math.min(RADIOS[f.redondeo].pieza, 12), boton: "acabado" })}>
+                    <span className="h-4 w-4 shrink-0 rounded-full" style={{ background: paleta.acento }} />
+                    <span className="h-1.5 flex-1 rounded-full" style={{ background: paleta.tinta, opacity: 0.55 }} />
                   </span>
                 </span>
               )}
@@ -481,6 +555,7 @@ export default function SeccionPagina({
               <Control rotulo="Estilo del botón">
                 <Segmentos
                   etiqueta="Estilo del botón"
+                  bloqueadas={pro ? [] : (["solido", "contorno", "sombra"] as const)}
                   valor={f.diseno.boton}
                   alCambiar={(v) => setDiseno("boton", v)}
                   opciones={opcionesDe(BOTONES, DISENO_OPCION.boton)}
@@ -501,7 +576,7 @@ export default function SeccionPagina({
           {/* 7 · FONDO — fichas con la trama de verdad (0236). Aurora y
               burbujas se muestran quietas en la ficha; se mueven en la
               previa. */}
-          <Grupo titulo="Fondo" pie="Detrás de todo. Aurora y burbujas se mueven">
+          <Grupo titulo="Fondo" pie="Detrás de todo. Aurora y burbujas se mueven" pro bloqueado={!pro} hrefPro={hrefPro}>
             <Fichas
               etiqueta="Fondo"
               valor={f.diseno.fondo}
@@ -522,7 +597,7 @@ export default function SeccionPagina({
           </Grupo>
 
           {/* 8 · MOVIMIENTO — animación de entrada y hover (0236). */}
-          <Grupo titulo="Movimiento" pie="Cómo entra la página y qué hacen los botones al pasar el mouse">
+          <Grupo titulo="Movimiento" pie="Cómo entra la página y qué hacen los botones al pasar el mouse" pro bloqueado={!pro} hrefPro={hrefPro}>
             <div className="grid gap-4">
               <Control rotulo="Al abrir la página" nota="Con «reducir movimiento» activado en el teléfono, todo aparece quieto.">
                 <Fichas
@@ -545,6 +620,12 @@ export default function SeccionPagina({
         </Card>
 
         {/* ── EL NEGOCIO: rubro, país y moneda (0236) ───────────── */}
+        {barraGuardar}
+          </>
+        )}
+
+        {vista === "ajustes" && (
+          <>
         <Card
           eyebrow="Tu negocio"
           titulo="Rubro, país y moneda"
@@ -616,9 +697,34 @@ export default function SeccionPagina({
           accion={<PildoraEstado estado={f.publicado ? "info" : "neutro"}>{f.publicado ? "Publicada" : "Apagada"}</PildoraEstado>}
         >
           <p className="break-all text-[13.5px] font-bold text-aventurea-ink">{urlPublica}</p>
+          {/* EL DOMINIO DE MARCA (8 sep 2026): linksy.lat o bookea.lat. Se
+              guarda al tocarlo; el enlace de arriba se actualiza al instante. */}
+          {esDueno && (
+            <div className="mt-3">
+              <Control rotulo="Tu dirección" nota={cambiandoHost ? "Guardando…" : `${HOST_MARCA[hostMarca].ejemplo} · ${HOST_MARCA[hostMarca].pie}`}>
+                <Segmentos
+                  etiqueta="Dominio de tu página"
+                  valor={hostMarca}
+                  alCambiar={(h) => {
+                    setHostMarca(h);
+                    arrancarHost(async () => {
+                      const r = await elegirDominioMarcaSolutions(negocio.id, h);
+                      if (!r.ok) {
+                        setMsg({ tono: "alerta", texto: r.motivo });
+                        setHostMarca(negocio.host_marca);
+                        return;
+                      }
+                      router.refresh();
+                    });
+                  }}
+                  opciones={HOSTS_MARCA.map((h) => ({ id: h, nombre: HOST_MARCA[h].nombre, pie: HOST_MARCA[h].ejemplo }))}
+                />
+              </Control>
+            </div>
+          )}
           <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
             <div>
-              <label htmlFor="slug" className={ROTULO_CAMPO}>Cambiar el enlace (linksy.lat/…)</label>
+              <label htmlFor="slug" className={ROTULO_CAMPO}>Cambiar el enlace ({HOST_MARCA[hostMarca].nombre}/…)</label>
               <input id="slug" type="text" value={f.slug} onChange={(e) => set("slug", e.target.value)} className={`mt-1.5 ${CAMPO_PANEL}`} />
             </div>
             <label className="flex items-center gap-2.5 text-[13px] font-bold text-aventurea-ink">
@@ -636,21 +742,6 @@ export default function SeccionPagina({
                 <input type="checkbox" checked={f.mostrarMenu} onChange={(e) => set("mostrarMenu", e.target.checked)} className="h-4 w-4" />
                 Mostrar {vocab.catalogo === "Servicios" ? "los servicios" : `el ${vocab.catalogo.toLowerCase()}`} en la página
               </label>
-
-              {/* ── LA VITRINA (0236): el catálogo adentro del link hub ── */}
-              <div className="mt-4">
-                <Control
-                  rotulo={`Cómo aparece ${vocab.catalogo === "Servicios" ? "la lista de servicios" : `el ${vocab.catalogo.toLowerCase()}`} en tu página`}
-                  nota="«Destacados» muestra los primeros con foto y precio, como una vitrina; «Todo» pone el catálogo entero adentro de tu página."
-                >
-                  <Segmentos
-                    etiqueta="Vitrina"
-                    valor={f.diseno.vitrina}
-                    alCambiar={(v) => setDiseno("vitrina", v)}
-                    opciones={opcionesDe(VITRINAS, DISENO_OPCION.vitrina)}
-                  />
-                </Control>
-              </div>
 
               {/* ── LOS IDIOMAS DEL CATÁLOGO (0235) ─────────────── */}
               <div className="mt-4">
@@ -779,20 +870,15 @@ export default function SeccionPagina({
           )}
         </Card>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button type="button" onClick={guardar} disabled={guardando} className={BOTON_PANEL_PRIMARIO}>
-            {guardando ? "Guardando…" : "Guardar la página"}
-          </button>
-          <a href={urlPublica} target="_blank" rel="noopener noreferrer" className={BOTON_PANEL}>
-            Ver como cliente →
-          </a>
-          {msg && (
-            <p className={`text-[13px] font-bold ${msg.tono === "exito" ? "text-green-700" : "text-red-700"}`}>
-              {msg.texto}
-            </p>
-          )}
-        </div>
+        {barraGuardar}
 
+        {/* ── TU PROPIO DOMINIO (0234) — solo el dueño ─────────── */}
+        {esDueno && <SeccionDominio negocio={negocio} />}
+          </>
+        )}
+
+        {vista === "enlaces" && (
+          <>
         {/* ── LOS ENLACES, ACÁ MISMO (dueño, 5 sep 2026) ──────────
             «Mi página y Enlaces, ¿no es lo mismo?». Lo es: los enlaces
             SON la página. Antes tenían pestaña propia; ahora viven acá
@@ -800,21 +886,36 @@ export default function SeccionPagina({
             tabla y por otra action. `scroll-mt` para que los atajos
             del tablero (#enlaces) no queden tapados por el header. */}
         <div id="enlaces" className="scroll-mt-24">
-          <SeccionLinks negocioId={negocio.id} links={links} />
+          <SeccionLinks negocioId={negocio.id} links={links} alCambiar={setLinksVivos} />
         </div>
-
-        {/* ── TU PROPIO DOMINIO (0234) — solo el dueño ─────────── */}
-        {esDueno && <SeccionDominio negocio={negocio} />}
+          </>
+        )}
       </div>
 
       {/* ── LA PREVIA EN VIVO ────────────────────────────────────── */}
-      <aside className="mt-6 lg:sticky lg:top-20 lg:mt-0">
-        <p className="mb-2 text-center text-[11px] font-extrabold uppercase tracking-[0.14em] text-aventurea-ink-soft lg:text-left">
-          Así se ve ahora
-        </p>
+      {/* EL ESCENARIO (7 sep 2026, «el mockup de la derecha, 100 % profesional,
+          para cualquier rubro»): el teléfono va sobre un fondo que sale de
+          LA PALETA DEL NEGOCIO —su fondo, su acento— así la previa se ve como
+          una pieza de su marca y no como un widget del panel. Sirve igual
+          para una tienda, un DJ o un restaurante: los colores son los suyos. */}
+      <aside className="mt-6 lg:sticky lg:top-[92px] lg:mt-0">
+        <div
+          className="relative overflow-hidden rounded-[28px] p-5 pb-7 shadow-elevado"
+          style={{ background: `linear-gradient(165deg, ${conAlfa(paleta.acento, 0.32)} 0%, ${paleta.fondo} 48%, ${paleta.fondo2} 100%)` }}
+        >
+          <span aria-hidden className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full blur-3xl" style={{ background: conAlfa(paleta.acento, 0.6) }} />
+          <span aria-hidden className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full blur-3xl" style={{ background: conAlfa(paleta.acento, 0.28) }} />
+          <div className="relative mb-4 flex items-center justify-between gap-2">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.14em]" style={{ color: paleta.tinta }}>
+              Así se ve ahora
+            </p>
+            <span className="max-w-[62%] truncate rounded-full px-3 py-1 text-[11.5px] font-extrabold" style={{ background: paleta.superficie, color: paleta.tinta, border: `1px solid ${paleta.borde}` }}>
+              {urlPublica.replace(/^https?:[/][/]/, "")}
+            </span>
+          </div>
         <Telefono
-          ancho={288}
-          className="mx-auto lg:mx-0"
+          ancho={300}
+          className="relative mx-auto"
           tinta={paleta.tinta}
         >
           {/* `inerte`: la previa no navega. Tocar un enlace acá sacaría al
@@ -835,6 +936,22 @@ export default function SeccionPagina({
             }}
           />
         </Telefono>
+        </div>
+        {/* Las cards se agregan, quitan y editan en «Enlaces», más abajo.
+            El atajo va acá porque es donde el dueño las está mirando. */}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a href={vista === "enlaces" ? "#enlaces" : "?tab=enlaces"} className={vista === "enlaces" ? LP_BOTON_CHICO_SUAVE : LP_BOTON_CHICO}>
+            {vista === "enlaces" ? "Tus cards ↑" : "Agregar o editar cards →"}
+          </a>
+          <a href={vista === "diseno" ? "#estudio" : "?tab=diseno"} className={vista === "diseno" ? LP_BOTON_CHICO_SUAVE : LP_BOTON_CHICO}>
+            {vista === "diseno" ? "Cambiar el estilo ↑" : "Cambiar el diseño →"}
+          </a>
+          {vista !== "ajustes" && (
+            <a href="?tab=ajustes" className={LP_BOTON_CHICO_SUAVE}>
+              Dirección y contacto →
+            </a>
+          )}
+        </div>
         <p className="mt-3 text-center text-[11.5px] leading-snug text-aventurea-ink-soft lg:text-left">
           <strong className="text-aventurea-ink">Tocá el texto en el teléfono para escribirlo ahí.</strong>{" "}
           Es tu página de verdad, no un dibujo. Guardá para que la vean tus clientes.

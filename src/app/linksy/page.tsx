@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import LandingLinksy from "./landing-linksy";
+import { sesionDelNavLealtad } from "@/lib/lealtad/sesion-nav";
 
 /**
  * /linksy — la landing del producto.
@@ -24,6 +25,14 @@ export const metadata: Metadata = {
   alternates: { canonical: "/linksy" },
 };
 
-export default function LinksyPage() {
-  return <LandingLinksy />;
+/**
+ * La sesión se lee acá (servidor) y baja al nav: con cuenta abierta la
+ * esquina derecha dice el nombre y «Mi panel», no «Ingresar» — el dueño
+ * entró logueado y la landing lo trataba como a un desconocido (8 sep
+ * 2026). En linksy.lat la cookie no existe (vive en bookea.lat), así
+ * que ahí siempre se ve «Ingresar»: es lo correcto, la puerta está allá.
+ */
+export default async function LinksyPage() {
+  const sesion = await sesionDelNavLealtad();
+  return <LandingLinksy sesion={sesion} />;
 }

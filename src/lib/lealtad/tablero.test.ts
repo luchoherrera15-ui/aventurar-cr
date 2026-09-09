@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  TOPE_LISTA_CLIENTES,
   fichasDeMiembros,
+  fichasParaLaLista,
   resumenDeLealtad,
   type MiembroCrudo,
   type TransaccionCruda,
@@ -201,5 +203,85 @@ describe("resumenDeLealtad", () => {
       hoy: HOY,
     });
     expect(resumenDeLealtad({ fichas: nuevos, transacciones: [], hoy: HOY }).enRiesgo).toBe(0);
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════
+//  QUIÉN ENTRA EN LA LISTA DE CLIENTES
+// ════════════════════════════════════════════════════════════════════
+//
+// El bug del 8 sep 2026: la lista mandaba los primeros 50 POR SALDO y
+// el recién afiliado, que tiene 0, no viajaba nunca. El negocio lo leía
+// como «la base tarda en actualizarse».
+
+describe("fichasParaLaLista", () => {
+  /** `cuantos` miembros viejos con algo de saldo, pero SIN llegar a la
+   *  meta: si llegaran, entrarían por «puede canjear» y no por saldo. */
+  function veteranos(cuantos: number) {
+    return Array.from({ length: cuantos }, (_, i) => ({
+      m: miembro(`v${i}`, { created_at: "2026-01-10" }),
+      t: tx(`v${i}`, 9 - (i % 9), "2026-01-10"),
+    }));
+  }
+
+  function armar(extra: { miembros: MiembroCrudo[]; transacciones: TransaccionCruda[] }) {
+    const base = veteranos(TOPE_LISTA_CLIENTES);
+    return fichasDeMiembros({
+      miembros: [...base.map((v) => v.m), ...extra.miembros],
+      transacciones: [...base.map((v) => v.t), ...extra.transacciones],
+      pases: [],
+      identidades: new Map(),
+      meta: 10,
+      hoy: HOY,
+    });
+  }
+
+  it("el recién afiliado sin saldo entra aunque la lista esté llena", () => {
+    const fichas = armar({
+      miembros: [miembro("nuevo", { created_at: `${HOY}T10:00:00Z` })],
+      transacciones: [],
+    });
+    // Sin el selector caía al último puesto y el recorte lo dejaba fuera.
+    expect(fichas.at(-1)?.miembroId).toBe("nuevo");
+
+    const lista = fichasParaLaLista(fichas, { hoy: HOY });
+    expect(lista).toHaveLength(TOPE_LISTA_CLIENTES);
+    expect(lista.map((f) => f.miembroId)).toContain("nuevo");
+  });
+
+  it("primero los que pueden canjear, después los nuevos, del más nuevo al más viejo", () => {
+    const fichas = armar({
+      miembros: [
+        miembro("nuevo-ayer", { created_at: "2026-08-11" }),
+        miembro("nuevo-hoy", { created_at: "2026-08-12" }),
+        miembro("listo", { created_at: "2026-08-11" }),
+      ],
+      transacciones: [tx("listo", 12, "2026-08-11")],
+    });
+
+    const lista = fichasParaLaLista(fichas, { hoy: HOY });
+    expect(lista[0].miembroId).toBe("listo");
+    expect(lista[1].miembroId).toBe("nuevo-hoy");
+    expect(lista[2].miembroId).toBe("nuevo-ayer");
+  });
+
+  it("no considera nuevo a quien se afilió hace más de una semana", () => {
+    const fichas = armar({
+      miembros: [miembro("de-julio", { created_at: "2026-07-20" })],
+      transacciones: [],
+    });
+    expect(fichasParaLaLista(fichas, { hoy: HOY }).map((f) => f.miembroId)).not.toContain("de-julio");
+  });
+
+  it("con menos gente que el tope no deja a nadie afuera", () => {
+    const fichas = fichasDeMiembros({
+      miembros: [miembro("m1"), miembro("m2", { created_at: HOY })],
+      transacciones: [tx("m1", 4, "2026-08-01")],
+      pases: [],
+      identidades: NOMBRES,
+      meta: 10,
+      hoy: HOY,
+    });
+    expect(fichasParaLaLista(fichas, { hoy: HOY })).toHaveLength(2);
   });
 });

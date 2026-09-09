@@ -98,3 +98,7 @@ bookea-assist/**/appsettings.*.json
 # en el repo ni en el deploy (se baja de EAS cuando se necesita).
 *.aab
 *.ipa
+
+# Las imágenes fuente de referencia (ChatGPT, mockups): 81 MB que ya
+# viven en Cloudflare Images. En git pesarían para siempre.
+referencia/

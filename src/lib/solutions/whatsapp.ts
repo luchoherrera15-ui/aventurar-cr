@@ -50,7 +50,14 @@ export type PedidoParaWhatsapp = {
   /** Código corto del pedido, para que el local lo encuentre en Comandas. */
   codigo: string;
   modalidad: Exclude<Modalidad, "mesa">;
-  renglones: { nombre: string; cantidad: number; precio: number }[];
+  renglones: {
+    nombre: string;
+    cantidad: number;
+    /** Ya con los extras sumados: es lo que se cobra por unidad. */
+    precio: number;
+    /** «Sin cebolla», «+ Queso», «Nota: …» (0241). */
+    detalles?: string[];
+  }[];
   costoEnvio: number;
   total: number;
   /** La moneda del negocio (0236). Sin ella, colones. */
@@ -75,6 +82,9 @@ export function textoDelPedido(p: PedidoParaWhatsapp): string {
 
   for (const r of p.renglones) {
     lineas.push(`${r.cantidad}× ${r.nombre} — ${fmtMoneda(r.precio * r.cantidad, m)}`);
+    // Cómo lo quiere, debajo y con guion: en la cocina se lee de
+    // corrido y no se confunde con otro plato.
+    for (const d of r.detalles ?? []) lineas.push(`   - ${d}`);
   }
   if (p.modalidad === "express") {
     lineas.push(`Envío — ${p.costoEnvio > 0 ? fmtMoneda(p.costoEnvio, m) : "gratis"}`);

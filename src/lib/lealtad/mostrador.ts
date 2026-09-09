@@ -56,6 +56,7 @@ import { formatearCRC } from "../dinero";
 import {
   TIPOS_TARJETA,
   UNIDAD_SALDO,
+  UNIDAD_SALDO_SINGULAR,
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "./tipos-tarjeta";
@@ -258,9 +259,21 @@ export type TextosDelTipo = {
   muestraSaldo: boolean;
   /** Cómo se llama el saldo en plural. */
   unidad: string;
+  /** El mismo saldo cuando es UNO: «sello», «punto», «uso». */
+  unidadSingular: string;
 };
 
-const TEXTOS: Record<TipoTarjeta, Omit<TextosDelTipo, "muestraSaldo" | "unidad">> = {
+/**
+ * La unidad que le toca a esta cantidad: «+1 sello», «+3 sellos».
+ *
+ * El mostrador escribía «Listo: +1 sellos» — y ese +1 es justo el caso
+ * más común de todos, porque una tarjeta de sellos suma de a uno.
+ */
+export function unidadDe(cantidad: number, textos: { unidad: string; unidadSingular: string }): string {
+  return Math.abs(cantidad) === 1 ? textos.unidadSingular : textos.unidad;
+}
+
+const TEXTOS: Record<TipoTarjeta, Omit<TextosDelTipo, "muestraSaldo" | "unidad" | "unidadSingular">> = {
   sellos: {
     titulo: (c) => `¡Sello sumado a ${c}!`,
     repetido: (c) => `${c} ya tenía su sello`,
@@ -324,6 +337,7 @@ export function textosDelTipo(tipo: TipoTarjeta): TextosDelTipo {
     ...TEXTOS[tipo],
     muestraSaldo: TIPOS_TARJETA[tipo].acumula,
     unidad: UNIDAD_SALDO[tipo],
+    unidadSingular: UNIDAD_SALDO_SINGULAR[tipo],
   };
 }
 

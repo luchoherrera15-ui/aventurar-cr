@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   leerMontoColones,
   llaveDeIntento,
   textosDelTipo,
+  unidadDe,
   type TextosDelTipo,
 } from "@/lib/lealtad/mostrador";
 import { CAMPO_PANEL, DETALLE, RADIO_CARD } from "@/components/panel/sistema";
@@ -223,10 +224,10 @@ function FilaCliente({
           // Sin nombre no se saluda: «para Cliente sin datos» se lee como
           // si ese fuera el nombre de la señora que está enfrente.
           texto: res.yaEstaba
-            ? `No se sumó de nuevo: esa misma operación ya había entrado. Sigue en ${res.saldo} ${textos.unidad}.`
+            ? `No se sumó de nuevo: esa misma operación ya había entrado. Sigue en ${res.saldo} ${unidadDe(res.saldo, textos)}.`
             : faltanDatos
-              ? `Listo: +${res.puntos} ${textos.unidad}.`
-              : `Listo: +${res.puntos} ${textos.unidad} para ${nombreVisible}.`,
+              ? `Listo: +${res.puntos} ${unidadDe(res.puntos, textos)}.`
+              : `Listo: +${res.puntos} ${unidadDe(res.puntos, textos)} para ${nombreVisible}.`,
           tono: res.yaEstaba ? "aviso" : "bien",
         });
       })
@@ -324,7 +325,7 @@ function FilaCliente({
         {textos.muestraSaldo && (
           <span className="text-[12.5px] font-bold text-aventurea-ink">
             {meta === null
-              ? `${saldo} ${textos.unidad}`
+              ? `${saldo} ${unidadDe(saldo, textos)}`
               : `${saldo} de ${meta} ${textos.unidad}`}
           </span>
         )}
@@ -1023,10 +1024,20 @@ export function BuscarYAtender({
 /**
  * La lista de Clientes, ahora con los botones al lado de cada quien.
  *
- * Misma lista de siempre —los 50 con más saldo, ordenados por quién
- * necesita atención— con un buscador encima que filtra EN EL NAVEGADOR
- * lo que el servidor ya mandó: acá la lista ya está, y una ida al
- * servidor por cada letra sería peor.
+ * Misma lista de siempre —los 50 que necesitan atención: los que pueden
+ * canjear, los recién llegados y los de más saldo (`fichasParaLaLista`)—
+ * con un buscador encima que filtra EN EL NAVEGADOR lo que el servidor
+ * ya mandó: acá la lista ya está, y una ida al servidor por cada letra
+ * sería peor.
+ *
+ * ── Y SI NO ESTÁ EN LA LISTA, SE PREGUNTA ───────────────────────────
+ * Un negocio con más clientes que el tope tiene gente que NO viajó al
+ * navegador, y filtrar solo lo que llegó le contestaba «nadie con ese
+ * nombre» a un cliente que sí existe —el caso que reportó el dueño el
+ * 8 sep 2026 con los recién afiliados—. Cuando el filtro local se queda
+ * sin resultados, el buscador le pregunta al servidor por el negocio
+ * ENTERO (`buscarClientesDelPrograma`, el mismo del mostrador). Una sola
+ * consulta, y solo cuando hace falta.
  */
 export function ListaClientes({
   ranchoId,
@@ -1052,6 +1063,11 @@ export function ListaClientes({
 }) {
   const [filtro, setFiltro] = useState("");
   const [novedades, setNovedades] = useState<Record<string, Novedad>>({});
+  /** Lo que el SERVIDOR encontró, con la búsqueda que lo pidió: guardar
+   *  la aguja al lado evita tener que limpiar el estado desde el efecto
+   *  (un setState ahí encadena renders) — si no coincide, no se usa. */
+  const [deAfuera, setDeAfuera] = useState<{ aguja: string; filas: ClienteEnLista[] } | null>(null);
+  const [buscandoAfuera, setBuscandoAfuera] = useState(false);
   const textos = textosDelTipo(tipo);
 
   // Se busca también por correo y por teléfono: ahora están en pantalla,
@@ -1064,9 +1080,43 @@ export function ListaClientes({
       )
     : clientes;
 
+  /** El filtro local no encontró a nadie. */
+  const sinCoincidencias = visibles.length === 0;
+  // Hay gente del negocio que no está en esta pantalla.
+  const hayOcultos = total > clientes.length;
+
+  // Sin coincidencias acá y con gente afuera: se le pregunta al
+  // servidor. Con demora, para no mandar una consulta por tecla.
+  useEffect(() => {
+    if (!hayOcultos || aguja.length < 2 || !sinCoincidencias) return;
+    let vivo = true;
+    const reloj = setTimeout(() => {
+      setBuscandoAfuera(true);
+      buscarClientesDelPrograma(ranchoId, aguja)
+        .then((res) => {
+          if (!vivo || !res.ok) return;
+          const yaEstan = new Set(clientes.map((c) => c.miembroId));
+          setDeAfuera({ aguja, filas: res.clientes.filter((c) => !yaEstan.has(c.miembroId)) });
+        })
+        // El buscador local ya contestó; un fallo de red acá no tiene
+        // nada que decirle a quien está atendiendo.
+        .catch(() => {})
+        .finally(() => setBuscandoAfuera(false));
+    }, 350);
+    return () => {
+      vivo = false;
+      clearTimeout(reloj);
+    };
+  }, [aguja, hayOcultos, sinCoincidencias, ranchoId, clientes]);
+
+  // Lo que trajo el servidor, solo si es respuesta a ESTA búsqueda.
+  const remotos = deAfuera?.aguja === aguja ? deAfuera.filas : null;
+  // Lo que se pinta: lo de la lista, o lo que trajo el servidor.
+  const aPintar = visibles.length ? visibles : (remotos ?? []);
+
   return (
     <div>
-      {clientes.length > 5 && (
+      {(clientes.length > 5 || hayOcultos) && (
         <input
           value={filtro}
           onChange={(e) => setFiltro(e.target.value)}
@@ -1077,12 +1127,16 @@ export function ListaClientes({
       )}
 
       <div className={`overflow-hidden ${RADIO_CARD} border border-aventurea-line bg-aventurea-surface`}>
-        {visibles.length === 0 ? (
+        {aPintar.length === 0 ? (
           <p className="px-4 py-5 text-center text-[13px] text-aventurea-ink-soft">
-            Nadie con ese nombre en esta lista.
+            {buscandoAfuera && remotos === null
+              ? "Buscando entre todos tus clientes…"
+              : hayOcultos
+                ? "Nadie con ese nombre entre tus clientes."
+                : "Nadie con ese nombre en esta lista."}
           </p>
         ) : (
-          visibles.map((c, i) => (
+          aPintar.map((c, i) => (
             <div key={c.miembroId} className={i > 0 ? "border-t border-aventurea-line" : ""}>
               <FilaCliente
                 ranchoId={ranchoId}
@@ -1100,9 +1154,11 @@ export function ListaClientes({
           ))
         )}
 
-        {total > clientes.length && (
+        {hayOcultos && (
           <p className="border-t border-aventurea-line px-4 py-2.5 text-[12px] text-aventurea-ink-soft">
-            Se muestran los {clientes.length} con más saldo, de {total}.
+            {visibles.length === 0 && (remotos?.length ?? 0) > 0
+              ? `Encontrado entre los otros ${total - clientes.length} clientes del negocio.`
+              : `Se muestran ${clientes.length} de ${total}: los que pueden canjear, los recién llegados y los de más saldo. Al resto los encontrás buscándolos por nombre, correo o teléfono.`}
           </p>
         )}
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AJUSTES_MENU_BASE } from "@/lib/solutions/menu-estilos";
 import Telefono from "@/components/solutions/telefono";
 import VistaPagina, { type DatosPagina } from "@/components/solutions/vista-pagina";
 import { MockupCarta, MUESTRA_PAGINA as MUESTRA } from "@/components/solutions/mockup-pantallas";
@@ -99,13 +100,7 @@ const TIENDA: Partial<DatosPagina> = {
   seccionesMenu: ["Novedades", "Accesorios"],
   hayMenu: true,
   aceptaPedidos: false,
-  vitrina: [
-    { id: "p1", nombre: "Tenis Runner", precio: 1899, fotoUrl: FOTO.tenis, seccion: "Novedades" },
-    { id: "p2", nombre: "Reloj Minimal", precio: 2450, fotoUrl: FOTO.reloj, seccion: "Accesorios" },
-    { id: "p3", nombre: "Bolso Tote", precio: 1290, fotoUrl: FOTO.bolso, seccion: "Accesorios" },
-    { id: "p4", nombre: "Lentes Sol", precio: 690, fotoUrl: FOTO.lentes, seccion: "Accesorios" },
-  ],
-  diseno: { animacion: "subir", hover: "elevar", fondo: "liso", boton: "solido", logoForma: "circulo", logoTamano: "medio", alineacion: "centro", densidad: "compacta", vitrina: "destacados", redes: "arriba", titulo: "normal" },
+  diseno: { animacion: "subir", hover: "elevar", fondo: "liso", boton: "solido", logoForma: "circulo", logoTamano: "medio", alineacion: "centro", densidad: "compacta", vitrina: "destacados", redes: "arriba", titulo: "normal", encabezado: "tarjeta", piezas: "tarjeta", menu: "clasico", menuFuente: "auto", menuPortada: "tarjeta", menuAjustes: AJUSTES_MENU_BASE },
 };
 
 /** Un lavacar: servicios con precio y reserva por WhatsApp. */
@@ -127,8 +122,7 @@ const LAVACAR: Partial<DatosPagina> = {
   seccionesMenu: ["Lavado", "Detailing"],
   hayMenu: true,
   aceptaPedidos: false,
-  vitrina: [],
-  diseno: { animacion: "aparecer", hover: "brillo", fondo: "puntos", boton: "acabado", logoForma: "redondeado", logoTamano: "grande", alineacion: "izquierda", densidad: "normal", vitrina: "boton", redes: "arriba", titulo: "normal" },
+  diseno: { animacion: "aparecer", hover: "brillo", fondo: "puntos", boton: "acabado", logoForma: "redondeado", logoTamano: "grande", alineacion: "izquierda", densidad: "normal", vitrina: "boton", redes: "arriba", titulo: "normal", encabezado: "tarjeta", piezas: "tarjeta", menu: "clasico", menuFuente: "auto", menuPortada: "tarjeta", menuAjustes: AJUSTES_MENU_BASE },
 };
 
 const LOOKS: Look[] = [

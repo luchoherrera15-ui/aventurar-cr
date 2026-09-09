@@ -91,6 +91,12 @@ export default function VitrinaEscenas({ escenas }: { escenas: Escena[] }) {
               fill
               sizes="(min-width: 1024px) 620px, 92vw"
               priority={i === 0}
+              // Las escenas viven en Cloudflare Images (7 sep 2026, «subilas
+              // bien en Cloudflare»): ya llegan optimizadas por Cloudflare
+              // (WebP/AVIF según el navegador) desde el PNG original, así
+              // que el optimizador de Next no las vuelve a comprimir — esa
+              // segunda pasada era parte de por qué se veían «sin HD».
+              unoptimized
               className="linksy-escena-foto object-cover"
             />
             <figcaption className="absolute left-5 top-5 flex flex-wrap items-center gap-2">

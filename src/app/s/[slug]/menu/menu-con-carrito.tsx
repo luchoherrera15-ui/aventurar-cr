@@ -9,6 +9,20 @@ import { conVariante } from "@/lib/solutions/fotos";
 import { ALERGENO, IDIOMA, type Alergeno, type Idioma, type IdiomaExtra, type Nutricion } from "@/lib/solutions/idiomas";
 import { TOPES, type MetodoPago } from "@/lib/solutions/tipos";
 import { pedirDesdeLaMesa, pedirParaLlevar } from "./pedir-actions";
+import {
+  detalleDeLinea,
+  firmaDeLinea,
+  precioDeLinea,
+  seArma,
+  SIN_ELECCION,
+  TOPES_PERSONALIZACION,
+  type Eleccion,
+  type Personalizacion,
+} from "@/lib/solutions/personalizacion";
+import { textoDelPedido } from "@/lib/solutions/whatsapp";
+import { ESTILO_MENU, ESTILO_MENU_BASE, type DefEstiloMenu } from "@/lib/solutions/menu-estilos";
+import { pintaDeEstilo } from "@/lib/solutions/menu-pinta";
+import { AIRE_SECCION, ListaPlatos, PlatoEnEstilo, TituloSeccion } from "./plato-en-estilo";
 
 type Item = {
   id: string;
@@ -17,7 +31,19 @@ type Item = {
   precio: number | null;
   foto_url: string | null;
   nutricion: Nutricion | null;
+  /** Qué se le puede quitar y qué se le puede agregar (0241). */
+  personalizacion: Personalizacion;
 };
+
+/**
+ * UN RENGLÓN DEL CARRITO.
+ *
+ * No es «el plato X, tres veces»: es «el plato X, ASÍ, tres veces». Dos
+ * hamburguesas iguales comparten renglón (misma `firma`); una sin
+ * cebolla y otra con queso son dos renglones, porque a la cocina le
+ * llegan como dos cosas distintas.
+ */
+type Linea = { firma: string; itemId: string; cantidad: number; eleccion: Eleccion };
 type Grupo = { nombre: string; items: Item[] };
 type Paleta = {
   fondo: string;
@@ -229,7 +255,8 @@ export default function MenuConCarrito({
   mesa,
   puedePedir,
   grupos,
-  paleta,
+  paleta: paletaTema,
+  estilo = ESTILO_MENU[ESTILO_MENU_BASE],
   idioma = "es",
   idiomas = [],
   llevar = false,
@@ -250,6 +277,8 @@ export default function MenuConCarrito({
   puedePedir: boolean;
   grupos: Grupo[];
   paleta: Paleta;
+  /** El diseño del catálogo (menu-estilos.ts). Lo resuelve el servidor. */
+  estilo?: DefEstiloMenu;
   /** El idioma en que ya vienen los textos, y los que se pueden elegir. */
   idioma?: Idioma;
   idiomas?: IdiomaExtra[];
@@ -273,13 +302,28 @@ export default function MenuConCarrito({
   // en una tienda «To go» es «Recoger en tienda» y «Enviar pedido» es
   // «Confirmar compra», en los seis idiomas.
   const t = { ...T[idioma], ...(rotulos ?? {}) };
+
+  // EL DISEÑO DEL CATÁLOGO. Si trae papel propio (Bistró, Carbón,
+  // Mármol…) gana sobre el tema del link hub; si no, se hereda. El
+  // resto del archivo sigue leyendo `paleta`, que ahora es la del
+  // diseño — así el carrito, la hoja y la ficha combinan solas.
+  const pinta = pintaDeEstilo(estilo, {
+    fondo: paletaTema.fondo,
+    tinta: paletaTema.tinta,
+    suave: paletaTema.suave,
+    superficie: paletaTema.superficie,
+    borde: paletaTema.borde,
+    acento: paletaTema.acento,
+    sobreAcento: paletaTema.tintaSobreAcento,
+  });
+  const paleta: Paleta = { ...pinta.paleta, tintaSobreAcento: pinta.paleta.sobreAcento };
   const $ = (n: number) => fmtMoneda(n, moneda);
   // El documento de identidad se llama distinto en cada país.
   const rotuloDocumento = pais === "CR" ? t.cedula : t.cedula.replace(/^[^(]+/, `${PAIS[pais].documento} `);
   const paraLlevar = mesa === null && (llevar || express);
   const puedeAgregar = puedePedir || paraLlevar;
 
-  const [carrito, setCarrito] = useState<Record<string, number>>({});
+  const [carrito, setCarrito] = useState<Linea[]>([]);
   const [abierto, setAbierto] = useState(false);
   const [detalle, setDetalle] = useState<Item | null>(
     () => (itemInicial ? grupos.flatMap((g) => g.items).find((it) => it.id === itemInicial) ?? null : null),
@@ -300,23 +344,76 @@ export default function MenuConCarrito({
   const [enviando, arrancar] = useTransition();
 
   const porId = useMemo(() => new Map(grupos.flatMap((g) => g.items).map((it) => [it.id, it])), [grupos]);
-  const renglones = Object.entries(carrito).filter(([, c]) => c > 0);
-  const cantidadTotal = renglones.reduce((s, [, c]) => s + c, 0);
-  const subtotal = renglones.reduce((s, [id, c]) => s + (porId.get(id)?.precio ?? 0) * c, 0);
+
+  /** Lo que cuesta UNA unidad de ese renglón, ya con sus extras. */
+  const precioDe = (l: Linea) => {
+    const it = porId.get(l.itemId);
+    return it ? precioDeLinea(it.precio ?? 0, it.personalizacion, l.eleccion) : 0;
+  };
+  const cantidadTotal = carrito.reduce((t, l) => t + l.cantidad, 0);
+  const subtotal = carrito.reduce((t, l) => t + precioDe(l) * l.cantidad, 0);
   const envio = paraLlevar && modalidad === "express" ? costoExpress : 0;
   const total = subtotal + envio;
 
-  const ajustar = (id: string, delta: number) =>
+  /** Cuántas unidades de ESE plato hay en el carrito, en todos sus armados. */
+  const enCarrito = (itemId: string) =>
+    carrito.filter((l) => l.itemId === itemId).reduce((t, l) => t + l.cantidad, 0);
+
+  const agregar = (it: Item, eleccion: Eleccion, cuantos = 1) => {
+    const firma = firmaDeLinea(it.id, eleccion);
     setCarrito((prev) => {
-      const n = Math.max(0, Math.min(TOPES.cantidadPorRenglon, (prev[id] ?? 0) + delta));
-      const copia = { ...prev };
-      if (n === 0) delete copia[id];
-      else copia[id] = n;
+      const i = prev.findIndex((l) => l.firma === firma);
+      if (i === -1) {
+        return [...prev, { firma, itemId: it.id, cantidad: Math.min(TOPES.cantidadPorRenglon, cuantos), eleccion }];
+      }
+      const copia = [...prev];
+      copia[i] = { ...copia[i], cantidad: Math.min(TOPES.cantidadPorRenglon, copia[i].cantidad + cuantos) };
       return copia;
     });
+  };
+
+  const ajustarLinea = (firma: string, delta: number) =>
+    setCarrito((prev) =>
+      prev
+        .map((l) =>
+          l.firma === firma
+            ? { ...l, cantidad: Math.max(0, Math.min(TOPES.cantidadPorRenglon, l.cantidad + delta)) }
+            : l,
+        )
+        .filter((l) => l.cantidad > 0),
+    );
+
+  /** El renglón «simple» de un plato que no se arma. */
+  const lineaSimple = (itemId: string) =>
+    carrito.find((l) => l.firma === firmaDeLinea(itemId, SIN_ELECCION));
+
+  /** Los renglones, ya en palabras, para el servidor y para WhatsApp. */
+  const renglonesDetallados = carrito.map((l) => {
+    const it = porId.get(l.itemId);
+    return {
+      nombre: it?.nombre ?? "",
+      cantidad: l.cantidad,
+      precio: precioDe(l),
+      detalles: it ? detalleDeLinea(it.personalizacion, l.eleccion) : [],
+    };
+  });
+
+  /**
+   * Lo que el cliente pidió, en texto, para que NADA de lo que armó se
+   * pierda por el camino del panel: `solutions_pedido_items` guarda
+   * plato y cantidad, no «sin cebolla». Hasta que tenga su columna, el
+   * detalle viaja en la nota del pedido — que es justo lo que la cocina
+   * lee antes de armar el plato.
+   */
+  const notaConDetalle = () => {
+    const partes = renglonesDetallados
+      .filter((r) => r.detalles.length > 0)
+      .map((r) => `${r.cantidad}× ${r.nombre}: ${r.detalles.join("; ")}`);
+    return [nota.trim(), ...partes].filter(Boolean).join(" | ").slice(0, TOPES.pedidoNota);
+  };
 
   const limpiar = () => {
-    setCarrito({});
+    setCarrito([]);
     setNota("");
     setAbierto(false);
   };
@@ -325,7 +422,7 @@ export default function MenuConCarrito({
     if (!mesa) return;
     setError(null);
     arrancar(async () => {
-      const r = await pedirDesdeLaMesa({ negocioId, slug, mesa, nombre, nota, renglones: renglones.map(([id, cantidad]) => ({ itemId: id, cantidad })) });
+      const r = await pedirDesdeLaMesa({ negocioId, slug, mesa, nombre, nota: notaConDetalle(), renglones: carrito.map((l) => ({ itemId: l.itemId, cantidad: l.cantidad, eleccion: l.eleccion })) });
       if (!r.ok) return setError(r.motivo);
       setEnviado({ tipo: "mesa", total: r.total, renglones: cantidadTotal });
       limpiar();
@@ -338,8 +435,35 @@ export default function MenuConCarrito({
     if (telefono.replace(/\D/g, "").length < 8) return setError(t.telefono + ".");
     if (modalidad === "express" && direccion.trim().length < 5) return setError(t.direccion + ".");
     arrancar(async () => {
-      const r = await pedirParaLlevar({ negocioId, slug, modalidad, nombre, telefono, cedula, direccion, metodoPago, nota, renglones: renglones.map(([id, cantidad]) => ({ itemId: id, cantidad })) });
+      const r = await pedirParaLlevar({ negocioId, slug, modalidad, nombre, telefono, cedula, direccion, metodoPago, nota: notaConDetalle(), renglones: carrito.map((l) => ({ itemId: l.itemId, cantidad: l.cantidad, eleccion: l.eleccion })) });
       if (!r.ok) return setError(r.motivo);
+      // EL MENSAJE AUTOMÁTICO. El pedido ya quedó guardado (aparece en
+      // el panel del negocio); esto abre WhatsApp con todo escrito —qué
+      // pidió, cómo lo quiere, a nombre de quién, dónde y cuánto— para
+      // que el local lo reciba por donde de verdad lo lee. Se arma con
+      // el mismo `textoDelPedido` que usa el resto del producto.
+      if (whatsapp) {
+        const texto = textoDelPedido({
+          negocio: negocioNombre,
+          slug,
+          codigo: r.codigo,
+          modalidad,
+          renglones: renglonesDetallados,
+          costoEnvio: modalidad === "express" ? costoExpress : 0,
+          total: r.total,
+          moneda,
+          cliente: {
+            nombre: nombre.trim(),
+            telefono: telefono.trim(),
+            cedula: cedula.trim(),
+            direccion: direccion.trim(),
+            metodoPago: r.metodoPago,
+            nota: nota.trim(),
+          },
+        });
+        // `noopener`: la pestaña de WhatsApp no puede tocar esta página.
+        window.open(enlaceDeWhatsapp(whatsapp, texto, pais), "_blank", "noopener,noreferrer");
+      }
       setEnviado({ tipo: modalidad, codigo: r.codigo, total: r.total, telefono: telefono.trim(), direccion: direccion.trim(), metodoPago: r.metodoPago });
       limpiar();
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -372,7 +496,7 @@ export default function MenuConCarrito({
     <>
       {/* ── Confirmación ──────────────────────────────────────── */}
       {enviado && (
-        <div className="mx-auto mt-4 w-full max-w-[520px] px-5">
+        <div className="mx-auto mt-4 w-full max-w-[var(--ancho-menu,520px)] px-5">
           <div className="rounded-2xl border p-4" style={{ background: paleta.superficie, borderColor: paleta.acento }}>
             {enviado.tipo === "mesa" ? (
               <>
@@ -402,7 +526,7 @@ export default function MenuConCarrito({
 
       {/* ── El idioma ─────────────────────────────────────────── */}
       {idiomas.length > 0 && (
-        <nav aria-label={t.idioma} className="mx-auto mt-4 flex w-full max-w-[520px] flex-wrap gap-1.5 px-5">
+        <nav aria-label={t.idioma} className="mx-auto mt-4 flex w-full max-w-[var(--ancho-menu,520px)] flex-wrap gap-1.5 px-5">
           {(["es", ...idiomas] as Idioma[]).map((i) => (
             <a
               key={i}
@@ -424,7 +548,7 @@ export default function MenuConCarrito({
       {/* ── Anclas ─────────────────────────────────────────────── */}
       {grupos.length > 1 && (
         <nav aria-label={t.secciones} className="sticky top-0 z-10 mt-4 overflow-x-auto px-5 py-2.5" style={{ background: paleta.fondo }}>
-          <ul className="mx-auto flex w-full max-w-[520px] gap-2">
+          <ul className="mx-auto flex w-full max-w-[var(--ancho-menu,520px)] gap-2">
             {grupos.map((g) => (
               <li key={g.nombre} className="shrink-0">
                 <a href={`#${seccionId(g.nombre)}`} className="block rounded-full px-3 py-1.5 text-[12.5px] font-bold" style={{ background: paleta.superficie, border: `1px solid ${paleta.borde}` }}>
@@ -436,66 +560,81 @@ export default function MenuConCarrito({
         </nav>
       )}
 
-      {/* ── El menú ────────────────────────────────────────────── */}
-      <div className="mx-auto flex w-full max-w-[520px] flex-col gap-7 px-5 pt-4">
+      {/* ── El menú, en el diseño elegido ──────────────────────── */}
+      <div className={`mx-auto flex w-full max-w-[var(--ancho-menu,520px)] flex-col ${AIRE_SECCION[pinta.def.aire]} px-5 pt-4`}>
         {grupos.map((g) => (
           <section key={g.nombre} id={seccionId(g.nombre)} className="scroll-mt-14">
-            <h2 className="text-[13px] font-extrabold uppercase tracking-[0.14em]" style={{ color: paleta.suave }}>
-              {g.nombre}
-            </h2>
-            <ul className="mt-2.5 flex flex-col gap-2.5">
+            <TituloSeccion pinta={pinta} nombre={g.nombre} />
+            <ListaPlatos pinta={pinta}>
               {g.items.map((it) => {
-                const cant = carrito[it.id] ?? 0;
+                const cant = enCarrito(it.id);
                 const pedible = puedeAgregar && it.precio !== null;
+                // El plato que se arma NO se suma de un toque: abre la
+                // ficha, que es donde están sus casillas.
+                const arma = seArma(it.personalizacion);
                 return (
-                  <li key={it.id} className="flex items-center gap-3 rounded-2xl border p-3" style={{ background: paleta.superficie, borderColor: cant > 0 ? paleta.acento : paleta.borde }}>
-                    {/* La foto y el nombre abren la ficha. */}
-                    <button type="button" onClick={() => setDetalle(it)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
-                      {it.foto_url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={conVariante(it.foto_url, "thumb") ?? it.foto_url} alt="" loading="lazy" className="h-[60px] w-[60px] shrink-0 rounded-xl object-cover" />
-                      )}
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-[15px] font-extrabold leading-tight">{it.nombre}</span>
-                        {it.descripcion && (
-                          <span className="mt-0.5 line-clamp-2 block text-[12.5px] leading-snug" style={{ color: paleta.suave }}>
-                            {it.descripcion}
-                          </span>
+                  <PlatoEnEstilo
+                    key={it.id}
+                    pinta={pinta}
+                    destacado={cant > 0}
+                    alAbrir={() => setDetalle(it)}
+                    plato={{
+                      nombre: it.nombre,
+                      descripcion: it.descripcion,
+                      fotoUrl: it.foto_url,
+                      precio: it.precio === null ? t.consultar : $(it.precio),
+                      tieneNutricion: it.nutricion !== null,
+                    }}
+                    acciones={
+                      <>
+                        {!puedeAgregar && whatsapp && (
+                          <a
+                            href={enlaceDeWhatsapp(whatsapp, textoConsulta({ negocio: negocioNombre, item: it.nombre, precio: it.precio, moneda, slug }), pais)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`${t.consultarWhatsapp}: ${it.nombre}`}
+                            className="presionable grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+                            style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}
+                          >
+                            <IconWhatsapp className="h-5 w-5" />
+                          </a>
                         )}
-                        <span className="mt-1 block text-[14px] font-bold tabular-nums" style={{ color: paleta.acento }}>
-                          {it.precio === null ? t.consultar : $(it.precio)}
-                          {it.nutricion && <span className="ml-2 text-[11px] font-bold" style={{ color: paleta.suave }}>ⓘ</span>}
-                        </span>
-                      </span>
-                    </button>
-                    {!puedeAgregar && whatsapp && (
-                      <a
-                        href={enlaceDeWhatsapp(whatsapp, textoConsulta({ negocio: negocioNombre, item: it.nombre, precio: it.precio, moneda, slug }), pais)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={`${t.consultarWhatsapp}: ${it.nombre}`}
-                        className="presionable grid h-10 w-10 shrink-0 place-items-center rounded-xl"
-                        style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}
-                      >
-                        <IconWhatsapp className="h-5 w-5" />
-                      </a>
-                    )}
-                    {pedible &&
-                      (cant === 0 ? (
-                        <button type="button" onClick={() => ajustar(it.id, 1)} aria-label={`${t.agregar} ${it.nombre}`} className="presionable grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[20px] font-extrabold" style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}>
-                          +
-                        </button>
-                      ) : (
-                        <div className="flex shrink-0 items-center rounded-xl" style={{ border: `1px solid ${paleta.acento}` }}>
-                          <button type="button" onClick={() => ajustar(it.id, -1)} aria-label={`${t.quitar} ${it.nombre}`} className="presionable h-10 w-9 text-[18px] font-extrabold">−</button>
-                          <span className="w-6 text-center text-[14px] font-extrabold tabular-nums">{cant}</span>
-                          <button type="button" onClick={() => ajustar(it.id, 1)} aria-label={`${t.agregar} ${it.nombre}`} className="presionable h-10 w-9 text-[18px] font-extrabold">+</button>
-                        </div>
-                      ))}
-                  </li>
+                        {pedible &&
+                          (arma ? (
+                            <button
+                              type="button"
+                              onClick={() => setDetalle(it)}
+                              aria-label={`${A[idioma].armar} ${it.nombre}`}
+                              className="presionable relative grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[20px] font-extrabold"
+                              style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}
+                            >
+                              +
+                              {cant > 0 && (
+                                <span
+                                  className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full px-1 text-[10px] font-extrabold tabular-nums"
+                                  style={{ background: paleta.tinta, color: paleta.fondo }}
+                                >
+                                  {cant}
+                                </span>
+                              )}
+                            </button>
+                          ) : cant === 0 ? (
+                            <button type="button" onClick={() => agregar(it, SIN_ELECCION)} aria-label={`${t.agregar} ${it.nombre}`} className="presionable grid h-10 w-10 shrink-0 place-items-center rounded-xl text-[20px] font-extrabold" style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}>
+                              +
+                            </button>
+                          ) : (
+                            <div className="flex shrink-0 items-center rounded-xl" style={{ border: `1px solid ${paleta.acento}` }}>
+                              <button type="button" onClick={() => ajustarLinea(firmaDeLinea(it.id, SIN_ELECCION), -1)} aria-label={`${t.quitar} ${it.nombre}`} className="presionable h-10 w-9 text-[18px] font-extrabold">−</button>
+                              <span className="w-6 text-center text-[14px] font-extrabold tabular-nums">{lineaSimple(it.id)?.cantidad ?? cant}</span>
+                              <button type="button" onClick={() => ajustarLinea(firmaDeLinea(it.id, SIN_ELECCION), 1)} aria-label={`${t.agregar} ${it.nombre}`} className="presionable h-10 w-9 text-[18px] font-extrabold">+</button>
+                            </div>
+                          ))}
+                      </>
+                    }
+                  />
                 );
               })}
-            </ul>
+            </ListaPlatos>
           </section>
         ))}
       </div>
@@ -503,10 +642,10 @@ export default function MenuConCarrito({
       {/* ── La ficha del plato ────────────────────────────────── */}
       {detalle && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4" onClick={() => setDetalle(null)}>
-          <div role="dialog" aria-modal="true" aria-label={detalle.nombre} onClick={(e) => e.stopPropagation()} className="max-h-[92vh] w-full max-w-[520px] overflow-y-auto rounded-t-3xl sm:rounded-3xl" style={{ background: paleta.fondo, color: paleta.tinta, border: `1px solid ${paleta.borde}` }}>
+          <div role="dialog" aria-modal="true" aria-label={detalle.nombre} onClick={(e) => e.stopPropagation()} className="max-h-[92vh] w-full max-w-[var(--ancho-menu,520px)] overflow-y-auto rounded-t-3xl sm:rounded-3xl" style={{ background: paleta.fondo, color: paleta.tinta, border: `1px solid ${paleta.borde}` }}>
             {detalle.foto_url && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={detalle.foto_url} alt="" className="aspect-[4/3] w-full object-cover" />
+              <img src={conVariante(detalle.foto_url, "gallery") ?? detalle.foto_url} alt="" className="aspect-[4/3] w-full object-cover" />
             )}
             <div className="p-5">
               <div className="flex items-start justify-between gap-3">
@@ -538,9 +677,17 @@ export default function MenuConCarrito({
               )}
 
               {puedeAgregar && detalle.precio !== null && (
-                <button type="button" onClick={() => { ajustar(detalle.id, 1); setDetalle(null); }} className="presionable mt-5 w-full rounded-2xl py-3.5 text-[15px] font-extrabold" style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}>
-                  + {t.agregar}
-                </button>
+                <Armar
+                  key={detalle.id}
+                  item={detalle}
+                  paleta={paleta}
+                  idioma={idioma}
+                  precio={$}
+                  onAgregar={(eleccion, cuantos) => {
+                    agregar(detalle, eleccion, cuantos);
+                    setDetalle(null);
+                  }}
+                />
               )}
               {!puedeAgregar && whatsapp && (
                 <a
@@ -562,7 +709,7 @@ export default function MenuConCarrito({
       {/* ── La barra del carrito ──────────────────────────────── */}
       {puedeAgregar && cantidadTotal > 0 && !abierto && (
         <div className="fixed inset-x-0 bottom-0 z-20 px-4 pb-4">
-          <button type="button" onClick={() => setAbierto(true)} className="presionable mx-auto flex w-full max-w-[520px] items-center justify-between rounded-2xl px-5 py-4 text-[15px] font-extrabold shadow-flotante" style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}>
+          <button type="button" onClick={() => setAbierto(true)} className="presionable mx-auto flex w-full max-w-[var(--ancho-menu,520px)] items-center justify-between rounded-2xl px-5 py-4 text-[15px] font-extrabold shadow-flotante" style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}>
             <span>{t.verPedido} · {cantidadTotal}</span>
             <span className="tabular-nums">{$(subtotal)} →</span>
           </button>
@@ -572,21 +719,33 @@ export default function MenuConCarrito({
       {/* ── La hoja de confirmación ───────────────────────────── */}
       {abierto && (
         <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4">
-          <div role="dialog" aria-modal="true" aria-label={t.tuPedido} className="max-h-[92vh] w-full max-w-[520px] overflow-y-auto rounded-t-3xl p-5 sm:rounded-3xl" style={{ background: paleta.fondo, color: paleta.tinta, border: `1px solid ${paleta.borde}` }}>
+          <div role="dialog" aria-modal="true" aria-label={t.tuPedido} className="max-h-[92vh] w-full max-w-[var(--ancho-menu,520px)] overflow-y-auto rounded-t-3xl p-5 sm:rounded-3xl" style={{ background: paleta.fondo, color: paleta.tinta, border: `1px solid ${paleta.borde}` }}>
             <div className="flex items-center justify-between">
               <h2 className="text-[18px] font-extrabold">{mesa ? `${t.tuPedido} · ${t.mesa} ${mesa}` : t.tuPedido}</h2>
               <button type="button" onClick={() => setAbierto(false)} aria-label={t.cerrar} className="text-[22px] leading-none">×</button>
             </div>
 
             <ul className="mt-3 flex max-h-[30vh] flex-col gap-2 overflow-y-auto">
-              {renglones.map(([id, c]) => {
-                const it = porId.get(id);
+              {carrito.map((l) => {
+                const it = porId.get(l.itemId);
                 if (!it) return null;
+                const detalles = detalleDeLinea(it.personalizacion, l.eleccion);
                 return (
-                  <li key={id} className="flex items-center justify-between gap-3 text-[14px]">
-                    <span className="min-w-0 flex-1 truncate"><span className="font-extrabold tabular-nums">{c}×</span> {it.nombre}</span>
-                    <span className="tabular-nums" style={{ color: paleta.suave }}>{$((it.precio ?? 0) * c)}</span>
-                    <button type="button" onClick={() => ajustar(id, -c)} aria-label={`${t.quitar} ${it.nombre}`} className="text-[12px] font-bold underline">{t.quitar}</button>
+                  <li key={l.firma} className="text-[14px]">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 flex-1 truncate">
+                        <span className="font-extrabold tabular-nums">{l.cantidad}×</span> {it.nombre}
+                      </span>
+                      <span className="tabular-nums" style={{ color: paleta.suave }}>{$(precioDe(l) * l.cantidad)}</span>
+                      <button type="button" onClick={() => ajustarLinea(l.firma, -l.cantidad)} aria-label={`${t.quitar} ${it.nombre}`} className="text-[12px] font-bold underline">
+                        {t.quitar}
+                      </button>
+                    </div>
+                    {detalles.length > 0 && (
+                      <p className="mt-0.5 pl-5 text-[12px] leading-snug" style={{ color: paleta.suave }}>
+                        {detalles.join(" · ")}
+                      </p>
+                    )}
                   </li>
                 );
               })}
@@ -648,7 +807,7 @@ export default function MenuConCarrito({
 
             {error && <p className="mt-3 rounded-xl bg-red-600/15 p-3 text-[13px] font-bold text-red-200">{error}</p>}
 
-            <button type="button" onClick={paraLlevar ? enviarParaLlevar : enviarALaMesa} disabled={enviando || renglones.length === 0} className="presionable mt-4 w-full rounded-2xl py-4 text-[15px] font-extrabold disabled:opacity-60" style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}>
+            <button type="button" onClick={paraLlevar ? enviarParaLlevar : enviarALaMesa} disabled={enviando || carrito.length === 0} className="presionable mt-4 w-full rounded-2xl py-4 text-[15px] font-extrabold disabled:opacity-60" style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}>
               {enviando ? t.enviando : `${t.enviar} · ${$(total)}`}
             </button>
             <p className="mt-2 text-center text-[11.5px]" style={{ color: paleta.suave }}>
@@ -658,5 +817,159 @@ export default function MenuConCarrito({
         </div>
       )}
     </>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  ARMAR EL PLATO — quitar, agregar y escribir la nota
+// ════════════════════════════════════════════════════════════════════
+//
+// Pedido del dueño (9 sep 2026): «tipo Uber Eats: qué ingredientes
+// tiene para poder quitárselos, y que el que lo pide pueda agregar
+// notas». Vive en su propio componente y con `key={item.id}`: al abrir
+// otro plato React lo remonta y el armado empieza limpio, sin un efecto
+// que copie props a estado.
+//
+// Los ingredientes vienen MARCADOS —el plato los trae— y desmarcarlos
+// es pedirlo sin eso; los extras vienen vacíos y suman al precio. El
+// botón dice el total de verdad, con extras y por la cantidad elegida:
+// nadie tiene que hacer la cuenta de cabeza.
+
+const A: Record<Idioma, { armar: string; incluye: string; extras: string; nota: string; agregar: string }> = {
+  es: { armar: "Armar", incluye: "Viene con", extras: "Agregale", nota: "Algo especial con este plato", agregar: "Agregar" },
+  en: { armar: "Customize", incluye: "Comes with", extras: "Add to it", nota: "Anything special for this dish", agregar: "Add" },
+  fr: { armar: "Composer", incluye: "Contient", extras: "Ajouter", nota: "Une précision pour ce plat", agregar: "Ajouter" },
+  it: { armar: "Componi", incluye: "Contiene", extras: "Aggiungi", nota: "Qualcosa di speciale per questo piatto", agregar: "Aggiungi" },
+  pt: { armar: "Montar", incluye: "Vem com", extras: "Adicione", nota: "Algo especial para este prato", agregar: "Adicionar" },
+  de: { armar: "Anpassen", incluye: "Enthält", extras: "Hinzufügen", nota: "Etwas Besonderes für dieses Gericht", agregar: "Hinzufügen" },
+};
+
+function Armar({
+  item,
+  paleta,
+  idioma,
+  precio,
+  onAgregar,
+}: {
+  item: Item;
+  paleta: Paleta;
+  idioma: Idioma;
+  /** El formateador de moneda del negocio. */
+  precio: (n: number) => string;
+  onAgregar: (eleccion: Eleccion, cuantos: number) => void;
+}) {
+  const a = A[idioma];
+  const [sin, setSin] = useState<string[]>([]);
+  const [extras, setExtras] = useState<string[]>([]);
+  const [nota, setNota] = useState("");
+  const [cuantos, setCuantos] = useState(1);
+
+  const eleccion: Eleccion = { sin, extras, nota: nota.trim() };
+  const unidad = precioDeLinea(item.precio ?? 0, item.personalizacion, eleccion);
+  const alternar = (lista: string[], id: string) =>
+    lista.includes(id) ? lista.filter((x) => x !== id) : [...lista, id];
+
+  const casilla = (marcado: boolean) => (
+    <span
+      aria-hidden
+      className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-md border text-[13px] font-extrabold"
+      style={{
+        background: marcado ? paleta.acento : "transparent",
+        borderColor: marcado ? paleta.acento : paleta.borde,
+        color: paleta.tintaSobreAcento,
+      }}
+    >
+      {marcado ? "✓" : ""}
+    </span>
+  );
+
+  return (
+    <div className="mt-5">
+      {item.personalizacion.ingredientes.length > 0 && (
+        <>
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em]" style={{ color: paleta.suave }}>
+            {a.incluye}
+          </p>
+          <ul className="mt-2 flex flex-col">
+            {item.personalizacion.ingredientes.map((i) => {
+              const puesto = !sin.includes(i.id);
+              return (
+                <li key={i.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSin((v) => alternar(v, i.id))}
+                    aria-pressed={puesto}
+                    className="flex w-full items-center gap-3 py-2 text-left text-[14.5px]"
+                  >
+                    {casilla(puesto)}
+                    <span className={puesto ? "" : "line-through opacity-55"}>{i.nombre}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+
+      {item.personalizacion.extras.length > 0 && (
+        <>
+          <p className="mt-3 text-[11px] font-extrabold uppercase tracking-[0.14em]" style={{ color: paleta.suave }}>
+            {a.extras}
+          </p>
+          <ul className="mt-2 flex flex-col">
+            {item.personalizacion.extras.map((x) => {
+              const puesto = extras.includes(x.id);
+              return (
+                <li key={x.id}>
+                  <button
+                    type="button"
+                    onClick={() => setExtras((v) => alternar(v, x.id))}
+                    aria-pressed={puesto}
+                    className="flex w-full items-center gap-3 py-2 text-left text-[14.5px]"
+                  >
+                    {casilla(puesto)}
+                    <span className="min-w-0 flex-1">{x.nombre}</span>
+                    <span className="shrink-0 text-[13.5px] font-bold tabular-nums" style={{ color: paleta.acento }}>
+                      +{precio(x.precio)}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+
+      <textarea
+        value={nota}
+        onChange={(e) => setNota(e.target.value)}
+        maxLength={TOPES_PERSONALIZACION.nota}
+        rows={2}
+        placeholder={a.nota}
+        className="mt-3 w-full rounded-xl border px-3.5 py-3 text-[14px] outline-none"
+        style={{ background: paleta.superficie, borderColor: paleta.borde, color: paleta.tinta }}
+      />
+
+      <div className="mt-4 flex items-center gap-3">
+        <div className="flex shrink-0 items-center rounded-xl" style={{ border: `1px solid ${paleta.borde}` }}>
+          <button type="button" onClick={() => setCuantos((n) => Math.max(1, n - 1))} aria-label="−" className="presionable h-12 w-10 text-[18px] font-extrabold">
+            −
+          </button>
+          <span className="w-7 text-center text-[15px] font-extrabold tabular-nums">{cuantos}</span>
+          <button type="button" onClick={() => setCuantos((n) => Math.min(TOPES.cantidadPorRenglon, n + 1))} aria-label="+" className="presionable h-12 w-10 text-[18px] font-extrabold">
+            +
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => onAgregar(eleccion, cuantos)}
+          className="presionable flex min-w-0 flex-1 items-center justify-between gap-2 rounded-2xl px-5 py-3.5 text-[15px] font-extrabold"
+          style={{ background: paleta.acento, color: paleta.tintaSobreAcento }}
+        >
+          <span className="truncate">{a.agregar}</span>
+          <span className="tabular-nums">{precio(unidad * cuantos)}</span>
+        </button>
+      </div>
+    </div>
   );
 }

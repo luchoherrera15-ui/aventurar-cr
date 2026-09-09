@@ -1,9 +1,9 @@
 "use client";
 
 import { useId, useState } from "react";
+import { useRouter } from "next/navigation";
 import { slugSolutions } from "@/lib/solutions/slug";
 import { TOPES } from "@/lib/solutions/tipos";
-import { urlBookea } from "@/lib/solutions/dominios";
 
 /**
  * EL RECLAMO DEL LINK — la píldora grande de Linktree.
@@ -24,6 +24,7 @@ const HOST_VISIBLE = "linksy.lat/";
 
 export default function ReclamarLink({ tono = "celeste" }: { tono?: "celeste" | "lima" | "carbon" }) {
   const [nombre, setNombre] = useState("");
+  const router = useRouter();
   const idCampo = useId();
   const idPista = useId();
 
@@ -32,10 +33,11 @@ export default function ReclamarLink({ tono = "celeste" }: { tono?: "celeste" | 
     e.preventDefault();
     const limpio = nombre.trim();
     if (limpio.length < 2) return;
-    // Navegación DURA y ABSOLUTA a bookea.lat: el alta necesita sesión y
-    // la sesión vive allá. Un `router.push` relativo desde linksy.lat
-    // pedía `/solutions/crear` en el dominio equivocado.
-    window.location.href = urlBookea(`/solutions/crear?nombre=${encodeURIComponent(limpio)}`);
+    // Navegación RELATIVA (7 sep 2026): en localhost y en bookea.lat
+    // el alta está en este mismo host; en linksy.lat el proxy redirige
+    // `/solutions/*` a bookea.lat (PREFIJOS_BOOKEA). Antes era absoluta a
+    // bookea.lat y desde el servidor local mandaba a producción.
+    router.push(`/solutions/crear?nombre=${encodeURIComponent(limpio)}`);
   };
 
   // El botón invierte el bloque: oscuro sobre un bloque claro (celeste o

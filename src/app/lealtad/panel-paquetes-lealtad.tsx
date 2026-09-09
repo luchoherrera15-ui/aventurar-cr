@@ -68,7 +68,7 @@ export default function PanelPaquetesLealtad({
   return (
     <div className="p-5 sm:px-7 sm:py-5">
       <span className="inline-flex rounded-full bg-bookea-azul-suave px-3 py-1.5 text-[10.5px] font-extrabold uppercase tracking-[0.14em] text-bookea-azul">
-        Paso 1 · Elegí tu plan
+        Paso 2 · Elegí tu plan
       </span>
       <h2 className="titulo mt-2 text-[26px] leading-tight text-bookea-tinta">
         Empezá con el plan que te sirva hoy

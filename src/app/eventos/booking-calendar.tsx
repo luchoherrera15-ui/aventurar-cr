@@ -805,7 +805,7 @@ export default function BookingCalendar({
   // Inputs grandes y etiquetas legibles (sin microtexto en
   // mayúsculas): quien reserva no siempre es hábil con la tecnología.
   const inputCls =
-    "w-full rounded-xl border border-aventurea-line bg-white px-3.5 py-2.5 text-[14px] text-aventurea-ink placeholder:text-zinc-400 focus:border-aventurea-navy focus:outline-none";
+    "w-full rounded-xl border border-aventurea-line bg-white px-3.5 py-2.5 text-[14px] text-aventurea-ink placeholder:text-zinc-500 focus:border-aventurea-navy focus:outline-none";
   /* 14,5px y no 12,5: son las preguntas del formulario de reserva
      —«Número de invitados», «Horario», «Tipo de evento»— y estaban más
      chicas que el texto que las contesta. Una etiqueta que se lee menos
@@ -868,7 +868,7 @@ export default function BookingCalendar({
             {DOW.map((d, i) => (
               <div
                 key={i}
-                className="pb-1.5 text-center text-[10.5px] font-bold uppercase tracking-wide text-zinc-500 sm:text-[11.5px]"
+                className="pb-1.5 text-center text-[10.5px] font-bold uppercase tracking-wide text-aventurea-ink-soft sm:text-[11.5px]"
               >
                 {d}
               </div>
@@ -896,7 +896,7 @@ export default function BookingCalendar({
               // gritaba y el "Disponible" gris casi no se veía), así
               // que la grilla llamaba la atención sobre lo que NO se
               // podía hacer.
-              let etiquetaCls = "opacity-70";
+              let etiquetaCls = "";
               let badge: number | null = null;
               // Solo tiene sentido anunciar el descuento en días que se
               // pueden reservar: en uno ocupado es publicidad muerta.
@@ -909,26 +909,23 @@ export default function BookingCalendar({
                   : promoPorDiaSemana[cellDate.getDay()] ?? null;
 
               if (isPast) {
-                cls += " cursor-default text-zinc-300";
+                cls += " cursor-default text-zinc-500";
               } else if (info?.confirmada) {
                 // Ocupado: se lee, pero sin gritar. El rojo saturado y
                 // la negrita competían con los días libres.
-                cls += " cursor-not-allowed border border-red-100 bg-red-50/60 text-red-700/80";
+                cls += " cursor-not-allowed border border-red-200 bg-red-50 text-red-800";
                 etiqueta = "Reservada";
-                etiquetaCls = "opacity-60";
               } else if (isHeldByOther) {
-                cls += " cursor-not-allowed border border-sky-200 bg-sky-50 text-sky-700";
+                cls += " cursor-not-allowed border border-sky-300 bg-sky-50 text-sky-800";
                 etiqueta = "Bloqueada";
-                etiquetaCls = "opacity-60";
               } else if (isPending) {
                 // Ya hay una solicitud sin confirmar para este día: se
                 // bloquea para nuevas reservas hasta que el dueño la
                 // apruebe o la rechace — antes se dejaba elegir igual y
                 // el propio dueño terminaba con varias reservas
                 // peleando por la misma fecha.
-                cls += " cursor-not-allowed border border-amber-200 bg-amber-50/70 text-amber-800/85";
+                cls += " cursor-not-allowed border border-amber-300 bg-amber-50 text-amber-900";
                 etiqueta = "En aprobación";
-                etiquetaCls = "opacity-70";
                 badge = info!.pendientes;
               } else {
                 // Libre: verde suave de punta a punta. En el teléfono la
@@ -936,7 +933,7 @@ export default function BookingCalendar({
                 // la celda es TODA la señal — por eso el fondo y el
                 // borde también cambian, no solo el texto.
                 cls +=
-                  " cursor-pointer border border-aventurea-green/40 bg-aventurea-green-light/70 text-aventurea-ink hover:border-aventurea-green hover:bg-aventurea-green-light";
+                  " cursor-pointer border border-aventurea-green bg-aventurea-green-light text-aventurea-ink hover:border-aventurea-navy";
                 etiqueta = "Disponible";
                 etiquetaCls = "text-aventurea-green";
               }
@@ -998,11 +995,11 @@ export default function BookingCalendar({
 
           <div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 border-t border-aventurea-line pt-4">
             <span className="flex items-center gap-1.5 text-[11.5px] font-bold text-aventurea-green">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-green/40 bg-aventurea-green-light" />
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-aventurea-green bg-aventurea-green-light" />
               Disponible
             </span>
             <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-sky-200 bg-sky-50" />
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-sky-300 bg-sky-50" />
               Reserva temporal (bloqueada)
             </span>
             <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
@@ -1010,7 +1007,7 @@ export default function BookingCalendar({
               En aprobación
             </span>
             <span className="flex items-center gap-1.5 text-[11.5px] text-aventurea-ink-soft">
-              <span className="h-2.5 w-2.5 rounded-[3px] border border-red-100 bg-red-50" />
+              <span className="h-2.5 w-2.5 rounded-[3px] border border-red-200 bg-red-50" />
               Reservada
             </span>
             {Object.keys(promoPorDiaSemana).length > 0 && (
@@ -1314,7 +1311,7 @@ export default function BookingCalendar({
                                   className="mt-0.5 h-[17px] w-[17px] accent-aventurea-sky"
                                 />
                                 <div>
-                                  <span className="text-[13px] text-zinc-200">{s.nombre}</span>
+                                  <span className="text-[13px] text-aventurea-ink">{s.nombre}</span>
                                   <span className="ml-1.5 text-xs font-bold text-aventurea-orange">
                                     {fmtColones(s.precio)}
                                   </span>

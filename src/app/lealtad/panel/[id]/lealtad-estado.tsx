@@ -1,4 +1,6 @@
 import { estadoDelLimite } from "@/lib/lealtad/planes";
+import { fichasParaLaLista } from "@/lib/lealtad/tablero";
+import { hoyISOCR } from "@/lib/fechas";
 import { verificarAccesoLealtad } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
@@ -127,7 +129,9 @@ export default async function LealtadEstado({
   // es el negocio mirando a SUS clientes —los que le dieron esos datos a
   // él, con su consentimiento guardado (0138)— detrás de
   // `verificarAccesoLealtad`. No salen de esta pantalla.
-  const clientes: ClienteEnLista[] = fichas.slice(0, 50).map((f) => ({
+  // `fichasParaLaLista` y no `slice(0, 50)`: el recorte por saldo dejaba
+  // fuera a los recién afiliados, que son justo los que hay que atender.
+  const clientes: ClienteEnLista[] = fichasParaLaLista(fichas, { hoy: hoyISOCR() }).map((f) => ({
     miembroId: f.miembroId,
     nombre: f.nombre,
     sinNombre: f.sinNombre,

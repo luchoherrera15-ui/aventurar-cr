@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Card, PildoraEstado } from "@/components/panel/piezas";
-import { BOTON_PANEL, BOTON_PANEL_PRIMARIO, CAMPO_PANEL } from "@/components/panel/sistema";
+import { BOTON_PANEL, BOTON_PANEL_PRIMARIO, CAMPO_PANEL, ROTULO_CAMPO } from "@/components/panel/sistema";
 import { IconArrastrar } from "@/components/icons";
 import SubirImagen from "@/components/subir-imagen";
 import { iconoPorUrl } from "@/components/solutions/icono-link";
@@ -48,7 +48,9 @@ import { prepararSubidaSolutions } from "../../subida-actions";
  * mitad de los dispositivos.
  */
 
-type Fila = {
+export type FilaEnlace = {
+  /** El id en la base; las filas nuevas no tienen hasta guardar. */
+  id?: string;
   etiqueta: string;
   url: string;
   icono: IconoLink;
@@ -71,12 +73,20 @@ const PLACEHOLDER: Record<FormatoLink, { etiqueta: string; url: string }> = {
 export default function SeccionLinks({
   negocioId,
   links,
+  alCambiar,
 }: {
   negocioId: string;
   links: LinkSolutions[];
+  /**
+   * Cada cambio de las filas, guardado o no (7 sep 2026): la previa del
+   * teléfono se arma con esto, así quitar o agregar una card se ve al
+   * instante. Antes la previa mostraba lo del servidor hasta recargar.
+   */
+  alCambiar?: (filas: FilaEnlace[]) => void;
 }) {
-  const [filas, setFilas] = useState<Fila[]>(
+  const [filas, setFilas] = useState<FilaEnlace[]>(
     links.map((l) => ({
+      id: l.id,
       etiqueta: l.etiqueta,
       url: l.url,
       icono: l.icono,
@@ -93,7 +103,14 @@ export default function SeccionLinks({
   const [origen, setOrigen] = useState<number | null>(null);
   const [encima, setEncima] = useState<number | null>(null);
 
-  const cambiar = (i: number, parte: Partial<Fila>) =>
+  // Solo depende de `filas`: si dependiera del callback (una función
+  // nueva en cada render del padre) se dispararía en bucle.
+  useEffect(() => {
+    alCambiar?.(filas);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filas]);
+
+  const cambiar = (i: number, parte: Partial<FilaEnlace>) =>
     setFilas((p) => p.map((f, j) => (j === i ? { ...f, ...parte } : f)));
 
   /** Al escribir la dirección, el ícono se adivina — salvo que ya lo hayan elegido a mano. */
@@ -177,7 +194,7 @@ export default function SeccionLinks({
                     setOrigen(null);
                     setEncima(null);
                   }}
-                  className={`grid gap-2 rounded-xl border p-2.5 transition-colors sm:grid-cols-[auto_120px_130px_minmax(0,1fr)_minmax(0,1.3fr)_auto] sm:items-center ${
+                  className={`rounded-2xl border p-3 transition-colors ${
                     origen === i
                       ? "border-aventurea-navy opacity-50"
                       : encima === i
@@ -185,113 +202,140 @@ export default function SeccionLinks({
                         : "border-aventurea-line"
                   }`}
                 >
-                  {/* El asa. `draggable` va ACÁ y no en el <li>: si el
-                      <li> entero fuera arrastrable, seleccionar texto en
-                      los campos arrancaría un arrastre en vez de
-                      seleccionar. */}
-                  <span
-                    draggable
-                    onDragStart={(e) => {
-                      setOrigen(i);
-                      e.dataTransfer.effectAllowed = "move";
-                      // Firefox no arranca el arrastre sin datos puestos.
-                      e.dataTransfer.setData("text/plain", String(i));
-                    }}
-                    onDragEnd={() => {
-                      setOrigen(null);
-                      setEncima(null);
-                    }}
-                    role="button"
-                    tabIndex={-1}
-                    aria-hidden
-                    title="Arrastrá para mover"
-                    className="hidden h-9 w-6 cursor-grab select-none items-center justify-center text-[15px] text-aventurea-ink-soft active:cursor-grabbing sm:flex"
-                  >
-                    <IconArrastrar className="h-4 w-4" />
-                  </span>
-
-                  <select
-                    aria-label="Qué es"
-                    value={l.formato}
-                    onChange={(e) => cambiar(i, { formato: e.target.value as FormatoLink })}
-                    className={CAMPO_PANEL}
-                    title={FORMATO_LINK[l.formato].pie}
-                  >
-                    {FORMATOS_LINK.map((f) => (
-                      <option key={f} value={f}>
-                        {FORMATO_LINK[f].nombre}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    aria-label="Ícono"
-                    value={l.icono}
-                    disabled={sinDestino}
-                    onChange={(e) => cambiar(i, { icono: e.target.value as IconoLink, iconoFijado: true })}
-                    className={`${CAMPO_PANEL} disabled:opacity-40`}
-                  >
-                    {ICONOS_LINK.filter((ic) => ic !== "menu").map((ic) => (
-                      <option key={ic} value={ic}>
-                        {ICONO_LINK[ic].nombre}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    aria-label={l.formato === "titulo" ? "Título" : l.formato === "texto" ? "Texto" : "Texto del botón"}
-                    type="text"
-                    value={l.etiqueta}
-                    maxLength={l.formato === "texto" ? TOPES.textoLink : TOPES.etiquetaLink}
-                    placeholder={ph.etiqueta}
-                    onChange={(e) => cambiar(i, { etiqueta: e.target.value })}
-                    className={CAMPO_PANEL}
-                  />
-                  <input
-                    aria-label="Dirección"
-                    type="text"
-                    value={l.url}
-                    disabled={sinDestino}
-                    placeholder={ph.url}
-                    onChange={(e) => cambiarUrl(i, e.target.value)}
-                    className={`${CAMPO_PANEL} disabled:opacity-40`}
-                  />
-                  <div className="flex items-center gap-1">
-                    <label
-                      className="mr-1 flex items-center gap-1 text-[11.5px] font-bold text-aventurea-ink-soft"
-                      title="Visible en la página"
+                  {/* ── Línea 1: qué es, con qué ícono, y los mandos ──
+                      Dos líneas por fila (7 sep 2026): con seis controles
+                      en una sola, los campos de texto quedaban de 40 px
+                      y no se leía lo que se escribía. */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* El asa. `draggable` va ACÁ y no en el <li>: si el
+                        <li> entero fuera arrastrable, seleccionar texto en
+                        los campos arrancaría un arrastre en vez de
+                        seleccionar. */}
+                    <span
+                      draggable
+                      onDragStart={(e) => {
+                        setOrigen(i);
+                        e.dataTransfer.effectAllowed = "move";
+                        // Firefox no arranca el arrastre sin datos puestos.
+                        e.dataTransfer.setData("text/plain", String(i));
+                      }}
+                      onDragEnd={() => {
+                        setOrigen(null);
+                        setEncima(null);
+                      }}
+                      role="button"
+                      tabIndex={-1}
+                      aria-hidden
+                      title="Arrastrá para mover"
+                      className="hidden h-10 w-6 cursor-grab select-none items-center justify-center text-[15px] text-aventurea-ink-soft active:cursor-grabbing sm:flex"
                     >
-                      <input
-                        type="checkbox"
-                        checked={l.visible}
-                        onChange={(e) => cambiar(i, { visible: e.target.checked })}
-                        className="h-3.5 w-3.5"
-                      />
-                      ver
-                    </label>
-                    <button type="button" aria-label="Subir" disabled={i === 0} onClick={() => reordenar(i, i - 1)} className="presionable h-9 w-9 rounded-lg border border-aventurea-line text-[13px] disabled:opacity-40">
-                      ↑
-                    </button>
-                    <button type="button" aria-label="Bajar" disabled={i === filas.length - 1} onClick={() => reordenar(i, i + 1)} className="presionable h-9 w-9 rounded-lg border border-aventurea-line text-[13px] disabled:opacity-40">
-                      ↓
-                    </button>
-                    <button type="button" aria-label="Quitar" onClick={() => setFilas((p) => p.filter((_, j) => j !== i))} className="presionable h-9 w-9 rounded-lg border border-aventurea-line text-[13px]">
-                      ✕
-                    </button>
+                      <IconArrastrar className="h-4 w-4" />
+                    </span>
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-aventurea-cream-2 text-[12px] font-extrabold text-aventurea-ink-soft" aria-hidden>
+                      {i + 1}
+                    </span>
+                    <div className="w-[168px] max-w-full">
+                      <select
+                        aria-label="Qué es"
+                        value={l.formato}
+                        onChange={(e) => cambiar(i, { formato: e.target.value as FormatoLink })}
+                        className={CAMPO_PANEL}
+                        title={FORMATO_LINK[l.formato].pie}
+                      >
+                        {FORMATOS_LINK.map((f) => (
+                          <option key={f} value={f}>
+                            {FORMATO_LINK[f].nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="w-[168px] max-w-full">
+                      <select
+                        aria-label="Ícono"
+                        value={l.icono}
+                        disabled={sinDestino}
+                        onChange={(e) => cambiar(i, { icono: e.target.value as IconoLink, iconoFijado: true })}
+                        className={`${CAMPO_PANEL} disabled:opacity-40`}
+                      >
+                        {ICONOS_LINK.filter((ic) => ic !== "menu").map((ic) => (
+                          <option key={ic} value={ic}>
+                            {ICONO_LINK[ic].nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="ml-auto flex items-center gap-1">
+                      <label
+                        className="mr-1 flex items-center gap-1.5 text-[12px] font-bold text-aventurea-ink-soft"
+                        title="Visible en la página"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={l.visible}
+                          onChange={(e) => cambiar(i, { visible: e.target.checked })}
+                          className="h-4 w-4"
+                        />
+                        Visible
+                      </label>
+                      <button type="button" aria-label="Subir" disabled={i === 0} onClick={() => reordenar(i, i - 1)} className="presionable h-10 w-10 rounded-full border border-aventurea-line text-[14px] disabled:opacity-40">
+                        ↑
+                      </button>
+                      <button type="button" aria-label="Bajar" disabled={i === filas.length - 1} onClick={() => reordenar(i, i + 1)} className="presionable h-10 w-10 rounded-full border border-aventurea-line text-[14px] disabled:opacity-40">
+                        ↓
+                      </button>
+                      <button type="button" aria-label="Quitar" onClick={() => setFilas((p) => p.filter((_, j) => j !== i))} className="presionable h-10 w-10 rounded-full border border-aventurea-line text-[14px] hover:border-red-300 hover:text-red-700">
+                        ✕
+                      </button>
+                    </div>
                   </div>
 
-                  {/* ── Solo los botones: descripción y foto de fondo ──
-                      Ocupan el ancho entero de la fila y no una columna
-                      más: a 390 px la fila ya lleva seis controles. */}
+                  {/* ── Línea 2: el texto y la dirección, anchos ──────── */}
+                  <div className="mt-2.5 grid gap-2.5 md:grid-cols-2">
+                    <div>
+                      <label htmlFor={`link-etiqueta-${i}`} className={ROTULO_CAMPO}>
+                        {l.formato === "titulo" ? "Título" : l.formato === "texto" ? "Texto" : "Texto del botón"}
+                      </label>
+                      <input
+                        id={`link-etiqueta-${i}`}
+                        type="text"
+                        value={l.etiqueta}
+                        maxLength={l.formato === "texto" ? TOPES.textoLink : TOPES.etiquetaLink}
+                        placeholder={ph.etiqueta}
+                        onChange={(e) => cambiar(i, { etiqueta: e.target.value })}
+                        className={`mt-1 ${CAMPO_PANEL}`}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor={`link-url-${i}`} className={ROTULO_CAMPO}>
+                        Dirección
+                      </label>
+                      <input
+                        id={`link-url-${i}`}
+                        type="text"
+                        value={l.url}
+                        disabled={sinDestino}
+                        placeholder={ph.url}
+                        onChange={(e) => cambiarUrl(i, e.target.value)}
+                        className={`mt-1 ${CAMPO_PANEL} disabled:opacity-40`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* ── Solo los botones: descripción y foto de fondo ── */}
                   {l.formato === "boton" && (
-                    <div className="grid gap-2 sm:col-span-6 sm:grid-cols-2">
+                    <div className="mt-2.5 grid gap-2.5 md:grid-cols-2">
                       <div>
+                        <label htmlFor={`link-descripcion-${i}`} className={ROTULO_CAMPO}>
+                          Descripción (opcional)
+                        </label>
                         <input
-                          aria-label="Descripción bajo el botón"
+                          id={`link-descripcion-${i}`}
                           type="text"
                           value={l.descripcion}
                           maxLength={TOPES.descripcionLink}
-                          placeholder="Descripción (opcional): «Lunes a viernes, 20 % off»"
+                          placeholder="«Lunes a viernes, 20 % off»"
                           onChange={(e) => cambiar(i, { descripcion: e.target.value })}
-                          className={CAMPO_PANEL}
+                          className={`mt-1 ${CAMPO_PANEL}`}
                         />
                       </div>
                       {/* `destino="banner"` y no uno nuevo: una card es
@@ -305,6 +349,7 @@ export default function SeccionLinks({
                         carpeta="solutions/links"
                         bucket="solutions-fotos"
                         subidaDirecta={prepararSubidaSolutions}
+                        recortar
                       />
                     </div>
                   )}

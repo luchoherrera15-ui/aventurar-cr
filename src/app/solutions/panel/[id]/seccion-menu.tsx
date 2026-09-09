@@ -6,6 +6,15 @@ import { useRouter } from "next/navigation";
 import { Card, PildoraEstado } from "@/components/panel/piezas";
 import { BOTON_PANEL, BOTON_PANEL_PRIMARIO, CAMPO_PANEL, ESTADO_AVISO, ROTULO_CAMPO } from "@/components/panel/sistema";
 import SubirImagen from "@/components/subir-imagen";
+import SelectorDisenoMenu from "./selector-diseno-menu";
+import {
+  idDeOpcion,
+  personalizacionDe,
+  TOPES_PERSONALIZACION,
+  type Extra,
+  type Ingrediente,
+} from "@/lib/solutions/personalizacion";
+import type { AjustesMenu } from "@/lib/solutions/menu-estilos";
 import { fmtMoneda, MONEDA, pasoDePrecio, type Moneda } from "@/lib/monedas";
 import { vocabDe, type Rubro } from "@/lib/solutions/rubros";
 import type { MenuDelNegocio } from "@/lib/solutions/datos";
@@ -61,9 +70,19 @@ export default function SeccionMenu({
   idiomas,
   moneda,
   rubro,
+  ajustesMenu,
+  slug,
+  pro,
+  hrefPro,
 }: {
   negocioId: string;
   menu: MenuDelNegocio;
+  /** Todo lo que se puede tocar del catálogo (9 sep 2026). */
+  ajustesMenu: AjustesMenu;
+  /** Para armar la dirección de la previa. */
+  slug: string;
+  pro: boolean;
+  hrefPro: string;
   /** Los idiomas que el negocio ofrece además del español. */
   idiomas: IdiomaExtra[];
   /** La moneda de los precios y el rubro, que pone el vocabulario (0236). */
@@ -109,6 +128,7 @@ export default function SeccionMenu({
         disponible: e.disponible !== false,
         traducciones: e.traducciones ?? {},
         nutricion: verNutricion ? (e.nutricion ?? null) : null,
+        personalizacion: e.personalizacion ?? null,
       });
       if (r.ok) setEditando(null);
       return r;
@@ -137,6 +157,20 @@ export default function SeccionMenu({
   const setNut = (parte: Partial<Nutricion>) => {
     if (!editando) return;
     setEditando({ ...editando, nutricion: { ...(editando.nutricion ?? {}), ...parte } });
+  }
+
+  /**
+   * ARMAR EL PLATO (0241): qué trae y qué se le puede agregar.
+   *
+   * Se guarda con el plato, en el mismo botón: son parte de la ficha,
+   * no un formulario aparte. Los ids se calculan al AGREGAR la opción y
+   * no se vuelven a tocar — renombrar «Cebolla» a «Cebolla morada» no
+   * puede romper un pedido que ya está en la cocina.
+   */
+  function setPers(parte: { ingredientes?: Ingrediente[]; extras?: Extra[] }) {
+    if (!editando) return;
+    const actual = personalizacionDe(editando.personalizacion);
+    setEditando({ ...editando, personalizacion: { ...actual, ...parte } });
   };
 
   return (
@@ -183,6 +217,16 @@ export default function SeccionMenu({
       </Card>
 
       {/* ── Secciones ─────────────────────────────────────────── */}
+      <Card
+        eyebrow="Cómo se ve"
+        titulo={`Diseño de${cat.startsWith("m") ? "l" : " tu"} ${cat}`}
+      >
+        <p className="mb-3 text-[12.5px] text-aventurea-ink-soft">
+          Tu {cat} es una página aparte del link hub, con su propia dirección y su propio QR. Elegí el tema y después cambiá lo que quieras: colores, letra, tamaño y cómo se apila cada {v.item}.
+        </p>
+        <SelectorDisenoMenu negocioId={negocioId} slug={slug} ajustesActuales={ajustesMenu} pro={pro} hrefPro={hrefPro} />
+      </Card>
+
       <Card eyebrow="Cómo se ordena" titulo="Secciones" accion={<PildoraEstado estado="neutro">{menu.secciones.length} de {TOPES.secciones}</PildoraEstado>}>
         <ul className="flex flex-col gap-2">
           {menu.secciones.map((s, i) => (
@@ -425,6 +469,34 @@ export default function SeccionMenu({
                 )}
               </div>
             </div>
+            {/* ── CÓMO SE ARMA (0241) ────────────────────────────
+                  Lo que trae y se puede quitar, y lo que se le puede
+                  agregar con precio. Un plato sin listas se pide de un
+                  toque, exactamente como antes. */}
+              <div className="mt-5 rounded-2xl border border-aventurea-line p-4">
+                <p className="text-[13px] font-extrabold text-aventurea-navy">¿Se puede armar?</p>
+                <p className="mt-0.5 text-[12px] text-aventurea-ink-soft">
+                  Tu cliente ve los ingredientes marcados y desmarca lo que no quiere. Los extras suman al precio.
+                </p>
+
+                <ListaOpciones
+                  titulo={`Viene con (se puede quitar)`}
+                  ejemplo="Cebolla"
+                  filas={personalizacionDe(editando.personalizacion).ingredientes}
+                  tope={TOPES_PERSONALIZACION.ingredientes}
+                  alCambiar={(ingredientes) => setPers({ ingredientes: ingredientes as Ingrediente[] })}
+                />
+                <ListaOpciones
+                  titulo="Se le puede agregar (con precio)"
+                  ejemplo="Queso"
+                  conPrecio
+                  moneda={moneda}
+                  filas={personalizacionDe(editando.personalizacion).extras}
+                  tope={TOPES_PERSONALIZACION.extras}
+                  alCambiar={(extras) => setPers({ extras: extras as Extra[] })}
+                />
+              </div>
+
             <div className="mt-5 flex flex-wrap items-center gap-2">
               <button type="button" onClick={guardarPlato} disabled={ocupado} className={BOTON_PANEL_PRIMARIO}>{ocupado ? "Guardando…" : `Guardar ${v.item}`}</button>
               <button type="button" onClick={() => setEditando(null)} className={BOTON_PANEL}>Cancelar</button>
@@ -436,6 +508,88 @@ export default function SeccionMenu({
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * UNA LISTA DE OPCIONES DEL PLATO — ingredientes o extras.
+ *
+ * La misma pieza sirve para las dos: la única diferencia es la columna
+ * del precio (`conPrecio`). El id se calcula UNA vez, al agregar la
+ * fila; escribir el nombre después no lo cambia, que es lo que hace que
+ * renombrar sea seguro.
+ */
+function ListaOpciones({
+  titulo,
+  ejemplo,
+  filas,
+  tope,
+  conPrecio = false,
+  moneda,
+  alCambiar,
+}: {
+  titulo: string;
+  ejemplo: string;
+  filas: (Ingrediente | Extra)[];
+  tope: number;
+  conPrecio?: boolean;
+  moneda?: Moneda;
+  alCambiar: (filas: (Ingrediente | Extra)[]) => void;
+}) {
+  const cambiar = (i: number, parte: Partial<Extra>) =>
+    alCambiar(filas.map((f, n) => (n === i ? { ...f, ...parte } : f)));
+
+  const agregar = () => {
+    const usados = new Set(filas.map((f) => f.id));
+    const nombre = "";
+    // Un id provisional que no choca: al guardar, el servidor lo
+    // reemplaza por el que sale del nombre si quedó vacío.
+    const id = idDeOpcion(`op-${filas.length + 1}`, usados);
+    alCambiar([...filas, conPrecio ? { id, nombre, precio: 0 } : { id, nombre }]);
+  };
+
+  return (
+    <div className="mt-3">
+      <p className={ROTULO_CAMPO}>{titulo}</p>
+      <ul className="mt-1.5 flex flex-col gap-1.5">
+        {filas.map((f, i) => (
+          <li key={f.id} className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={f.nombre}
+              maxLength={TOPES_PERSONALIZACION.nombre}
+              placeholder={ejemplo}
+              onChange={(e) => cambiar(i, { nombre: e.target.value })}
+              className={`min-w-0 flex-1 ${CAMPO_PANEL}`}
+            />
+            {conPrecio && (
+              <input
+                type="number"
+                min={0}
+                step={moneda ? pasoDePrecio(moneda) : 1}
+                value={(f as Extra).precio ?? 0}
+                onChange={(e) => cambiar(i, { precio: Number(e.target.value) })}
+                aria-label={`Precio de ${f.nombre || ejemplo}`}
+                className={`w-[104px] shrink-0 ${CAMPO_PANEL}`}
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => alCambiar(filas.filter((_, n) => n !== i))}
+              aria-label={`Quitar ${f.nombre || ejemplo}`}
+              className="presionable h-10 w-10 shrink-0 rounded-lg border border-aventurea-line text-[15px] font-bold text-aventurea-ink-soft"
+            >
+              ×
+            </button>
+          </li>
+        ))}
+      </ul>
+      {filas.length < tope && (
+        <button type="button" onClick={agregar} className="mt-2 text-[13px] font-bold text-aventurea-navy underline">
+          + Agregar {conPrecio ? "un extra" : "un ingrediente"}
+        </button>
       )}
     </div>
   );

@@ -12,6 +12,7 @@ import {
   textosDelTipo,
   traducirErrorDeBase,
   traducirMotivo,
+  unidadDe,
 } from "./mostrador";
 import { TIPOS_TARJETA_ID, configPorDefecto, type ConfigBeneficio } from "./tipos-tarjeta";
 
@@ -450,5 +451,31 @@ describe("registraCompraElTipo — dónde el mostrador ofrece registrar la compr
     expect(registraCompraElTipo("descuento")).toBe(false);
     expect(registraCompraElTipo("membresia")).toBe(false);
     expect(registraCompraElTipo("evento")).toBe(false);
+  });
+});
+
+describe("unidadDe — el singular del saldo", () => {
+  it("usa el singular cuando entra exactamente uno", () => {
+    const textos = textosDelTipo("sellos");
+    expect(unidadDe(1, textos)).toBe("sello");
+    expect(`Listo: +1 ${unidadDe(1, textos)}`).toBe("Listo: +1 sello");
+  });
+
+  it("usa el plural para cero y para más de uno", () => {
+    const textos = textosDelTipo("sellos");
+    expect(unidadDe(0, textos)).toBe("sellos");
+    expect(unidadDe(3, textos)).toBe("sellos");
+  });
+
+  it("trata un descuento igual que un aumento (el signo no cuenta)", () => {
+    expect(unidadDe(-1, textosDelTipo("puntos"))).toBe("punto");
+    expect(unidadDe(-4, textosDelTipo("puntos"))).toBe("puntos");
+  });
+
+  it("cada tipo de tarjeta trae su singular", () => {
+    expect(unidadDe(1, textosDelTipo("cupon"))).toBe("uso");
+    expect(unidadDe(1, textosDelTipo("cashback"))).toBe("colón");
+    // «de saldo» no es contable: se queda igual.
+    expect(unidadDe(1, textosDelTipo("giftcard"))).toBe("de saldo");
   });
 });

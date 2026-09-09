@@ -68,9 +68,12 @@ export default function TableroRestaurante({
   moneda,
   pais,
   rubro,
+  enMarco = false,
 }: {
   negocioId: string;
   negocioNombre: string;
+  /** Dentro del marco del panel de Linksy: el título y el «volver» los pone el marco. */
+  enMarco?: boolean;
   pedidos: PedidoSolutions[];
   items: ItemMenuSolutions[];
   /** Qué modalidades tiene prendidas el negocio: decide qué filtros se ofrecen. */
@@ -149,18 +152,20 @@ export default function TableroRestaurante({
   const cuenta = (m: Filtro) => pedidos.filter((p) => VIVOS.includes(p.estado) && (m === "todas" || p.modalidad === m)).length;
 
   return (
-    <div className="mx-auto w-full max-w-[1560px] px-4 pb-14 pt-6 sm:px-6 lg:px-8">
+    <div className={enMarco ? "w-full" : "mx-auto w-full max-w-[1560px] px-4 pb-14 pt-6 sm:px-6 lg:px-8"}>
       {/* ── La barra de arriba ─────────────────────────────────── */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <Link href={`/solutions/panel/${negocioId}?tab=inicio`} className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink">
-            ← Volver al panel
-          </Link>
-          <h1 className="titulo mt-1 text-[clamp(22px,3vw,30px)] text-aventurea-navy">{v.tablero}</h1>
-          <p className="mt-0.5 text-[13px] text-aventurea-ink-soft">
-            {negocioNombre} · se actualiza solo cada 12 segundos
-          </p>
-        </div>
+      <div className={`flex flex-wrap items-end gap-3 ${enMarco ? "justify-end" : "justify-between"}`}>
+        {!enMarco && (
+          <div>
+            <Link href={`/solutions/panel/${negocioId}?tab=inicio`} className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink">
+              ← Volver al panel
+            </Link>
+            <h1 className="titulo mt-1 text-[clamp(22px,3vw,30px)] text-aventurea-navy">{v.tablero}</h1>
+            <p className="mt-0.5 text-[13px] text-aventurea-ink-soft">
+              {negocioNombre} · se actualiza solo cada 12 segundos
+            </p>
+          </div>
+        )}
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtrar por modalidad">
           {filtros.map((f) => {
             const activo = filtro === f.id;

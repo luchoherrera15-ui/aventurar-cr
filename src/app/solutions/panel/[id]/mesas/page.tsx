@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { toString as qrATexto } from "qrcode";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verificarAccesoSolutions } from "@/lib/solutions/acceso";
 import { negocioPorId } from "@/lib/solutions/datos";
 import { TOPES, urlDelNegocio } from "@/lib/solutions/tipos";
+import MarcoLinksy from "../marco-linksy";
+import { navDelPanel } from "../nav-datos";
+import { LP_BOTON } from "../sistema-linksy";
 
 export const metadata: Metadata = { title: "QR de mesas · Linksy" };
 
@@ -51,25 +53,26 @@ export default async function HojaMesasPage({
     })),
   );
 
-  return (
-    <main className="min-h-svh bg-white p-6 text-[#0a1226] print:p-0">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <div>
-          <Link href={`/solutions/panel/${id}?tab=pagina`} className="text-[12.5px] font-bold text-aventurea-ink-soft hover:text-aventurea-ink">
-            ← Volver al panel
-          </Link>
-          <h1 className="titulo mt-1 text-[24px]">QR de mesas · {negocio.nombre}</h1>
-          <p className="mt-1 text-[13px] text-aventurea-ink-soft">
-            {cantidad === 0 ? "Indicá cuántas mesas tenés en «Mi página» para generar los QR." : `${cantidad} mesas. Imprimí con Ctrl+P y recortá.`}
-          </p>
-        </div>
-        {cantidad > 0 && (
-          <a href="#" onClick={undefined} className="presionable inline-flex min-h-[44px] items-center rounded-xl bg-[#16295e] px-5 text-[14px] font-extrabold text-white" data-imprimir>
-            Imprimir
-          </a>
-        )}
-      </div>
+  const marco = await navDelPanel(admin, negocio, acceso);
 
+  return (
+    <MarcoLinksy
+      negocio={marco.barra}
+      items={marco.items}
+      activo="mesas"
+      titulo="QR de mesas"
+      bajada={cantidad === 0 ? "Indicá cuántas mesas tenés en «Mi página» para generar los QR." : `${cantidad} mesas. Imprimí y recortá: cada QR abre tu menú con el número de mesa.`}
+      accion={
+        cantidad > 0 ? (
+          <a href="#" className={LP_BOTON} data-imprimir>
+            Imprimir la hoja
+          </a>
+        ) : undefined
+      }
+    >
+      <div className="rounded-[28px] bg-white p-5 text-[#0a1226] print:rounded-none print:p-0">
+
+      {cantidad === 0 && <p className="text-[14px] font-semibold opacity-70">Todavía no hay mesas. Ponelas en «Mi página» → Ventas y pedidos.</p>}
       {cantidad > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 print:grid-cols-4 print:gap-3">
           {tarjetas.map((t) => (
@@ -96,6 +99,7 @@ export default async function HojaMesasPage({
           __html: `document.querySelector('[data-imprimir]')?.addEventListener('click',function(e){e.preventDefault();window.print();});`,
         }}
       />
-    </main>
+      </div>
+    </MarcoLinksy>
   );
 }

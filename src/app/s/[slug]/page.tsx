@@ -60,7 +60,7 @@ export default async function PaginaSolutions({ params, searchParams }: Props) {
   const datos = await paginaPublica(slug);
   if (!datos) notFound();
 
-  const { negocio, links, menu, addons, vitrina } = datos;
+  const { negocio, links, menu, addons } = datos;
   const mesa = mesaDeBusqueda(busqueda.mesa, negocio.mesas);
   const sufijoMesa = mesa ? `?mesa=${mesa}` : "";
 
@@ -105,7 +105,6 @@ export default async function PaginaSolutions({ params, searchParams }: Props) {
           moneda: negocio.moneda,
           pais: negocio.pais,
           rubro: negocio.rubro,
-          vitrina,
         }}
         className="min-h-svh"
       />

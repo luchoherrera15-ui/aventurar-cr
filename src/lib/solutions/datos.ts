@@ -3,6 +3,7 @@ import { addonsDelNegocio } from "./addons";
 import { idiomasMenuDe, nutricionDe, traduccionesDe } from "./idiomas";
 import { monedaDe, paisDe } from "@/lib/monedas";
 import { rubroDe } from "./rubros";
+import { personalizacionDe } from "./personalizacion";
 import {
   disenoDe,
   efectoDe,
@@ -28,6 +29,7 @@ import {
   type PedidoSolutions,
   type SeccionMenu,
 } from "./tipos";
+import { hostMarcaDe, planLinksyDe } from "./planes";
 
 /**
  * LAS LECTURAS DE SOLUTIONS — compartidas por /s/<slug> y el panel.
@@ -83,6 +85,8 @@ function conVestido(d: Record<string, unknown>): NegocioSolutions {
     moneda: monedaDe(d.moneda),
     rubro: rubroDe(d.rubro),
     diseno: disenoDe(d.diseno),
+    plan: planLinksyDe(d.plan),
+    host_marca: hostMarcaDe(d.host_marca),
   };
 }
 
@@ -146,6 +150,7 @@ export async function menuDelNegocio(admin: Admin, negocioId: string): Promise<M
       precio: it.precio === null ? null : Number(it.precio),
       traducciones: traduccionesDe(crudo.traducciones),
       nutricion: nutricionDe(crudo.nutricion),
+      personalizacion: personalizacionDe(crudo.personalizacion),
     };
   });
 
@@ -244,12 +249,6 @@ export async function paginaPublica(slug: string) {
     negocio,
     links: links.filter((l) => l.visible),
     menu: publico,
-    // La vitrina del link hub (0236): los ítems públicos, planos, con
-    // el nombre de su sección. Cuántos se muestran lo decide el
-    // renderizador según `diseno.vitrina`; acá van todos, topados.
-    vitrina: publico
-      .flatMap((g) => g.items.map((it) => ({ id: it.id, nombre: it.nombre, precio: it.precio, fotoUrl: it.foto_url, seccion: g.seccion?.nombre ?? "Otros" })))
-      .slice(0, negocio.diseno.vitrina === "destacados" ? TOPES.vitrinaDestacados : TOPES.vitrinaTodo),
     addons,
     paleta: paletaDelTema(negocio.tema, negocio.color_fondo, negocio.color_acento),
   };

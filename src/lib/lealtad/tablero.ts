@@ -48,6 +48,8 @@ export type FichaMiembro = {
   conPase: boolean;
   /** Días desde su último movimiento. null = nunca tuvo ninguno. */
   diasSinVenir: number | null;
+  /** ISO del alta (`miembros.created_at`): cuándo se afilió. */
+  alta: string;
   estado: string;
   /**
    * true = identidad LOCAL (0200): su correo y su WhatsApp son datos de
@@ -145,6 +147,7 @@ export function fichasDeMiembros({
         puedeCanjear: meta !== null && saldo >= meta,
         conPase: conPase.has(m.id),
         diasSinVenir: visto ? diasDesde(visto, hoy) : null,
+        alta: m.created_at,
         estado: m.estado,
         soloContacto: identidades.get(m.id)?.soloContacto === true,
       };
@@ -152,6 +155,59 @@ export function fichasDeMiembros({
     // Primero los que ya pueden canjear —hay que atenderlos—, después
     // por saldo. El dueño abre esto para saber a quién le debe algo.
     .sort((a, b) => Number(b.puedeCanjear) - Number(a.puedeCanjear) || b.saldo - a.saldo);
+}
+
+/** Cuántos renglones manda el servidor a la lista de Clientes. */
+export const TOPE_LISTA_CLIENTES = 50;
+
+/** Un alta de estos días atrás todavía se considera «recién llegado». */
+const DIAS_RECIEN_LLEGADO = 7;
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  QUIÉNES SE MUESTRAN EN LA LISTA DE CLIENTES
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * BUG REAL (8 sep 2026, reportado por el dueño): «cuando alguien se
+ * registra recién no sale; parece que la base tarda en actualizarse».
+ * La base no tardaba nada — la fila se escribe completa en el mismo
+ * instante, verificado en producción. Lo que pasaba es que la lista
+ * mandaba los primeros 50 de un orden por SALDO, y quien acaba de
+ * afiliarse tiene 0: caía al final y no viajaba. En Pura Matcha, con
+ * 65 miembros, los 13 que estaban en cero —o sea, TODOS los recién
+ * llegados— eran invisibles justo cuando el negocio los tenía enfrente
+ * para darles su primer sello.
+ *
+ * El orden de `fichasDeMiembros` no se toca: lo comparten el tablero,
+ * las estadísticas y el admin, y ahí «por saldo» es lo correcto. Acá se
+ * elige QUIÉN entra en el recorte, con el criterio del mostrador:
+ *
+ *   1. los que ya pueden canjear — hay que entregarles algo;
+ *   2. los recién llegados, del más nuevo al más viejo — son los que
+ *      pueden estar parados en la caja esperando su primer sello;
+ *   3. el resto por saldo, como siempre.
+ *
+ * Los que igual queden fuera del tope no son inalcanzables: el buscador
+ * de la lista pregunta al servidor cuando no encuentra a nadie entre
+ * los que ya tiene (ver `ListaClientes` en atencion-manual.tsx).
+ */
+export function fichasParaLaLista(
+  fichas: FichaMiembro[],
+  {
+    hoy,
+    tope = TOPE_LISTA_CLIENTES,
+    diasNuevo = DIAS_RECIEN_LLEGADO,
+  }: { hoy: string; tope?: number; diasNuevo?: number },
+): FichaMiembro[] {
+  const recienLlegado = (f: FichaMiembro) => !f.puedeCanjear && diasDesde(f.alta, hoy) <= diasNuevo;
+
+  const listos = fichas.filter((f) => f.puedeCanjear);
+  // Del más nuevo al más viejo: el último en afiliarse es el que más
+  // probablemente esté en el mostrador ahora mismo.
+  const nuevos = fichas.filter(recienLlegado).sort((a, b) => b.alta.localeCompare(a.alta));
+  const resto = fichas.filter((f) => !f.puedeCanjear && !recienLlegado(f));
+
+  return [...listos, ...nuevos, ...resto].slice(0, tope);
 }
 
 export function resumenDeLealtad({

@@ -6,6 +6,9 @@ import { addonsDelNegocio } from "@/lib/solutions/addons";
 import { menuDelNegocio, negocioPorId, pedidosDelNegocio } from "@/lib/solutions/datos";
 import type { Modalidad } from "@/lib/solutions/tipos";
 import TableroRestaurante from "./tablero-restaurante";
+import MarcoLinksy from "../marco-linksy";
+import { navDelPanel } from "../nav-datos";
+import { vocabDe } from "@/lib/solutions/rubros";
 
 export const metadata: Metadata = { title: "Pedidos en vivo · Linksy" };
 
@@ -46,9 +49,13 @@ export default async function ModoRestaurantePage({ params }: { params: Promise<
   if (negocio.pedidos_llevar) modalidades.push("llevar");
   if (negocio.pedidos_express) modalidades.push("express");
 
+  const marco = await navDelPanel(admin, negocio, acceso);
+  const vocab = vocabDe(negocio.rubro);
+
   return (
-    <main className="min-h-svh bg-[#f7f9fc]">
+    <MarcoLinksy negocio={marco.barra} items={marco.items} activo="restaurante" titulo={vocab.tablero} bajada={`${negocio.nombre} · se actualiza solo cada 12 segundos`} ancho="amplio">
       <TableroRestaurante
+        enMarco
         negocioId={id}
         negocioNombre={negocio.nombre}
         pedidos={pedidos}
@@ -59,6 +66,6 @@ export default async function ModoRestaurantePage({ params }: { params: Promise<
         pais={negocio.pais}
         rubro={negocio.rubro}
       />
-    </main>
+    </MarcoLinksy>
   );
 }

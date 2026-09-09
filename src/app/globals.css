@@ -1685,18 +1685,35 @@ body {
    vuelven translúcidas para que el fondo de la página pase borroso a
    través de TODA la agenda (el blur lo pone el panel). Los textos
    siguen en la tinta y los acentos navy/naranja de la marca. */
-.modal-vidrio .bg-aventurea-surface,
-.modal-vidrio .bg-white {
-  background-color: rgba(255, 255, 255, 0.4);
-}
-.modal-vidrio .bg-aventurea-cream-2 {
-  background-color: rgba(255, 255, 255, 0.26);
-}
-.modal-vidrio .bg-aventurea-cream {
-  background-color: transparent;
-}
-.modal-vidrio .border-aventurea-line {
-  border-color: rgba(22, 41, 94, 0.16);
+/* ── EL VIDRIO ES SOLO DE TABLET PARA ARRIBA (sep 2026) ────────────
+   En el teléfono el vidrio se retira y las superficies vuelven a ser
+   sólidas. No es gusto: es lo único que sobrevive al MODO OSCURO
+   FORZADO. El sitio pide claro dos veces (color-scheme: only light en
+   :root y el meta del layout), pero el WebView de Android, el
+   navegador de Samsung y los navegadores dentro de WhatsApp e
+   Instagram lo ignoran e invierten la página a ojo, elemento por
+   elemento. Un fondo sólido lo invierten junto con su texto y el par
+   se sigue leyendo; un blanco al 40 % deja pasar el fondo YA
+   oscurecido y el motor no encuentra superficie clara que invertir:
+   oscurece atrás y deja la tinta casi negra encima. Ese es el enredo
+   de colores que se reportó en el calendario de un rancho.
+
+   Además, en un teléfono el panel ocupa la pantalla entera: no hay
+   página alrededor que valga la pena mirar borrosa. */
+@media (min-width: 640px) {
+  .modal-vidrio .bg-aventurea-surface,
+  .modal-vidrio .bg-white {
+    background-color: rgba(255, 255, 255, 0.4);
+  }
+  .modal-vidrio .bg-aventurea-cream-2 {
+    background-color: rgba(255, 255, 255, 0.26);
+  }
+  .modal-vidrio .bg-aventurea-cream {
+    background-color: transparent;
+  }
+  .modal-vidrio .border-aventurea-line {
+    border-color: rgba(22, 41, 94, 0.16);
+  }
 }
 /* El panel del formulario dentro del modal es SÓLIDO: el vidrio
    translúcido marea cuando se están llenando datos. */
@@ -2976,3 +2993,100 @@ body {
   .sol-burbujas > span { animation: none; opacity: 0; }
   .sol-hover-crecer:hover { transform: none; }
 }
+
+/* ── LINKSY · MOCKUPS VIVOS (7 sep 2026) ─────────────────────────────
+   Las piezas nacen en el centro del teléfono (--dx/--dy las llevan
+   ahí) y BROTAN hasta su lugar con un rebote, escalonadas por --i. Al
+   salir vuelven a meterse. El teléfono gira al entrar y al salir. Todo
+   con los tokens de movimiento del sistema; ver mockups-vivos.tsx. */
+.linksy-mock-escenario { perspective: 1400px; }
+.linksy-mock-marco { transform-origin: top left; }
+@media (max-width: 559px) {
+  div.linksy-mock-marco {
+    --k: 0.82;
+    width: 640px;
+    max-width: none;
+    transform: scale(var(--k));
+    margin-bottom: calc(-660px * (1 - var(--k)));
+  }
+}
+@media (max-width: 500px) { div.linksy-mock-marco { --k: 0.72; } }
+@media (max-width: 440px) { div.linksy-mock-marco { --k: 0.62; } }
+@media (max-width: 380px) { div.linksy-mock-marco { --k: 0.53; } }
+.linksy-mock-telefono {
+  transform-origin: 50% 60%;
+  transform: rotateY(-9deg) rotateX(4deg) rotateZ(-2deg);
+  animation: linksy-girar-in 900ms var(--ease-bookea, cubic-bezier(.2,.8,.2,1)) both;
+}
+.linksy-mock-pieza {
+  transform: translate(0, 0) rotate(var(--rot, 0deg)) scale(1);
+  animation: linksy-brotar 760ms cubic-bezier(.22, 1.2, .3, 1) both;
+  animation-delay: calc(180ms + var(--i, 0) * 90ms);
+}
+.linksy-mock-escena[data-fase="sale"] { pointer-events: none; }
+.linksy-mock-escena[data-fase="sale"] .linksy-mock-telefono {
+  animation: linksy-girar-out 620ms cubic-bezier(.5, 0, .8, .4) both;
+}
+.linksy-mock-escena[data-fase="sale"] .linksy-mock-pieza {
+  animation: linksy-volver 420ms cubic-bezier(.5, 0, .8, .4) both;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+@keyframes linksy-brotar {
+  0%   { opacity: 0; transform: translate(var(--dx, 0), var(--dy, 0)) rotate(var(--rot, 0deg)) scale(.45); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: translate(0, 0) rotate(var(--rot, 0deg)) scale(1); }
+}
+@keyframes linksy-volver {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(var(--rot, 0deg)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx, 0), var(--dy, 0)) rotate(var(--rot, 0deg)) scale(.4); }
+}
+@keyframes linksy-girar-in {
+  0%   { opacity: 0; transform: rotateY(-48deg) rotateX(8deg) rotateZ(-6deg) translateX(-40px); }
+  100% { opacity: 1; transform: rotateY(-14deg) rotateX(5deg) rotateZ(-3deg); }
+}
+@keyframes linksy-girar-out {
+  0%   { opacity: 1; transform: rotateY(-14deg) rotateX(5deg) rotateZ(-3deg); }
+  100% { opacity: 0; transform: rotateY(28deg) rotateX(4deg) rotateZ(2deg) translateX(50px); }
+}
+/* Después de brotar, las piezas flotan; el vinilo gira; el ecualizador late. */
+.linksy-mock-flota { animation: linksy-flotar 5.5s ease-in-out infinite alternate; animation-delay: var(--f, 0s); }
+.linksy-mock-gira { animation: linksy-vinilo 16s linear infinite; }
+.linksy-mock-eq > span { transform-origin: 50% 100%; animation: linksy-eq 820ms ease-in-out infinite alternate; animation-delay: var(--d, 0ms); }
+@keyframes linksy-flotar { from { transform: translateY(0); } to { transform: translateY(-12px); } }
+@keyframes linksy-vinilo { to { transform: rotate(360deg); } }
+@keyframes linksy-eq { from { transform: scaleY(.35); } to { transform: scaleY(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .linksy-mock-telefono, .linksy-mock-pieza,
+  .linksy-mock-escena[data-fase="sale"] .linksy-mock-telefono,
+  .linksy-mock-escena[data-fase="sale"] .linksy-mock-pieza,
+  .linksy-mock-flota, .linksy-mock-gira, .linksy-mock-eq > span { animation: none; }
+  .linksy-mock-escena[data-fase="sale"] { display: none; }
+}
+
+/* ── EL PANEL DE LINKSY (7 sep 2026) ────────────────────────────────
+   Va dentro de .linksy (la paleta) y remapea los tokens del sistema
+   navy de los CRM para que las piezas heredadas —Card, campos, tablas
+   del editor, del catálogo y del equipo— convivan con las tiles nuevas:
+   navy → carbón, crema → celeste tenue, líneas más suaves. Nada de
+   eso se reescribe; solo cambia de color debajo. */
+.linksy-panel {
+  --linksy-fondo-panel: #eef4fb;
+  --navy: var(--linksy-carbon);
+  --navy-profundo: #000000;
+  --navy-elevado: #2a2a33;
+  --navy-suave: #e6eef8;
+  --text: var(--linksy-tinta);
+  --muted: var(--linksy-tinta-suave);
+  --line: #e1e8f1;
+  --grey: #f4f8fc;
+  --bg: #ffffff;
+  --color-aventurea-navy: var(--linksy-carbon);
+  --color-aventurea-navy-2: #2a2a33;
+  --color-aventurea-navy-3: #3a3a45;
+  --color-aventurea-rail: #9a9aa6;
+  --color-bookea-azul: var(--linksy-carbon);
+  --acento-solido: var(--linksy-lima);
+  --acento-sobre: var(--linksy-lima-tinta);
+}
+/* Las cards heredadas: más radio, sin borde duro, sombra plana. */
+.linksy-panel section.rounded-3xl { border-radius: 28px; border-color: transparent; }

@@ -99,6 +99,8 @@ export const GRUPOS_ADMIN: GrupoAdmin[] = [
       // (1 sep 2026). Va PEGADO a la lista y no en otro grupo: es la
       // misma pantalla, una mira y la otra agrega.
       { href: "/admin/lealtad/nuevo", etiqueta: "Crear pase", icono: "etiqueta" },
+      // Las reuniones de ayuda pedidas desde el alta (8 sep 2026).
+      { href: "/admin/reuniones", etiqueta: "Reuniones", icono: "calendario" },
       { href: "/admin/moderadores", etiqueta: "Moderadores", icono: "users" },
     ],
   },

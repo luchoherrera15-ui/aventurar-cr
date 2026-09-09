@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useTransition } from "react";
 import MenuInicialLealtad from "./menu-inicial-lealtad";
+import CaminoLealtad from "./camino-lealtad";
+import AgendaReunion from "./agenda-reunion";
 import PanelPaquetesLealtad from "./panel-paquetes-lealtad";
 import TarjetaFormulario, { type ValorFormulario } from "./tarjeta-formulario";
 import { REGLAS_VACIAS } from "./panel/[id]/paso-reglas";
@@ -78,7 +80,7 @@ import { CONFIG_CLASICA, configDesdeJson, type ConfigTira } from "@/lib/wallet/l
  * (los paquetes) y `EditorTarjetaCompleto` (todo lo demás).
  */
 
-export type Vista = "menu" | "paquetes" | "editor";
+export type Vista = "menu" | "paquetes" | "editor" | "camino" | "reunion";
 
 export type EstadoLealtad = {
   vista: Vista;
@@ -163,7 +165,9 @@ function estadoInicial(planInicial?: PlanId | null): EstadoLealtad {
     // volver a mostrarle la grilla de paquetes es pedirle lo mismo dos
     // veces antes de dejarlo empezar (dueño, 1 sep 2026). Sin plan en
     // la URL sigue arrancando en paquetes, como siempre.
-    vista: planInicial ? "editor" : "paquetes",
+    // El primer paso (8 sep 2026): ¿lo armo yo o pido ayuda? Con un plan
+    // en la URL se salta, porque ya viene decidido.
+    vista: planInicial ? "editor" : "camino",
     nombreNegocio: "",
     modo: "sellos",
     // Trae el plan que la persona ya había elegido en /lealtad/planes
@@ -200,7 +204,7 @@ function sanearGuardado(crudo: unknown): EstadoLealtad {
   if (!crudo || typeof crudo !== "object") return limpio;
   const c = crudo as Record<string, unknown>;
 
-  if (c.vista === "menu" || c.vista === "paquetes" || c.vista === "editor") {
+  if (c.vista === "menu" || c.vista === "paquetes" || c.vista === "editor" || c.vista === "camino" || c.vista === "reunion") {
     limpio.vista = c.vista;
   }
   if (typeof c.nombreNegocio === "string") limpio.nombreNegocio = c.nombreNegocio.slice(0, 80);
@@ -523,7 +527,11 @@ export default function ConfiguradorLealtad({
         </span>
       </div>
 
-      {estado.vista === "menu" ? (
+      {estado.vista === "camino" ? (
+        <CaminoLealtad alSolo={() => patch({ vista: "paquetes" })} alConAyuda={() => patch({ vista: "reunion" })} />
+      ) : estado.vista === "reunion" ? (
+        <AgendaReunion alVolver={() => patch({ vista: "camino" })} alSeguirSolo={() => patch({ vista: "paquetes" })} telefonoInicial={estado.telefono} />
+      ) : estado.vista === "menu" ? (
         <MenuInicialLealtad
           modo={estado.modo}
           colorFondo={estado.colorFondo}

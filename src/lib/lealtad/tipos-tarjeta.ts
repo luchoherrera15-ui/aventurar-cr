@@ -172,6 +172,30 @@ export const UNIDAD_SALDO: Record<TipoTarjeta, string> = {
   evento: "usos",
 };
 
+/**
+ * LA MISMA UNIDAD, EN SINGULAR.
+ *
+ * `UNIDAD_SALDO` está en plural porque casi siempre acompaña a una
+ * cantidad mayor que uno («lleva 7 sellos»). Pero el mostrador escribe
+ * la frase justo cuando entra UNO, y decía «Listo: +1 sellos».
+ */
+export const UNIDAD_SALDO_SINGULAR: Record<TipoTarjeta, string> = {
+  sellos: "sello",
+  puntos: "punto",
+  cashback: "colón",
+  // «de saldo» no es un sustantivo contable: no tiene singular propio.
+  giftcard: "de saldo",
+  cupon: "uso",
+  descuento: "uso",
+  membresia: "uso",
+  evento: "uso",
+};
+
+/** La unidad que le corresponde a esta cantidad. `1` manda al singular. */
+export function unidadContada(cantidad: number, tipo: TipoTarjeta): string {
+  return Math.abs(cantidad) === 1 ? UNIDAD_SALDO_SINGULAR[tipo] : UNIDAD_SALDO[tipo];
+}
+
 export function esTipoTarjeta(valor: string | null | undefined): valor is TipoTarjeta {
   return !!valor && (TIPOS_TARJETA_ID as readonly string[]).includes(valor);
 }

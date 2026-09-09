@@ -1,4 +1,5 @@
 import { IconPin, IconWhatsapp } from "@/components/icons";
+import { numeroInternacional, type Moneda, type Pais } from "@/lib/monedas";
 import Link from "next/link";
 import IconoLinkSVG from "./icono-link";
 import TextoEditable from "./texto-editable";
@@ -20,8 +21,8 @@ import {
   type Paleta,
   type Redondeo,
   type Tema,
+  relieveDelTitulo,
 } from "@/lib/solutions/temas";
-import { fmtMoneda, numeroInternacional, type Moneda, type Pais } from "@/lib/monedas";
 import { vocabDe, type Rubro } from "@/lib/solutions/rubros";
 import { conVariante } from "@/lib/solutions/fotos";
 
@@ -57,7 +58,7 @@ import { conVariante } from "@/lib/solutions/fotos";
  * vitrina, redes, titular), pinta los precios en la MONEDA del negocio,
  * arma el WhatsApp con el prefijo de su PAÍS, dice «menú», «servicios»
  * o «catálogo» según su RUBRO, y puede mostrar el catálogo ADENTRO del
- * link hub (la vitrina), con foto y precio, como la pestaña «Shop» de
+ * catálogo, con foto y precio — que desde el 9 sep 2026 vive en SU
  * Linktree. Los enlaces ya no son solo botones: hay íconos de redes,
  * títulos y textos.
  *
@@ -79,7 +80,7 @@ export type LinkVista = {
   descripcion?: string;
 };
 
-/** Un ítem del catálogo para la vitrina del link hub (0236). */
+/** Un ítem del catálogo. Lo usa el catálogo, no el hub. */
 export type ItemVitrina = {
   id: string;
   nombre: string;
@@ -125,8 +126,7 @@ export type DatosPagina = {
   pais?: Pais;
   /** El rubro, para decir «menú», «servicios» o «catálogo» (0236). */
   rubro?: Rubro;
-  /** Los ítems públicos del catálogo, para la vitrina (0236). */
-  vitrina?: ItemVitrina[];
+
 };
 
 /**
@@ -242,11 +242,6 @@ function FondoAnimado({ tipo, p }: { tipo: Diseno["fondo"]; p: Paleta }) {
 /** El índice de entrada de una pieza, para la cascada (ver globals.css). */
 const pieza = (i: number) => ({ "--i": i } as React.CSSProperties);
 
-/** `${href}?item=id` respetando un `?mesa=` que ya venga en el href. */
-function hrefDeItem(hrefMenu: string | undefined, id: string): string {
-  if (!hrefMenu) return "#";
-  return `${hrefMenu}${hrefMenu.includes("?") ? "&" : "?"}item=${encodeURIComponent(id)}`;
-}
 
 export default function VistaPagina({
   datos,
@@ -264,7 +259,6 @@ export default function VistaPagina({
   const p = paletaDelTema(datos.tema, datos.colorFondo, datos.colorAcento);
   const r = RADIOS[datos.redondeo] ?? RADIOS.suave;
   const d = datos.diseno ?? DISENO_BASE;
-  const moneda = datos.moneda ?? "CRC";
   const pais = datos.pais ?? "CR";
   const vocab = vocabDe(datos.rubro ?? "restaurante");
   const inicial = (datos.nombre.trim().charAt(0) || "•").toUpperCase();
@@ -274,8 +268,8 @@ export default function VistaPagina({
      haber subido nada no puede dejar un banner vacío arriba. */
   const portada: EstiloPortada = datos.fotoPortadaUrl ? datos.estiloPortada : "sin";
   /** El acabado de una pieza, ya resuelto. Un solo lugar decide. */
-  const estilo = (opts: { destacada?: boolean; radio: number; conFoto?: boolean }) =>
-    estiloDePieza(datos.efecto, p, { ...opts, boton: d.boton });
+  const estilo = (opts: { destacada?: boolean; radio: number; conFoto?: boolean; suelta?: boolean }) =>
+    estiloDePieza(datos.efecto, p, { ...opts, boton: d.boton, suelta: opts.suelta ?? d.piezas === "suelta" });
 
   // ── Las decisiones del diseño fino (0236) ─────────────────────────
   const centrado = d.alineacion === "centro" || (d.alineacion === "auto" && grilla);
@@ -312,8 +306,6 @@ export default function VistaPagina({
   // ── Los enlaces, por formato (0236) ───────────────────────────────
   const redes = datos.links.filter((l) => l.formato === "icono");
   const enFlujo = datos.links.filter((l) => l.formato !== "icono");
-  const vitrina = datos.hayMenu && d.vitrina !== "boton" ? (datos.vitrina ?? []) : [];
-  const conVitrina = vitrina.length > 0;
   const hrefCatalogo = datos.hrefMenu ?? "#";
 
   // Las puertas: el catálogo primero (es el producto), después las del
@@ -323,7 +315,11 @@ export default function VistaPagina({
     | { tipo: "titulo"; clave: string; texto: string }
     | { tipo: "texto"; clave: string; texto: string };
   const piezas: Pieza[] = [];
-  if (datos.hayMenu && !conVitrina) {
+  // El catálogo va PRIMERO y destacado, y va como PUERTA: esta página
+  // es un link hub y nada más. El catálogo es una página aparte, con su
+  // dirección y su QR — meterlo acá adentro convertía el hub en dos
+  // cosas a la vez (9 sep 2026).
+  if (datos.hayMenu) {
     piezas.push({
       tipo: "puerta",
       clave: "menu",
@@ -377,84 +373,6 @@ export default function VistaPagina({
         </Ancla>
       ))}
     </nav>
-  );
-
-  const bloqueVitrina = () => conVitrina && (
-    <section aria-label={vocab.catalogo} className="flex flex-col gap-3">
-      {(() => {
-        // «destacados»: los primeros, sin agrupar. «todo»: por sección.
-        const grupos: { nombre: string | null; items: ItemVitrina[] }[] = [];
-        if (d.vitrina === "todo") {
-          for (const it of vitrina) {
-            const g = grupos.find((x) => x.nombre === it.seccion);
-            if (g) g.items.push(it);
-            else grupos.push({ nombre: it.seccion, items: [it] });
-          }
-        } else {
-          grupos.push({ nombre: null, items: vitrina });
-        }
-        return grupos.map((g) => (
-          <div key={g.nombre ?? "destacados"} className="flex flex-col gap-2.5">
-            {g.nombre ? (
-              <h2 className="sol-pieza text-[11.5px] font-extrabold uppercase tracking-[0.14em]" style={{ ...pieza(siguiente()), color: p.suave }}>
-                {g.nombre}
-              </h2>
-            ) : (
-              <h2 className="sol-pieza text-[11.5px] font-extrabold uppercase tracking-[0.14em]" style={{ ...pieza(siguiente()), color: p.suave }}>
-                {vocab.catalogo}
-              </h2>
-            )}
-            <ul className={`grid grid-cols-2 ${separacion} @[360px]:grid-cols-3`}>
-              {g.items.map((it) => {
-                const miniatura = conVariante(it.fotoUrl, "thumb") ?? it.fotoUrl;
-                return (
-                  <li key={it.id} className="sol-pieza min-w-0" style={pieza(siguiente())}>
-                    <Ancla
-                      inerte={inerte}
-                      href={hrefDeItem(datos.hrefMenu, it.id)}
-                      mismaPestana
-                      className={`flex h-full flex-col overflow-hidden ${hoverClase}`}
-                      style={estilo({ radio: r.pieza })}
-                    >
-                      {miniatura ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={miniatura} alt="" className="aspect-square w-full object-cover" loading="lazy" />
-                      ) : (
-                        <span
-                          aria-hidden
-                          className="grid aspect-square w-full place-items-center text-[22px] font-extrabold"
-                          style={{ background: discoSolido ? conAlfa(p.tintaSobreAcento, 0.14) : p.superficie }}
-                        >
-                          {it.nombre.trim().charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                      <span className="flex flex-1 flex-col gap-0.5 p-2.5">
-                        <span className="line-clamp-2 text-[12px] font-extrabold leading-tight @[320px]:text-[13px]">{it.nombre}</span>
-                        <span
-                          className="mt-auto text-[12.5px] font-extrabold tabular-nums @[320px]:text-[13.5px]"
-                          style={{ color: discoSolido ? undefined : p.acento }}
-                        >
-                          {it.precio === null ? "Consultar" : fmtMoneda(it.precio, moneda)}
-                        </span>
-                      </span>
-                    </Ancla>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ));
-      })()}
-      <Ancla
-        inerte={inerte}
-        href={hrefCatalogo}
-        mismaPestana
-        className={`sol-pieza flex min-h-[48px] items-center justify-center gap-2 text-[13.5px] font-extrabold ${hoverClase}`}
-        style={{ ...pieza(siguiente()), ...estilo({ radio: r.pieza, destacada: true }) }}
-      >
-        {datos.aceptaPedidos && datos.mesa ? vocab.verYPedir : vocab.verCatalogo} →
-      </Ancla>
-    </section>
   );
 
   return (
@@ -515,9 +433,14 @@ export default function VistaPagina({
             La foto solo vive acá adentro en modo «card»; en «completa»
             ya salió arriba de borde a borde y en «fondo» viste la
             página, así que repetirla sería la misma imagen dos veces. */}
+        {/* Encabezado LIBRE o GRABADO (7 sep 2026): sin tarjeta, salvo con
+            la portada «Banner», donde la foto vive dentro de la tarjeta. */}
         <header
           className="sol-pieza relative overflow-hidden"
-          style={{ ...pieza(siguiente()), ...estilo({ radio: r.tarjeta, conFoto: portada === "card" }) }}
+          style={{
+            ...pieza(siguiente()),
+            ...(d.encabezado === "tarjeta" || portada === "card" ? estilo({ radio: r.tarjeta, conFoto: portada === "card", suelta: false }) : { borderRadius: r.tarjeta }),
+          }}
         >
           {portada === "card" && foto && (
             <>
@@ -564,7 +487,10 @@ export default function VistaPagina({
                 {/* El tamaño sigue al CONTENEDOR: en un mockup de 268 px
                     el titular de 24 px partía «Casa Nostra» en dos
                     renglones y empujaba todo hacia abajo. */}
-                <h1 className={`font-extrabold leading-tight tracking-[-0.02em] ${tituloClase}`}>
+                <h1
+                  className={`font-extrabold leading-tight tracking-[-0.02em] ${tituloClase}`}
+                  style={d.encabezado === "grabado" && portada !== "card" ? relieveDelTitulo(p) : undefined}
+                >
                   {edicion ? (
                     <TextoEditable
                       valor={datos.nombre}
@@ -601,9 +527,6 @@ export default function VistaPagina({
 
         {/* ── La fila de redes, bajo el nombre (0236) ─────────────── */}
         {d.redes === "arriba" && filaRedes()}
-
-        {/* ── La vitrina: el catálogo adentro del hub (0236) ──────── */}
-        {bloqueVitrina()}
 
         {/* ── Las puertas ─────────────────────────────────────── */}
         {piezas.length > 0 && (

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { cerrarSesionSolutions } from "@/app/solutions/sesion-actions";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { IconChartBars, IconEnlace, IconInstagram, IconMenu, IconStore, IconUsers, IconX } from "@/components/icons";
 import { urlBookea } from "@/lib/solutions/dominios";
@@ -55,9 +56,9 @@ const CATEGORIAS: Categoria[] = [
     Icono: IconUsers,
     items: [
       { titulo: "Tarjeta de lealtad", pie: "Sellos o puntos en Apple y Google Wallet", href: "/linksy#lealtad" },
-      { titulo: "Correos automáticos", pie: "En los hitos: primer sello, penúltimo, meta", href: urlBookea("/lealtad") },
-      { titulo: "Campañas", pie: "Promos a tus clientes de lealtad", href: urlBookea("/lealtad") },
-      { titulo: "Fichas de clientes", pie: "Quién volvió, quién no, cuándo", href: urlBookea("/lealtad") },
+      { titulo: "Correos automáticos", pie: "En los hitos: primer sello, penúltimo, meta", href: "/lealtad" },
+      { titulo: "Campañas", pie: "Promos a tus clientes de lealtad", href: "/lealtad" },
+      { titulo: "Fichas de clientes", pie: "Quién volvió, quién no, cuándo", href: "/lealtad" },
     ],
   },
   {
@@ -85,7 +86,7 @@ const CATEGORIAS: Categoria[] = [
 
 const ENLACES_TOP: { label: string; href: string }[] = [
   { label: "Plantillas", href: "/linksy#disenos" },
-  { label: "Planes de lealtad", href: urlBookea("/lealtad/planes") },
+  { label: "Planes de lealtad", href: "/lealtad/planes" },
   { label: "Ayuda", href: urlBookea("/ayuda") },
 ];
 
@@ -144,7 +145,15 @@ function Destacado() {
   );
 }
 
-export default function NavLinksy() {
+/** Quién mira la landing: lo resuelve el servidor (`sesionDelNavLealtad`). */
+export type SesionNavLinksy = { logueado: boolean; nombre: string | null };
+
+export default function NavLinksy({ sesion }: { sesion?: SesionNavLinksy }) {
+  // Con sesión, la esquina derecha deja de invitar a entrar: nombre de la
+  // cuenta, «Mi panel» y «Salir». Sin dato (o sin sesión) se ve como para
+  // cualquier visitante.
+  const logueado = sesion?.logueado === true;
+  const nombreCorto = (sesion?.nombre ?? "").trim().split(/\s+/)[0] || "Mi cuenta";
   const [abierto, setAbierto] = useState(false);
   const [categoria, setCategoria] = useState(0);
   const [movil, setMovil] = useState(false);
@@ -228,12 +237,30 @@ export default function NavLinksy() {
           </div>
 
           <div className="flex items-center gap-2">
-            <a href={urlBookea("/linksy/login")} className="titulo presionable hidden min-h-[46px] items-center rounded-full px-6 text-[16px] font-extrabold sm:inline-flex" style={{ background: "var(--linksy-lila)", color: "var(--linksy-lila-tinta)" }}>
-              Ingresar
-            </a>
-            <a href={urlBookea("/solutions/crear")} className="titulo presionable inline-flex min-h-[46px] items-center rounded-full px-6 text-[16px] font-extrabold" style={{ background: "var(--linksy-carbon)", color: "var(--linksy-carbon-tinta)" }}>
-              Crear gratis
-            </a>
+            {logueado ? (
+              <>
+                <span className="titulo hidden text-[15px] font-extrabold md:inline" style={{ color: "var(--linksy-tinta-suave)" }} title={sesion?.nombre ?? undefined}>
+                  Hola, {nombreCorto}
+                </span>
+                <form action={cerrarSesionSolutions} className="hidden sm:block">
+                  <button type="submit" className="titulo presionable inline-flex min-h-[46px] items-center rounded-full px-6 text-[16px] font-extrabold" style={{ background: "var(--linksy-lila)", color: "var(--linksy-lila-tinta)" }}>
+                    Salir
+                  </button>
+                </form>
+                <a href={"/solutions/panel"} className="titulo presionable inline-flex min-h-[46px] items-center rounded-full px-6 text-[16px] font-extrabold" style={{ background: "var(--linksy-carbon)", color: "var(--linksy-carbon-tinta)" }}>
+                  Mi panel
+                </a>
+              </>
+            ) : (
+              <>
+                <a href={"/linksy/login"} className="titulo presionable hidden min-h-[46px] items-center rounded-full px-6 text-[16px] font-extrabold sm:inline-flex" style={{ background: "var(--linksy-lila)", color: "var(--linksy-lila-tinta)" }}>
+                  Ingresar
+                </a>
+                <a href={"/solutions/crear"} className="titulo presionable inline-flex min-h-[46px] items-center rounded-full px-6 text-[16px] font-extrabold" style={{ background: "var(--linksy-carbon)", color: "var(--linksy-carbon-tinta)" }}>
+                  Crear gratis
+                </a>
+              </>
+            )}
             <button
               type="button"
               aria-label={movil ? "Cerrar menú" : "Abrir menú"}
@@ -323,9 +350,22 @@ export default function NavLinksy() {
                   {e.label}
                 </a>
               ))}
-              <a href={urlBookea("/linksy/login")} onClick={cerrarTodo} className="titulo presionable mt-1 inline-flex min-h-[46px] items-center justify-center rounded-full px-5 text-[16px] font-extrabold sm:hidden" style={{ background: "var(--linksy-lila)", color: "var(--linksy-lila-tinta)" }}>
-                Ingresar
-              </a>
+              {logueado ? (
+                <>
+                  <p className="titulo py-2 text-[15px] font-extrabold" style={{ color: "var(--linksy-tinta-suave)" }}>
+                    Hola, {nombreCorto}
+                  </p>
+                  <form action={cerrarSesionSolutions} className="sm:hidden">
+                    <button type="submit" className="titulo presionable mt-1 inline-flex min-h-[46px] w-full items-center justify-center rounded-full px-5 text-[16px] font-extrabold" style={{ background: "var(--linksy-lila)", color: "var(--linksy-lila-tinta)" }}>
+                      Salir
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <a href={"/linksy/login"} onClick={cerrarTodo} className="titulo presionable mt-1 inline-flex min-h-[46px] items-center justify-center rounded-full px-5 text-[16px] font-extrabold sm:hidden" style={{ background: "var(--linksy-lila)", color: "var(--linksy-lila-tinta)" }}>
+                  Ingresar
+                </a>
+              )}
             </div>
           </div>
         )}

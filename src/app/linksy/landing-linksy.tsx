@@ -2,11 +2,12 @@ import RevealOnScroll from "@/components/reveal-on-scroll";
 import SiteFooter from "@/components/site-footer";
 import ReclamarLink from "./reclamar-link";
 import VitrinaEscenas, { type Bloque, type Escena } from "./vitrina-escenas";
-import NavLinksy from "./menu-productos";
+import NavLinksy, { type SesionNavLinksy } from "./menu-productos";
+import MockupsVivos from "./mockups-vivos";
 import { CLASES_FUENTES } from "@/app/solutions/fuentes";
 import { MockupPase } from "@/components/solutions/mockup-pantallas";
+import Telefono from "@/components/solutions/telefono";
 import { PRESETS, TEMAS } from "@/lib/solutions/temas";
-import { urlBookea } from "@/lib/solutions/dominios";
 import { IconChartBars, IconGlobe, IconInstagram, IconStar, IconWallet } from "@/components/icons";
 
 /**
@@ -38,23 +39,30 @@ import { IconChartBars, IconGlobe, IconInstagram, IconStar, IconWallet } from "@
 const retraso = (i: number) => ({ "--reveal-delay": `${Math.min(i * 60, 320)}ms` }) as React.CSSProperties;
 const bloque = (b: Bloque) => ({ background: `var(--linksy-${b})`, color: `var(--linksy-${b}-tinta)` });
 
+/**
+ * Las tres escenas viven en Cloudflare Images (7 sep 2026): los PNG
+ * originales de 1536×1024 subidos tal cual con `scripts/subir-escenas-linksy.mjs`
+ * (ids fijos `linksy-hero-*`); la variante `gallery` los sirve a tamaño
+ * completo, en WebP/AVIF según el navegador. Antes eran WebP de 1400 px
+ * muy comprimidos en /public, y se veían «sin HD».
+ */
 const ESCENAS: Escena[] = [
   {
-    src: "/linksy/gimnasio.webp",
+    src: "https://imagedelivery.net/X6xhTJPyvf9Jhtws4_jH8g/linksy-hero-gimnasio/gallery",
     alt: "Entrenadora junto a un teléfono con su página de Linksy: planes, nutrición, comunidad",
     rubro: "Gimnasios y coaches",
     marca: "shaep",
     bloque: "lima",
   },
   {
-    src: "/linksy/restaurante.webp",
+    src: "https://imagedelivery.net/X6xhTJPyvf9Jhtws4_jH8g/linksy-hero-restaurante/gallery",
     alt: "Plato de un restaurante y un teléfono con su página de Linksy: menú, reservas, lealtad",
     rubro: "Restaurantes",
     marca: "Sabores",
     bloque: "coral",
   },
   {
-    src: "/linksy/lavacar.webp",
+    src: "https://imagedelivery.net/X6xhTJPyvf9Jhtws4_jH8g/linksy-hero-lavacar/gallery",
     alt: "Auto recién lavado y un teléfono con la página de Linksy del lavacar: servicios y citas",
     rubro: "Lavacar y detailing",
     marca: "Auto Spa",
@@ -65,11 +73,11 @@ const ESCENAS: Escena[] = [
 /** Los 13 temas reales del editor, para la sección «Diseños». */
 const DISENOS = TEMAS.map((t) => PRESETS[t]);
 
-export default function LandingLinksy() {
+export default function LandingLinksy({ sesion }: { sesion?: SesionNavLinksy }) {
   return (
     <main className={`min-h-svh ${CLASES_FUENTES}`} lang="es" style={bloque("celeste")}>
       <RevealOnScroll />
-      <NavLinksy />
+      <NavLinksy sesion={sesion} />
 
       {/* ══ 1 · HÉROE — celeste, texto a la izquierda, las escenas a la derecha ═ */}
       <section className="px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:pb-24" style={bloque("celeste")}>
@@ -88,6 +96,35 @@ export default function LandingLinksy() {
           </div>
           <div className="min-w-0">
             <VitrinaEscenas escenas={ESCENAS} />
+          </div>
+        </div>
+      </section>
+
+      {/* ══ 1b · CREÁ Y PERSONALIZÁ — carbón, el teléfono del que se salen las piezas ═ */}
+      <section id="crear" className="overflow-hidden px-4 py-20 sm:px-6 sm:py-28" style={bloque("carbon")}>
+        <div className="mx-auto grid w-[min(1280px,100%)] items-center gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="min-w-0 order-2 lg:order-1">
+            <MockupsVivos />
+          </div>
+          <div className="order-1 lg:order-2" data-reveal>
+            <p className="text-[13px] font-extrabold uppercase tracking-[0.14em]" style={{ color: "var(--linksy-lima)" }}>
+              En minutos
+            </p>
+            <h2 className="titulo mt-4 max-w-[13ch] text-balance text-[clamp(40px,6vw,84px)] font-extrabold leading-[0.98] tracking-[-0.02em]" style={{ color: "var(--linksy-lima)" }}>
+              Creá y personalizá tu Linksy en minutos.
+            </h2>
+            <p className="mt-6 max-w-[46ch] text-[clamp(17px,1.9vw,22px)] font-semibold leading-snug">
+              Conectá todo tu contenido —redes, WhatsApp, menú, tienda y tarjeta de lealtad— en un solo link. Personalizá
+              cada detalle, o subí tu foto y dejá que Linksy tome sus colores y arme el tema por vos.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <a href={"/solutions/crear"} className="presionable inline-flex min-h-[54px] items-center rounded-full px-8 text-[16px] font-extrabold" style={bloque("lima")}>
+                Empezar gratis
+              </a>
+              <a href="#disenos" className="inline-flex min-h-[54px] items-center px-2 text-[16px] font-bold underline underline-offset-4 opacity-90 hover:opacity-100">
+                Ver los diseños ↓
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -119,14 +156,24 @@ export default function LandingLinksy() {
                 </li>
               ))}
             </ul>
-            <a href={urlBookea("/lealtad/planes")} className="presionable mt-8 inline-flex min-h-[50px] items-center rounded-full px-7 text-[15px] font-extrabold" style={bloque("lima")}>
+            <a href={"/lealtad/planes"} className="presionable mt-8 inline-flex min-h-[50px] items-center rounded-full px-7 text-[15px] font-extrabold" style={bloque("lima")}>
               Ver los planes de lealtad →
             </a>
           </div>
-          <div data-reveal aria-hidden className="mx-auto w-[min(100%,380px)] overflow-hidden shadow-flotante" style={{ borderRadius: "var(--linksy-radio)" }}>
-            <div className="h-[560px]">
+          {/* El pase, en el teléfono. La luz de atrás lo despega del
+              azul: sin ella el aparato oscuro se hunde en el fondo. */}
+          <div data-reveal aria-hidden className="relative mx-auto flex w-full items-center justify-center py-4">
+            <span
+              className="pointer-events-none absolute h-[320px] w-[320px] rounded-full blur-[80px]"
+              style={{ background: "var(--linksy-lima)", opacity: 0.32 }}
+            />
+            <span
+              className="pointer-events-none absolute bottom-2 h-6 w-[62%] rounded-[50%] blur-xl"
+              style={{ background: "rgba(4,10,30,.55)" }}
+            />
+            <Telefono ancho={292} className="relative">
               <MockupPase tema="crema" acento={PRESETS.crema.acentoSugerido} fuente="condensada" />
-            </div>
+            </Telefono>
           </div>
         </div>
       </section>
@@ -182,7 +229,7 @@ export default function LandingLinksy() {
                 </li>
               ))}
             </ul>
-            <a href={urlBookea("/solutions/panel")} className="presionable mt-8 inline-flex min-h-[50px] items-center rounded-full px-7 text-[15px] font-extrabold" style={bloque("carbon")}>
+            <a href={"/solutions/panel"} className="presionable mt-8 inline-flex min-h-[50px] items-center rounded-full px-7 text-[15px] font-extrabold" style={bloque("carbon")}>
               Activarlo en mi panel →
             </a>
           </div>

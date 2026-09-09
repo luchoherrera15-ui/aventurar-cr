@@ -120,7 +120,9 @@ function VisualProducto({ id }: { id: (typeof PRODUCTOS)[number]["id"] }) {
   }
   return (
     <Telefono ancho={ancho} tinta="#3b2c1c">
-      <MockupPase tema="crema" acento={PRESETS.crema.acentoSugerido} fuente="condensada" />
+      <Telefono ancho={250} className="mx-auto">
+        <MockupPase tema="crema" acento={PRESETS.crema.acentoSugerido} fuente="condensada" />
+      </Telefono>
     </Telefono>
   );
 }
