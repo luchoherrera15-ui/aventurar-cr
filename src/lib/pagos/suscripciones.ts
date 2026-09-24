@@ -1,4 +1,5 @@
 import type { PlanId } from "@/lib/lealtad/planes";
+import { datosDePagoDeCreditos, type DatosPagoCreditos } from "@/lib/celebrar/pagos/creditos-pagados";
 import { decidirPorCobro, motivoDeCorte, type MotivoDeCorte } from "./corte";
 import {
   datosDePagoDeInvitacion,
@@ -276,6 +277,19 @@ export type Puerta = {
   }): Promise<boolean>;
   /** Los correos del pedido pagado (al cliente y al equipo). Nunca lanza. */
   avisarInvitacionPagada(d: { pedidoId: string; conRevision: boolean }): Promise<void>;
+
+  // ── Los créditos de CELEBRAR (pago suelto, no suscripción) ──────────
+
+  /**
+   * Escribe la compra en el libro de créditos de CELEBRAR con la sesión
+   * como referencia única. Devuelve qué pasó: «acreditado» si lo escribió
+   * ESTE evento, «ya_acreditado» si otro camino (la vuelta del navegador,
+   * o el otro evento del mismo cobro) llegó antes, «sin_cobrar» si el
+   * pago todavía no acreditó. Un error de base LANZA (500 → reintento).
+   */
+  acreditarCreditosCelebrar(
+    pago: DatosPagoCreditos,
+  ): Promise<{ tipo: "acreditado" | "ya_acreditado"; creditos: number; aviso?: string | null } | { tipo: "sin_cobrar" } | { tipo: "sin_base" }>;
 };
 
 export type EventoEntrante = {
@@ -312,6 +326,10 @@ export type ResultadoEvento =
       tipo: "invitacion_sin_efecto";
       motivo: "sin_cobrar" | "sin_pedido" | "ya_cobrado" | "no_cobrable";
     }
+  /** Un paquete de créditos de CELEBRAR que quedó acreditado por este evento. */
+  | { tipo: "creditos_acreditados"; cuenta: string; creditos: number }
+  /** Una compra de créditos que no cambió nada (ya estaba, o todavía no acreditó el pago). */
+  | { tipo: "creditos_sin_efecto"; motivo: "sin_cobrar" | "ya_acreditado" | "sin_base" }
   | {
       tipo: "guardado";
       suscripcion: string;
@@ -562,14 +580,15 @@ async function despachar(
     // completado (y en ese momento no se activó nada, porque el
     // `payment_status` venía en "unpaid") y recién ahora acreditó.
     case "checkout.session.async_payment_succeeded":
-      return cobrarInvitacion(objetoDelEvento, puerta, evento.type);
+      return cobrarPagoSuelto(objetoDelEvento, puerta, evento.type);
 
     case "checkout.session.completed": {
-      // Un pago SUELTO no es un plan de Lealtad: o es una invitación
-      // digital —y entonces lo que se cobra es un pedido, no una
-      // suscripción— o no es nuestro y se ignora.
+      // Un pago SUELTO no es un plan de Lealtad: es un paquete de
+      // créditos de CELEBRAR o una invitación digital —y entonces lo que
+      // se cobra es un libro o un pedido, no una suscripción— o no es
+      // nuestro y se ignora.
       if (texto(objetoDelEvento.mode) === "payment") {
-        return cobrarInvitacion(objetoDelEvento, puerta, evento.type);
+        return cobrarPagoSuelto(objetoDelEvento, puerta, evento.type);
       }
       if (texto(objetoDelEvento.mode) !== "subscription") {
         return { tipo: "ignorado", evento: evento.type };
@@ -689,6 +708,50 @@ async function despachar(
     default:
       return { tipo: "ignorado", evento: evento.type };
   }
+}
+
+/** Un pago suelto: primero se pregunta si es de CELEBRAR; si no, es (o no) una invitación. */
+async function cobrarPagoSuelto(
+  sesion: Record<string, unknown>,
+  puerta: Puerta,
+  tipoEvento: string,
+): Promise<ResultadoEvento> {
+  const creditos = datosDePagoDeCreditos(sesion);
+  if (creditos) return acreditarCreditosDeCelebrar(creditos, puerta);
+  return cobrarInvitacion(sesion, puerta, tipoEvento);
+}
+
+/**
+ * LA COMPRA DE CRÉDITOS DE CELEBRAR.
+ *
+ * Más corto todavía que la invitación: no hay pedido que leer ni estado
+ * que reclamar. La idempotencia es la referencia única del libro (la
+ * sesión de Stripe): el webhook y la vuelta del navegador pueden llegar
+ * los dos y solo uno escribe. La decisión de cuántos créditos (y el
+ * aviso si el monto no cuadra) vive en lib/celebrar/pagos/creditos-pagados.ts.
+ */
+async function acreditarCreditosDeCelebrar(
+  pago: DatosPagoCreditos,
+  puerta: Puerta,
+): Promise<ResultadoEvento> {
+  const r = await puerta.acreditarCreditosCelebrar(pago);
+  if (r.tipo === "sin_cobrar" || r.tipo === "sin_base") {
+    if (r.tipo === "sin_base") {
+      await puerta.avisar({
+        asunto: "CELEBRAR: entró una compra de créditos y no se pudo acreditar",
+        detalle: `La sesión ${pago.sesionStripe} pagó créditos para la cuenta ${pago.ownerId} y el servidor no tiene con qué escribir en la base. HAY QUE ATENDERLO A MANO.`,
+      });
+    }
+    return { tipo: "creditos_sin_efecto", motivo: r.tipo };
+  }
+  if (r.tipo === "ya_acreditado") return { tipo: "creditos_sin_efecto", motivo: "ya_acreditado" };
+  if (r.aviso) {
+    await puerta.avisar({
+      asunto: "CELEBRAR: una compra de créditos que no cuadra",
+      detalle: `La sesión ${pago.sesionStripe} (cuenta ${pago.ownerId}) quedó acreditada con ${r.creditos} créditos, pero: ${r.aviso}`,
+    });
+  }
+  return { tipo: "creditos_acreditados", cuenta: pago.ownerId, creditos: r.creditos };
 }
 
 /**

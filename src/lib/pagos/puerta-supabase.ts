@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { acreditarCompraDeCreditos } from "@/lib/celebrar/pagos/acreditar";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
 import {
   plantillaCobroFallido,
@@ -195,6 +196,13 @@ export function puertaSupabase(): Puerta | null {
 
     async cobrarPedidoInvitacion(d) {
       return cobrarPedidoInvitacionEn(db, d);
+    },
+
+    // ── Los créditos de CELEBRAR ────────────────────────────────────
+    // El mismo escritor que usa la vuelta del navegador: la referencia
+    // única (la sesión) hace que solo uno de los dos acredite.
+    async acreditarCreditosCelebrar(pago) {
+      return acreditarCompraDeCreditos(pago);
     },
 
     async avisarInvitacionPagada({ pedidoId, conRevision }) {

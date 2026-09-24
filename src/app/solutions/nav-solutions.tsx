@@ -19,18 +19,18 @@ export const MARCA_SOLUTIONS: MarcaNav = {
   // (linksy.lat). Las RUTAS siguen bajo /solutions —renombrar carpetas
   // y tablas por una marca es lo que el repo no hace (ver `ranchos`)—;
   // lo que cambia es lo que la persona lee.
-  etiqueta: "Linksy",
+  etiqueta: "Bookea",
   enlaces: [
-    { href: "/linksy#lealtad", label: "Lealtad" },
-    { href: "/linksy#vender", label: "Vender" },
-    { href: "/linksy#dominio", label: "Tu dominio" },
+    { href: "/solutions#lealtad", label: "Lealtad" },
+    { href: "/solutions#vender", label: "Vender" },
+    { href: "/solutions#dominio", label: "Tu dominio" },
   ],
   itemsCuenta: [
     { href: "/solutions/panel", label: "Mis páginas" },
     { href: "/lealtad/panel", label: "Mis tarjetas de lealtad" },
     { href: "/cuenta", label: "Configuración de perfil" },
   ],
-  hrefIngresar: "/linksy/login",
+  hrefIngresar: "/solutions/login",
   cta: { href: "/solutions/crear", label: "Crear mi página gratis" },
   cerrarSesion: cerrarSesionSolutions,
   industrias: false,

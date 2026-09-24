@@ -11,7 +11,7 @@ afterEach(() => {
 describe("urlLinksy", () => {
   it("sin la variable, la portada servida desde bookea.lat", () => {
     delete process.env.NEXT_PUBLIC_LINKSY_URL;
-    expect(urlLinksy()).toBe("/linksy");
+    expect(urlLinksy()).toBe("/solutions");
   });
 
   it("con la variable, la raíz de linksy.lat (sin barras dobles)", () => {
@@ -23,6 +23,6 @@ describe("urlLinksy", () => {
 
   it("una variable vacía cuenta como ausente", () => {
     process.env.NEXT_PUBLIC_LINKSY_URL = "   ";
-    expect(urlLinksy()).toBe("/linksy");
+    expect(urlLinksy()).toBe("/solutions");
   });
 });

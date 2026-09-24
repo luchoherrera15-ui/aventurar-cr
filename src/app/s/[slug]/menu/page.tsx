@@ -8,6 +8,7 @@ import { nombreDeMoneda } from "@/lib/monedas";
 import { rotulosDe, vocabDe } from "@/lib/solutions/rubros";
 import { conVariante } from "@/lib/solutions/fotos";
 import { CLASES_FUENTES } from "@/app/solutions/fuentes";
+import ElegirMesa from "./elegir-mesa";
 import { ajustesMenuDe, estiloDeAjustes } from "@/lib/solutions/menu-estilos";
 import { FUENTES } from "@/lib/solutions/temas";
 import { pintaDeEstilo } from "@/lib/solutions/menu-pinta";
@@ -173,6 +174,24 @@ export default async function MenuSolutionsPage({ params, searchParams }: Props)
             </span>
           )}
         </header>
+
+        {/* ── «¿ESTÁS EN EL LOCAL?» (24 sep 2026) ───────────────────
+            Hasta hoy el número de mesa SOLO podía venir en la URL, o
+            sea que cada mesa necesitaba su propio QR impreso. Con esto
+            alcanza un QR para todo el local: quien lo escanea escribe
+            el número que ve en su mesa.
+
+            Solo aparece si el negocio recibe pedidos, tiene mesas
+            declaradas y la URL todavía no trae una: con `?mesa=` ya
+            resuelto no hay nada que preguntar. */}
+        {addons.pedidos && negocio.acepta_pedidos && negocio.mesas > 0 && mesa === null && (
+          <ElegirMesa
+            slug={negocio.slug}
+            mesas={negocio.mesas}
+            paleta={c}
+            radio={pinta.def.radio}
+          />
+        )}
 
         {/* LA PORTADA, en el tratamiento que el negocio eligió (0241):
             tarjeta recortada, a sangre con el título encima, fundida con

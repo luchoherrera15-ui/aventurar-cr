@@ -9,6 +9,7 @@ import {
   slugPorDominio,
   urlBookea,
 } from "@/lib/solutions/dominios";
+import { destinoEnCelebrar, esHostCelebrar } from "@/lib/celebrar/dominios";
 
 // NOTA: en esta versión de Next.js el archivo "middleware.ts" pasó a
 // llamarse "proxy.ts" (mismo propósito: código que corre antes de que
@@ -109,6 +110,39 @@ export default async function proxy(request: NextRequest) {
    * ejecuta lo que esa función decide.
    */
   const host = request.headers.get("host") ?? "";
+
+  /**
+   * ══════════════════════════════════════════════════════════════════
+   *  CELEBRAR.LAT — EL DOMINIO DEL PRODUCTO DE CELEBRACIONES (sep 2026)
+   * ══════════════════════════════════════════════════════════════════
+   * `celebrar.lat/app` sirve `src/app/celebrar/app`, `celebrar.lat/` la
+   * portada y `celebrar.lat/maria-y-juan` la invitación pública — el
+   * mismo despliegue que bookea.lat/celebrar/…, sin duplicar archivos.
+   *
+   * Mismo mecanismo que Linksy y por la misma razón (el proxy corre
+   * ANTES del sistema de archivos). Va antes que Linksy y que el dominio
+   * propio de un negocio porque `esHostPropio` ya lo reconoce como
+   * nuestro: nadie puede reclamarlo. La decisión de qué ruta es cuál
+   * vive en `destinoEnCelebrar`, probada en src/lib/celebrar/dominios.test.ts.
+   *
+   * A diferencia de Linksy, acá NO hay rama «bookea»: el login, el panel
+   * y el callback de Auth viven dentro de CELEBRAR (decisión D-3 del
+   * dueño, ver docs/celebrar/audit.md). La cookie de sesión nace en
+   * celebrar.lat y ahí se queda.
+   */
+  if (esHostCelebrar(host)) {
+    const destino = destinoEnCelebrar(request.nextUrl.pathname);
+    if (destino.tipo === "redirect") {
+      return NextResponse.redirect(new URL(destino.pathname + request.nextUrl.search, request.url));
+    }
+    if (destino.tipo === "rewrite") {
+      const url = request.nextUrl.clone();
+      url.pathname = destino.pathname;
+      return NextResponse.rewrite(url);
+    }
+    // "pasar": assets, /api, robots.txt… siguen el camino normal.
+  }
+
   if (esHostLinksy(host)) {
     const destino = destinoEnLinksy(request.nextUrl.pathname);
     if (destino.tipo === "bookea") {

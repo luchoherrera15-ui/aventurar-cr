@@ -281,7 +281,10 @@ export function sueltoPack(p: PackInvitacion): number {
  * ningún ahorro, en vez de inventarlo.
  */
 export function ahorroPack(p: PackInvitacion): number {
-  return sueltoPack(p) - p.precioUSD;
+  // A centavos: con la Premium en $19.99, 19.99 + 39 − 35 da
+  // 23.999999999999996 en coma flotante, y así se llegó a leer en la
+  // landing («$23.999999999999996 menos»).
+  return Math.round((sueltoPack(p) - p.precioUSD) * 100) / 100;
 }
 
 /**

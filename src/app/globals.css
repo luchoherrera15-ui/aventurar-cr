@@ -96,53 +96,90 @@
    El contenedor lo pone `src/app/lealtad/layout.tsx`, que además
    carga Montserrat.  ─────────────────────────────────────────────── */
 /* ═══════════════════════════════════════════════════════════════════
-   IDENTIDAD DE LINKSY (.linksy) — capa ENCIMA de .lealtad, no copia
+   IDENTIDAD DE LINKSY (.linksy) — papel y tinta
    ═══════════════════════════════════════════════════════════════════
 
-   Pedido del dueño (6 sep 2026): «estilo Linktree: letras grandes,
-   cards grandes, minimalista, con colores — rojos, azules, verdes —
-   pero para Linksy». Linksy es un producto con dominio propio y
-   estrena identidad; esta es su paleta, y vive acá y no en el JSX por
-   la regla de siempre: un hex suelto en un componente no se audita.
+   Pedido del dueño (22 sep 2026): «que no sea tan colorida, sino más
+   neutro y más profesional; cambiemos completamente el diseño de todo
+   Linksy». Antes eran SIETE bloques saturados —celeste, lima, azul,
+   coral, lila, amarillo, menta— y una sección pintada entera de cada
+   uno, al estilo Linktree.
 
-   Son BLOQUES de color, no acentos: cada sección de la landing se
-   pinta entera de uno, como Linktree. Por eso cada color trae su
-   tinta ya decidida —el par se mide junto, nunca se elige a ojo—:
+   ── POR QUÉ NEUTRO ─────────────────────────────────────────────────
+   Linksy le vende a un restaurante, una tienda o un local su SITIO
+   WEB. Si la página que se lo vende grita más que el producto, el
+   dueño no puede imaginarse el suyo ahí adentro. Ahora el color lo
+   ponen las fotos y las páginas de los clientes; el sitio es el marco.
 
-     celeste  #bfe4ff  con tinta #0d2b4a ...... 10,3:1  (el héroe, 7 sep)
-     lima     #c9f24c  con tinta #16301a ...... 12,9:1
-     azul     #2b4bf2  con tinta #ffffff ......  6,3:1
-     coral    #ff5d3a  con tinta #2a0d05 ......  6,6:1
-     lila     #d9c9ff  con tinta #241a4a ...... 11,4:1
-     amarillo #ffd43b  con tinta #2b2100 ...... 13,1:1
-     menta    #b8f2dc  con tinta #0e3a2a ...... 12,6:1
-     carbon   #101014  con tinta #ffffff ...... 19,0:1
+   ── LAS TRES SUPERFICIES Y EL ACENTO ───────────────────────────────
+   Cada par se midió con ratioContraste() (identidad.ts), nunca a ojo:
 
-   Los radios son más grandes que los del sitio (32 px) a propósito:
-   es lo que hace «card grande» y no «tarjeta del panel». Solo dentro
-   de .linksy; el resto del sitio conserva su escala. */
+     papel  #ffffff  con tinta #14161A ...... 18,1:1
+     hueso  #F7F6F4  con tinta #14161A ...... 16,8:1   (el fondo base)
+     arena  #EDEAE4  con tinta #14161A ...... 15,1:1   (sección alterna)
+     carbon #14161A  con tinta #ffffff ...... 18,1:1
+
+     tinta-suave #5A6070 sobre las tres ..... 5,2 a 6,3:1
+     acento      #A84A26 sobre las tres ..... 4,8 a 5,7:1
+     acento      #A84A26 con blanco encima .. 5,7:1
+
+   El acento es UNO y sirve para las dos cosas —texto sobre claro y
+   relleno con letra blanca—, que es justo lo que el naranja de Bookea
+   no puede hacer (2,35:1 sobre blanco). Se usa en dosis chicas:
+   rótulos, un subrayado, un punto activo. Las acciones son NEGRAS.
+
+   ── LOS NOMBRES VIEJOS SIGUEN VIVOS, MAPEADOS ──────────────────────
+   Diecisiete archivos escriben var(--linksy-lima) y compañía. En vez
+   de romperlos todos de una, cada nombre viejo apunta ahora a su
+   equivalente neutro: el panel y el login se vuelven neutros solos, y
+   las llamadas se renombran en pasadas siguientes. Un alias que
+   sobreviva no miente de color: dice el mismo gris que pinta.
+
+   ── LOS RADIOS BAJAN A LA ESCALA DE LA CASA ────────────────────────
+   Eran 32/20 px («card grande» de Linktree). Ahora 20 px para bloques
+   y 14 px para cards, que es la escala de fundacion-visual.md; los
+   botones van a 12 px. Un radio más chico se lee más serio, y de paso
+   Linksy deja de tener una escala propia que nadie más comparte. */
 .linksy {
-  --linksy-tinta: #101014;
-  --linksy-tinta-suave: #4b4b57;
+  --linksy-tinta: #14161A;
+  --linksy-tinta-suave: #5A6070;
   --linksy-papel: #ffffff;
-  --linksy-carbon: #101014;
+  --linksy-papel-tinta: #14161A;
+  --linksy-hueso: #F7F6F4;
+  --linksy-hueso-tinta: #14161A;
+  --linksy-arena: #EDEAE4;
+  --linksy-arena-tinta: #14161A;
+  --linksy-carbon: #14161A;
   --linksy-carbon-tinta: #ffffff;
-  --linksy-celeste: #bfe4ff;
-  --linksy-celeste-tinta: #0d2b4a;
-  --linksy-lima: #c9f24c;
-  --linksy-lima-tinta: #16301a;
-  --linksy-azul: #2b4bf2;
-  --linksy-azul-tinta: #ffffff;
-  --linksy-coral: #ff5d3a;
-  --linksy-coral-tinta: #2a0d05;
-  --linksy-lila: #d9c9ff;
-  --linksy-lila-tinta: #241a4a;
-  --linksy-amarillo: #ffd43b;
-  --linksy-amarillo-tinta: #2b2100;
-  --linksy-menta: #b8f2dc;
-  --linksy-menta-tinta: #0e3a2a;
-  --linksy-radio: 32px;
-  --linksy-radio-chico: 20px;
+  /* El gris que sí se lee sobre el negro (6,9:1). Sin esto alguien
+     pone blanco al 60 % y el estado deja de poder auditarse. */
+  --linksy-carbon-suave: #9AA0AE;
+  --linksy-acento: #A84A26;
+  --linksy-acento-tinta: #ffffff;
+  /* Los filetes. El borde no es texto: no le aplica el 4,5:1, pero sí
+     tiene que verse — de ahí dos, uno por superficie. */
+  --linksy-linea: #E2DFD9;
+  --linksy-linea-arena: #DAD6CE;
+  --linksy-radio: 20px;
+  --linksy-radio-chico: 14px;
+
+  /* ── Los nombres de la paleta vieja, mapeados ──────────────────── */
+  --linksy-celeste: var(--linksy-hueso);
+  --linksy-celeste-tinta: var(--linksy-tinta);
+  --linksy-lima: var(--linksy-carbon);
+  --linksy-lima-tinta: var(--linksy-carbon-tinta);
+  --linksy-azul: var(--linksy-carbon);
+  --linksy-azul-tinta: var(--linksy-carbon-tinta);
+  /* «coral» pintaba tarjetas enteras: pasa a arena. El acento no es
+     un relleno de superficie, es una señal chica. */
+  --linksy-coral: var(--linksy-arena);
+  --linksy-coral-tinta: var(--linksy-tinta);
+  --linksy-lila: var(--linksy-arena);
+  --linksy-lila-tinta: var(--linksy-tinta);
+  --linksy-amarillo: var(--linksy-arena);
+  --linksy-amarillo-tinta: var(--linksy-tinta);
+  --linksy-menta: var(--linksy-arena);
+  --linksy-menta-tinta: var(--linksy-tinta);
 }
 
 /* ── LA VITRINA DEL HÉROE DE LINKSY (7 sep 2026) ────────────────────
@@ -2048,6 +2085,217 @@ body {
   color: #fff;
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   EL HOME EN BLANCO Y NEGRO (dueño, 23 sep 2026)
+   ══════════════════════════════════════════════════════════════════
+
+   «Cambiá el diseño completamente: fondo blanco, cards un poco más
+   oscuros que el blanco del fondo. Usar NEGRO Y BLANCO en títulos, no
+   azules.»
+
+   ── POR QUÉ ES UN ÁMBITO Y NO UN CAMBIO GLOBAL ────────────────────
+
+   `--navy`, `--orange` y compañía los usa TODO el sitio: el panel, los
+   correos, Lealtad, las fichas de negocio. Cambiarlos ahí repintaría
+   media aplicación de un golpe, que no es lo que se pidió.
+
+   Así que la paleta nueva vive acotada a `.home-plataforma`, que es la
+   clase del envoltorio del modo Plataforma. Adentro manda la tinta;
+   afuera no cambia un pixel. El día que esto se extienda al resto del
+   sitio, se mueve el bloque a `:root` y listo.
+
+   ── LA ESCALA ─────────────────────────────────────────────────────
+
+   Tres grises y nada más. Las superficies se distinguen por un salto
+   MÍNIMO —blanco contra #f6f6f4—, que es justo lo que se pidió: las
+   tarjetas apenas más oscuras que el fondo, sin marcos pesados.
+*/
+.home-plataforma {
+  /* La tinta de los títulos. Negro de verdad, no un gris que duda. */
+  --tinta: #14161a;
+  /* El texto que acompaña. 5,9:1 sobre blanco — pasa AA de sobra. */
+  --tinta-suave: #5c626e;
+  /* El rótulo chico de cada sección. */
+  --tinta-tenue: #8b909c;
+  /* El fondo de la página. */
+  --papel: #ffffff;
+  /* Las tarjetas y los mockups: «un poco más oscuros que el blanco». */
+  --superficie: #f6f6f4;
+  /* El escalón siguiente, para lo que va dentro de una tarjeta. */
+  --superficie-2: #ecece8;
+  /* La línea. Casi no se ve, y así tiene que ser. */
+  --linea: #e6e6e2;
+
+  /* ── Y ACÁ SE REPINTA EL RESTO DE LA PÁGINA ──────────────────────
+
+     El header, la franja de arriba, las tarjetas del catálogo y el pie
+     son componentes COMPARTIDOS con el modo Descubrir: no se pueden
+     reescribir sin repintar también esa pantalla.
+
+     Pero sí se pueden reapuntar. Las variables de marca de Tailwind
+     están declaradas como `--color-aventurea-navy: var(--navy)`, y una
+     custom property se resuelve en el ELEMENTO que la usa, no donde se
+     declaró. O sea: redefinir `--navy` acá adentro alcanza para que
+     todo lo que cuelgue de `.home-plataforma` —incluido `bg-aventurea-
+     navy`— salga en tinta, y que afuera no cambie un pixel.
+
+     Es lo que convierte «cambiá el diseño completamente» en un bloque
+     de seis líneas en vez de una cacería por veinte archivos. */
+  --navy: #14161a;
+  --navy-profundo: #000000;
+  --navy-elevado: #2b2f38;
+  --navy-suave: var(--superficie);
+  --text: #14161a;
+  --muted: #5c626e;
+  --line: #e6e6e2;
+  --grey: #f6f6f4;
+
+  /* ── EL COLOR VIVE EN LOS GRÁFICOS (dueño, 23 sep 2026) ──────────
+
+     Corrección sobre la primera pasada, que dejó la página entera en
+     blanco y negro: «vamos a utilizar negros, AZULES, colores en los
+     gráficos; no todo blanco y negro. Una letra bold fuerte y colores
+     negros».
+
+     La regla que sale de ahí, y que es la misma de take.app:
+
+        LA TIPOGRAFÍA ES NEGRA.  EL COLOR ES DE LOS MOCKUPS.
+
+     Los títulos, el cuerpo y el cromo van en tinta y gris. El color
+     —azul, verde, ámbar, rojo— entra SOLO adentro de las
+     demostraciones, y entra con significado: un estado confirmado es
+     verde, uno pendiente es azul, una alerta es roja. Nunca de adorno.
+
+     El azul está medido del link de take.app: rgb(0,130,230). */
+  --acento: #0082e6;
+  --acento-suave: #e7f2fd;
+  --ok: #1a9c5b;
+  --ok-suave: #e4f5ec;
+  --aviso: #c2410c;
+  --aviso-suave: #fdeee1;
+  /* El sello de la tarjeta de Lealtad: ámbar cálido sobre la tinta de
+     la tarjeta. Es el color que de verdad tiene un sello. */
+  --sello: #e0a34a;
+  /* El sello de la tarjeta de Lealtad: ámbar cálido sobre la tinta
+     de la tarjeta. Es el color que de verdad usa un sello. */
+  --sello: #e0a34a;
+
+  /* `--orange` es la variable que usan el header y la franja de arriba
+     para su acento. Pasa al azul del sistema en vez de a un gris: sin
+     ella, el único color del cromo desaparecía. */
+  --orange: var(--acento);
+}
+
+/* Cada mensaje de la demo de automatización entra con un desliz corto.
+   Vive acá y no en el componente porque `@keyframes` no se puede
+   declarar en línea, y respeta `prefers-reduced-motion`: quien lo pidió
+   ve los mensajes aparecer sin movimiento. */
+@keyframes entra-mensaje {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.anim-entra {
+  /* Con los tokens del sistema (antes 0.26s ease-out sueltos): la
+     misma entrada convivía con transiciones de otra curva en el mismo
+     gesto y se sentía descoordinada — ui-ux-expert §3. */
+  animation: entra-mensaje var(--duracion-card, 300ms) var(--ease-bookea, ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-entra {
+    animation: none;
+  }
+}
+
+/* El «pop» de un elemento que se acaba de elegir en las demos de los
+   teléfonos del home (telefonos-vivos.tsx): el disco que pasa de «+» a
+   «1», el badge que aparece. Solo transform/opacity, 200 ms, la curva
+   de la casa. */
+@keyframes pop-elegido {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.anim-pop {
+  animation: pop-elegido var(--duracion-micro, 200ms) var(--ease-bookea, ease-out) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-pop {
+    animation: none;
+  }
+}
+
+/* El botón principal del home: negro sólido, esquina suave.
+   Sigue la regla de la marca —«rectángulo de esquina suave, nunca
+   píldora»— y solo cambia el color. */
+.btn-tinta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 12px;
+  background-color: #14161a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 0.85rem 1.75rem;
+  transition: background-color 0.15s ease;
+}
+.btn-tinta:hover {
+  background-color: #2b2f38;
+}
+
+/* El secundario: contorno fino sobre el papel. */
+.btn-tinta-contorno {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 12px;
+  border: 1px solid #d8d8d2;
+  background-color: transparent;
+  color: #14161a;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 0.82rem 1.75rem;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+}
+.btn-tinta-contorno:hover {
+  border-color: #14161a;
+  background-color: #f6f6f4;
+}
+
+/* Y el de la banda negra del cierre: blanco sobre tinta. */
+.btn-papel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 12px;
+  background-color: #ffffff;
+  color: #14161a;
+  font-weight: 700;
+  font-size: 15px;
+  padding: 0.85rem 1.75rem;
+  transition: background-color 0.15s ease;
+}
+.btn-papel:hover {
+  background-color: #ecece8;
+}
+
+
 /* --- Imprimir / guardar como PDF -------------------------------------
    Hoy lo usa la lista de confirmaciones de un evento (el anfitrión
    imprime la lista y la lleva al salón), pero las clases son genéricas
@@ -3070,7 +3318,7 @@ body {
    navy → carbón, crema → celeste tenue, líneas más suaves. Nada de
    eso se reescribe; solo cambia de color debajo. */
 .linksy-panel {
-  --linksy-fondo-panel: #eef4fb;
+  --linksy-fondo-panel: #F7F6F4;
   --navy: var(--linksy-carbon);
   --navy-profundo: #000000;
   --navy-elevado: #2a2a33;
@@ -3090,3 +3338,111 @@ body {
 }
 /* Las cards heredadas: más radio, sin borde duro, sombra plana. */
 .linksy-panel section.rounded-3xl { border-radius: 28px; border-color: transparent; }
+
+/* ══════════════════════════════════════════════════════════════════
+   LA VERSIÓN OSCURA DEL HOME (.home-oscuro)
+   ══════════════════════════════════════════════════════════════════
+
+   Pedido del dueño (24 sep 2026): ver las veinte ideas del home «100 %
+   funcionales, o sea como se verían exactamente». Una de ellas es la
+   portada en carbón, y sin esto no se podía mirar de verdad.
+
+   Son DOCE líneas porque la paleta de `.home-plataforma` está hecha de
+   variables y una variable se resuelve POR ELEMENTO: basta con volver a
+   declararlas más adentro para que todo el subárbol —tarjetas, mockups,
+   botones, el pie— se repinte sin tocar un solo componente. Es la misma
+   mecánica con la que `.home-plataforma` repinta el sitio entero.
+
+   Los pares están medidos, no elegidos a ojo:
+     tinta   #ffffff sobre papel #0e1013 → 18,1:1
+     suave   #a8adb8 sobre papel         →  8,2:1
+     acento  #4da3ff sobre papel         →  7,4:1  (el #0082e6 del modo
+             claro da 4,0:1 sobre carbón: no alcanza, por eso sube)
+*/
+.home-plataforma.home-oscuro {
+  --tinta: #ffffff;
+  --tinta-suave: #a8adb8;
+  --tinta-tenue: #6b7280;
+  --papel: #0e1013;
+  --superficie: #191c21;
+  --superficie-2: #23272e;
+  --linea: #2b2f36;
+  --navy: #ffffff;
+  --text: #ffffff;
+  --muted: #a8adb8;
+  --line: #2b2f36;
+  --grey: #191c21;
+  --acento: #4da3ff;
+  --acento-suave: #12283d;
+  --ok: #4ade80;
+  --ok-suave: #14301f;
+  --aviso: #fb923c;
+  --aviso-suave: #35200f;
+  --orange: var(--acento);
+}
+
+/* Los botones dentro del home oscuro.
+   `.btn-tinta` y `.btn-tinta-contorno` traen sus colores en hexadecimal,
+   no en variables, así que el cambio de paleta no los alcanza: el
+   primario quedaba casi negro sobre casi negro y el secundario,
+   directamente invisible. Se invierten acá y solo acá. */
+.home-plataforma.home-oscuro .btn-tinta {
+  background-color: #ffffff;
+  color: #0e1013;
+}
+.home-plataforma.home-oscuro .btn-tinta:hover {
+  background-color: #e6e6e2;
+}
+.home-plataforma.home-oscuro .btn-tinta-contorno {
+  border-color: #3a3f48;
+  color: #ffffff;
+}
+.home-plataforma.home-oscuro .btn-tinta-contorno:hover {
+  background-color: #191c21;
+}
+
+/* El botón «Mi negocio» del header usa `bg-aventurea-navy`, que en el
+   home oscuro vale BLANCO —ahí `--navy` es el color del texto—, y su
+   letra blanca desaparecía. En modo oscuro la letra sobre ese fondo
+   tiene que ser la del papel. Se apunta a la utilidad a propósito: el
+   componente es compartido con el marketplace y no se toca. */
+.home-plataforma.home-oscuro .bg-aventurea-navy {
+  color: #0e1013;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   LA CABECERA SOBRE EL HÉROE MARINO (.cabecera-marina)
+   ══════════════════════════════════════════════════════════════════
+
+   Cuando el héroe va a sangre en navy, una cabecera blanca encima deja
+   una franja que parte la pantalla en dos y arruina el efecto: lo que
+   hace que un héroe a sangre se vea caro es justamente que NO tiene
+   borde arriba.
+
+   No hay una cabecera nueva. `HeaderPlataforma` se pinta con
+   `--papel`, `--tinta` y `--linea`, así que basta con re-declararlas en
+   su envoltorio para que la misma cabecera salga marina. Mismo
+   componente, mismo markup, mismos menús — otra piel.
+
+   `--navy` vale blanco acá (es el color del texto), y el botón «Mi
+   negocio» lo usa de FONDO: por eso su letra tiene que volverse
+   marina, igual que en el home oscuro. */
+.home-plataforma .cabecera-marina {
+  --papel: #16295e;
+  --tinta: #ffffff;
+  --tinta-suave: rgba(255, 255, 255, 0.75);
+  --tinta-tenue: rgba(255, 255, 255, 0.55);
+  --superficie: rgba(255, 255, 255, 0.10);
+  --superficie-2: rgba(255, 255, 255, 0.16);
+  --linea: rgba(255, 255, 255, 0.14);
+  --navy: #ffffff;
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.75);
+  --line: rgba(255, 255, 255, 0.14);
+  --grey: rgba(255, 255, 255, 0.10);
+  --acento: #4da3ff;
+  --acento-suave: rgba(77, 163, 255, 0.18);
+}
+.home-plataforma .cabecera-marina .bg-aventurea-navy {
+  color: #16295e;
+}

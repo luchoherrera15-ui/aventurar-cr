@@ -226,7 +226,7 @@ export default function SeccionInicio({
       {/* ── 1 · TU LINK ─────────────────────────────────────────── */}
       <section className={`${LP_TILE} grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end`} style={bloque("celeste")}>
         <div className="min-w-0">
-          <p className={LP_EYEBROW}>Tu Linksy</p>
+          <p className={LP_EYEBROW}>Tu página</p>
           <h1 className={`mt-3 ${LP_TITULO}`}>{negocio.nombre}</h1>
           <p className={`mt-3 max-w-[52ch] ${LP_BAJADA}`}>{negocio.bajada || "Tu WhatsApp, tus redes, tu catálogo y tu tarjeta de lealtad, en un solo link."}</p>
           <div className="mt-6 flex flex-wrap items-center gap-2.5">

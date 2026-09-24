@@ -8,7 +8,7 @@ import { TOPES } from "@/lib/solutions/tipos";
 import FormularioCrear from "./formulario-crear";
 
 export const metadata: Metadata = {
-  title: "Creá tu página · Linksy",
+  title: "Creá tu página · Bookea",
   description: "Tu página de links y tu menú digital con pedidos desde la mesa, en cinco minutos.",
   alternates: { canonical: "/solutions/crear" },
 };
@@ -45,7 +45,7 @@ export default async function CrearSolutionsPage({
       <NavSolutions logueado nombre={null} />
       <section className="mx-auto w-[min(560px,92vw)] py-12">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "var(--accion)" }}>
-          Linksy
+          Bookea
         </p>
         <h1 className="titulo mt-2 text-[clamp(28px,4vw,40px)] leading-tight text-aventurea-navy">
           ¿Cómo se llama tu negocio?

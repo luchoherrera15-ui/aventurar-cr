@@ -65,6 +65,14 @@ const SECCIONES: { ruta: string; prioridad: number; frecuencia: "daily" | "weekl
      * toca: esas páginas están vivas.
      */
     { ruta: "/", prioridad: 1, frecuencia: "daily" },
+    /**
+     * `/all` — el catálogo completo, en su dirección fija (dueño, 24
+     * sep 2026). Entra al sitemap con prioridad alta porque es la
+     * página que contesta las búsquedas de SERVICIO («barbería en
+     * Heredia»), mientras que `/` contesta las de PLATAFORMA. Son dos
+     * intenciones distintas y cada una tiene su canónico.
+     */
+    { ruta: "/all", prioridad: 0.9, frecuencia: "daily" },
     { ruta: "/hospedajes", prioridad: 0.8, frecuencia: "weekly" },
     { ruta: "/restaurantes", prioridad: 0.8, frecuencia: "weekly" },
     // ⚠️ `/food` salió del sitemap: Bookea Food se apagó el 27 ago 2026

@@ -16,7 +16,7 @@ import MarcoLinksy from "../marco-linksy";
 import { navDelPanel } from "../nav-datos";
 import ListaAutomatizaciones, { type AutomatizacionConResumen } from "./lista-automatizaciones";
 
-export const metadata: Metadata = { title: "Instagram · Linksy" };
+export const metadata: Metadata = { title: "Instagram · Bookea" };
 
 /**
  * /solutions/panel/[id]/instagram — RESPUESTAS AUTOMÁTICAS.

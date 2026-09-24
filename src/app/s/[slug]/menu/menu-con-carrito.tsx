@@ -545,12 +545,20 @@ export default function MenuConCarrito({
         </nav>
       )}
 
-      {/* ── Anclas ─────────────────────────────────────────────── */}
+      {/* ── Anclas ───────────────────────────────────────────────
+
+          ENVUELVEN, no se van de lado (24 sep 2026). Con tres o cuatro
+          secciones cortas la tira horizontal funcionaba; con siete —y
+          nombres como «Desayunos · 8:00 a 10:00 am»— se salía de la
+          pantalla y las últimas quedaban escondidas detrás del borde,
+          sin nada que avisara que seguían. `flex-wrap` las baja a un
+          segundo renglón: ocupa unos píxeles más de alto y se ven
+          TODAS. */}
       {grupos.length > 1 && (
-        <nav aria-label={t.secciones} className="sticky top-0 z-10 mt-4 overflow-x-auto px-5 py-2.5" style={{ background: paleta.fondo }}>
-          <ul className="mx-auto flex w-full max-w-[var(--ancho-menu,520px)] gap-2">
+        <nav aria-label={t.secciones} className="sticky top-0 z-10 mt-4 px-5 py-2.5" style={{ background: paleta.fondo }}>
+          <ul className="mx-auto flex w-full max-w-[var(--ancho-menu,520px)] flex-wrap gap-2">
             {grupos.map((g) => (
-              <li key={g.nombre} className="shrink-0">
+              <li key={g.nombre}>
                 <a href={`#${seccionId(g.nombre)}`} className="block rounded-full px-3 py-1.5 text-[12.5px] font-bold" style={{ background: paleta.superficie, border: `1px solid ${paleta.borde}` }}>
                   {g.nombre}
                 </a>

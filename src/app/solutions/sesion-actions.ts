@@ -2,17 +2,17 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { urlLinksy } from "@/lib/solutions/dominios";
 
 /**
- * Cerrar sesión desde el nav de Solutions (Linksy).
+ * Cerrar sesión desde el nav de la página del negocio.
  *
- * Vuelve a la PORTADA DE LINKSY (`urlLinksy`: linksy.lat en producción),
- * no a `/lealtad` (a donde manda `cerrarSesionLealtad`) ni al
- * directorio: quien cierra sesión desde acá estaba en su página o en su
- * menú, no viendo tarjetas. Hasta el 7 sep 2026 volvía a `/solutions`,
- * la landing vieja — el dueño salió de linksy.lat y aterrizó en una
- * página de otro producto.
+ * Vuelve a `/solutions`, la página de producto de «Tu página», y no a
+ * `/lealtad` (a donde manda `cerrarSesionLealtad`) ni al directorio:
+ * quien cierra sesión desde acá estaba en su página o en su menú, no
+ * viendo tarjetas.
+ *
+ * Hasta el 24 sep 2026 volvía a la portada de Linksy. Esa portada ya no
+ * existe como marca: su contenido ES `/solutions`.
  *
  * `scope: "local"` por lo mismo que en el nav de Lealtad: el default
  * de Supabase es GLOBAL y revoca la sesión de todos los aparatos. Un
@@ -21,5 +21,5 @@ import { urlLinksy } from "@/lib/solutions/dominios";
 export async function cerrarSesionSolutions() {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "local" });
-  redirect(urlLinksy());
+  redirect("/solutions");
 }

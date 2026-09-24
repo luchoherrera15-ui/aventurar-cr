@@ -44,6 +44,9 @@ export const RESERVED_SLUGS = new Set([
   // lista viva es `RUTAS_LINKSY` en src/lib/solutions/dominios.ts;
   // estas tres la espejan para que ningún alta nueva las tome.
   "linksy",
+  // CELEBRAR (sep 2026): vive en /celebrar; un negocio con ese slug
+  // tendría una ficha muerta detrás de la portada del producto.
+  "celebrar",
   "crear",
   "entrar",
   "login",

@@ -9,7 +9,7 @@ import MarcoLinksy from "../marco-linksy";
 import { navDelPanel } from "../nav-datos";
 import { LP_BOTON } from "../sistema-linksy";
 
-export const metadata: Metadata = { title: "QR de mesas · Linksy" };
+export const metadata: Metadata = { title: "QR de mesas · Bookea" };
 
 /**
  * /solutions/panel/<id>/mesas — LA HOJA DE QR, UNA POR MESA, PARA IMPRIMIR.

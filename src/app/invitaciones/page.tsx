@@ -1,44 +1,55 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Cormorant_Garamond } from "next/font/google";
-// Las animaciones de esta landing (reel + riel de ejemplos) viven en su
-// propia hoja — así el resto del sitio (home, eventos, citas, el panel
-// de negocio...) no las descarga nunca.
-import "./reel.css";
+import { toString as qrATexto } from "qrcode";
+// Los colores y las cuatro animaciones de esta landing viven en su
+// propia hoja: el resto del sitio no las descarga nunca.
+import "./invitaciones.css";
 import RevealOnScroll from "@/components/reveal-on-scroll";
+import { IconChatBubble } from "@/components/icons";
 import { CATALOGO_INVITACIONES } from "@/lib/catalogo-invitaciones";
 import { IMAGEN_OG } from "@/lib/sitio";
-import {
-  PRODUCTOS_INDIVIDUALES,
-  tipoCambioUSD,
-} from "@/lib/paquetes-invitaciones";
-import {
-  IconCamera,
-  IconMail,
-  IconSparkles,
-  IconUsers,
-} from "@/components/icons";
+import { PRODUCTOS_INDIVIDUALES, promoVigente, tipoCambioUSD } from "@/lib/paquetes-invitaciones";
+import DemoConfirmaciones from "./demo-confirmaciones";
+import HeroVivo from "./hero-vivo";
+import PiezasValor from "./piezas-valor";
 import PreciosCatalogo from "./precios-catalogo";
-import RielEjemplos from "./riel-ejemplos";
+import VitrinaEjemplos from "./vitrina-ejemplos";
 
 /**
- * /invitaciones — la landing de invitaciones digitales, contada como
- * la cuenta Apple: primero QUÉ ES en una frase, después una sola
- * secuencia que lo demuestra sin cortes, y recién ahí los ejemplos, el
- * detalle y el precio.
+ * /invitaciones — la landing de invitaciones digitales (rehecha, sep 2026).
  *
- * LA LÍNEA DE DISEÑO ES LA NUESTRA, no la de Apple: el oscuro es el
- * navy de la marca (#16295e llevado a #0a1226 para superficies
- * grandes), el acento es el naranja de siempre, y la tipografía es la
- * Figtree del sitio. De Apple se toma la ESTRUCTURA — respirar, una
- * idea por pantalla, tipografía grande y apretada — no la paleta.
+ * LA IDEA: en vez de contar el producto, ponerlo a andar en la página.
+ *
+ *   1. El héroe tiene un teléfono con una invitación REAL adentro
+ *      (/i/{slug} en un iframe): se desliza, se abre el sobre, se toca
+ *      «Confirmar». Y con pestañas para pasar de una boda a un
+ *      quinceaños.
+ *   2. «Probalo»: tres pasos donde quien mira escribe su nombre, toca
+ *      «Sí, voy» y se ve a sí mismo aparecer en la lista del anfitrión,
+ *      con los contadores moviéndose. Es la relación causa→efecto que
+ *      vende el producto.
+ *   3. Lo que se lleva: cuenta regresiva corriendo, Maps y Waze que
+ *      abren, preguntas que se prenden y apagan, y un QR que escanea.
+ *   4. La vitrina: cada ejemplo corriendo en el teléfono, filtrado por
+ *      ocasión.
+ *   5. Precios (el mismo catálogo de siempre) y el cierre.
+ *
+ * LA LÍNEA DE DISEÑO SIGUE SIENDO LA NUESTRA: el navy de la marca como
+ * fondo, el naranja como acento, la Figtree del sitio, y el «papel» de
+ * la invitación (crema y vino de «Carta de Amor») para todo lo que
+ * muestra al invitado. Los pares de color están medidos en
+ * invitaciones.css. El CTA naranja lleva letra navy y no blanca: blanco
+ * sobre ese naranja da 2,9:1 y no pasa.
+ *
+ * Lo que había antes —el riel de slides de colores (`riel-ejemplos.tsx`)
+ * y la hoja `reel.css`— dejó de montarse acá, igual que se hizo con el
+ * `Reel` en agosto: los archivos siguen en la carpeta hasta que el dueño
+ * decida borrarlos.
  */
 
-// La serif del papel de la invitación. Es la misma que usa el álbum
-// (/a/{slug}), así que el producto se ve de una sola familia. Solo
-// 400: ni reel.tsx ni riel-ejemplos.tsx le aplican font-bold/semibold
-// junto con esta clase, así que 500 y 600 se estaban descargando sin
-// que ningún texto de la página los usara.
+// La serif del papel de la invitación: la misma del álbum y de las
+// invitaciones, así el producto se ve de una sola familia.
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
   weight: ["400"],
@@ -46,29 +57,19 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  // Sin "| Bookea" acá: el layout raíz ya lo agrega con su template
-  // ("%s | Bookea") — ponerlo dos veces duplicaba la marca en la
-  // pestaña del navegador.
+  // Sin "| Bookea": el layout raíz ya lo agrega con su template.
   title: "Invitaciones digitales",
   description:
-    "Un link que se abre en cualquier teléfono, tus invitados confirman con un toque y la lista se te arma sola. Diseñada a mano para tu evento.",
+    "Un link que se abre en cualquier teléfono, con música, historia y ubicación. Tus invitados confirman con un toque y la lista se te arma sola. Probala acá mismo.",
   /**
-   * ⚠️ SIN ESTE BLOQUE, COMPARTIR ESTA PÁGINA MOSTRABA OTRA COSA.
-   *
-   * El `title` de arriba manda en la pestaña del navegador y en Google,
-   * pero NO en la vista previa de Facebook o WhatsApp: ahí gana el
-   * `openGraph.title` del layout raíz, que se hereda entero cuando la
-   * página no declara el suyo. Por eso pegar el link de Invitaciones en
-   * un grupo mostraba «Bookea — Reservá espacios y servicios en Costa
-   * Rica» con la foto de una barbería del catálogo.
-   *
-   * Toda página pensada para compartirse necesita su propio
-   * `openGraph`. Poner solo `title` no alcanza.
+   * ⚠️ SIN ESTE BLOQUE, COMPARTIR ESTA PÁGINA MOSTRABA OTRA COSA: el
+   * openGraph del layout raíz se hereda entero cuando la página no
+   * declara el suyo, y WhatsApp mostraba la portada del marketplace.
    */
   openGraph: {
     title: "Invitaciones digitales que tus invitados abren de una",
     description:
-      "Un link que se abre en cualquier teléfono. Confirman con un toque y la lista se te arma sola.",
+      "Un link que se abre en cualquier teléfono. Confirman con un toque y la lista se te arma sola. Probala en la página.",
     locale: "es_CR",
     siteName: "Bookea",
     type: "website",
@@ -82,233 +83,205 @@ export const metadata: Metadata = {
   },
 };
 
-const NAVY_PROFUNDO = "#0a1226";
-const NAVY = "#16295e";
+/** El álbum de ejemplo: lo abre el QR de «Lo que se lleva» y el link de al lado. */
+const ALBUM_EJEMPLO = "/a/fotos-ejemplo-cumpleanos-star-wars-de-luis-herrera";
 
 /**
- * Las cuatro piezas del producto, cada una apuntando a un ejemplo que
- * se abre de verdad. Los slugs están verificados: si se borra una demo
- * de la base, el botón lleva a un 404 — al armar esto, `demo-zoologico`
- * ya estaba en el catálogo pero no en la base.
+ * Las pestañas del teléfono del héroe: una demo por ocasión, en el
+ * orden en que se muestran. Los slugs existen en la base (el catálogo
+ * los verifica); «Carta de Amor» va primera por pedido del dueño.
  */
-const PIEZAS_EJEMPLO = [
-  {
-    titulo: "Invitación Estándar",
-    texto: "Una sola pantalla, elegante: cuenta regresiva, cómo llegar y confirmación por WhatsApp.",
-    href: "/i/demo-boda-estandar",
-    Icono: IconMail,
-    tono: "bg-[#ee7420]/15 text-[#ee7420]",
-  },
-  {
-    titulo: "Invitación Premium",
-    texto:
-      "Un sobre que se abre con música: capítulos, código de vestimenta y confirmación de asistencia.",
-    href: "/i/demo-boda-premium",
-    Icono: IconSparkles,
-    tono: "bg-white/15 text-white",
-  },
-  {
-    titulo: "Confirmaciones",
-    texto: "Mirá en tiempo real quién confirmó y cuántos van a tu evento.",
-    href: "/invitaciones/ejemplo/confirmaciones",
-    Icono: IconUsers,
-    tono: "bg-aventurea-sky/25 text-aventurea-sky",
-  },
-  {
-    titulo: "Álbum digital",
-    texto: "Las fotos de tus invitados, todas en un solo lugar y con código QR.",
-    href: "/a/fotos-ejemplo-cumpleanos-star-wars-de-luis-herrera",
-    Icono: IconCamera,
-    tono: "bg-aventurea-green/25 text-aventurea-green",
-  },
-] as const;
+const DEMOS_DEL_HERO = ["demo-boda-premium", "demo-quince-anos", "demo-princesas", "demo-corporativa"]
+  .map((slug) => CATALOGO_INVITACIONES.find((d) => d.slug === slug))
+  .filter((d): d is NonNullable<typeof d> => !!d);
 
-export default function InvitacionesLanding() {
-  // El "desde ₡X" del hero sale del producto más barato del catálogo —
-  // hoy el Save the Date. Se calcula y no se escribe a mano para que
-  // no quede desactualizado cuando cambien los precios.
+/**
+ * El QR del álbum, generado en el servidor (esta página es estática,
+ * así que corre una vez por build) y pasado al cliente como un path:
+ * meter la librería `qrcode` en el bundle del navegador serían ~50 KB
+ * por un solo dibujo.
+ */
+async function qrDelAlbum(): Promise<{ viewBox: string; d: string }> {
+  const svg = await qrATexto(`https://bookea.lat${ALBUM_EJEMPLO}`, {
+    type: "svg",
+    errorCorrectionLevel: "M",
+    margin: 0,
+  });
+  const viewBox = svg.match(/viewBox="([^"]+)"/)?.[1] ?? "0 0 33 33";
+  // El path de los módulos es el ÚLTIMO <path>: el primero es el fondo.
+  const paths = [...svg.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map((m) => m[1]);
+  return { viewBox, d: paths[paths.length - 1] ?? "" };
+}
+
+export default async function InvitacionesLanding() {
+  // El «desde $X» sale del producto más barato del catálogo, calculado
+  // y no escrito a mano, para que no quede viejo al cambiar precios.
   const desdeUSD = Math.min(...PRODUCTOS_INDIVIDUALES.map((p) => p.precioUSD));
   const desdeColones =
     "₡" + (Math.round((desdeUSD * tipoCambioUSD()) / 100) * 100).toLocaleString("es-CR");
+  const qr = await qrDelAlbum();
 
   return (
-    <main
-      className="min-h-svh"
-      style={{ background: NAVY_PROFUNDO, color: "#ffffff" }}
-    >
+    <main className="inv-landing min-h-svh">
       <RevealOnScroll />
 
-      {/* ================= HERO ================= */}
-      <section className="relative flex min-h-svh items-center overflow-hidden">
-        {/* Un halo naranja detrás, muy bajo: da profundidad sin
-            convertirse en un degradado de los que el sitio evita. */}
+      {/* ================= HÉROE ================= */}
+      <section className="relative overflow-hidden px-5 pb-16 pt-14 sm:px-8 lg:pb-24 lg:pt-20">
+        {/* Un halo naranja detrás del teléfono, muy bajo: profundidad
+            sin convertirse en un degradado de los que el sitio evita. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute left-1/2 top-[42%] h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.16] blur-[120px]"
-          style={{ background: "#ee7420" }}
+          className="pointer-events-none absolute right-[8%] top-[30%] h-[560px] w-[560px] -translate-y-1/2 rounded-full opacity-[0.14] blur-[130px]"
+          style={{ background: "var(--inv-naranja)" }}
         />
 
-        <div className="relative mx-auto w-full max-w-[1120px] text-center">
-          <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[#ee7420]">
-            Invitaciones digitales
-          </p>
-          <h1 className="titulo mx-auto mt-5 max-w-[16ch] text-[clamp(42px,8vw,92px)] leading-[1.02]">
-            Tu invitación
-            <br />
-            personalizada.
-          </h1>
-          <p className="mx-auto mt-6 max-w-[52ch] text-[clamp(16px,2vw,21px)] leading-relaxed text-white/60">
-            Un link que se abre en cualquier teléfono. Tus invitados confirman con un
-            toque y la lista se te arma sola.
-          </p>
+        <div className="relative mx-auto grid w-full max-w-[1120px] items-center gap-12 lg:grid-cols-[1.1fr_auto] lg:gap-16">
+          <div className="text-center lg:text-left">
+            <h1
+              className="titulo inv-entra mx-auto max-w-[17ch] text-[clamp(40px,6.4vw,72px)] leading-[1.02] lg:mx-0"
+              style={{ ["--inv-orden" as string]: 0 }}
+            >
+              Una invitación que se abre como un regalo.
+            </h1>
+            <p
+              className="inv-entra mx-auto mt-6 max-w-[50ch] text-[clamp(16px,2vw,20px)] leading-relaxed text-[var(--inv-tinta-suave)] lg:mx-0"
+              style={{ ["--inv-orden" as string]: 1 }}
+            >
+              Un link que se abre en cualquier teléfono, con música, historia y ubicación.
+              Tus invitados confirman con un toque; vos ves la lista armarse sola.
+            </p>
 
-          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="#paquetes"
-              className="rounded-full bg-[#ee7420] px-7 py-3.5 text-[14.5px] font-bold text-white transition-transform hover:scale-[1.03]"
+            <div
+              className="inv-entra mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start"
+              style={{ ["--inv-orden" as string]: 2 }}
             >
-              Ver los paquetes
-            </Link>
-            <Link
-              href="#ejemplos"
-              className="rounded-full border border-white/25 px-7 py-3.5 text-[14.5px] font-bold text-white/90 transition-colors hover:border-white/60"
+              <Link
+                href="#precios"
+                className="presionable inline-flex min-h-[48px] items-center rounded-full bg-[var(--inv-naranja)] px-7 text-[14.5px] font-bold text-[var(--inv-naranja-tinta)]"
+              >
+                Ver precios
+              </Link>
+              <Link
+                href="#probar"
+                className="presionable inline-flex min-h-[48px] items-center rounded-full border border-[var(--inv-linea)] px-7 text-[14.5px] font-bold transition-colors duration-[var(--duracion-micro)] hover:border-[var(--inv-tinta-suave)]"
+              >
+                Probar una invitación
+              </Link>
+            </div>
+            <p
+              className="inv-entra mt-4 text-[13px] text-[var(--inv-tinta-suave)]"
+              style={{ ["--inv-orden" as string]: 3 }}
             >
-              Ver ejemplos reales
-            </Link>
+              Desde ${desdeUSD} · {desdeColones} aproximadamente · diseñada a mano para tu evento
+            </p>
           </div>
-          <p className="mt-5 text-[13px] text-white/40">
-            Desde ${desdeUSD} · {desdeColones} aproximadamente
-          </p>
 
-          {/* La flecha que invita a bajar: sin esto, media pantalla de
-              gente no descubre que abajo pasa algo. */}
-          <div
-            aria-hidden
-            className="mt-14 flex flex-col items-center gap-2 text-white/30"
-          >
-            <span className="text-[11px] uppercase tracking-[0.2em]">Mirá cómo funciona</span>
-            <svg viewBox="0 0 24 24" className="h-5 w-5 animate-bounce" fill="none" stroke="currentColor" strokeWidth={1.5}>
-              <path d="M12 5v14m0 0-6-6m6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+          <HeroVivo demos={DEMOS_DEL_HERO} claseSerif={cormorant.className} />
+        </div>
+      </section>
+
+      {/* ================= PROBALO ================= */}
+      <section id="como-funciona" className="scroll-mt-8 px-5 py-20 sm:px-8 lg:py-28">
+        <div className="mx-auto w-full max-w-[1120px]">
+          <div data-reveal className="mx-auto max-w-[62ch] text-center">
+            <p className="text-[13px] font-bold text-[var(--inv-naranja)]">Probalo acá mismo</p>
+            <h2 className="titulo mt-3 text-[clamp(30px,5vw,54px)] leading-[1.06]">
+              Escribí tu nombre y mirá cómo aparecés en la lista.
+            </h2>
+            <p className="mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-[var(--inv-tinta-suave)]">
+              Es lo que pasa con cada invitado: vos mandás el link, ellos confirman en
+              un toque, y a vos te llega la lista armada. Nada de esto se guarda: es
+              para que lo veas.
+            </p>
+          </div>
+          <div data-reveal className="mt-12">
+            <DemoConfirmaciones claseSerif={cormorant.className} />
           </div>
         </div>
       </section>
 
-      {/* ⚠️ ACÁ IBA `<Reel>` — «Del link de tu invitado a tu lista de
-          confirmados», el teléfono con la invitación y el panel en vivo
-          debajo. Lo sacó el dueño (ago 2026).
-
-          El componente NO se borró: `reel.tsx` y `reel.css` siguen
-          enteros, solo dejaron de montarse acá — el mismo criterio que
-          se usó en la portada con «Explorá Bookea» y la franja de
-          rubros. Volver a ponerlo es descomentar una línea.
-
-          Ojo si se retira definitivamente: `page.tsx` importa
-          `./reel.css` por separado (línea 7) y carga la fuente
-          `cormorant` que este componente usaba. Las dos se quedan
-          porque el riel de ejemplos de más abajo también las usa. */}
-
-      {/* ================= EJEMPLOS REALES ================= */}
-      <section id="ejemplos" className="scroll-mt-8 px-5 py-24 sm:px-8">
+      {/* ================= LO QUE SE LLEVA ================= */}
+      <section id="que-incluye" className="scroll-mt-8 px-5 py-20 sm:px-8 lg:py-28" style={{ background: "var(--inv-fondo-2)" }}>
         <div className="mx-auto w-full max-w-[1120px]">
-          <div data-reveal className="text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[#ee7420]">
-              Ejemplos
+          <div data-reveal className="mx-auto max-w-[60ch] text-center">
+            <p className="text-[13px] font-bold text-[var(--inv-naranja)]">Lo que se lleva tu evento</p>
+            <h2 className="titulo mt-3 text-[clamp(30px,5vw,54px)] leading-[1.06]">
+              Todo funciona. Acá también.
+            </h2>
+            <p className="mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-[var(--inv-tinta-suave)]">
+              Cada pieza de abajo está andando de verdad: la cuenta corre, los mapas
+              abren y el QR se escanea.
             </p>
-            <h2 className="titulo mx-auto mt-4 max-w-[20ch] text-[clamp(30px,5vw,58px)] leading-[1.06]">
+          </div>
+          <div data-reveal className="mt-12">
+            <PiezasValor qr={qr} albumHref={ALBUM_EJEMPLO} claseSerif={cormorant.className} />
+          </div>
+        </div>
+      </section>
+
+      {/* ================= EJEMPLOS ================= */}
+      <section id="ejemplos" className="scroll-mt-8 px-5 py-20 sm:px-8 lg:py-28">
+        <div className="mx-auto w-full max-w-[1120px]">
+          <div data-reveal className="mx-auto max-w-[60ch] text-center">
+            <p className="text-[13px] font-bold text-[var(--inv-naranja)]">Ejemplos</p>
+            <h2 className="titulo mt-3 text-[clamp(30px,5vw,54px)] leading-[1.06]">
               Invitaciones que ya están andando.
             </h2>
-            <p className="mx-auto mt-4 max-w-[54ch] text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
-              No son maquetas: son invitaciones de verdad. Tocá cualquiera y se te abre
-              como se le abre a un invitado.
+            <p className="mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-[var(--inv-tinta-suave)]">
+              No son maquetas: cada una se abre como se le abre a un invitado. Elegí
+              la ocasión y deslizá adentro del teléfono.
             </p>
           </div>
-
-          {/* Un slide grande a la vez, con la barra de progreso abajo —
-              el patrón de una página de producto (iPhone 17 Pro): no
-              una grilla que se expone toda hacia abajo. Cada slide ES
-              una muestra del diseño, con los colores reales de esa
-              invitación (catalogo-invitaciones → muestra); todas del
-              mismo azul no enseñarían ejemplos, enseñarían una lista. */}
-          <div className="mt-12" data-reveal>
-            <RielEjemplos demos={CATALOGO_INVITACIONES} claseSerif={cormorant.className} />
-          </div>
-
-          {/* Las cuatro piezas del producto, cada una con su ejemplo
-              abierto de verdad: el riel de arriba enseña DISEÑOS, esto
-              enseña QUÉ SE LLEVA. Sin esto, el panel de confirmaciones
-              y el álbum —lo que más se vende— no se ven en ningún lado
-              hasta después de comprar. */}
-          <div data-reveal className="mt-20">
-            <h3 className="titulo text-center text-[clamp(22px,3vw,32px)]">
-              Y esto es lo que se lleva.
-            </h3>
-            <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {PIEZAS_EJEMPLO.map(({ titulo, texto, href, Icono, tono }) => (
-                <div
-                  key={titulo}
-                  className="flex flex-col rounded-2xl bg-white/[0.06] p-6 text-center ring-1 ring-white/10"
-                >
-                  <span
-                    className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${tono}`}
-                  >
-                    <Icono className="h-5 w-5" />
-                  </span>
-                  <p className="mt-4 text-[17px] font-bold text-white">{titulo}</p>
-                  <p className="mt-2 flex-1 text-[13.5px] leading-relaxed text-white/50">
-                    {texto}
-                  </p>
-                  <Link
-                    href={href}
-                    className="mt-5 rounded-full bg-[#ee7420] py-2.5 text-[12px] font-bold uppercase tracking-[0.12em] text-white transition-transform hover:scale-[1.03]"
-                  >
-                    Ver ejemplo →
-                  </Link>
-                </div>
-              ))}
-            </div>
+          <div data-reveal className="mt-10">
+            <VitrinaEjemplos demos={CATALOGO_INVITACIONES} claseSerif={cormorant.className} />
           </div>
         </div>
       </section>
 
-      {/* ================= PAQUETES ================= */}
-      <section id="paquetes" className="scroll-mt-8 px-5 py-24 sm:px-8">
+      {/* ================= PRECIOS ================= */}
+      <section id="precios" className="scroll-mt-8 px-5 py-20 sm:px-8 lg:py-28" style={{ background: "var(--inv-fondo-2)" }}>
         <div className="mx-auto w-full max-w-[1120px]">
-          <div data-reveal className="text-center">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[#ee7420]">
-              Precios
-            </p>
-            <h2 className="titulo mx-auto mt-4 max-w-[18ch] text-[clamp(30px,5vw,58px)] leading-[1.06]">
+          <div data-reveal className="mx-auto max-w-[56ch] text-center">
+            <p className="text-[13px] font-bold text-[var(--inv-naranja)]">Precios</p>
+            <h2 className="titulo mt-3 text-[clamp(30px,5vw,54px)] leading-[1.06]">
               Elegí lo que necesitás.
             </h2>
-            <p className="mx-auto mt-4 max-w-[50ch] text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/55">
+            <p className="mt-4 text-[clamp(15px,1.8vw,18px)] leading-relaxed text-[var(--inv-tinta-suave)]">
               Todo se diseña desde cero para tu evento. Llevá una pieza suelta, o el
-              pack completo si querés la invitación y el álbum juntos.
+              pack si querés la invitación y el álbum juntos.
             </p>
           </div>
-
           <div data-reveal>
-            <PreciosCatalogo colonesPorUSD={tipoCambioUSD()} />
+            <PreciosCatalogo colonesPorUSD={tipoCambioUSD()} promoViva={promoVigente()} />
           </div>
         </div>
       </section>
 
       {/* ================= CIERRE ================= */}
-      <section className="px-5 py-28 text-center sm:px-8" style={{ background: NAVY }}>
+      <section className="px-5 py-24 text-center sm:px-8 lg:py-32">
         <div data-reveal className="mx-auto w-full max-w-[760px]">
           <h2 className="titulo text-[clamp(32px,5.6vw,64px)] leading-[1.04]">
             Dejá de perseguir invitados por WhatsApp.
           </h2>
-          <p className="mx-auto mt-5 max-w-[48ch] text-[clamp(15px,1.8vw,19px)] leading-relaxed text-white/60">
-            Contanos de tu evento y te mandamos una propuesta. Si no te gusta, no pagás
-            nada.
+          <p className="mx-auto mt-5 max-w-[46ch] text-[clamp(15px,1.8vw,19px)] leading-relaxed text-[var(--inv-tinta-suave)]">
+            Contanos de tu evento y te mandamos una propuesta diseñada para vos. Si no
+            te gusta, no pagás nada.
           </p>
-          <Link
-            href="/invitaciones/pedido/intermedio"
-            className="mt-9 inline-block rounded-full bg-[#ee7420] px-9 py-4 text-[15px] font-bold text-white transition-transform hover:scale-[1.03]"
-          >
-            Quiero la mía
-          </Link>
+          <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              href="/invitaciones/pedido/intermedio"
+              className="presionable inline-flex min-h-[52px] items-center rounded-full bg-[var(--inv-naranja)] px-9 text-[15px] font-bold text-[var(--inv-naranja-tinta)]"
+            >
+              Quiero la mía
+            </Link>
+            <Link
+              href="#probar"
+              className="presionable inline-flex min-h-[52px] items-center gap-2 rounded-full border border-[var(--inv-linea)] px-7 text-[14.5px] font-bold transition-colors duration-[var(--duracion-micro)] hover:border-[var(--inv-tinta-suave)]"
+            >
+              <IconChatBubble className="h-4 w-4" />
+              Volver a probarla
+            </Link>
+          </div>
         </div>
       </section>
     </main>

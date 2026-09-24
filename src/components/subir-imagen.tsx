@@ -94,6 +94,17 @@ export const PRESETS = {
    * Con alfa, como el logo y por lo mismo: el ícono va adentro de un
    * círculo, y un cuadrado blanco ahí se lee como un sticker pegado.
    */
+  // Foto de una invitación de CELEBRAR (portada, historia, galería): se
+  // ve en un teléfono a pantalla completa, así que 1600 px alcanzan y
+  // sobran; vertical 4:5 para que la portada no recorte caras.
+  foto: {
+    ladoMax: 1600,
+    calidad: 0.86,
+    relacion: "4 / 5",
+    ayuda: "Vertical o cuadrada; se ve en el teléfono a pantalla completa",
+    conservarAlfa: false,
+    anchoVista: 96,
+  },
   icono: {
     ladoMax: 256,
     calidad: 0.92,

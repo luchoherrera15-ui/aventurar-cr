@@ -11,7 +11,7 @@ import CompletarPerfil from "./completar-perfil";
 import { BarraLinksy } from "./[id]/nav-linksy";
 import { LP_BAJADA, LP_BOTON_CHICO, LP_EYEBROW, LP_PILDORA_LIMA, LP_PILDORA_VELO, LP_TILE, LP_TITULO, LP_TITULO_TILE, bloque, type Bloque } from "./[id]/sistema-linksy";
 
-export const metadata: Metadata = { title: "Mis páginas · Linksy" };
+export const metadata: Metadata = { title: "Mis páginas · Bookea" };
 
 /** Un color por negocio, rotando la paleta: así la lista se reconoce de un vistazo. */
 const COLORES: Bloque[] = ["celeste", "lima", "lila", "amarillo", "menta", "coral"];

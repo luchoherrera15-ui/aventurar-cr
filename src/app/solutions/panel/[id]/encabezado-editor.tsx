@@ -65,7 +65,7 @@ type Respaldo = Pick<ValoresEncabezado, "tema" | "colorFondo" | "colorAcento">;
 /** Los `estilo_portada` con los nombres de Linktree, en su orden. */
 const DISENOS: { id: EstiloPortada; nombre: string; pie: string }[] = [
   { id: "sin", nombre: "Clásico", pie: "Logo y nombre" },
-  { id: "completa", nombre: "Héroe", pie: "Foto de borde a borde" },
+  { id: "completa", nombre: "Portada", pie: "Foto arriba, tipo Facebook" },
   { id: "card", nombre: "Banner", pie: "Foto dentro de la tarjeta" },
   { id: "fondo", nombre: "De fondo", pie: "La foto viste toda la página" },
 ];
@@ -92,13 +92,13 @@ function MiniEncabezado({ id, p, foto }: { id: EstiloPortada; p: Paleta; foto: s
     );
   }
   if (id === "completa") {
+    /* Contenida y sin degradado, igual que la página: la miniatura es
+       una promesa de lo que sale al publicar (24 sep 2026). */
     return (
-      <div className={base} style={{ background: p.fondo }}>
-        <div className="w-full" style={{ height: "42%", ...fotoCss }} />
-        <div className="-mt-3 flex flex-col items-center gap-1.5">
-          {avatar}
-          {lineas}
-        </div>
+      <div className={`${base} gap-1.5 p-2`} style={{ background: p.fondo }}>
+        <div className="w-full rounded-md" style={{ height: 34, ...fotoCss }} />
+        {avatar}
+        {lineas}
       </div>
     );
   }
@@ -262,7 +262,7 @@ export default function EncabezadoEditor({
         {origenes.length > 0 && !pro && (
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-aventurea-line bg-aventurea-cream-2 p-3.5">
             <PildoraPro />
-            <p className="min-w-0 flex-1 text-[12.5px] font-bold text-aventurea-ink">Con Pro, Linksy lee los colores de tu foto y arma el tema por vos.</p>
+            <p className="min-w-0 flex-1 text-[12.5px] font-bold text-aventurea-ink">Con Pro, Bookea lee los colores de tu foto y arma el tema por vos.</p>
             <a href={hrefPro} className={BOTON_PANEL}>
               Pasar a Pro →
             </a>

@@ -59,8 +59,17 @@ const ORDEN_FAMILIAS: ProductoIndividual["familia"][] = [
 export default function PreciosCatalogo({
   /** El equivalente en colones de $1, para el "≈ ₡" bajo cada precio. */
   colonesPorUSD,
+  promoViva,
 }: {
   colonesPorUSD: number;
+  /**
+   * Si la promo sigue en fecha (`promoVigente()`, en el servidor). El
+   * cartel «rebajadas hasta el 6 de setiembre» seguía saliendo dos
+   * semanas después de esa fecha, porque se mostraba con solo existir
+   * un precio tachado. Los precios tachados siguen siendo cosa del
+   * catálogo (y de la base): acá solo se calla el cartel vencido.
+   */
+  promoViva: boolean;
 }) {
   /**
    * ABIERTO DE ENTRADA (pedido del dueño, ago 2026).
@@ -79,7 +88,7 @@ export default function PreciosCatalogo({
   const enColones = (usd: number) =>
     "₡" + (Math.round((usd * colonesPorUSD) / 100) * 100).toLocaleString("es-CR");
 
-  const hayPromo = PRODUCTOS_INDIVIDUALES.some((p) => p.precioAntesUSD);
+  const hayPromo = promoViva && PRODUCTOS_INDIVIDUALES.some((p) => p.precioAntesUSD);
 
   return (
     <div className="mt-12">
@@ -87,7 +96,7 @@ export default function PreciosCatalogo({
           escrita a mano, para que no siga anunciándose cuando venza. */}
       {hayPromo && (
         <p className="mb-8 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-center text-[13.5px] text-white/60">
-          <span className="rounded-full bg-[#ee7420] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-white">
+          <span className="rounded-full bg-[var(--inv-naranja)] px-3 py-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[var(--inv-naranja-tinta)]">
             {PROMO_INVITACIONES.etiqueta}
           </span>
           Las invitaciones están rebajadas hasta el{" "}
@@ -102,7 +111,7 @@ export default function PreciosCatalogo({
           if (items.length === 0) return null;
           return (
             <div key={familia}>
-              <p className="border-b border-white/15 pb-3 text-[12px] font-bold uppercase tracking-[0.18em] text-[#ee7420]">
+              <p className="border-b border-white/15 pb-3 text-[12px] font-bold uppercase tracking-[0.18em] text-[var(--inv-naranja)]">
                 {FAMILIA_LABEL[familia]}
               </p>
               <div className="mt-3 flex flex-col gap-2.5">
@@ -115,7 +124,7 @@ export default function PreciosCatalogo({
                       className="group flex items-center gap-3.5 rounded-2xl border border-white/10 bg-white/[0.04] p-4 transition-colors hover:border-white/25 hover:bg-white/[0.08]"
                     >
                       {Icono && (
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#ee7420]/15 text-[#ee7420] [&_svg]:h-5 [&_svg]:w-5">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--inv-naranja)] text-[var(--inv-naranja-tinta)] [&_svg]:h-5 [&_svg]:w-5">
                           <Icono />
                         </span>
                       )}
@@ -144,7 +153,7 @@ export default function PreciosCatalogo({
                           ≈ {enColones(p.precioUSD)}
                         </span>
                         {descuentoPct(p) !== null && (
-                          <span className="mt-1 inline-block rounded-full bg-[#ee7420] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-white">
+                          <span className="mt-1 inline-block rounded-full bg-[var(--inv-naranja)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--inv-naranja-tinta)]">
                             −{descuentoPct(p)}%
                           </span>
                         )}
@@ -168,7 +177,7 @@ export default function PreciosCatalogo({
           type="button"
           onClick={() => setVerPacks((v) => !v)}
           aria-expanded={verPacks}
-          className="rounded-full bg-[#ee7420] px-8 py-3.5 text-[14px] font-bold uppercase tracking-[0.12em] text-white transition-transform hover:scale-[1.03]"
+          className="presionable min-h-[48px] rounded-full bg-[var(--inv-naranja)] px-8 text-[14px] font-bold text-[var(--inv-naranja-tinta)]"
         >
           {verPacks ? "Ocultar packs" : "Ver packs"}
         </button>
@@ -181,13 +190,13 @@ export default function PreciosCatalogo({
               key={p.id}
               className={`relative flex flex-col rounded-3xl p-7 ${
                 p.destacado
-                  ? "bg-white text-[#0a1226] ring-2 ring-[#ee7420]"
+                  ? "bg-[var(--inv-papel)] text-[var(--inv-fondo)] ring-2 ring-[var(--inv-naranja)]"
                   : "bg-white/[0.06] text-white ring-1 ring-white/10"
               }`}
             >
               <span
                 className={`absolute -top-3 left-7 rounded-full px-3.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.14em] ${
-                  p.destacado ? "bg-[#ee7420] text-white" : "bg-white/15 text-white"
+                  p.destacado ? "bg-[var(--inv-naranja)] text-[var(--inv-naranja-tinta)]" : "bg-white/15 text-white"
                 }`}
               >
                 {p.badge}
@@ -195,7 +204,7 @@ export default function PreciosCatalogo({
 
               <p
                 className={`mt-2 text-[13px] font-bold uppercase tracking-[0.16em] ${
-                  p.destacado ? "text-[#ee7420]" : "text-white/45"
+                  p.destacado ? "text-[var(--inv-naranja)]" : "text-white/45"
                 }`}
               >
                 Pack {p.nombre}
@@ -210,31 +219,31 @@ export default function PreciosCatalogo({
                 {p.precioAntesUSD && (
                   <span
                     className={`text-[15px] line-through ${
-                      p.destacado ? "text-[#0a1226]/35" : "text-white/30"
+                      p.destacado ? "text-[var(--inv-fondo)]/40" : "text-white/30"
                     }`}
                   >
                     ${p.precioAntesUSD}
                   </span>
                 )}
                 {descuentoPct(p) !== null && (
-                  <span className="rounded-full bg-[#ee7420] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-white">
+                  <span className="rounded-full bg-[var(--inv-naranja)] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-[var(--inv-naranja-tinta)]">
                     −{descuentoPct(p)}%
                   </span>
                 )}
               </p>
               <p
                 className={`mt-1.5 text-[12.5px] ${
-                  p.destacado ? "text-[#0a1226]/50" : "text-white/40"
+                  p.destacado ? "text-[var(--inv-fondo)]/60" : "text-white/40"
                 }`}
               >
                 ≈ {enColones(p.precioUSD)}
                 {ahorroPack(p) > 0 &&
-                  ` · $${ahorroPack(p)} menos que comprándolo por separado`}
+                  ` · ${ahorroPack(p).toLocaleString("en-US", { maximumFractionDigits: 2 })} menos que comprándolo por separado`}
               </p>
 
               <p
                 className={`mt-4 text-[14px] leading-relaxed ${
-                  p.destacado ? "text-[#0a1226]/70" : "text-white/55"
+                  p.destacado ? "text-[var(--inv-fondo)]/80" : "text-white/55"
                 }`}
               >
                 {p.lema}
@@ -246,12 +255,12 @@ export default function PreciosCatalogo({
                     <span
                       aria-hidden
                       className={`mt-[3px] shrink-0 text-[13px] font-bold ${
-                        p.destacado ? "text-[#ee7420]" : "text-[#ee7420]"
+                        "text-[var(--inv-naranja)]"
                       }`}
                     >
                       ✓
                     </span>
-                    <span className={p.destacado ? "text-[#0a1226]/80" : "text-white/70"}>
+                    <span className={p.destacado ? "text-[var(--inv-fondo)]" : "text-white/70"}>
                       {linea}
                     </span>
                   </li>
@@ -260,10 +269,10 @@ export default function PreciosCatalogo({
 
               <Link
                 href={`/invitaciones/pedido/${p.id}`}
-                className={`mt-7 rounded-full py-3.5 text-center text-[14px] font-bold transition-transform hover:scale-[1.02] ${
+                className={`presionable mt-7 flex min-h-[48px] items-center justify-center rounded-full text-[14px] font-bold ${
                   p.destacado
-                    ? "bg-[#ee7420] text-white"
-                    : "bg-white text-[#0a1226]"
+                    ? "bg-[var(--inv-naranja)] text-[var(--inv-naranja-tinta)]"
+                    : "bg-[var(--inv-papel)] text-[var(--inv-fondo)]"
                 }`}
               >
                 Lo quiero

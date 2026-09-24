@@ -46,7 +46,7 @@ export default function CompletarPerfil({
     <main className="min-h-svh bg-[#f7f9fc]">
       <section className="mx-auto w-[min(520px,92vw)] py-14">
         <p className="text-[11px] font-extrabold uppercase tracking-[0.16em]" style={{ color: "var(--accion)" }}>
-          Linksy
+          Bookea
         </p>
         <h1 className="titulo mt-2 text-[clamp(26px,4vw,36px)] leading-tight text-aventurea-navy">
           {negocio ? `${negocio} ya está listo.` : "Ya casi."} Contanos quién sos.

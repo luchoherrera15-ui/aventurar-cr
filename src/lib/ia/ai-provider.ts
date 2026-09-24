@@ -34,11 +34,14 @@ export type SolicitudIA = {
    * línea cuya respuesta son tres oraciones. El visitante daba el chat
    * por muerto y se iba.
    *
-   * Solo lo respeta `GeminiProvider` (`thinkingBudget: 0`).
+   * Solo lo respeta `GeminiProvider` (`thinkingLevel: MINIMAL`; el
+   * `thinkingBudget: 0` de antes ya lo rechaza la API, sep 2026).
    * `ClaudeProvider` lo ignora: los modelos de Anthropic no razonan
    * salvo que se les pida, así que acá no habría nada que apagar.
    */
   sinRazonamiento?: boolean;
+  /** Para cortar la espera (un timeout del llamador). Solo Gemini lo usa hoy. */
+  abortSignal?: AbortSignal;
 };
 
 /**

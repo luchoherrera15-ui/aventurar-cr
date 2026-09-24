@@ -40,9 +40,11 @@ Reserva instantánea: espacio + fecha + pago = reservado.
 ## Diseño
 - Estilo propio de la marca: no copiar la estética de Airbnb en general
 - Excepción confirmada por el dueño (ago 2026): la barra de búsqueda del
-  home (`src/components/home/nav-categorias.tsx`) SÍ es una cápsula
-  estilo Airbnb — decisión explícita, no un descuido. El resto del
-  sitio sigue sin píldoras salvo que se pida lo mismo puntualmente.
+  home (hoy `src/components/home/buscador-hero.tsx`, «una cápsula de
+  cuatro tramos»; antes vivía en `nav-categorias.tsx`, que ya no existe)
+  SÍ es una cápsula estilo Airbnb — decisión explícita, no un descuido.
+  El resto del sitio sigue sin píldoras salvo que se pida lo mismo
+  puntualmente.
 - El panel de anfitriones debe verse profesional, formal y elegante
 - Mantener consistencia visual entre el sitio web y la app móvil
 

@@ -11,6 +11,7 @@ import {
   fondoDePagina,
   paletaDelTema,
   pilaFuente,
+  pilaFuenteCuerpo,
   RADIOS,
   veloDeFoto,
   type Diseno,
@@ -142,6 +143,38 @@ export type EdicionPagina = {
 };
 
 /**
+ * El nombre del negocio, con la etiqueta que le corresponda.
+ *
+ * En `/s/<slug>` es el titular de la página y va como `<h1>`. Cuando
+ * esta misma vista se incrusta como demostración en una página que ya
+ * tiene su `<h1>` —el home—, baja a `<p>`: dos `h1` en un documento
+ * rompen el esquema de encabezados para Google y para quien navega con
+ * lector de pantalla.
+ *
+ * Vive en el módulo y no dentro de `VistaPagina` por la misma razón que
+ * `Ancla`: un componente declarado adentro de otro es un tipo nuevo en
+ * cada render y hace que React remonte el subárbol.
+ */
+function TituloNegocio({
+  as,
+  className,
+  style,
+  children,
+}: {
+  as: "h1" | "p";
+  className?: string;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const Etiqueta = as;
+  return (
+    <Etiqueta className={className} style={style}>
+      {children}
+    </Etiqueta>
+  );
+}
+
+/**
  * Un ancla que, en modo inerte, es un `<span>` con la misma pinta.
  *
  * Vive en el MÓDULO y no adentro de `VistaPagina` (que es donde nació):
@@ -248,6 +281,8 @@ export default function VistaPagina({
   inerte = false,
   edicion,
   className = "",
+  nivelTitulo = "h1",
+  credito = "Hecho con Bookea",
 }: {
   datos: DatosPagina;
   /** true = los enlaces no navegan (previa del panel, mockup). */
@@ -255,6 +290,19 @@ export default function VistaPagina({
   /** Presente = se escribe encima de la página (solo el panel). */
   edicion?: EdicionPagina;
   className?: string;
+  /**
+   * Con qué etiqueta sale el nombre del negocio. `h1` —el default— es
+   * lo correcto en `/s/<slug>`, donde ES el titular de la página. Se
+   * baja a `p` cuando esta vista se incrusta como demostración en una
+   * página que ya tiene su propio `h1`, como el home.
+   */
+  nivelTitulo?: "h1" | "p";
+  /**
+   * Qué dice el crédito del pie. El default es el de siempre, así que
+   * las páginas publicadas no cambian; el home lo pisa para no nombrar
+   * una marca retirada dentro de una demostración.
+   */
+  credito?: string;
 }) {
   const p = paletaDelTema(datos.tema, datos.colorFondo, datos.colorAcento);
   const r = RADIOS[datos.redondeo] ?? RADIOS.suave;
@@ -266,7 +314,20 @@ export default function VistaPagina({
   const velo = veloDeFoto(p);
   /* La portada solo «cuenta» si además hay foto: elegir «completa» sin
      haber subido nada no puede dejar un banner vacío arriba. */
-  const portada: EstiloPortada = datos.fotoPortadaUrl ? datos.estiloPortada : "sin";
+  const portadaElegida: EstiloPortada = datos.fotoPortadaUrl ? datos.estiloPortada : "sin";
+  /**
+   * ── EL ENCABEZADO «CARTEL» (24 sep 2026) ──────────────────────────
+   *
+   * Pedido del dueño: «un rectángulo, que es una tarjeta, y en el
+   * centro un círculo con el logo — la mitad sobre la tarjeta y la
+   * mitad en el aire. Abajo, los cards».
+   *
+   * Cuando está elegido, la portada la dibuja el encabezado con su
+   * propia forma, así que las cuatro de siempre se apagan: si no, la
+   * foto saldría dos veces.
+   */
+  const cartel = d.encabezado === "cartel" && Boolean(datos.fotoPortadaUrl);
+  const portada: EstiloPortada = cartel ? "sin" : portadaElegida;
   /** El acabado de una pieza, ya resuelto. Un solo lugar decide. */
   const estilo = (opts: { destacada?: boolean; radio: number; conFoto?: boolean; suelta?: boolean }) =>
     estiloDePieza(datos.efecto, p, { ...opts, boton: d.boton, suelta: opts.suelta ?? d.piezas === "suelta" });
@@ -292,6 +353,16 @@ export default function VistaPagina({
       : d.titulo === "mayusculas"
         ? "text-[16px] uppercase tracking-[0.1em] @[320px]:text-[20px]"
         : "text-[19px] @[320px]:text-[24px]";
+  /**
+   * ── DÓNDE VUELVE LA CARA ELEGIDA (24 sep 2026) ──────────────────
+   * El contenedor viste la página con la cara de LEER; esta vuelve a
+   * poner la de TITULAR, y solo donde el tamaño la sostiene: el
+   * nombre del negocio, los rótulos de sección y el título de cada
+   * puerta. Todo lo demás —bajadas, pies, textos, contacto, pie de
+   * página— se queda con la de leer. El porqué está en
+   * `pilaFuenteCuerpo` (temas.ts).
+   */
+  const caraTitular: React.CSSProperties = { fontFamily: pilaFuente(datos.fuente) };
   /* El disco del ícono adentro de un botón sólido: no puede ser el
      acento sobre el acento. Un velo de la tinta que va encima. */
   const discoSolido = d.boton === "solido" || d.boton === "sombra";
@@ -382,16 +453,15 @@ export default function VistaPagina({
          se monta a 236 px (un mockup del héroe), a 288 px (la previa del
          panel) y a pantalla completa — y un breakpoint de viewport
          mentiría en los dos primeros. */
-      className={`@container relative flex min-h-full w-full flex-col ${claseEntrada} ${
-        portada === "completa" ? "pb-8 pt-0" : "px-5 pb-8 pt-6"
-      } ${className}`}
+      className={`@container relative flex min-h-full w-full flex-col px-5 pb-8 pt-6 ${claseEntrada} ${className}`}
       style={{
         ...fondoDePagina(d.fondo, p),
         color: p.tinta,
-        /* La cara la pone el contenedor y todo hereda. Las seis
+        /* La cara de LEER la pone el contenedor y todo hereda; la de
+           TITULAR se pide pieza por pieza (ver `caraTitular`). Las seis
            variables las declara el envoltorio de la página (ver
            src/app/solutions/fuentes.ts); acá solo se elige cuál. */
-        fontFamily: pilaFuente(datos.fuente),
+        fontFamily: pilaFuenteCuerpo(datos.fuente),
       }}
     >
       {/* ── Fondo animado (0236): detrás de todo, sin clics ──────── */}
@@ -409,30 +479,89 @@ export default function VistaPagina({
         </>
       )}
 
-      {/* ── Portada «completa»: banner de borde a borde ─────────────
-          Sale del contenedor de 440 px a propósito: si respetara el
-          ancho máximo dejaría de ser «completa» en pantalla grande. */}
-      {portada === "completa" && foto && (
-        <div className="relative h-[124px] w-full overflow-hidden @[320px]:h-[168px]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={foto} alt="" className="h-full w-full object-cover" />
-          <span
-            aria-hidden
-            className="absolute inset-0"
-            style={{ background: `linear-gradient(180deg, transparent 30%, ${p.fondo} 100%)` }}
-          />
-        </div>
-      )}
-
       <div
-        className={`relative mx-auto flex w-full max-w-[440px] flex-col ${d.densidad === "compacta" ? "gap-4" : d.densidad === "amplia" ? "gap-6" : "gap-5"} ${
-          portada === "completa" ? "-mt-10 px-5" : ""
-        }`}
+        className={`relative mx-auto flex w-full max-w-[440px] flex-col ${d.densidad === "compacta" ? "gap-4" : d.densidad === "amplia" ? "gap-6" : "gap-5"}`}
       >
+        {/* ── Portada «completa»: la foto de portada, tipo Facebook ───
+            (24 sep 2026) Pedido del dueño: «una imagen simplemente de
+            portada ahí, y abajo los cards; que no sea todo y que no
+            tenga degradado».
+
+            Antes era un banner de borde a borde que se desvanecía en el
+            fondo de la página. Eso hacía dos cosas que el dueño no
+            quería: se comía la pantalla entera en un monitor —la foto
+            de un local no aguanta 1 920 px de ancho— y el degradado le
+            robaba la mitad de abajo a la foto.
+
+            Ahora es lo que dice el nombre: una foto, del ancho de la
+            columna, con el mismo redondeo de las tarjetas y su borde
+            abajo bien marcado. Nada encima. */}
+        {portada === "completa" && foto && (
+          <div className="sol-pieza relative overflow-hidden" style={{ ...pieza(siguiente()), borderRadius: r.tarjeta }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={foto} alt="" className="block h-[132px] w-full object-cover @[380px]:h-[164px]" />
+          </div>
+        )}
+
         {/* ── La cabecera ─────────────────────────────────────────
             La foto solo vive acá adentro en modo «card»; en «completa»
-            ya salió arriba de borde a borde y en «fondo» viste la
-            página, así que repetirla sería la misma imagen dos veces. */}
+            ya salió justo arriba y en «fondo» viste la página, así que
+            repetirla sería la misma imagen dos veces. */}
+        {/* ── EL CARTEL (24 sep 2026) ────────────────────────────
+            La portada como tarjeta contenida y el logo montado a
+            caballo de su borde inferior: mitad adentro, mitad afuera.
+
+            El círculo NO va dentro del <img>: va en un contenedor
+            aparte con margen negativo, porque la tarjeta lleva
+            `overflow-hidden` para redondear la foto y cualquier cosa
+            que sobresalga se cortaría justo en el borde.
+
+            El `margin-bottom` del bloque compensa la mitad que se
+            asoma: sin él, el círculo se comería el aire del nombre. */}
+        {cartel && foto && (
+          <div className="relative">
+            <div
+              className="overflow-hidden"
+              style={{ borderRadius: r.tarjeta, ...estilo({ radio: r.tarjeta, conFoto: true, suelta: false }) }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={foto}
+                alt=""
+                className="block h-[180px] w-full object-cover @[380px]:h-[210px]"
+              />
+            </div>
+            <div className="-mt-[46px] flex justify-center">
+              {logo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logo}
+                  alt=""
+                  className="h-[92px] w-[92px] object-cover"
+                  style={{
+                    borderRadius: 999,
+                    border: `4px solid ${p.fondo}`,
+                    background: p.fondo,
+                  }}
+                />
+              ) : (
+                <span
+                  aria-hidden
+                  className="grid h-[92px] w-[92px] place-items-center text-[34px] font-extrabold"
+                  style={{
+                    borderRadius: 999,
+                    border: `4px solid ${p.fondo}`,
+                    background: p.acento,
+                    color: p.tintaSobreAcento,
+                  }}
+                >
+                  {inicial}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Encabezado LIBRE o GRABADO (7 sep 2026): sin tarjeta, salvo con
             la portada «Banner», donde la foto vive dentro de la tarjeta. */}
         <header
@@ -456,6 +585,11 @@ export default function VistaPagina({
           <div
             className={`relative flex flex-col justify-end gap-3 p-4 @[320px]:p-5 ${
               portada === "card" ? "min-h-[132px] @[320px]:min-h-[168px]" : ""
+            } ${
+              // Con «cartel» el círculo del logo ya dejó su propio aire
+              // debajo. El relleno de arriba del encabezado se sumaba a
+              // ese y el nombre terminaba flotando lejos de su logo.
+              cartel ? "pt-0 @[320px]:pt-0" : ""
             }`}
           >
             {datos.mesa && (
@@ -470,8 +604,11 @@ export default function VistaPagina({
                 Mesa {datos.mesa}
               </span>
             )}
-            <div className={`flex items-center gap-3.5 ${centrado ? "flex-col text-center" : ""}`}>
-              {logo ? (
+            {/* Con «cartel» el logo YA se dibujó montado en el borde de
+                la portada, y el nombre va centrado debajo: repetirlo acá
+                serían dos logos en diez centímetros. */}
+            <div className={`flex items-center gap-3.5 ${centrado || cartel ? "flex-col text-center" : ""}`}>
+              {cartel ? null : logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logo} alt="" className={`shrink-0 object-cover ${logoClase}`} style={{ borderRadius: logoRadio }} />
               ) : (
@@ -486,10 +623,23 @@ export default function VistaPagina({
               <div className="min-w-0">
                 {/* El tamaño sigue al CONTENEDOR: en un mockup de 268 px
                     el titular de 24 px partía «Casa Nostra» en dos
-                    renglones y empujaba todo hacia abajo. */}
-                <h1
+                    renglones y empujaba todo hacia abajo.
+
+                    ── POR QUÉ LA ETIQUETA ES VARIABLE ────────────────
+                    En `/s/<slug>` el nombre del negocio ES el titular
+                    de la página y tiene que ser `<h1>`. Pero esta misma
+                    vista se incrusta como DEMOSTRACIÓN en otras páginas
+                    que ya tienen su propio `<h1>` (el home), y dos `h1`
+                    en un documento es un error de SEO y de lectores de
+                    pantalla. `nivelTitulo` deja bajarlo a `<p>` en esos
+                    casos; el default no cambia para nadie. */}
+                <TituloNegocio
+                  as={nivelTitulo}
                   className={`font-extrabold leading-tight tracking-[-0.02em] ${tituloClase}`}
-                  style={d.encabezado === "grabado" && portada !== "card" ? relieveDelTitulo(p) : undefined}
+                  style={{
+                    ...caraTitular,
+                    ...(d.encabezado === "grabado" && portada !== "card" ? relieveDelTitulo(p) : {}),
+                  }}
                 >
                   {edicion ? (
                     <TextoEditable
@@ -502,7 +652,7 @@ export default function VistaPagina({
                   ) : (
                     datos.nombre || "Tu negocio"
                   )}
-                </h1>
+                </TituloNegocio>
                 {edicion ? (
                   <p className="mt-0.5 text-[13px]" style={{ color: p.suave }}>
                     <TextoEditable
@@ -515,7 +665,7 @@ export default function VistaPagina({
                   </p>
                 ) : (
                   datos.bajada && (
-                    <p className="mt-0.5 text-[11.5px] @[320px]:text-[13px]" style={{ color: p.suave }}>
+                    <p className="mt-0.5 text-[12px] @[320px]:text-[13.5px]" style={{ color: p.suave }}>
                       {datos.bajada}
                     </p>
                   )
@@ -540,7 +690,7 @@ export default function VistaPagina({
                   <h2
                     key={x.clave}
                     className={`sol-pieza pt-2 text-[11.5px] font-extrabold uppercase tracking-[0.14em] ${grilla ? "col-span-full" : ""} ${centrado ? "text-center" : ""}`}
-                    style={{ ...pieza(siguiente()), color: p.suave }}
+                    style={{ ...pieza(siguiente()), ...caraTitular, color: p.suave }}
                   >
                     {edicion ? (
                       <TextoEditable valor={x.texto} alCambiar={(v) => edicion.alCambiarEtiquetaLink(x.clave, v)} placeholder="Título" maxLength={40} etiqueta="Título" />
@@ -590,7 +740,7 @@ export default function VistaPagina({
                   >
                     <IconoLinkSVG icono={x.icono} className="h-[18px] w-[18px]" />
                   </span>
-                  <span className="relative line-clamp-2 text-[11px] font-extrabold leading-tight @[300px]:text-[11.5px]">
+                  <span className="relative line-clamp-2 text-[11.5px] font-extrabold leading-tight @[300px]:text-[12px]" style={caraTitular}>
                     {editable ? (
                       <TextoEditable
                         valor={x.titulo}
@@ -633,7 +783,7 @@ export default function VistaPagina({
                     {/* `line-clamp-2` y no `truncate`: a 268 px «Reservar
                         con descuento» se cortaba en «Reservar con…» y la
                         puerta dejaba de decir a dónde lleva. */}
-                    <span className="line-clamp-2 text-[13.5px] font-extrabold leading-tight @[320px]:text-[16px]">
+                    <span className="line-clamp-2 text-[13.5px] font-extrabold leading-tight @[320px]:text-[16px]" style={caraTitular}>
                       {editable ? (
                         <TextoEditable
                           valor={x.titulo}
@@ -647,7 +797,7 @@ export default function VistaPagina({
                       )}
                     </span>
                     {x.pie && (
-                      <span className="mt-0.5 block truncate text-[11px] @[320px]:text-[12.5px]" style={{ color: discoSolido ? undefined : p.suave, opacity: discoSolido ? 0.8 : 1 }}>
+                      <span className="mt-0.5 block truncate text-[12px] @[320px]:text-[13px]" style={{ color: discoSolido ? undefined : p.suave, opacity: discoSolido ? 0.8 : 1 }}>
                         {x.pie}
                       </span>
                     )}
@@ -688,13 +838,24 @@ export default function VistaPagina({
         {/* La marca al pie, como Linktree: cada página de un cliente es
             la puerta al producto. Relativo a propósito — bajo linksy.lat
             el proxy resuelve `/linksy` a la landing, y bajo bookea.lat la
-            ruta existe tal cual. */}
-        <footer className="mt-auto pt-4 text-center text-[11px]" style={{ color: p.suave }}>
+            ruta existe tal cual.
+
+            ── POR QUÉ EL CRÉDITO ES CONFIGURABLE ────────────────────
+            El home de bookea.lat monta esta misma vista como
+            demostración, y ahí el pie NO puede decir «Linksy»: esa
+            marca se retiró y, de cara al cliente, la página es «tu
+            página de Bookea» (ver docs/arquitectura.md §2).
+
+            El default no cambia: las páginas publicadas de los
+            negocios siguen diciendo exactamente lo que decían. Cambiar
+            el crédito de TODAS es la mudanza de marca completa, que
+            tiene su propio momento y su propio orden. */}
+        <footer className="mt-auto pt-4 text-center text-[11.5px]" style={{ color: p.suave }}>
           {inerte ? (
-            <span className="font-bold">Hecho con Linksy</span>
+            <span className="font-bold">{credito}</span>
           ) : (
-            <Link href="/linksy" className="font-bold" style={{ color: p.suave }}>
-              Hecho con Linksy
+            <Link href="/solutions" className="font-bold" style={{ color: p.suave }}>
+              {credito}
             </Link>
           )}
         </footer>

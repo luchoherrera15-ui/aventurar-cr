@@ -107,7 +107,7 @@ export async function guardarCuentaConectada(admin: Admin, cfg: ConfigMeta, d: D
     .select(COLUMNAS_SEGURAS)
     .single();
   if (error || !data) {
-    if (error?.code === "23505") return { ok: false, motivo: "Esa cuenta de Instagram ya está conectada a otra página de Linksy." };
+    if (error?.code === "23505") return { ok: false, motivo: "Esa cuenta de Instagram ya está conectada a otra página de Bookea." };
     return { ok: false, motivo: "No se pudo guardar la conexión." };
   }
   return { ok: true, cuenta: cuentaSegura(data as Record<string, unknown>) };

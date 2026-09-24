@@ -1,0 +1,151 @@
+/* ════════════════════════════════════════════════════════════════════
+   /invitaciones — la hoja propia de la landing (sep 2026)
+   ════════════════════════════════════════════════════════════════════
+
+   Vive aparte de globals.css por la misma razón que reel.css: el resto
+   del sitio no tiene por qué descargar los colores ni las animaciones
+   de una sola página.
+
+   LOS COLORES VAN COMO VARIABLES y no como hex sueltos en el JSX:
+   `.inv-landing` los declara una vez y los componentes los usan por
+   nombre, así que cambiar la paleta es tocar este bloque. Cada par
+   fondo/tinta que se usa acá está medido:
+
+     tinta suave #9fb0cf sobre #0a1226 .......... 9,1:1  (es el token
+                                                   `aventurea-rail`,
+                                                   el mismo del panel)
+     tinta #0a1226 sobre naranja #ee7420 ........ 6,4:1  (el CTA)
+     blanco sobre naranja #ee7420 ............... 2,9:1  ✗ — por eso el
+                                                   botón NO lleva letra
+                                                   blanca
+     vino #6b2233 sobre papel #f7f2ea ........... 8,6:1  (el teléfono)
+     verde #1f7a4d sobre papel #f7f2ea .......... 5,4:1  (confirmado)
+     verde claro #8fd6ad sobre #0a1226 .......... 11:1   (confirmado,
+                                                   sobre el navy)
+*/
+.inv-landing {
+  --inv-fondo: #0a1226;
+  --inv-fondo-2: #16295e;
+  --inv-fondo-3: #22397c;
+  --inv-tinta: #ffffff;
+  --inv-tinta-suave: #9fb0cf;
+  --inv-naranja: #ee7420;
+  --inv-naranja-tinta: #0a1226;
+  --inv-oro: #c9a227;
+  --inv-papel: #f7f2ea;
+  --inv-papel-2: #efe7d8;
+  --inv-papel-tinta: #2a2318;
+  --inv-vino: #6b2233;
+  --inv-verde-papel: #1f7a4d;
+  --inv-verde-navy: #8fd6ad;
+  /* Líneas y superficies de apoyo: decoración, nunca estado. */
+  --inv-linea: rgba(255, 255, 255, 0.12);
+  --inv-vidrio: rgba(255, 255, 255, 0.06);
+
+  background: var(--inv-fondo);
+  color: var(--inv-tinta);
+}
+
+/* El anillo de foco. Fuera de `.lealtad` el sitio no garantiza uno, y
+   esta página está llena de botones, pestañas y un formulario. */
+.inv-landing :focus-visible {
+  outline: 2px solid var(--inv-naranja);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ── El único momento orquestado: la entrada del héroe ─────────────
+   Cuatro piezas (título, bajada, botones, teléfono) entran una tras
+   otra con el escalonado del sistema (60 ms) y su curva. Nada más en
+   la página entra solo: lo demás se revela al hacer scroll con el
+   `data-reveal` que ya existe. */
+@keyframes inv-entra {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.inv-entra {
+  animation: inv-entra var(--duracion-revelado, 420ms) var(--ease-bookea, ease-out) both;
+  animation-delay: calc(var(--inv-orden, 0) * 60ms);
+}
+
+/* ── Una fila nueva en la lista de confirmados ──────────────────────
+   Entra desde la izquierda, chiquito: es la señal de «acaba de llegar». */
+@keyframes inv-fila-entra {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.inv-fila-entra {
+  animation: inv-fila-entra var(--duracion-card, 300ms) var(--ease-bookea, ease-out) both;
+}
+
+/* ── El pulso del «en vivo» ─────────────────────────────────────────
+   Un punto que respira al lado de la palabra. Es lo único que se mueve
+   solo en el panel, y se apaga con movimiento reducido. */
+@keyframes inv-pulso {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0.45;
+  }
+}
+.inv-pulso {
+  animation: inv-pulso 1.6s var(--ease-bookea, ease-in-out) infinite;
+}
+
+/* ── El «papel» que se ve mientras la invitación de verdad carga ───
+   Un brillo que cruza de lado a lado, como el esqueleto del sitio, pero
+   en tonos de papel para que no se lea como un error de carga. */
+@keyframes inv-papel-brillo {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+.inv-papel-brillo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  animation: inv-papel-brillo 1.8s var(--ease-bookea, ease-in-out) infinite;
+}
+
+/* La ventana del teléfono: el iframe llena la pantalla del aparato y
+   se desplaza adentro, como en el teléfono real. */
+.inv-ventana {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inv-entra,
+  .inv-fila-entra {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .inv-pulso,
+  .inv-papel-brillo::after {
+    animation: none;
+  }
+}

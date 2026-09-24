@@ -72,19 +72,71 @@ export type Redondeo = (typeof REDONDEOS)[number];
 export const FUENTES = ["sistema", "elegante", "redonda", "condensada", "editorial", "tecnica"] as const;
 export type Fuente = (typeof FUENTES)[number];
 
-export const FUENTE: Record<Fuente, { nombre: string; pie: string; cssVar: string; respaldo: string }> = {
-  sistema: { nombre: "Del sitio", pie: "Limpia y neutra", cssVar: "--font-figtree", respaldo: "system-ui, sans-serif" },
-  elegante: { nombre: "Elegante", pie: "Serif de mantel largo", cssVar: "--fuente-elegante", respaldo: "Georgia, serif" },
-  redonda: { nombre: "Redonda", pie: "Moderna y amable", cssVar: "--fuente-redonda", respaldo: "system-ui, sans-serif" },
-  condensada: { nombre: "Condensada", pie: "Fuerte, tipo pizarra", cssVar: "--fuente-condensada", respaldo: "Impact, sans-serif" },
-  editorial: { nombre: "Editorial", pie: "Serif cálida de lectura", cssVar: "--fuente-editorial", respaldo: "Georgia, serif" },
-  tecnica: { nombre: "Técnica", pie: "Geométrica de especialidad", cssVar: "--fuente-tecnica", respaldo: "system-ui, sans-serif" },
+export const FUENTE: Record<
+  Fuente,
+  { nombre: string; pie: string; cssVar: string; respaldo: string; cssVarCuerpo: string; respaldoCuerpo: string }
+> = {
+  sistema: {
+    nombre: "Del sitio", pie: "Limpia y neutra",
+    cssVar: "--font-figtree", respaldo: "system-ui, sans-serif",
+    cssVarCuerpo: "--font-figtree", respaldoCuerpo: "system-ui, sans-serif",
+  },
+  elegante: {
+    nombre: "Elegante", pie: "Serif de mantel largo",
+    cssVar: "--fuente-elegante", respaldo: "Georgia, serif",
+    // Playfair es un didone: sus finos miden menos de un píxel a 12 px
+    // y el renglón se lee sucio. Titula ella, lee Figtree.
+    cssVarCuerpo: "--font-figtree", respaldoCuerpo: "system-ui, sans-serif",
+  },
+  redonda: {
+    nombre: "Redonda", pie: "Moderna y amable",
+    cssVar: "--fuente-redonda", respaldo: "system-ui, sans-serif",
+    cssVarCuerpo: "--fuente-redonda", respaldoCuerpo: "system-ui, sans-serif",
+  },
+  condensada: {
+    nombre: "Condensada", pie: "Fuerte, tipo pizarra",
+    cssVar: "--fuente-condensada", respaldo: "Impact, sans-serif",
+    // Oswald está dibujada para carteles: condensada y chica se cierra
+    // sola. Titula ella, lee Figtree.
+    cssVarCuerpo: "--font-figtree", respaldoCuerpo: "system-ui, sans-serif",
+  },
+  editorial: {
+    nombre: "Editorial", pie: "Serif cálida de lectura",
+    cssVar: "--fuente-editorial", respaldo: "Georgia, serif",
+    // Lora SÍ es una serif de texto: no hace falta cambiarla para leer.
+    cssVarCuerpo: "--fuente-editorial", respaldoCuerpo: "Georgia, serif",
+  },
+  tecnica: {
+    nombre: "Técnica", pie: "Geométrica de especialidad",
+    cssVar: "--fuente-tecnica", respaldo: "system-ui, sans-serif",
+    cssVarCuerpo: "--fuente-tecnica", respaldoCuerpo: "system-ui, sans-serif",
+  },
 };
 
 /** La pila lista para `font-family`. Siempre con respaldo real. */
 export function pilaFuente(f: Fuente): string {
   const x = FUENTE[f] ?? FUENTE.sistema;
   return `var(${x.cssVar}), ${x.respaldo}`;
+}
+
+/**
+ * ── LA CARA QUE LEE, APARTE DE LA QUE TITULA (24 sep 2026) ──────────
+ * Pedido del dueño: «las letras se ven borrosas, que se vea full HD».
+ *
+ * No era el render: era que la cara ELEGIDA vestía TODO, hasta los
+ * rengloncitos de 11 px. Una cara de titular resuelve su forma con
+ * finos de medio píxel; a 24 px eso es carácter, y a 12 px es una
+ * mancha gris, porque el píxel no sabe dibujar medio trazo.
+ *
+ * Así que la elección del negocio pasa a valer donde se LUCE —el
+ * nombre, los títulos de los botones, los rótulos de sección— y la
+ * letra chica la dibuja una cara de texto. Las dos se eligen JUNTAS
+ * acá, nunca en el JSX: así ninguna pantalla puede inventar un
+ * maridaje que nadie auditó.
+ */
+export function pilaFuenteCuerpo(f: Fuente): string {
+  const x = FUENTE[f] ?? FUENTE.sistema;
+  return `var(${x.cssVarCuerpo}), ${x.respaldoCuerpo}`;
 }
 
 /**
@@ -98,7 +150,7 @@ export type EstiloPortada = (typeof PORTADAS)[number];
 
 export const PORTADA: Record<EstiloPortada, { nombre: string; pie: string }> = {
   card: { nombre: "En la tarjeta", pie: "Dentro del encabezado" },
-  completa: { nombre: "Completa", pie: "Banner de borde a borde" },
+  completa: { nombre: "Portada", pie: "Foto arriba, tipo Facebook" },
   fondo: { nombre: "De fondo", pie: "Viste la página entera" },
   sin: { nombre: "Sin portada", pie: "Solo logo y nombre" },
 };
@@ -170,7 +222,24 @@ export type Titulo = (typeof TITULOS)[number];
  * sobre el fondo, o libre con el nombre en relieve. Con la portada
  * «Banner» (foto dentro de la tarjeta) manda la tarjeta.
  */
-export const ENCABEZADOS = ["tarjeta", "libre", "grabado"] as const;
+/**
+ * ── «CARTEL» (24 sep 2026) ──────────────────────────────────────────
+ *
+ * Pedido del dueño: «dejá solo un rectángulo, que es una tarjeta, y en
+ * el centro un círculo con el logo — la mitad sobre la tarjeta y la
+ * mitad en el aire de la página. Abajo, los cards de los links».
+ *
+ * Es la anatomía de un perfil: portada contenida con esquinas
+ * redondeadas, el avatar montado a caballo de su borde inferior, y el
+ * nombre debajo. Se sumó acá y no a `estilo_portada` porque esa
+ * columna tiene un CHECK de cuatro valores (0232) y cambiarlo pide una
+ * migración; `diseno` es jsonb y aguanta campos nuevos, que es
+ * exactamente para lo que se dejó.
+ *
+ * ⚠️ Con `cartel`, la foto de portada la dibuja el encabezado. El
+ * `estilo_portada` del negocio se ignora para no pintarla dos veces.
+ */
+export const ENCABEZADOS = ["tarjeta", "libre", "grabado", "cartel"] as const;
 export type Encabezado = (typeof ENCABEZADOS)[number];
 
 /**
@@ -321,6 +390,7 @@ export const DISENO_OPCION: {
     tarjeta: { nombre: "En tarjeta", pie: "Con el efecto de las tarjetas" },
     libre: { nombre: "Libre", pie: "Sobre el fondo, sin tarjeta" },
     grabado: { nombre: "Grabado", pie: "Sin tarjeta, el nombre en relieve" },
+    cartel: { nombre: "Cartel", pie: "Portada en tarjeta y el logo montado en su borde" },
   },
   piezas: {
     tarjeta: { nombre: "En tarjeta", pie: "Con el efecto elegido" },

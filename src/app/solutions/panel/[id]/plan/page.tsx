@@ -10,7 +10,7 @@ import MarcoLinksy from "../marco-linksy";
 import { navDelPanel } from "../nav-datos";
 import { LP_BAJADA, LP_BOTON, LP_BOTON_LIMA, LP_BOTON_SUAVE, LP_CIFRA, LP_DETALLE, LP_EYEBROW, LP_PILDORA_LIMA, LP_PILDORA_VELO, LP_TILE, LP_TITULO_TILE, bloque } from "../sistema-linksy";
 
-export const metadata: Metadata = { title: "Plan · Linksy" };
+export const metadata: Metadata = { title: "Plan · Bookea" };
 
 /**
  * /solutions/panel/[id]/plan — LAS DOS MEMBRESÍAS, LADO A LADO.
@@ -33,7 +33,7 @@ export default async function PlanLinksyPage({ params }: { params: Promise<{ id:
   if (!negocio) notFound();
   const marco = await navDelPanel(admin, negocio, acceso);
   const pro = esPro(negocio.plan);
-  const mensajeAyuda = encodeURIComponent(`Hola, quiero activar Linksy Pro para «${negocio.nombre}» (${negocio.slug}).`);
+  const mensajeAyuda = encodeURIComponent(`Hola, quiero activar el plan Pro para «${negocio.nombre}» (${negocio.slug}).`);
 
   return (
     <MarcoLinksy negocio={marco.barra} items={marco.items} activo="plan" titulo="Tu plan" bajada="Gratis para estar en la calle hoy. Pro para que tu página sea exactamente como la imaginás.">
@@ -45,7 +45,7 @@ export default async function PlanLinksyPage({ params }: { params: Promise<{ id:
           return (
             <section key={p} className={`${LP_TILE} flex flex-col`} style={bloque(esProTile ? "carbon" : "celeste")}>
               <div className="flex items-start justify-between gap-3">
-                <p className={LP_EYEBROW}>Linksy {def.nombre}</p>
+                <p className={LP_EYEBROW}>Plan {def.nombre}</p>
                 {esEste ? <span className={LP_PILDORA_LIMA}>Tu plan</span> : esProTile ? <span className={LP_PILDORA_VELO}>Recomendado</span> : null}
               </div>
               <div className="mt-3 flex flex-wrap items-baseline gap-x-2">
@@ -72,7 +72,7 @@ export default async function PlanLinksyPage({ params }: { params: Promise<{ id:
                     Quiero Pro →
                   </Link>
                 ) : (
-                  <Link href={`/ayuda?mensaje=${encodeURIComponent(`Hola, quiero volver al plan Gratis de Linksy para «${negocio.nombre}».`)}`} className={LP_BOTON}>
+                  <Link href={`/ayuda?mensaje=${encodeURIComponent(`Hola, quiero volver al plan Gratis para «${negocio.nombre}».`)}`} className={LP_BOTON}>
                     Volver a Gratis
                   </Link>
                 )}

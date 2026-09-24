@@ -13,7 +13,8 @@ export type ModeloIA =
   | "claude-sonnet-5"
   | "claude-opus-5"
   | "claude-fable-5"
-  | "gemini-3.5-flash-lite";
+  | "gemini-3.5-flash-lite"
+  | "gemini-flash-lite-latest";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -47,7 +48,7 @@ export type AgenteConfigurable =
   | "asistente_negocio";
 
 /** Cada punto del producto que gasta tokens. Es lo que va en uso_ia.agente. */
-export type AgenteIA = AgenteConfigurable | "lealtad_chat";
+export type AgenteIA = AgenteConfigurable | "lealtad_chat" | "celebrar_generar" | "celebrar_textos";
 
 export interface InfoModelo {
   id: ModeloIA;
@@ -148,6 +149,24 @@ export const MODELOS: Record<ModeloIA, InfoModelo> = {
     id: "gemini-3.5-flash-lite",
     nombre: "Gemini 3.5 Flash Lite",
     paraQue: "El chat de la landing de Lealtad. Barato y rápido, para dudas cortas de visitantes.",
+    entradaUSD: 0.3,
+    salidaUSD: 2.5,
+    contexto: 1_000_000,
+    salidaMaxima: 64_000,
+    soportaEsfuerzo: false,
+    razonaPorDefecto: true,
+  },
+  /**
+   * El alias «latest» de Flash Lite: Google lo resuelve al Flash Lite
+   * vigente. Es el RESPALDO de los textos de CELEBRAR cuando
+   * gemini-3.5-flash-lite contesta 503 «high demand» (pasó el 21 sep
+   * 2026 durante más de una hora). Mismo precio que el modelo al que
+   * apunta; si Google lo mueve a otra generación, revisar acá.
+   */
+  "gemini-flash-lite-latest": {
+    id: "gemini-flash-lite-latest",
+    nombre: "Gemini Flash Lite (latest)",
+    paraQue: "Respaldo de los textos con IA de CELEBRAR cuando el 3.5 Lite está saturado.",
     entradaUSD: 0.3,
     salidaUSD: 2.5,
     contexto: 1_000_000,
@@ -260,6 +279,12 @@ export const NOMBRE_AGENTE: Record<AgenteIA, string> = {
     {} as Record<AgenteConfigurable, string>,
   ),
   lealtad_chat: "Chat de la landing de Lealtad",
+  // CELEBRAR (sep 2026): la invitación generada desde cero con IA. Usa el
+  // modelo de `invitacion_generar`; el agente propio separa su gasto.
+  celebrar_generar: "CELEBRAR · invitación con IA",
+  // CELEBRAR (sep 2026): los textos de cada campo del editor sugeridos con
+  // Gemini Flash Lite (el «diamantito» al lado del campo). Barato y rápido.
+  celebrar_textos: "CELEBRAR · textos con IA (Gemini)",
 };
 
 /** true si el texto es un modelo que conocemos. */

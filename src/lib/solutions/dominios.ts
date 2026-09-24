@@ -98,6 +98,9 @@ export function esHostPropio(host: string, sitio: string | undefined = process.e
   // dominio lo rechaza — ningún negocio puede reclamar la raíz del
   // producto para sí.
   if (esHostLinksy(h)) return true;
+  // celebrar.lat también es nuestro (CELEBRAR, sep 2026): si no estuviera
+  // acá, un negocio de Solutions podría reclamarlo como su dominio.
+  if (h === "celebrar.lat" || h === "www.celebrar.lat") return true;
   try {
     const propio = sitio ? new URL(sitio).hostname.toLowerCase() : "";
     if (propio && (h === propio || h === propio.replace(/^www\./, ""))) return true;
@@ -228,7 +231,7 @@ export const RUTAS_LINKSY = new Set(["crear", "entrar", "login", "linksy"]);
  */
 export function destinoEnLinksy(pathname: string): DestinoLinksy {
   const p = pathname.replace(/\/+$/, "") || "/";
-  if (p === "/") return { tipo: "rewrite", pathname: "/linksy" };
+  if (p === "/") return { tipo: "rewrite", pathname: "/solutions" };
   if (p.startsWith("/api/") || p.startsWith("/_next/")) return { tipo: "pasar" };
 
   const partes = p.split("/").filter(Boolean);
@@ -251,7 +254,7 @@ export function destinoEnLinksy(pathname: string): DestinoLinksy {
   // redirige a `/cuenta?volver=solutions` sigue funcionando porque
   // `/cuenta` también cae acá.
   if (primero === "crear") return { tipo: "bookea", pathname: "/solutions/crear" };
-  if (primero === "entrar" || primero === "login") return { tipo: "bookea", pathname: "/linksy/login" };
+  if (primero === "entrar" || primero === "login") return { tipo: "bookea", pathname: "/solutions/login" };
   if (PREFIJOS_BOOKEA.has(primero)) return { tipo: "bookea", pathname: p };
 
   if (RUTAS_LINKSY.has(primero)) return { tipo: "redirect", pathname: "/" };
@@ -317,5 +320,5 @@ export async function slugPorDominio(host: string): Promise<string | null> {
  */
 export function urlLinksy(): string {
   const base = (process.env.NEXT_PUBLIC_LINKSY_URL ?? "").trim().replace(/[/]+$/, "");
-  return base ? `${base}/` : "/linksy";
+  return base ? `${base}/` : "/solutions";
 }

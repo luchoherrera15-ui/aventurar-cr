@@ -13,6 +13,7 @@ import { consultarSaldo } from "@/lib/lealtad/motor";
 import { tipoDe, metaDe, leerBeneficio } from "@/lib/lealtad/tipos-tarjeta";
 import { LIENZO_PANEL } from "@/components/panel/sistema";
 import TableroModos, { type ProximaExperiencia, type LealtadPrincipal } from "./tablero-modos";
+import { negociosDeCuenta } from "@/lib/negocios-cuenta";
 
 /** Lo mínimo de cada publicación para el resumen del tablero. */
 type NegocioResumen = { id: string; estado: string; en_marketplace?: boolean | null };
@@ -255,7 +256,14 @@ export default async function CuentaPage({
 
   const negocios = [...propios, ...colaborados];
   const invitacionIds = ((invitacionesData ?? []) as { id: string }[]).map((i) => i.id);
-  const tieneNegocio = negocios.length > 0;
+
+  // ── LA LISTA FEDERADA (24 sep 2026): ranchos + la página /s/ ─────
+  // Un solo Bookea: el modo Negocio muestra TODOS los negocios de la
+  // cuenta, vengan del marketplace, de Lealtad o de su página. Antes
+  // esta pantalla solo miraba ranchos, y una cuenta cuyo único negocio
+  // era su página de /s/ ni siquiera veía el botón de Modo Negocio.
+  const negociosCuenta = await negociosDeCuenta();
+  const tieneNegocio = negocios.length > 0 || negociosCuenta.length > 0;
 
   // Marketplace y Lealtad son productos separados con la misma cuenta:
   // los negocios nacidos en Lealtad (en_marketplace === false, 0187) NO
@@ -466,6 +474,7 @@ export default async function CuentaPage({
         negocioFinanzasUnico={negocioFinanzasUnico}
         lealtadActiva={lealtadActiva}
         lealtadNegocioUnico={lealtadNegocioUnico}
+        negocios={negociosCuenta}
         confirmacionesNuevas={confirmacionesNuevas}
         invitacionIds={invitacionIds}
         personasConfirmadas={personasConfirmadas}

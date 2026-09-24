@@ -25,7 +25,7 @@ import SeccionEquipo from "./seccion-equipo";
 import PanelLinksy, { type PestanaLinksy } from "./panel-linksy";
 import { itemsNavLinksy } from "./nav-linksy";
 
-export const metadata: Metadata = { title: "Panel · Linksy" };
+export const metadata: Metadata = { title: "Panel · Bookea" };
 
 /**
  * /solutions/panel/<id> — EL PANEL DE UN NEGOCIO DE LINKSY.

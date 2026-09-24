@@ -35,6 +35,11 @@ describe("esHostPropio", () => {
     expect(esHostPropio("aventurar-cr-git-x.vercel.app", "https://www.bookea.lat")).toBe(true);
     expect(esHostPropio("casanostra.com", "https://www.bookea.lat")).toBe(false);
   });
+  it("linksy.lat y celebrar.lat también son nuestros: ningún negocio puede reclamarlos", () => {
+    expect(esHostPropio("linksy.lat", "https://www.bookea.lat")).toBe(true);
+    expect(esHostPropio("celebrar.lat", "https://www.bookea.lat")).toBe(true);
+    expect(esHostPropio("www.celebrar.lat", "https://www.bookea.lat")).toBe(true);
+  });
   it("un NEXT_PUBLIC_SITE_URL roto no vuelve ajeno a ningún host nuestro", () => {
     expect(esHostPropio("bookea.lat", "no es una url")).toBe(true);
     expect(esHostPropio("casanostra.com", "no es una url")).toBe(false);
@@ -106,7 +111,7 @@ describe("linksy.lat es NUESTRO, y por eso nadie lo puede reclamar", () => {
 
 describe("destinoEnLinksy", () => {
   it("la raíz es la landing y el slug es la página del negocio", () => {
-    expect(destinoEnLinksy("/")).toEqual({ tipo: "rewrite", pathname: "/linksy" });
+    expect(destinoEnLinksy("/")).toEqual({ tipo: "rewrite", pathname: "/solutions" });
     expect(destinoEnLinksy("/pizza-lucia")).toEqual({ tipo: "rewrite", pathname: "/s/pizza-lucia" });
     expect(destinoEnLinksy("/pizza-lucia/")).toEqual({ tipo: "rewrite", pathname: "/s/pizza-lucia" });
     expect(destinoEnLinksy("/pizza-lucia/menu")).toEqual({ tipo: "rewrite", pathname: "/s/pizza-lucia/menu" });
@@ -114,9 +119,9 @@ describe("destinoEnLinksy", () => {
 
   it("el alta y el login van a bookea.lat, donde vive la sesión", () => {
     expect(destinoEnLinksy("/crear")).toEqual({ tipo: "bookea", pathname: "/solutions/crear" });
-    expect(destinoEnLinksy("/entrar")).toEqual({ tipo: "bookea", pathname: "/linksy/login" });
+    expect(destinoEnLinksy("/entrar")).toEqual({ tipo: "bookea", pathname: "/solutions/login" });
     // Lo que la gente escribe de verdad: mismo destino.
-    expect(destinoEnLinksy("/login")).toEqual({ tipo: "bookea", pathname: "/linksy/login" });
+    expect(destinoEnLinksy("/login")).toEqual({ tipo: "bookea", pathname: "/solutions/login" });
     // Repetir el nombre del producto en su propio dominio no lleva a
     // ningún lado: la landing es la raíz.
     expect(destinoEnLinksy("/linksy")).toEqual({ tipo: "redirect", pathname: "/" });

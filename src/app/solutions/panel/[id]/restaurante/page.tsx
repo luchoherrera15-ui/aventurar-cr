@@ -10,7 +10,7 @@ import MarcoLinksy from "../marco-linksy";
 import { navDelPanel } from "../nav-datos";
 import { vocabDe } from "@/lib/solutions/rubros";
 
-export const metadata: Metadata = { title: "Pedidos en vivo · Linksy" };
+export const metadata: Metadata = { title: "Pedidos en vivo · Bookea" };
 
 /**
  * /solutions/panel/<id>/restaurante — MODO RESTAURANTE.

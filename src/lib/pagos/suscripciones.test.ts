@@ -98,6 +98,8 @@ type Registro = {
   avisosAlDueno: { clase: string; plan: string | null; hasta: string | null }[];
   /** Cuántas veces se pidió el aviso previo (una sola tiene que salir). */
   avisosPreviosReclamados: number;
+  /** Las sesiones de compra de créditos de CELEBRAR que se acreditaron. */
+  creditosCelebrar: string[];
 };
 
 function programasPorDefecto(): ProgramaFalso[] {
@@ -141,6 +143,7 @@ function puertaFalsa(opciones: {
     base: structuredClone(INTOCABLES),
     avisosAlDueno: [],
     avisosPreviosReclamados: 0,
+    creditosCelebrar: [],
   };
 
   const dueno =
@@ -199,6 +202,15 @@ function puertaFalsa(opciones: {
       return false;
     },
     async avisarInvitacionPagada() {},
+
+    // ── Los créditos de CELEBRAR ─────────────────────────────────────
+    // La decisión se prueba en lib/celebrar/pagos/creditos-pagados.test.ts;
+    // acá alcanza con que el motor los reconozca y no los trate como
+    // invitación (ver «un pago suelto de CELEBRAR» más abajo).
+    async acreditarCreditosCelebrar(pago) {
+      registro.creditosCelebrar.push(pago.sesionStripe);
+      return { tipo: "acreditado", creditos: pago.creditos, aviso: null };
+    },
 
     // ── El interruptor ───────────────────────────────────────────────
     async sigueCubierto() {
@@ -267,6 +279,53 @@ const SESION_OK = {
   client_reference_id: RANCHO,
   metadata: { cuenta_id: CUENTA, plan: "impulso", periodo: "mensual" },
 };
+
+// ── Un pago suelto de CELEBRAR ───────────────────────────────────────
+
+describe("checkout.session.completed · un paquete de créditos de CELEBRAR", () => {
+  const SESION_CREDITOS = {
+    id: "cs_celebrar_1",
+    mode: "payment",
+    payment_status: "paid",
+    amount_total: 1_150_000,
+    currency: "crc",
+    client_reference_id: "a45261b3-d846-40e4-aa14-506d2080be67",
+    metadata: {
+      bookea_producto: "celebrar_creditos",
+      celebrar_owner_id: "a45261b3-d846-40e4-aa14-506d2080be67",
+      celebrar_paquete: "p250",
+      celebrar_creditos: "250",
+    },
+  };
+
+  it("acredita el libro de CELEBRAR y no toca ni suscripciones ni pedidos", async () => {
+    const { puerta, registro } = puertaFalsa({});
+    const r = await procesarEventoStripe(evento("checkout.session.completed", SESION_CREDITOS), puerta, ENTORNO);
+    expect(r).toEqual({ tipo: "creditos_acreditados", cuenta: SESION_CREDITOS.client_reference_id, creditos: 250 });
+    expect(registro.creditosCelebrar).toEqual(["cs_celebrar_1"]);
+    expect(registro.guardadas).toHaveLength(0);
+    expect(registro.planes).toHaveLength(0);
+    expect(registro.avisos).toHaveLength(0);
+  });
+
+  it("el cobro diferido (async_payment_succeeded) entra por el mismo camino", async () => {
+    const { puerta, registro } = puertaFalsa({});
+    const r = await procesarEventoStripe(evento("checkout.session.async_payment_succeeded", SESION_CREDITOS), puerta, ENTORNO);
+    expect(r.tipo).toBe("creditos_acreditados");
+    expect(registro.creditosCelebrar).toEqual(["cs_celebrar_1"]);
+  });
+
+  it("un pago suelto SIN la marca de CELEBRAR sigue siendo (o no) una invitación", async () => {
+    const { puerta, registro } = puertaFalsa({});
+    const r = await procesarEventoStripe(
+      evento("checkout.session.completed", { ...SESION_CREDITOS, metadata: { bookea_producto: "invitacion", pedido_id: "ped_1" } }),
+      puerta,
+      ENTORNO,
+    );
+    expect(r.tipo).toBe("invitacion_sin_efecto");
+    expect(registro.creditosCelebrar).toHaveLength(0);
+  });
+});
 
 // ── El camino feliz ───────────────────────────────────────────────────
 
@@ -556,6 +615,7 @@ describe("el mismo evento dos veces se procesa UNA", () => {
       base: structuredClone(INTOCABLES),
       avisosAlDueno: [],
       avisosPreviosReclamados: 0,
+      creditosCelebrar: [],
     };
     const { puerta } = puertaFalsa({ registro });
     const r = await procesarEventoStripe(
@@ -941,6 +1001,7 @@ describe("renovar: vuelve a operar con su paquete", () => {
       base: structuredClone(INTOCABLES),
       avisosAlDueno: [],
       avisosPreviosReclamados: 0,
+      creditosCelebrar: [],
     };
 
     // 1. El corte.

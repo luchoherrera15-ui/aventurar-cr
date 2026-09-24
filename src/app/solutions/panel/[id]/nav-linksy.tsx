@@ -130,7 +130,7 @@ export function BarraLinksy({ negocio }: { negocio?: NegocioEnBarra }) {
       <div className="mx-auto flex min-h-[64px] w-[min(1440px,100%)] items-center justify-between gap-3 rounded-full bg-[var(--linksy-papel)] px-4 shadow-elevado sm:px-6">
         <div className="flex min-w-0 items-center gap-3 sm:gap-5">
           <Link href="/solutions/panel" className="titulo shrink-0 text-[24px] font-extrabold tracking-tight text-[var(--linksy-tinta)]" title="Mis páginas">
-            Linksy
+            Bookea
           </Link>
           {negocio ? (
             <>

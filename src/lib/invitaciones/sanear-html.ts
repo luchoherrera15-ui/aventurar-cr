@@ -119,7 +119,18 @@ function esquemaPeligroso(valor: string): boolean {
 /** Borra los elementos peligrosos, repitiendo hasta que no cambie más
  *  (así se deshacen ofuscaciones tipo `<scr<script>ipt>`). */
 function quitarElementos(html: string): string {
-  let actual = html;
+  // ── LOS COMENTARIOS SE VAN PRIMERO (sep 2026) ────────────────────
+  // Un comentario HTML no ejecuta nada, pero su TEXTO sí engaña a las
+  // regex de abajo. La demo «Carta de Amor» abría con una nota para el
+  // equipo —«JS en dos <script> inline»— y ese `<script>` de texto se
+  // tomaba como apertura real: el borrado corría desde el comentario
+  // hasta el primer `</script>` de verdad, llevándose entero el
+  // `<style>` de 44 KB que había en medio. La invitación estrella se
+  // sirvió meses sin diseño y nadie vio un error, porque no lo hubo.
+  //
+  // Quitarlos además achica lo que baja al teléfono: las plantillas
+  // llevan notas largas que ningún invitado lee.
+  let actual = html.replace(/<!--[\s\S]*?-->/g, "");
   let anterior: string;
   let vueltas = 0;
   do {

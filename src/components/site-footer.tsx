@@ -15,15 +15,36 @@
  */
 
 const VERTICALES: { href: string; label: string }[] = [
-  { href: "/", label: "Marketplace" },
+  // `/all` y no `/?rubro=citas`: ese link recortaba el catálogo a UNA
+  // vertical y el rótulo prometía todas. La dirección fija existe desde
+  // el 24 sep 2026 justo para esto.
+  { href: "/all", label: "Explorar negocios" },
   { href: "/restaurantes", label: "Restaurantes" },
   { href: "/hospedajes", label: "Hospedajes" },
   { href: "/invitaciones", label: "Invitaciones digitales" },
 ];
 
+/**
+ * ⚠️ ACÁ NO SE INVENTAN RUTAS.
+ *
+ * El plan del home pedía además «Precios» y una fila por capacidad
+ * (Reservas · Clientes · Tu página). No entran, y no por olvido:
+ *
+ * · `/precios` no existe, y no se puede escribir sin decidir antes
+ *   cómo se cobra el paquete completo. Mandar a `/lealtad/planes` como
+ *   si fueran los precios de Bookea sería confundir el precio de UN
+ *   producto con el de la plataforma. El CTA comercial del pie es, por
+ *   ahora, «Crear mi negocio».
+ * · `/productos/*` tampoco existe. Cada capacidad se explica en su
+ *   sección del home, así que el pie manda ahí (`/#recorrido`) en vez
+ *   de a páginas que habría que inventar para llenar el menú.
+ * · Celebrar queda afuera hasta que tenga ruta pública en producción:
+ *   sus migraciones (0242–0249) todavía no están aplicadas.
+ */
 const NEGOCIOS: { href: string; label: string }[] = [
   // La landing B2B primero: es la que explica; /publicar es la que ejecuta.
   { href: "/negocios", label: "Bookea para negocios" },
+  { href: "/#recorrido", label: "Cómo funciona" },
   { href: "/publicar", label: "Publicá tu negocio" },
   { href: "/lealtad", label: "Programa de lealtad" },
   { href: "/mi-negocio", label: "Panel de anfitriones" },
@@ -72,7 +93,7 @@ export default function SiteFooter() {
             </a>
           </div>
 
-          <ColumnaFooter titulo="Reservá" links={VERTICALES} />
+          <ColumnaFooter titulo="Descubrir" links={VERTICALES} />
           <ColumnaFooter titulo="Para negocios" links={NEGOCIOS} />
           <ColumnaFooter titulo="Legal" links={LEGAL} />
         </div>

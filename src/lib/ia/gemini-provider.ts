@@ -1,4 +1,4 @@
-import { ApiError, FinishReason, GoogleGenAI, type Content, type Part } from "@google/genai";
+import { ApiError, FinishReason, GoogleGenAI, ThinkingLevel, type Content, type Part } from "@google/genai";
 import type { AIProvider, ResultadoIA, SolicitudIA, UsoIAProveedor } from "./ai-provider";
 
 /**
@@ -118,7 +118,7 @@ export class GeminiProvider implements AIProvider {
     this.client = new GoogleGenAI({ apiKey });
   }
 
-  async generar({ modelo, maxTokens, system, turnos, sinRazonamiento }: SolicitudIA): Promise<ResultadoIA> {
+  async generar({ modelo, maxTokens, system, turnos, sinRazonamiento, abortSignal }: SolicitudIA): Promise<ResultadoIA> {
     let respuesta;
     try {
       respuesta = await this.client.models.generateContent({
@@ -127,17 +127,21 @@ export class GeminiProvider implements AIProvider {
         config: {
           systemInstruction: system,
           maxOutputTokens: maxTokens,
+          ...(abortSignal ? { abortSignal } : {}),
           /**
-           * `thinkingBudget: 0` es DISABLED en el SDK — el único valor
-           * que apaga el razonamiento (el `-1` es "automático", que es
-           * justamente lo que queremos evitar).
+           * Antes iba `thinkingBudget: 0` (DISABLED). Desde setiembre de
+           * 2026 la API lo rechaza con 400 INVALID_ARGUMENT en los Gemini
+           * 3.5 (comprobado el 21 sep contra gemini-3.5-flash-lite:
+           * budget 0 → 400; `thinkingLevel: MINIMAL` → 200 con
+           * `thoughtsTokenCount: 0`). MINIMAL es hoy lo que menos razona
+           * sin que la API lo rechace.
            *
            * Va condicional y no siempre: hay usos donde razonar vale la
            * pena. Pero cuando el llamador pide `sinRazonamiento`, esto
-           * es lo que convierte 172 segundos en una respuesta normal —
-           * ver el comentario de `sinRazonamiento` en ai-provider.ts.
+           * es lo que evita los 172 segundos de espera — ver el
+           * comentario de `sinRazonamiento` en ai-provider.ts.
            */
-          ...(sinRazonamiento ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+          ...(sinRazonamiento ? { thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } } : {}),
         },
       });
     } catch (e) {

@@ -6,6 +6,7 @@ import {
   IconCalendarLine,
   IconChartBars,
   IconCheck,
+  IconChevronLeft,
   IconChevronRight,
   IconCompass,
   IconFrame,
@@ -15,6 +16,9 @@ import {
   IconStore,
   IconUserCircle,
 } from "@/components/icons";
+// ⚠️ SOLO EL TIPO: la función es de servidor (usa la llave de servicio)
+// y este archivo es de cliente. `import type` se borra al compilar.
+import type { NegocioDeCuenta } from "@/lib/negocios-cuenta";
 import { Card, GrillaTablero, PildoraEstado } from "@/components/panel/piezas";
 import {
   BAJADA_PANTALLA,
@@ -32,6 +36,8 @@ import {
   RADIO_TILE,
   ROTULO_CIFRA,
   SUPERFICIE_PANEL,
+  TILE_PANEL,
+  TILE_PANEL_APAGADO,
   TITULO_PANTALLA,
 } from "@/components/panel/sistema";
 import { TIPOS_TARJETA, UNIDAD_SALDO, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
@@ -136,6 +142,13 @@ interface TableroModosProps {
   lealtadActiva: boolean;
   /** El id del único negocio con lealtad activa, o null si son 0 o 2+. */
   lealtadNegocioUnico: string | null;
+  /**
+   * LA LISTA FEDERADA (24 sep 2026): todos los negocios de la cuenta,
+   * vengan de `ranchos` (marketplace/Lealtad) o de la página `/s/`.
+   * El modo Negocio arranca acá: la grilla de negocios, y al abrir
+   * uno, sus add-ons y sus puertas. Ver `src/lib/negocios-cuenta.ts`.
+   */
+  negocios: NegocioDeCuenta[];
   confirmacionesNuevas: number;
   invitacionIds: string[];
   personasConfirmadas: number;
@@ -174,6 +187,7 @@ export default function TableroModos({
   negocioFinanzasUnico,
   lealtadActiva,
   lealtadNegocioUnico,
+  negocios,
   confirmacionesNuevas,
   invitacionIds,
   personasConfirmadas,
@@ -186,6 +200,10 @@ export default function TableroModos({
   cerrarSesion,
 }: TableroModosProps) {
   const [modoNegocio, setModoNegocio] = useState(false);
+  /** El negocio abierto en el modo Negocio (null = la grilla). Se
+   *  guarda el ID y no el objeto: la lista es la fuente. */
+  const [negocioAbiertoId, setNegocioAbiertoId] = useState<string | null>(null);
+  const negocioAbierto = negocios.find((n) => n.id === negocioAbiertoId) ?? null;
 
   useEffect(() => {
     // Lectura única de una preferencia guardada en el navegador — no hay
@@ -392,11 +410,11 @@ export default function TableroModos({
             <div className="min-w-0">
               <p className={EYEBROW}>{fechaHoy}</p>
               <h1 className={`mt-2 ${TITULO_PANTALLA} sm:text-[38px]`}>
-                {modoNegocio ? "Tu negocio, en un panel a la altura." : "Todo listo para tu próxima experiencia."}
+                {modoNegocio ? "Tus negocios, en un solo lugar." : "Todo listo para tu próxima experiencia."}
               </h1>
               <p className={`mt-2.5 max-w-[480px] ${BAJADA_PANTALLA}`}>
                 {modoNegocio
-                  ? "Disponibilidad, solicitudes, clientes y rendimiento de tu espacio, en un panel pensado para el día a día."
+                  ? "Tu página, tus reservas, tus pedidos y tu lealtad — todo lo que administrás con Bookea entra por acá."
                   : "Reservas, invitaciones y beneficios reunidos en tu cuenta Bookea."}
               </p>
             </div>
@@ -473,8 +491,22 @@ export default function TableroModos({
                   <MiLealtadResumen count={misLealtadesCount} principal={lealtadPrincipal} />
                 </GrillaTablero>
               </>
+            ) : negocioAbierto ? (
+              /* ── EL DETALLE DE UN NEGOCIO (24 sep 2026) ────────────
+                 Al abrir un negocio, el contenido ES ese negocio: sus
+                 add-ons, su página pública y la puerta a su panel. El
+                 resto del tablero se corre a un lado para no competir. */
+              <DetalleNegocio negocio={negocioAbierto} alVolver={() => setNegocioAbiertoId(null)} />
             ) : (
               <>
+                {/* ── PRIMERO, LOS NEGOCIOS (24 sep 2026) ────────────
+                    «Un Bookea totalmente junto»: el modo Negocio abre
+                    con la grilla federada de TODOS los negocios de la
+                    cuenta — del marketplace, de Lealtad o de su página
+                    /s/ — y al tocar uno se ven sus add-ons y paneles.
+                    Las secciones agregadas de siempre quedan debajo. */}
+                <MisNegocios negocios={negocios} alAbrir={setNegocioAbiertoId} />
+
                 {/* ── EL MODO NEGOCIO SON DOS SECCIONES, NO UNA ──────
                     Marketplace (publicaciones del directorio, con sus
                     reservas y finanzas) y Bookea Lealtad (las tarjetas
@@ -1064,6 +1096,227 @@ function BannerNegocio({
           </span>
         </Link>
       )}
+    </section>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────
+//  TUS NEGOCIOS — la grilla federada y el detalle (24 sep 2026)
+// ───────────────────────────────────────────────────────────────────
+//
+// Pedido del dueño: «un Bookea totalmente junto… al ingresar vemos los
+// negocios que tenemos, y al darle clic a uno, los add-ons y todo lo
+// que tiene agregado». La lista llega ya federada de
+// `src/lib/negocios-cuenta.ts` (ranchos + la página /s/); acá solo se
+// pinta con las piezas del panel — ni un hex ni un radio nuevo.
+
+const MUNDO_ETIQUETA: Record<NegocioDeCuenta["mundo"], string> = {
+  marketplace: "Marketplace",
+  lealtad: "Lealtad",
+  pagina: "Tu página",
+};
+
+/** El logo del negocio, o su inicial en el disco navy del sistema. */
+function AvatarNegocio({ negocio }: { negocio: NegocioDeCuenta }) {
+  if (negocio.fotoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={negocio.fotoUrl}
+        alt=""
+        className="h-10 w-10 shrink-0 rounded-xl border border-aventurea-line object-cover"
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-aventurea-navy text-[14px] font-extrabold text-white"
+    >
+      {(negocio.nombre.trim().charAt(0) || "•").toUpperCase()}
+    </span>
+  );
+}
+
+/** La grilla de negocios: cada tarjeta abre su detalle. */
+function MisNegocios({
+  negocios,
+  alAbrir,
+}: {
+  negocios: NegocioDeCuenta[];
+  alAbrir: (id: string) => void;
+}) {
+  return (
+    <section aria-labelledby="mis-negocios-titulo">
+      <div className="mb-3.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+        <div className="min-w-0">
+          <p className={`mb-1.5 ${EYEBROW_NEUTRO}`}>Un solo Bookea</p>
+          <h2 id="mis-negocios-titulo" className="titulo text-[18px] tracking-[-0.02em] text-aventurea-navy">
+            Tus negocios
+          </h2>
+        </div>
+        <Link href="/empezar" className={ENLACE_CARD}>
+          Agregar otro
+        </Link>
+      </div>
+
+      {negocios.length === 0 ? (
+        /* Sin negocios pero con la puerta abierta: pasa cuando el modo
+           se abrió por ?modo=negocio y la lista federada vino vacía. */
+        <div className={`${SUPERFICIE_PANEL} ${RADIO_TILE} p-6 text-center`}>
+          <p className={CUERPO_SUAVE}>Todavía no tenés negocios en Bookea.</p>
+          <Link href="/empezar" className={`mt-3.5 inline-flex ${BOTON_PANEL_PRIMARIO}`}>
+            Empezá gratis
+          </Link>
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {negocios.map((n) => (
+            <button
+              key={`${n.origen}-${n.id}`}
+              type="button"
+              onClick={() => alAbrir(n.id)}
+              className={`presionable ${SUPERFICIE_PANEL} ${RADIO_TILE} p-4 text-left transition-colors hover:border-aventurea-navy`}
+            >
+              <div className="flex items-start gap-3">
+                <AvatarNegocio negocio={n} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14.5px] font-extrabold text-aventurea-navy">{n.nombre}</p>
+                  <p className={`mt-0.5 truncate ${DETALLE}`}>
+                    {MUNDO_ETIQUETA[n.mundo]}
+                    {n.esDueno ? "" : " · colaborás"}
+                  </p>
+                </div>
+                <PildoraEstado estado={n.publicado ? "exito" : "neutro"} colapsa>
+                  {n.publicado ? "Publicado" : "Borrador"}
+                </PildoraEstado>
+              </div>
+
+              {n.activos.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  {n.activos.slice(0, 3).map((a) => (
+                    <span
+                      key={a}
+                      className="rounded-lg border border-aventurea-line bg-white px-2 py-0.5 text-[11px] font-bold text-aventurea-ink-soft"
+                    >
+                      {a}
+                    </span>
+                  ))}
+                  {n.activos.length > 3 && <span className={DETALLE}>+{n.activos.length - 3}</span>}
+                </div>
+              )}
+
+              <p className="mt-3 flex items-center gap-1 text-[12.5px] font-extrabold text-bookea-azul">
+                Ver add-ons y panel
+                <IconChevronRight className="h-3.5 w-3.5" />
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** El detalle: sus add-ons con nombre, su página pública y su panel. */
+function DetalleNegocio({
+  negocio,
+  alVolver,
+}: {
+  negocio: NegocioDeCuenta;
+  alVolver: () => void;
+}) {
+  return (
+    <section aria-labelledby="detalle-negocio-titulo" className="flex flex-col gap-5">
+      <button
+        type="button"
+        onClick={alVolver}
+        className="presionable inline-flex w-fit items-center gap-1.5 text-[13px] font-extrabold text-aventurea-ink-soft transition-colors hover:text-aventurea-navy"
+      >
+        <IconChevronLeft className="h-4 w-4" />
+        Tus negocios
+      </button>
+
+      {/* ── La cabecera del negocio ─────────────────────────────── */}
+      <div className={`${SUPERFICIE_PANEL} ${RADIO_TILE} p-5`}>
+        <div className="flex flex-wrap items-center gap-3">
+          <AvatarNegocio negocio={negocio} />
+          <div className="min-w-0 flex-1">
+            <h2
+              id="detalle-negocio-titulo"
+              className="titulo truncate text-[20px] tracking-[-0.02em] text-aventurea-navy"
+            >
+              {negocio.nombre}
+            </h2>
+            <p className={`mt-0.5 ${DETALLE}`}>
+              {MUNDO_ETIQUETA[negocio.mundo]}
+              {negocio.esDueno ? "" : " · colaborás"}
+            </p>
+          </div>
+          <PildoraEstado estado={negocio.publicado ? "exito" : "neutro"}>
+            {negocio.publicado ? "Publicado" : "Borrador"}
+          </PildoraEstado>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2.5">
+          <Link href={negocio.hrefPanel} className={BOTON_PANEL_PRIMARIO}>
+            Abrir el panel
+          </Link>
+          {negocio.urlPublica && (
+            <a
+              href={negocio.urlPublica}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="presionable inline-flex items-center gap-1.5 rounded-xl border border-aventurea-line bg-white px-4 py-2.5 text-[13px] font-extrabold text-aventurea-navy transition-colors hover:border-aventurea-navy"
+            >
+              Ver página pública
+            </a>
+          )}
+        </div>
+      </div>
+
+      {/* ── Lo que tiene activo ─────────────────────────────────── */}
+      <div>
+        <p className={`mb-1.5 ${EYEBROW_NEUTRO}`}>Add-ons y productos</p>
+        <h3 className="titulo text-[18px] tracking-[-0.02em] text-aventurea-navy">Lo que tiene activo</h3>
+
+        {negocio.activos.length === 0 ? (
+          <div className={`mt-3.5 ${TILE_PANEL_APAGADO}`}>
+            <p className={CUERPO_SUAVE}>Este negocio todavía no tiene nada activado.</p>
+          </div>
+        ) : (
+          <div className="mt-3.5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {negocio.activos.map((a) => (
+              <Link key={a} href={negocio.hrefPanel} className={TILE_PANEL}>
+                {/* DISCO_ACENTO es un objeto de estilo (los pares del
+                    acento), no clases: va en `style`, como en el resto
+                    del panel. */}
+                <span
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-xl"
+                  style={DISCO_ACENTO}
+                >
+                  <IconCheck className="h-[15px] w-[15px]" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[13.5px] font-extrabold text-aventurea-navy">{a}</span>
+                  <span className={`block ${DETALLE}`}>Activo · administralo en el panel</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── La puerta a lo que falta ────────────────────────────── */}
+      <div className={`${SUPERFICIE_PANEL} ${RADIO_TILE} flex flex-wrap items-center justify-between gap-3 p-4`}>
+        <div className="min-w-0">
+          <p className="text-[14px] font-extrabold text-aventurea-navy">¿Le falta algo?</p>
+          <p className={DETALLE}>Tu página, pedidos, pases de lealtad y reservas — todo con la misma cuenta.</p>
+        </div>
+        <Link href="/empezar" className={ENLACE_CARD}>
+          Ver los productos
+        </Link>
+      </div>
     </section>
   );
 }

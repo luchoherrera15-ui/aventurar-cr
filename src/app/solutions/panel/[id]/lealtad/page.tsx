@@ -13,7 +13,7 @@ import MarcoLinksy from "../marco-linksy";
 import { navDelPanel } from "../nav-datos";
 import SeccionesLealtad from "./secciones-lealtad";
 
-export const metadata: Metadata = { title: "Lealtad · Linksy" };
+export const metadata: Metadata = { title: "Lealtad · Bookea" };
 
 /**
  * /solutions/panel/[id]/lealtad — TODO LEALTAD, DENTRO DEL PANEL DE LINKSY.
