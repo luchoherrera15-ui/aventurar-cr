@@ -2,9 +2,8 @@
 // comen tanto la vista previa local como la siembra en Supabase, para
 // que nunca se despeguen la una de la otra.
 //
-// ⚠️ PENDIENTE: la FECHA es provisional — todavía no nos la dieron.
-//    Cambiá FECHA y FECHA_ISO acá y todo lo demás se acomoda solo
-//    (incluida la cuenta regresiva, que lee FECHA_ISO).
+// La FECHA vive acá y solo acá: la vista previa y la siembra comen de
+// este archivo, y la cuenta regresiva de la plantilla lee FECHA_ISO.
 // ⚠️ PENDIENTE: el texto y el link de la sección de regalos.
 
 const LUGAR = "Rancho Las Torres";
@@ -24,7 +23,7 @@ export const FILA = {
   titulo: "Baby Shower de Antonella",
   anfitriones: "Sus papás",
   mensaje: "Vení a llenar de abrazos el nidito de Antonella.",
-  fecha_evento: "2026-11-07", // ⚠️ provisional
+  fecha_evento: "2026-12-05",
   hora: "5:30 p. m.",
   lugar_nombre: LUGAR,
   direccion: DIRECCION,
@@ -36,8 +35,8 @@ export const FILA = {
 export const DATOS = {
   NOMBRE: "Antonella",
   ANFITRIONES: "sus papás",
-  FECHA: "sábado 7 de noviembre, 2026", // ⚠️ provisional
-  FECHA_ISO: "2026-11-07T17:30:00-06:00", // ⚠️ provisional
+  FECHA: "sábado 5 de diciembre, 2026",
+  FECHA_ISO: "2026-12-05T17:30:00-06:00",
   HORA: "5:30 p. m.",
   LUGAR,
   DIRECCION,
