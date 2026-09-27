@@ -1,0 +1,1509 @@
+<!--
+  Plantilla "Conejitos" — baby shower con temática de conejos. Paleta
+  de algodón: rosa pastel, crema de peluche, verde salvia y un hilo de
+  oro viejo. La protagonista es la bebé (su foto recortada) rodeada de
+  conejitos: uno duerme en la nube del telón, otro asoma las orejas por
+  el borde de cada sección, y el conejo mensajero CRUZA EL PRADO A
+  SALTOS siguiendo el scroll en "El lugar".
+
+  USO: sustituir los placeholders y guardar el resultado en
+  invitaciones.html_personalizado. La página /i/{slug} lo inyecta a
+  pantalla completa (el fragmento ocupa todo el ancho del viewport; el
+  cielo rosado ES la página) y agrega ella misma el bloque RSVP
+  "¿Nos acompañás?" debajo — por eso la sección 8 llama a confirmar
+  "aquí abajito".
+
+  ESTRUCTURA (escenas que se revelan UNA POR UNA al scrollear con
+  IntersectionObserver, cada una con su entrada distinta):
+    0. INTRO: telón de terciopelo rosa que se abre en dos (dialog)
+    1. Portada/hero (la bebé, nubes en parallax, pétalos y el prado)
+    2. El anuncio ("se asoman unas orejitas…") — conejo que espía
+    3. Código de vestimenta ("un toque rosa") — muestras que brincan
+    4. Información principal (fecha y hora en grande, guirnalda)
+    5. Cuenta regresiva viva (bloques de madera con orejitas)
+    6. El lugar (el conejo mensajero salta con el scroll + Maps/Waze)
+    7. Muestras de cariño (regalos + SINPE)
+    8. Llamado "Confirmá tu asistencia ▼" (empata con el RSVP)
+
+  PLACEHOLDERS:
+    {{NOMBRE}}          nombre de la bebé          p. ej. Antonella
+    {{ANFITRIONES}}     quién invita               p. ej. Sus papás
+    {{FOTO}}            src de la foto recortada   (data-URI o URL)
+    {{FECHA}}           fecha en palabras          p. ej. sábado 8 de noviembre
+    {{FECHA_ISO}}       fecha-hora ISO con zona    p. ej. 2026-11-08T17:30:00-06:00
+    {{HORA}}            hora                       p. ej. 5:30 p. m.
+    {{LUGAR}}           nombre del lugar           p. ej. Rancho Las Torres
+    {{DIRECCION}}       dirección corta            p. ej. Calle Monge, Alajuela
+    {{LINK_MAPS}}       URL de Google Maps
+    {{LINK_WAZE}}       URL de Waze
+    {{MENSAJE_REGALOS}} texto libre de la sección de regalos
+    {{LINK_REGALO_1}}   URL lista de regalos
+    {{SINPE}}           número SINPE Móvil         p. ej. 8888-8888
+
+  NOTAS TÉCNICAS:
+  - Autocontenido: CSS en el <style> y JS en el <script> de este mismo
+    fragmento; cero librerías, cero recursos remotos (SVG inline y la
+    foto embebida). Estilos namespaced con .con-/#con-.
+  - La intro usa <dialog>.showModal() (top layer: escapa el transform
+    del contenedor [data-reveal] de la página). Sin JS o con
+    prefers-reduced-motion no hay intro y todo queda visible.
+  - Los estados "oculto antes de revelar" solo existen bajo .con-anima,
+    clase que agrega el script: sin JS la invitación se ve completa.
+  - La música es SINTETIZADA con Web Audio (caja de música tocando
+    "Ah! vous dirai-je, maman", de dominio público): ni un archivo que
+    descargar ni un derecho que pagar. Arranca con el toque que abre el
+    telón — nunca sola, que el autoplay con sonido está bloqueado — y
+    se apaga con el botón flotante.
+  - Los conejitos rebotan y "hablan" con onclick inline (funciona aunque
+    el <script> principal no corra).
+-->
+<div class="con">
+  <style>
+    /* ============ Tokens del tema ============ */
+    .con {
+      --con-rosa: #f3a9c4;
+      --con-rosa-fuerte: #e2568d;
+      --con-rosa-humo: #fbe3ec;
+      --con-cielo: #fdf1f5;
+      --con-crema: #f8f0e4;
+      --con-crema-osc: #e9dac5;
+      --con-salvia: #a9c4a2;
+      --con-salvia-osc: #7a9b74;
+      --con-oro: #cfa963;
+      --con-tinta: #5a3e4d;
+      --con-tinta-suave: #8a6b7a;
+      --con-t: "Georgia", "Iowan Old Style", "Palatino Linotype", serif;
+      --con-f: "Avenir Next", "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+      display: block;
+      font-family: var(--con-f);
+      color: var(--con-tinta);
+      background: var(--con-cielo);
+      overflow-x: hidden;
+      -webkit-text-size-adjust: 100%;
+    }
+    .con *, .con *::before, .con *::after { box-sizing: border-box; }
+    .con p, .con h1, .con h2, .con h3, .con figure { margin: 0; }
+
+    /* ============ INTRO: el telón (dialog en el top layer) ============ */
+    #con-intro {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      max-width: none;
+      max-height: none;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: radial-gradient(60rem 40rem at 50% 42%, #fff7fa, var(--con-rosa-humo) 70%);
+      overflow: hidden;
+      z-index: 2147483000;
+      cursor: pointer;
+      color: var(--con-tinta);
+    }
+    #con-intro:focus { outline: none; }
+    #con-intro::backdrop { background: rgba(60, 30, 45, 0.55); }
+
+    /* Las dos hojas de terciopelo, con su pliegue y su fleco dorado. */
+    .con-telon {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 52%;
+      z-index: 2;
+      transition: transform 1.15s cubic-bezier(0.76, 0, 0.24, 1);
+      will-change: transform;
+      background-color: #d9749b;
+      background-image:
+        linear-gradient(90deg, rgba(0,0,0,0.26) 0 3%, rgba(255,255,255,0.16) 7%, rgba(0,0,0,0.22) 12%, rgba(255,255,255,0.13) 17%, rgba(0,0,0,0.24) 23%, rgba(255,255,255,0.15) 29%, rgba(0,0,0,0.2) 35%, rgba(255,255,255,0.12) 41%, rgba(0,0,0,0.24) 47%, rgba(255,255,255,0.15) 53%, rgba(0,0,0,0.2) 60%, rgba(255,255,255,0.13) 66%, rgba(0,0,0,0.24) 73%, rgba(255,255,255,0.14) 80%, rgba(0,0,0,0.22) 88%, rgba(255,255,255,0.12) 94%, rgba(0,0,0,0.26) 100%),
+        linear-gradient(#e78bab, #c25a82 62%, #a8446c);
+      box-shadow: inset 0 -70px 90px rgba(90, 30, 55, 0.4);
+    }
+    .con-telon-izq { left: 0; transform-origin: left center; border-right: 3px solid rgba(120, 40, 70, 0.35); }
+    .con-telon-der { right: 0; transform-origin: right center; border-left: 3px solid rgba(120, 40, 70, 0.35); }
+    /* El filete dorado del borde interno: un hilo con brillo, no una
+       escalerita — las barras repetidas parecían cinta métrica. */
+    .con-telon::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 7px;
+      background: linear-gradient(90deg, #f0d9a4, var(--con-oro) 45%, #9d7634);
+      opacity: 0.9;
+    }
+    .con-telon-izq::after { right: 0; }
+    .con-telon-der::after { left: 0; }
+    .con-intro-abierta .con-telon-izq { transform: translateX(-102%) skewX(-3deg); }
+    .con-intro-abierta .con-telon-der { transform: translateX(102%) skewX(3deg); }
+
+    /* La cenefa de arriba: se levanta cuando el telón abre. Festoneada
+       (media luna colgando), que los dientes de punta le daban aire de
+       carpa de circo y esto es un baby shower. */
+    .con-cenefa {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 74px;
+      z-index: 3;
+      background-color: #c25a82;
+      background-image: linear-gradient(#e78bab, #b44e76);
+      transition: transform 0.9s cubic-bezier(0.76, 0, 0.24, 1);
+      will-change: transform;
+    }
+    .con-cenefa::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 100%;
+      height: 24px;
+      background-image: radial-gradient(circle 24px at 50% 0, #b44e76 97%, transparent 99%);
+      background-size: 48px 24px;
+      background-repeat: repeat-x;
+    }
+    .con-intro-abierta .con-cenefa { transform: translateY(-104%); }
+
+    .con-intro-nucleo {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 0 24px;
+      text-align: center;
+      pointer-events: none;
+      transition: opacity 0.45s ease, transform 0.6s ease;
+    }
+    .con-intro-abierta .con-intro-nucleo { opacity: 0; transform: scale(1.12); }
+
+    /* La nube con el conejito dormido. */
+    .con-nube-intro {
+      width: 190px;
+      height: auto;
+      filter: drop-shadow(0 10px 18px rgba(150, 90, 115, 0.25));
+      animation: con-flota-nube 4.5s ease-in-out infinite, con-brinco-entra 1s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .con-intro-rotulo {
+      font-family: var(--con-t);
+      font-size: 13px;
+      letter-spacing: 0.34em;
+      text-transform: uppercase;
+      color: #fff;
+      text-shadow: 0 2px 10px rgba(120, 50, 80, 0.55);
+      animation: con-brinco-entra 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s both;
+    }
+    .con-intro-nombre {
+      font-family: var(--con-t);
+      font-size: clamp(42px, 15vw, 88px);
+      font-weight: 400;
+      font-style: italic;
+      line-height: 1;
+      color: #fff;
+      text-shadow: 0 4px 16px rgba(120, 50, 80, 0.6);
+      animation: con-brinco-entra 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.42s both;
+    }
+    .con-toca {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: max(28px, env(safe-area-inset-bottom));
+      z-index: 4;
+      margin: 0;
+      text-align: center;
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      color: #fff;
+      text-shadow: 0 2px 8px rgba(120, 50, 80, 0.6);
+      animation: con-late 1.9s ease-in-out infinite;
+    }
+    .con-intro-abierta .con-toca { opacity: 0; transition: opacity 0.3s; }
+
+    @keyframes con-flota-nube {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+    @keyframes con-late {
+      0%, 100% { opacity: 0.6; transform: translateY(0); }
+      50% { opacity: 1; transform: translateY(-4px); }
+    }
+
+    /* ============ Botón de música (flotante, siempre alcanzable) ============ */
+    .con-musica {
+      position: fixed;
+      right: max(14px, env(safe-area-inset-right));
+      bottom: max(14px, env(safe-area-inset-bottom));
+      z-index: 2147482000;
+      width: 48px;
+      height: 48px;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      border-radius: 50%;
+      background: rgba(226, 86, 141, 0.92);
+      color: #fff;
+      cursor: pointer;
+      box-shadow: 0 6px 18px rgba(150, 60, 100, 0.35);
+      transition: transform 0.2s ease;
+    }
+    .con-musica[data-visible="si"] { display: flex; }
+    .con-musica:active { transform: scale(0.9); }
+    .con-musica svg { width: 24px; height: 24px; display: block; }
+    .con-musica .con-ico-mute { display: none; }
+    .con-musica[data-sonando="no"] .con-ico-nota { display: none; }
+    .con-musica[data-sonando="no"] .con-ico-mute { display: block; }
+    /* Ondita que late mientras suena. */
+    .con-musica[data-sonando="si"]::after {
+      content: "";
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      border: 2px solid rgba(226, 86, 141, 0.5);
+      animation: con-onda 2s ease-out infinite;
+    }
+    @keyframes con-onda {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      100% { transform: scale(1.35); opacity: 0; }
+    }
+
+    /* ============ Ambiente: pétalos en loop ============ */
+    .con-ambiente {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .con-petalo {
+      position: absolute;
+      top: -8%;
+      width: 14px;
+      height: 14px;
+      opacity: 0;
+      will-change: transform;
+      animation: con-cae linear infinite;
+    }
+    @keyframes con-cae {
+      0% { transform: translate3d(0, -10vh, 0) rotate(0deg); opacity: 0; }
+      10% { opacity: 0.85; }
+      90% { opacity: 0.7; }
+      100% { transform: translate3d(22px, 112vh, 0) rotate(420deg); opacity: 0; }
+    }
+
+    /* ============ Escenas y entradas ============ */
+    .con-esc {
+      position: relative;
+      z-index: 2;
+      padding: clamp(64px, 12vw, 110px) 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .con-dentro { width: 100%; max-width: 65ch; }
+
+    /* Transición entre secciones: media luna colgante del color de la
+       sección ANTERIOR, dibujada por dentro de esta. Va por dentro a
+       propósito — varias secciones tienen overflow:hidden y un borde
+       que sobresaliera por arriba quedaría recortado. */
+    .con-esc[data-con-borde]::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 22px;
+      background-image: radial-gradient(circle 22px at 50% 0, var(--con-borde) 97%, transparent 99%);
+      background-size: 44px 22px;
+      background-repeat: repeat-x;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    /* Antes de revelar (solo con JS). Cada escena entra DISTINTO. */
+    .con-anima .con-esc[data-con-escena] > * { opacity: 0; }
+    .con-anima .con-esc.con-vista > * { opacity: 1; }
+
+    /* Inmersión: emerge desde abajo con profundidad. */
+    .con-anima [data-con-entra="inmersion"] > * {
+      transform: translateY(56px) scale(0.94);
+      filter: blur(6px);
+      transition: opacity 0.8s ease, transform 0.9s cubic-bezier(0.22, 1, 0.36, 1), filter 0.8s ease;
+    }
+    .con-anima [data-con-entra="inmersion"].con-vista > * {
+      transform: none;
+      filter: none;
+    }
+    /* Brinco: rebote elástico, como un conejo que aterriza. */
+    .con-anima [data-con-entra="brinco"] > * {
+      transform: translateY(-40px);
+      transition: opacity 0.4s ease;
+    }
+    .con-anima [data-con-entra="brinco"].con-vista > * {
+      animation: con-brinco-entra 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    @keyframes con-brinco-entra {
+      0% { opacity: 0; transform: translateY(-46px) scale(0.86); }
+      55% { opacity: 1; transform: translateY(10px) scale(1.06); }
+      78% { transform: translateY(-5px) scale(0.98); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    /* Cortina: la escena se descubre de abajo hacia arriba. */
+    .con-anima [data-con-entra="cortina"] > * {
+      transform: translateY(34px);
+      clip-path: inset(100% 0 0 0);
+      transition: opacity 0.6s ease, transform 0.85s cubic-bezier(0.22, 1, 0.36, 1), clip-path 0.95s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .con-anima [data-con-entra="cortina"].con-vista > * {
+      transform: none;
+      clip-path: inset(0 0 0 0);
+    }
+    /* Abanico: entra girando desde un costado. */
+    .con-anima [data-con-entra="abanico"] > * {
+      transform: translateX(-38px) rotate(-6deg);
+      transition: opacity 0.7s ease, transform 0.9s cubic-bezier(0.34, 1.4, 0.64, 1);
+    }
+    .con-anima [data-con-entra="abanico"].con-vista > * { transform: none; }
+
+    /* Escalonado: los hijos directos entran en cascada. */
+    .con-anima .con-esc[data-con-escena] > *:nth-child(1) { transition-delay: 0ms; animation-delay: 0ms; }
+    .con-anima .con-esc[data-con-escena] > *:nth-child(2) { transition-delay: 110ms; animation-delay: 110ms; }
+    .con-anima .con-esc[data-con-escena] > *:nth-child(3) { transition-delay: 220ms; animation-delay: 220ms; }
+    .con-anima .con-esc[data-con-escena] > *:nth-child(4) { transition-delay: 330ms; animation-delay: 330ms; }
+    .con-anima .con-esc[data-con-escena] > *:nth-child(5) { transition-delay: 440ms; animation-delay: 440ms; }
+
+    /* ============ 1. PORTADA ============ */
+    .con-hero {
+      position: relative;
+      min-height: 100svh;
+      justify-content: center;
+      padding-top: max(46px, env(safe-area-inset-top));
+      padding-bottom: clamp(96px, 17vh, 200px);
+      background: linear-gradient(#fdf1f5 0%, #fbe3ec 46%, #f7d8e4 100%);
+      overflow: hidden;
+    }
+    /* Dos capas de nubes a velocidades distintas (parallax). */
+    .con-nubes {
+      position: absolute;
+      left: -10%;
+      right: -10%;
+      pointer-events: none;
+      opacity: 0.85;
+      will-change: transform;
+    }
+    /* Arriba del nombre: si se cruzan por detrás, le ensucian la
+       lectura al título, que es lo único que no se puede tocar. */
+    .con-nubes-lejos { top: 5%; opacity: 0.55; }
+    .con-nubes-cerca { top: 13%; }
+    .con-nubes svg { width: 100%; height: auto; display: block; }
+
+    .con-hero-marco {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .con-pre {
+      max-width: min(100%, 24ch);
+      margin: 0 auto;
+      font-family: var(--con-t);
+      font-size: clamp(11px, 3.2vw, 14px);
+      /* El espaciado grande es lindo en desktop y rompe la frase en el
+         teléfono: se achica con la pantalla. */
+      letter-spacing: clamp(0.16em, 1.1vw, 0.4em);
+      line-height: 1.8;
+      text-transform: uppercase;
+      color: var(--con-tinta-suave);
+    }
+    .con-nombre {
+      font-family: var(--con-t);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(52px, 19vw, 132px);
+      line-height: 0.94;
+      color: var(--con-rosa-fuerte);
+      text-shadow: 0 3px 0 #fff, 0 10px 26px rgba(200, 110, 150, 0.28);
+    }
+    /* La foto de la bebé, sobre un halo suave. */
+    .con-retrato {
+      position: relative;
+      width: min(78vw, 340px);
+      margin-top: 4px;
+      animation: con-mece 6s ease-in-out infinite;
+    }
+    .con-retrato::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 46%;
+      width: 118%;
+      aspect-ratio: 1;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 66%);
+      z-index: -1;
+    }
+    .con-retrato img {
+      width: 100%;
+      height: auto;
+      display: block;
+      filter: drop-shadow(0 16px 26px rgba(160, 90, 120, 0.3));
+    }
+    @keyframes con-mece {
+      0%, 100% { transform: translateY(0) rotate(-0.6deg); }
+      50% { transform: translateY(-10px) rotate(0.6deg); }
+    }
+
+    /* El prado que cierra el hero, con su borde de pasto. */
+    .con-prado {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .con-prado svg { width: 100%; height: auto; display: block; }
+
+    /* Va ARRIBA del prado: abajo chocaba con el pasto y con el conejo
+       que asoma desde la sección siguiente. */
+    .con-baja {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: clamp(78px, 17vw, 120px);
+      z-index: 4;
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      color: var(--con-tinta-suave);
+      animation: con-late 2.1s ease-in-out infinite;
+    }
+
+    /* ============ Tipografía compartida ============ */
+    .con-titulo {
+      font-family: var(--con-t);
+      font-style: italic;
+      font-weight: 400;
+      font-size: clamp(30px, 8.4vw, 50px);
+      line-height: 1.1;
+      color: var(--con-rosa-fuerte);
+    }
+    .con-texto {
+      margin-top: 16px;
+      font-size: clamp(15px, 4.1vw, 18px);
+      line-height: 1.72;
+      color: var(--con-tinta);
+    }
+    .con-susurro {
+      margin-top: 10px;
+      font-size: clamp(13px, 3.5vw, 15px);
+      line-height: 1.6;
+      color: var(--con-tinta-suave);
+    }
+    /* Filete con dos orejitas al centro. */
+    .con-filete {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: 18px auto 0;
+      max-width: 260px;
+      color: var(--con-oro);
+    }
+    .con-filete::before, .con-filete::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, currentColor, transparent);
+    }
+    .con-filete svg { width: 26px; height: 26px; display: block; }
+
+    /* ============ 2. EL ANUNCIO ============ */
+    .con-anuncio {
+      position: relative;
+      --con-borde: #c4dcbe; /* viene del pasto del hero */
+      background: var(--con-crema);
+      padding-top: clamp(92px, 20vw, 140px);
+    }
+    /* El conejo que espía desde el borde de arriba. */
+    .con-espia {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      width: 108px;
+      transform: translate(-50%, -62%);
+      z-index: 4;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .con-espia svg { width: 100%; height: auto; display: block; }
+    .con-anima .con-anuncio.con-vista .con-espia {
+      animation: con-asoma 1.1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+    }
+    @keyframes con-asoma {
+      0% { transform: translate(-50%, 18%); }
+      60% { transform: translate(-50%, -74%); }
+      100% { transform: translate(-50%, -62%); }
+    }
+
+    /* ============ 3. VESTIMENTA ============ */
+    .con-vestimenta {
+      --con-borde: var(--con-crema); /* viene del anuncio */
+      background: var(--con-cielo);
+    }
+    /* Los cinco tonos en UNA fila incluso en 390px: repartidos en
+       4 + 1 se veía como un error, no como una paleta. */
+    .con-paleta {
+      display: flex;
+      justify-content: center;
+      gap: clamp(9px, 2.6vw, 16px);
+      margin-top: 26px;
+    }
+    .con-tono {
+      width: clamp(50px, 14vw, 66px);
+      aspect-ratio: 1;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      box-shadow: 0 6px 14px rgba(150, 90, 115, 0.22);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .con-tono:active { transform: scale(1.18) rotate(6deg); }
+    .con-anima .con-vestimenta.con-vista .con-tono {
+      animation: con-brinco-entra 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .con-vestimenta .con-tono:nth-child(1) { animation-delay: 0.15s; }
+    .con-vestimenta .con-tono:nth-child(2) { animation-delay: 0.27s; }
+    .con-vestimenta .con-tono:nth-child(3) { animation-delay: 0.39s; }
+    .con-vestimenta .con-tono:nth-child(4) { animation-delay: 0.51s; }
+    .con-vestimenta .con-tono:nth-child(5) { animation-delay: 0.63s; }
+
+    /* ============ 4. INFORMACIÓN PRINCIPAL ============ */
+    .con-info {
+      position: relative;
+      --con-borde: var(--con-cielo); /* viene de la vestimenta */
+      background: linear-gradient(var(--con-rosa-humo), #f7d8e4);
+      overflow: hidden;
+    }
+    .con-tarjeta {
+      position: relative;
+      margin-top: 24px;
+      padding: clamp(26px, 7vw, 42px) clamp(20px, 6vw, 40px);
+      background: #fffdfb;
+      border-radius: 26px;
+      border: 2px solid var(--con-crema-osc);
+      box-shadow: 0 18px 40px rgba(160, 95, 125, 0.18);
+    }
+    /* Las dos orejitas que le salen a la tarjeta por arriba: crema por
+       fuera y rosa por dentro, que en un solo tono parecían manchas. */
+    .con-tarjeta::before {
+      content: "";
+      position: absolute;
+      top: -48px;
+      left: 50%;
+      width: 104px;
+      height: 52px;
+      transform: translateX(-50%);
+      /* El rosa va chiquito y abajo: si sube, se come la oreja crema y
+         quedan dos bultos rosados sin forma. */
+      background:
+        radial-gradient(ellipse 6px 13px at 30px 56px, var(--con-rosa) 96%, transparent),
+        radial-gradient(ellipse 6px 13px at 74px 56px, var(--con-rosa) 96%, transparent),
+        radial-gradient(ellipse 15px 30px at 30px 54px, var(--con-crema) 96%, transparent),
+        radial-gradient(ellipse 15px 30px at 74px 54px, var(--con-crema) 96%, transparent);
+      z-index: -1;
+    }
+    .con-dato-clave {
+      font-family: var(--con-t);
+      font-size: clamp(30px, 8.6vw, 46px);
+      line-height: 1.16;
+      color: var(--con-tinta);
+    }
+    .con-hora {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 8px 22px;
+      border-radius: 999px;
+      background: var(--con-rosa-fuerte);
+      color: #fff;
+      font-size: clamp(19px, 5.4vw, 26px);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      box-shadow: 0 8px 18px rgba(226, 86, 141, 0.32);
+    }
+    .con-etiqueta {
+      font-size: 12px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: var(--con-tinta-suave);
+    }
+
+    /* ============ 5. CUENTA REGRESIVA ============ */
+    .con-cuenta {
+      --con-borde: #f7d8e4; /* viene del rosa de la info */
+      background: var(--con-crema);
+    }
+    .con-bloques {
+      display: flex;
+      justify-content: center;
+      gap: clamp(8px, 2.6vw, 16px);
+      margin-top: 28px;
+    }
+    .con-bloque {
+      position: relative;
+      min-width: clamp(58px, 17.5vw, 92px);
+      padding: 16px 6px 12px;
+      background: #fffdfb;
+      border: 2px solid var(--con-crema-osc);
+      border-radius: 18px;
+      box-shadow: 0 8px 0 var(--con-crema-osc);
+    }
+    /* Orejitas de cada bloque. */
+    .con-bloque::before {
+      content: "";
+      position: absolute;
+      top: -16px;
+      left: 50%;
+      width: 44px;
+      height: 20px;
+      transform: translateX(-50%);
+      background:
+        radial-gradient(ellipse 9px 17px at 11px 20px, var(--con-rosa) 96%, transparent),
+        radial-gradient(ellipse 9px 17px at 33px 20px, var(--con-rosa) 96%, transparent);
+    }
+    .con-bloque b {
+      display: block;
+      font-family: var(--con-t);
+      font-size: clamp(24px, 7vw, 36px);
+      line-height: 1;
+      color: var(--con-rosa-fuerte);
+      font-variant-numeric: tabular-nums;
+    }
+    .con-bloque span {
+      display: block;
+      margin-top: 6px;
+      font-size: clamp(9px, 2.6vw, 11px);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--con-tinta-suave);
+    }
+    .con-anima .con-cuenta.con-vista .con-bloque {
+      animation: con-brinco-entra 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+    .con-bloques .con-bloque:nth-child(1) { animation-delay: 0.1s; }
+    .con-bloques .con-bloque:nth-child(2) { animation-delay: 0.22s; }
+    .con-bloques .con-bloque:nth-child(3) { animation-delay: 0.34s; }
+    .con-bloques .con-bloque:nth-child(4) { animation-delay: 0.46s; }
+    /* Los bloques tienen sombra maciza abajo: sin aire, la frase se le
+       montaba encima. */
+    #con-cuenta-nota { margin-top: 28px; }
+
+    /* ============ 6. EL LUGAR ============ */
+    .con-lugar {
+      position: relative;
+      --con-borde: var(--con-crema); /* viene de la cuenta regresiva */
+      background: linear-gradient(#eef5ec, #dcebd8);
+      padding-bottom: clamp(96px, 22vw, 150px);
+      overflow: hidden;
+    }
+    /* El camino por donde cruza el conejo mensajero. */
+    .con-camino {
+      position: relative;
+      width: 100%;
+      max-width: 520px;
+      height: 92px;
+      margin: 30px auto 0;
+    }
+    .con-camino::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 16px;
+      height: 6px;
+      border-radius: 3px;
+      background: repeating-linear-gradient(90deg, var(--con-salvia-osc) 0 14px, transparent 14px 26px);
+      opacity: 0.6;
+    }
+    .con-mensajero {
+      position: absolute;
+      left: 0;
+      bottom: 14px;
+      width: 68px;
+      will-change: transform;
+    }
+    .con-mensajero svg { width: 100%; height: auto; display: block; }
+
+    .con-botones {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 26px;
+    }
+    .con-boton {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 48px;
+      padding: 12px 24px;
+      border-radius: 999px;
+      border: 2px solid var(--con-rosa-fuerte);
+      background: #fff;
+      color: var(--con-rosa-fuerte);
+      font-size: 15px;
+      font-weight: 700;
+      text-decoration: none;
+      box-shadow: 0 6px 14px rgba(160, 95, 125, 0.16);
+      transition: transform 0.2s ease;
+    }
+    .con-boton:active { transform: translateY(2px) scale(0.97); }
+    .con-boton-lleno { background: var(--con-rosa-fuerte); color: #fff; }
+    .con-boton svg { width: 18px; height: 18px; }
+
+    /* ============ 7. REGALOS ============ */
+    .con-regalos {
+      --con-borde: #dcebd8; /* viene del verde del lugar */
+      background: var(--con-cielo);
+    }
+    .con-sinpe {
+      display: inline-block;
+      margin-top: 18px;
+      padding: 14px 26px;
+      border-radius: 18px;
+      border: 2px dashed var(--con-rosa);
+      background: #fff;
+      font-size: clamp(18px, 5vw, 24px);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--con-tinta);
+    }
+    .con-sinpe small {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      color: var(--con-tinta-suave);
+    }
+
+    /* ============ 8. LLAMADO AL RSVP ============ */
+    .con-rsvp {
+      background: linear-gradient(var(--con-cielo), var(--con-rosa-humo));
+      padding-bottom: clamp(40px, 9vw, 64px);
+    }
+    .con-flecha {
+      margin-top: 18px;
+      font-size: 30px;
+      color: var(--con-rosa-fuerte);
+      animation: con-baja-flecha 1.7s ease-in-out infinite;
+    }
+    @keyframes con-baja-flecha {
+      0%, 100% { transform: translateY(0); opacity: 0.65; }
+      50% { transform: translateY(9px); opacity: 1; }
+    }
+
+    /* ============ Conejitos tocables y su burbuja ============ */
+    .con-tocable {
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: transform 0.2s ease;
+    }
+    .con-saltando { animation: con-salto-corto 0.62s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes con-salto-corto {
+      0% { transform: translateY(0) scaleY(1); }
+      25% { transform: translateY(-22px) scaleY(1.1); }
+      55% { transform: translateY(0) scaleY(0.9); }
+      100% { transform: translateY(0) scaleY(1); }
+    }
+    .con-burbuja {
+      position: absolute;
+      z-index: 20;
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: #fff;
+      border: 2px solid var(--con-rosa);
+      color: var(--con-rosa-fuerte);
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+      pointer-events: none;
+      box-shadow: 0 6px 14px rgba(160, 95, 125, 0.2);
+      animation: con-burbujea 1.1s ease forwards;
+    }
+    @keyframes con-burbujea {
+      0% { opacity: 0; transform: translate(-50%, 6px) scale(0.7); }
+      22% { opacity: 1; transform: translate(-50%, -12px) scale(1.06); }
+      75% { opacity: 1; transform: translate(-50%, -16px) scale(1); }
+      100% { opacity: 0; transform: translate(-50%, -30px) scale(0.96); }
+    }
+
+    /* ============ Desktop: la expansión, nunca el punto de partida ============ */
+    @media (min-width: 768px) {
+      .con-esc { padding-left: 40px; padding-right: 40px; }
+      /* Sin tope, la frase de arriba cabe en una línea. */
+      .con-pre { max-width: none; }
+      /* El viewBox de las nubes es 900x120: dejado a "width:100%" se
+         estira a 230px de alto en desktop y le pasa por encima al
+         nombre. Con alto fijo se dibujan a tamaño natural. */
+      .con-nubes svg { height: 120px; }
+      .con-espia { width: 140px; }
+      .con-tarjeta::before {
+        top: -84px;
+        width: 170px;
+        height: 84px;
+        background:
+          radial-gradient(ellipse 10px 22px at 50px 92px, var(--con-rosa) 96%, transparent),
+          radial-gradient(ellipse 10px 22px at 120px 92px, var(--con-rosa) 96%, transparent),
+          radial-gradient(ellipse 24px 46px at 50px 90px, var(--con-crema) 96%, transparent),
+          radial-gradient(ellipse 24px 46px at 120px 90px, var(--con-crema) 96%, transparent);
+      }
+      .con-mensajero { width: 88px; }
+      .con-camino { height: 120px; }
+      .con-petalo { width: 18px; height: 18px; }
+    }
+    @media (min-width: 1200px) {
+      .con-retrato { width: 400px; }
+      .con-dentro { max-width: 68ch; }
+    }
+
+    /* ============ Sin movimiento: todo visible y quieto ============ */
+    @media (prefers-reduced-motion: reduce) {
+      .con *, .con *::before, .con *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+      .con-anima .con-esc[data-con-escena] > * {
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+        clip-path: none !important;
+      }
+      #con-intro { display: none !important; }
+      .con-ambiente { display: none; }
+    }
+  </style>
+
+  <!-- ====== Biblioteca de figuras (se usan con <use>) ====== -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <!-- Conejito sentado, de frente. -->
+      <symbol id="con-fig-conejo" viewBox="0 0 120 140">
+        <ellipse cx="38" cy="44" rx="12" ry="34" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2"/>
+        <ellipse cx="38" cy="46" rx="6" ry="25" fill="#f3a9c4"/>
+        <ellipse cx="82" cy="44" rx="12" ry="34" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2"/>
+        <ellipse cx="82" cy="46" rx="6" ry="25" fill="#f3a9c4"/>
+        <ellipse cx="60" cy="112" rx="40" ry="26" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2"/>
+        <circle cx="60" cy="82" r="33" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2"/>
+        <circle cx="48" cy="78" r="4.4" fill="#4a3a33"/>
+        <circle cx="72" cy="78" r="4.4" fill="#4a3a33"/>
+        <circle cx="49.4" cy="76.6" r="1.5" fill="#fff"/>
+        <circle cx="73.4" cy="76.6" r="1.5" fill="#fff"/>
+        <path d="M60 88c-3.4 0-6 2-6 4.2 0 2.4 3 4.4 6 4.4s6-2 6-4.4C66 90 63.4 88 60 88z" fill="#e88aa8"/>
+        <path d="M60 96v4M60 100c-2.6 2.6-7 2.6-9 0M60 100c2.6 2.6 7 2.6 9 0" stroke="#c98ea0" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <circle cx="38" cy="90" r="6" fill="#f6c6d6" opacity="0.75"/>
+        <circle cx="82" cy="90" r="6" fill="#f6c6d6" opacity="0.75"/>
+        <ellipse cx="42" cy="130" rx="12" ry="8" fill="#fffaf2" stroke="#e0cdb5" stroke-width="2"/>
+        <ellipse cx="78" cy="130" rx="12" ry="8" fill="#fffaf2" stroke="#e0cdb5" stroke-width="2"/>
+      </symbol>
+
+      <!-- Conejito de perfil, en pleno salto. -->
+      <symbol id="con-fig-salta" viewBox="0 0 140 110">
+        <ellipse cx="72" cy="66" rx="42" ry="28" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2.5"/>
+        <circle cx="26" cy="96" r="9" fill="#fffaf2" stroke="#e0cdb5" stroke-width="2.5"/>
+        <path d="M108 54c-6-16-4-32 4-40 5 10 6 26 1 38z" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2.5"/>
+        <path d="M110 50c-3.6-11-2.6-21 1-27 3 7 3.6 18 1 25z" fill="#f3a9c4"/>
+        <circle cx="106" cy="62" r="24" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2.5"/>
+        <circle cx="116" cy="58" r="3.6" fill="#4a3a33"/>
+        <circle cx="117" cy="56.8" r="1.2" fill="#fff"/>
+        <ellipse cx="127" cy="66" rx="4.4" ry="3.4" fill="#e88aa8"/>
+        <circle cx="110" cy="70" r="5" fill="#f6c6d6" opacity="0.75"/>
+        <path d="M56 86c-8 6-18 6-24 0" stroke="#e0cdb5" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <ellipse cx="88" cy="92" rx="15" ry="9" fill="#fffaf2" stroke="#e0cdb5" stroke-width="2.5"/>
+      </symbol>
+
+      <!-- Nube con el conejito dormido encima. -->
+      <symbol id="con-fig-nube-conejo" viewBox="0 0 200 140">
+        <g fill="#fff">
+          <ellipse cx="66" cy="104" rx="40" ry="26"/>
+          <ellipse cx="108" cy="96" rx="48" ry="32"/>
+          <ellipse cx="146" cy="108" rx="34" ry="22"/>
+        </g>
+        <ellipse cx="104" cy="74" rx="30" ry="16" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2"/>
+        <circle cx="128" cy="66" r="16" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2"/>
+        <path d="M122 52c-3-12-1-22 4-27 4 7 5 19 2 26z" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2"/>
+        <path d="M136 53c1-12 5-20 11-23 1 8-2 19-7 24z" fill="#f8f0e4" stroke="#e0cdb5" stroke-width="2"/>
+        <path d="M124 68c2.6 0 4.6-1 6-2.6" stroke="#4a3a33" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="141" cy="68" rx="3.4" ry="2.6" fill="#e88aa8"/>
+        <circle cx="124" cy="73" r="4" fill="#f6c6d6" opacity="0.8"/>
+        <g fill="none" stroke="#c9a9bb" stroke-width="2.4" stroke-linecap="round">
+          <path d="M152 44c4-3 4-7 0-10s-4-7 0-10"/>
+        </g>
+      </symbol>
+
+      <!-- Zanahoria. -->
+      <symbol id="con-fig-zanahoria" viewBox="0 0 60 90">
+        <path d="M30 88c-7-14-12-30-12-42a12 12 0 0 1 24 0c0 12-5 28-12 42z" fill="#f0913f"/>
+        <path d="M23 56h14M21 66h18M25 76h10" stroke="#d97a2b" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M30 38V16" stroke="#6f8f69" stroke-width="4" stroke-linecap="round"/>
+        <path d="M30 24c-5-8-13-11-19-8 3 7 11 12 19 8z" fill="#7a9b74"/>
+        <path d="M30 24c5-8 13-11 19-8-3 7-11 12-19 8z" fill="#8fae88"/>
+        <path d="M30 18c-1-9 2-15 6-17 3 7 0 14-6 17z" fill="#6f8f69"/>
+      </symbol>
+
+      <!-- Orejitas del filete. -->
+      <symbol id="con-fig-orejas" viewBox="0 0 60 60">
+        <path d="M22 44c-6-12-7-26-2-34 6 6 9 20 7 32z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M38 44c6-12 7-26 2-34-6 6-9 20-7 32z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/>
+        <circle cx="30" cy="50" r="6" fill="none" stroke="currentColor" stroke-width="3"/>
+      </symbol>
+    </defs>
+  </svg>
+
+  <!-- ================= 0. INTRO: EL TELÓN ================= -->
+  <dialog id="con-intro" aria-label="Abrir la invitación">
+    <div class="con-telon con-telon-izq" aria-hidden="true"></div>
+    <div class="con-telon con-telon-der" aria-hidden="true"></div>
+    <div class="con-cenefa" aria-hidden="true"></div>
+    <div class="con-intro-nucleo">
+      <svg class="con-nube-intro" viewBox="0 0 200 140" aria-hidden="true"><use href="#con-fig-nube-conejo"/></svg>
+      <p class="con-intro-rotulo">Baby Shower</p>
+      <p class="con-intro-nombre">{{NOMBRE}}</p>
+    </div>
+    <p class="con-toca">Tocá para abrir el telón ✦</p>
+  </dialog>
+
+  <!-- Botón de música: aparece apenas arranca el sonido. -->
+  <button type="button" class="con-musica" id="con-musica" data-sonando="no" aria-label="Silenciar o reanudar la música">
+    <svg class="con-ico-nota" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+    </svg>
+    <svg class="con-ico-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/><path d="M3 3l18 18"/>
+    </svg>
+  </button>
+
+  <!-- ================= LA INVITACIÓN ================= -->
+  <div class="con-lienzo">
+
+    <!-- ---------- 1. PORTADA ---------- -->
+    <section class="con-esc con-hero" data-con-escena data-con-entra="inmersion" id="con-hero">
+      <div class="con-ambiente" id="con-ambiente" aria-hidden="true"></div>
+
+      <div class="con-nubes con-nubes-lejos" data-con-parallax="0.16" aria-hidden="true">
+        <svg viewBox="0 0 900 120" fill="#ffffff" opacity="0.9">
+          <ellipse cx="120" cy="70" rx="80" ry="34"/><ellipse cx="190" cy="58" rx="60" ry="38"/>
+          <ellipse cx="560" cy="64" rx="90" ry="36"/><ellipse cx="640" cy="76" rx="64" ry="28"/>
+        </svg>
+      </div>
+      <div class="con-nubes con-nubes-cerca" data-con-parallax="0.34" aria-hidden="true">
+        <svg viewBox="0 0 900 120" fill="#ffffff">
+          <ellipse cx="330" cy="72" rx="74" ry="32"/><ellipse cx="390" cy="60" rx="56" ry="36"/>
+          <ellipse cx="800" cy="66" rx="82" ry="34"/>
+        </svg>
+      </div>
+
+      <div class="con-hero-marco">
+        <p class="con-pre">Nos crecen las orejas de la emoción</p>
+        <p class="con-nombre">{{NOMBRE}}</p>
+        <p class="con-pre" style="letter-spacing:0.5em">Baby Shower</p>
+        <figure class="con-retrato">
+          <img src="{{FOTO}}" alt="{{NOMBRE}}, abrazando su conejito de peluche" width="680" height="749" decoding="async"/>
+        </figure>
+      </div>
+
+      <div class="con-prado" aria-hidden="true">
+        <!-- Ojo: las curvas deben sumar EXACTAMENTE los 900 del viewBox.
+             Si se quedan cortas, el prado no llega al borde derecho. -->
+        <svg viewBox="0 0 900 120" preserveAspectRatio="none">
+          <path d="M0 54c60-16 92 14 150 8s84-26 146-20 96 30 158 24 92-28 154-22 100 26 152 18 92-16 140-6V120H0Z" fill="#dcebd8"/>
+          <path d="M0 76c70-12 104 16 168 10s90-22 152-16 98 26 160 20 94-24 156-18 88 20 134 12 84-18 130-8V120H0Z" fill="#c4dcbe"/>
+        </svg>
+      </div>
+
+      <p class="con-baja">Deslizá para ver más ▾</p>
+    </section>
+
+    <!-- ---------- 2. EL ANUNCIO ---------- -->
+    <section class="con-esc con-anuncio" data-con-escena data-con-entra="cortina" data-con-borde>
+      <div class="con-espia con-tocable" data-con-dice="¡Shhh… ya casi!" role="button" tabindex="0" aria-label="Conejito curioso">
+        <svg viewBox="0 0 120 140" aria-hidden="true"><use href="#con-fig-conejo"/></svg>
+      </div>
+      <div class="con-dentro">
+        <h2 class="con-titulo">Se asoman unas orejitas</h2>
+        <p class="con-texto">
+          En la madriguera se alborotó todo: viene en camino la personita más
+          esperada de la familia. Antes de que llegue, queremos llenarle el
+          nidito de abrazos, consejos y risas — y para eso te necesitamos a vos.
+        </p>
+        <p class="con-susurro">Con todo el cariño, {{ANFITRIONES}}.</p>
+        <div class="con-filete" aria-hidden="true">
+          <svg viewBox="0 0 60 60"><use href="#con-fig-orejas"/></svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 3. CÓDIGO DE VESTIMENTA ---------- -->
+    <section class="con-esc con-vestimenta" data-con-escena data-con-entra="brinco" data-con-borde>
+      <div class="con-dentro">
+        <p class="con-etiqueta">Código de vestimenta</p>
+        <h2 class="con-titulo" style="margin-top:8px">Un toque rosa</h2>
+        <p class="con-texto">
+          Vestite cómoda y cómodo, pero regalanos un detalle en rosa, crema o
+          verde tierno: así la foto grupal nos queda de cuento.
+        </p>
+      </div>
+      <div class="con-paleta" aria-label="Colores sugeridos">
+        <span class="con-tono" style="background:#f3a9c4" title="Rosa algodón"></span>
+        <span class="con-tono" style="background:#e2568d" title="Rosa fuerte"></span>
+        <span class="con-tono" style="background:#f8f0e4" title="Crema"></span>
+        <span class="con-tono" style="background:#a9c4a2" title="Verde salvia"></span>
+        <span class="con-tono" style="background:#cfa963" title="Oro viejo"></span>
+      </div>
+    </section>
+
+    <!-- ---------- 4. INFORMACIÓN PRINCIPAL ---------- -->
+    <section class="con-esc con-info" data-con-escena data-con-entra="inmersion" data-con-borde>
+      <div class="con-dentro">
+        <p class="con-etiqueta">Te esperamos</p>
+        <div class="con-tarjeta">
+          <p class="con-dato-clave">{{FECHA}}</p>
+          <p class="con-hora">{{HORA}}</p>
+          <p class="con-susurro" style="margin-top:18px">
+            Llegá puntual: hay sorpresas que solo pasan una vez.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 5. CUENTA REGRESIVA ---------- -->
+    <section class="con-esc con-cuenta" data-con-escena data-con-entra="brinco" data-con-borde id="con-cuenta">
+      <div class="con-dentro">
+        <p class="con-etiqueta">Faltan</p>
+        <h2 class="con-titulo" style="margin-top:8px">Saltitos para el gran día</h2>
+      </div>
+      <div class="con-bloques" id="con-reloj" role="timer" aria-live="off">
+        <div class="con-bloque"><b data-con-reloj="dias">--</b><span>Días</span></div>
+        <div class="con-bloque"><b data-con-reloj="horas">--</b><span>Horas</span></div>
+        <div class="con-bloque"><b data-con-reloj="min">--</b><span>Minutos</span></div>
+        <div class="con-bloque"><b data-con-reloj="seg">--</b><span>Segundos</span></div>
+      </div>
+      <p class="con-susurro" id="con-cuenta-nota">Ya falta menos para conocerla.</p>
+    </section>
+
+    <!-- ---------- 6. EL LUGAR ---------- -->
+    <section class="con-esc con-lugar" data-con-escena data-con-entra="abanico" data-con-borde id="con-lugar">
+      <div class="con-dentro">
+        <p class="con-etiqueta">El lugar</p>
+        <h2 class="con-titulo" style="margin-top:8px">{{LUGAR}}</h2>
+        <p class="con-texto">{{DIRECCION}}</p>
+      </div>
+
+      <div class="con-camino" aria-hidden="true">
+        <div class="con-mensajero" id="con-mensajero">
+          <svg viewBox="0 0 140 110"><use href="#con-fig-salta"/></svg>
+        </div>
+      </div>
+
+      <div class="con-botones">
+        <a class="con-boton con-boton-lleno" href="{{LINK_MAPS}}" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+          </svg>
+          Google Maps
+        </a>
+        <a class="con-boton" href="{{LINK_WAZE}}" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 11l18-8-8 18-2-8-8-2z"/>
+          </svg>
+          Waze
+        </a>
+      </div>
+    </section>
+
+    <!-- ---------- 7. MUESTRAS DE CARIÑO ---------- -->
+    <section class="con-esc con-regalos" data-con-escena data-con-entra="cortina" data-con-borde>
+      <div class="con-dentro">
+        <p class="con-etiqueta">Muestras de cariño</p>
+        <h2 class="con-titulo" style="margin-top:8px">Para el nidito</h2>
+        <p class="con-texto">{{MENSAJE_REGALOS}}</p>
+        <div class="con-botones">
+          <a class="con-boton con-boton-lleno" href="{{LINK_REGALO_1}}" target="_blank" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 12v9H4v-9M2 7h20v5H2zM12 22V7M12 7S10 3 7 3a2.5 2.5 0 0 0 0 5zM12 7s2-4 5-4a2.5 2.5 0 0 1 0 5z"/>
+            </svg>
+            Ver la lista de regalos
+          </a>
+        </div>
+        <p class="con-sinpe"><small>SINPE Móvil</small>{{SINPE}}</p>
+      </div>
+      <div class="con-tocable" data-con-dice="¡Gracias!" role="button" tabindex="0" aria-label="Zanahoria" style="margin-top:26px;width:54px">
+        <svg viewBox="0 0 60 90" style="width:100%;height:auto;display:block" aria-hidden="true"><use href="#con-fig-zanahoria"/></svg>
+      </div>
+    </section>
+
+    <!-- ---------- 8. LLAMADO AL RSVP ---------- -->
+    <section class="con-esc con-rsvp" data-con-escena data-con-entra="brinco">
+      <div class="con-dentro">
+        <h2 class="con-titulo">Confirmá tu asistencia</h2>
+        <p class="con-texto">
+          Dejanos saber si te esperamos: así preparamos tu lugarcito en la
+          madriguera. Es aquí abajito, toma medio minuto.
+        </p>
+        <p class="con-flecha" aria-hidden="true">▼</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  /* ============================================================
+     1. EL TELÓN. <dialog> en el top layer (escapa el transform del
+     contenedor [data-reveal] de la página). Se abre en dos al tocar o
+     a los 4 segundos. El toque que abre es TAMBIÉN el gesto que
+     desbloquea el audio: sin gesto no hay música, así lo manda el
+     navegador. Con movimiento reducido o sin dialog: no hay intro.
+     ============================================================ */
+  (function () {
+    var dlg = document.getElementById("con-intro");
+    if (!dlg || typeof dlg.showModal !== "function") { if (dlg) dlg.remove(); return; }
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      dlg.remove();
+      return;
+    }
+    var abierta = false;
+    var timer = null;
+    function abrir(porToque) {
+      if (abierta) return;
+      abierta = true;
+      if (timer) window.clearTimeout(timer);
+      /* Solo un toque real desbloquea el audio; la apertura automática
+         a los 4 s deja la invitación en silencio, que es lo correcto. */
+      if (porToque && window.conMusica) window.conMusica.arrancar();
+      dlg.classList.add("con-intro-abierta");
+      window.setTimeout(function () {
+        try { dlg.close(); } catch (e) { /* ya cerrado */ }
+        dlg.remove();
+      }, 1250);
+    }
+    try { dlg.showModal(); } catch (e) { dlg.remove(); return; }
+    dlg.addEventListener("click", function () { abrir(true); });
+    dlg.addEventListener("cancel", function (e) { e.preventDefault(); abrir(true); });
+    timer = window.setTimeout(function () { abrir(false); }, 4000);
+  })();
+
+  /* ============================================================
+     2. LA CAJA DE MÚSICA. Sintetizada con Web Audio: cero archivos,
+     cero descargas, cero derechos de autor — la melodía es "Ah! vous
+     dirai-je, maman" (1761, dominio público), la de "Estrellita".
+     Dos osciladores triangulares levemente desafinados por nota, con
+     caída rápida, dan el timbre de cajita; un seno grave muy bajito
+     marca el compás.
+     ============================================================ */
+  (function () {
+    var boton = document.getElementById("con-musica");
+    if (!boton) return;
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    var ctx = null;
+    var master = null;
+    var sonando = false;
+    var proximo = 0;
+    var timer = null;
+
+    var N = { do: 523.25, re: 587.33, mi: 659.25, fa: 698.46, sol: 783.99, la: 880.0 };
+    var PULSO = 0.44;
+    /* [nota, pulsos] — la melodía completa, 48 pulsos (~21 s). */
+    var MELODIA = [
+      ["do",1],["do",1],["sol",1],["sol",1],["la",1],["la",1],["sol",2],
+      ["fa",1],["fa",1],["mi",1],["mi",1],["re",1],["re",1],["do",2],
+      ["sol",1],["sol",1],["fa",1],["fa",1],["mi",1],["mi",1],["re",2],
+      ["sol",1],["sol",1],["fa",1],["fa",1],["mi",1],["mi",1],["re",2],
+      ["do",1],["do",1],["sol",1],["sol",1],["la",1],["la",1],["sol",2],
+      ["fa",1],["fa",1],["mi",1],["mi",1],["re",1],["re",1],["do",2]
+    ];
+
+    function nota(freq, t, dur) {
+      /* Dos triángulos apenas desafinados = brillo de metal pulsado. */
+      [0, 1.5].forEach(function (cents, i) {
+        var osc = ctx.createOscillator();
+        var g = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = freq * Math.pow(2, cents / 1200);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(i === 0 ? 0.3 : 0.14, t + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(dur, 0.7));
+        osc.connect(g).connect(master);
+        osc.start(t);
+        osc.stop(t + Math.max(dur, 0.7) + 0.05);
+      });
+    }
+
+    function bajo(freq, t) {
+      var osc = ctx.createOscillator();
+      var g = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.09, t + 0.05);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+      osc.connect(g).connect(master);
+      osc.start(t);
+      osc.stop(t + 1.2);
+    }
+
+    /* Programa una vuelta completa y se reagenda sola mientras suene. */
+    function programar() {
+      if (!sonando) return;
+      var t = Math.max(proximo, ctx.currentTime + 0.1);
+      var pulsos = 0;
+      for (var i = 0; i < MELODIA.length; i++) {
+        var dur = MELODIA[i][1] * PULSO;
+        nota(N[MELODIA[i][0]], t, dur * 0.92);
+        if (pulsos % 4 === 0) bajo(N[MELODIA[i][0]] / 4, t);
+        t += dur;
+        pulsos += MELODIA[i][1];
+      }
+      t += PULSO * 3; /* un respiro antes de repetir */
+      proximo = t;
+      timer = window.setTimeout(programar, (t - ctx.currentTime - 1.5) * 1000);
+    }
+
+    function arrancar() {
+      if (sonando) return;
+      if (!ctx) {
+        try { ctx = new Ctx(); } catch (e) { return; }
+        master = ctx.createGain();
+        master.gain.value = 0;
+        master.connect(ctx.destination);
+      }
+      if (ctx.state === "suspended") ctx.resume();
+      sonando = true;
+      proximo = ctx.currentTime + 0.15;
+      /* Entra despacito, que nadie quiere un susto. */
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setValueAtTime(0.0001, ctx.currentTime);
+      master.gain.linearRampToValueAtTime(0.16, ctx.currentTime + 1.6);
+      boton.setAttribute("data-sonando", "si");
+      boton.setAttribute("data-visible", "si");
+      programar();
+    }
+
+    function callar() {
+      if (!sonando || !ctx) return;
+      sonando = false;
+      if (timer) window.clearTimeout(timer);
+      master.gain.cancelScheduledValues(ctx.currentTime);
+      master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+      master.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.5);
+      boton.setAttribute("data-sonando", "no");
+    }
+
+    boton.addEventListener("click", function () {
+      if (sonando) callar(); else arrancar();
+    });
+
+    /* Al irse de la pestaña, silencio; al volver, sigue donde iba. */
+    document.addEventListener("visibilitychange", function () {
+      if (!ctx) return;
+      if (document.hidden && sonando) { ctx.suspend(); }
+      else if (!document.hidden && sonando) { ctx.resume(); }
+    });
+
+    /* El telón la arranca; el botón queda siempre disponible por si
+       alguien la apagó y se arrepiente. */
+    window.conMusica = { arrancar: arrancar, callar: callar };
+    window.setTimeout(function () { boton.setAttribute("data-visible", "si"); }, 5000);
+  })();
+
+  /* ============================================================
+     3. ESCENAS que se revelan al scrollear (IntersectionObserver).
+     Sin observer o con movimiento reducido: todo visible de una vez.
+     ============================================================ */
+  (function () {
+    var raiz = document.querySelector(".con");
+    if (!raiz) return;
+    var escenas = raiz.querySelectorAll("[data-con-escena]");
+    var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducido || !("IntersectionObserver" in window)) {
+      for (var i = 0; i < escenas.length; i++) escenas[i].classList.add("con-vista");
+      return;
+    }
+    raiz.classList.add("con-anima");
+    var io = new IntersectionObserver(function (entradas) {
+      entradas.forEach(function (ent) {
+        if (ent.isIntersecting) {
+          ent.target.classList.add("con-vista");
+          io.unobserve(ent.target);
+        }
+      });
+    }, { threshold: 0.16, rootMargin: "0px 0px -8% 0px" });
+    for (var j = 0; j < escenas.length; j++) io.observe(escenas[j]);
+    /* El hero se muestra de una: nadie debería ver una portada vacía. */
+    var hero = document.getElementById("con-hero");
+    if (hero) window.setTimeout(function () { hero.classList.add("con-vista"); }, 60);
+  })();
+
+  /* ============================================================
+     4. LIGADO AL SCROLL (rAF, solo transform): las nubes del hero se
+     mueven en parallax y el conejo mensajero CRUZA EL CAMINO a saltos
+     según el avance de la sección "El lugar".
+     ============================================================ */
+  (function () {
+    var reducido = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducido) return;
+    var capas = document.querySelectorAll("[data-con-parallax]");
+    var mensajero = document.getElementById("con-mensajero");
+    var lugar = document.getElementById("con-lugar");
+    var camino = mensajero && mensajero.parentElement;
+    if (!capas.length && !mensajero) return;
+
+    var pedido = false;
+    function pintar() {
+      pedido = false;
+      var y = window.pageYOffset || document.documentElement.scrollTop;
+
+      for (var i = 0; i < capas.length; i++) {
+        var f = parseFloat(capas[i].getAttribute("data-con-parallax")) || 0.2;
+        capas[i].style.transform = "translate3d(0," + (y * f).toFixed(1) + "px,0)";
+      }
+
+      if (mensajero && lugar && camino) {
+        var r = lugar.getBoundingClientRect();
+        var alto = window.innerHeight || 1;
+        /* 0 → la sección apenas asoma; 1 → terminó de pasar. */
+        var p = (alto - r.top) / (alto + r.height);
+        p = p < 0 ? 0 : p > 1 ? 1 : p;
+        var recorrido = Math.max(camino.clientWidth - mensajero.clientWidth, 0);
+        /* Cuatro saltos a lo largo del recorrido: el seno hace la panza. */
+        var salto = Math.abs(Math.sin(p * Math.PI * 4)) * 26;
+        mensajero.style.transform =
+          "translate3d(" + (p * recorrido).toFixed(1) + "px,-" + salto.toFixed(1) + "px,0)";
+      }
+    }
+    function alScroll() {
+      if (pedido) return;
+      pedido = true;
+      window.requestAnimationFrame(pintar);
+    }
+    window.addEventListener("scroll", alScroll, { passive: true });
+    window.addEventListener("resize", alScroll);
+    pintar();
+  })();
+
+  /* ============================================================
+     5. CUENTA REGRESIVA viva hasta {{FECHA_ISO}}.
+     ============================================================ */
+  (function () {
+    var caja = document.getElementById("con-reloj");
+    if (!caja) return;
+    var destino = new Date("{{FECHA_ISO}}").getTime();
+    if (isNaN(destino)) return;
+    var campos = {
+      dias: caja.querySelector('[data-con-reloj="dias"]'),
+      horas: caja.querySelector('[data-con-reloj="horas"]'),
+      min: caja.querySelector('[data-con-reloj="min"]'),
+      seg: caja.querySelector('[data-con-reloj="seg"]')
+    };
+    var nota = document.getElementById("con-cuenta-nota");
+    function dos(n) { return n < 10 ? "0" + n : "" + n; }
+    function pintar() {
+      var falta = destino - Date.now();
+      if (falta <= 0) {
+        campos.dias.textContent = "00";
+        campos.horas.textContent = "00";
+        campos.min.textContent = "00";
+        campos.seg.textContent = "00";
+        if (nota) nota.textContent = "¡Hoy es el día! Te esperamos.";
+        return;
+      }
+      var s = Math.floor(falta / 1000);
+      campos.dias.textContent = dos(Math.floor(s / 86400));
+      campos.horas.textContent = dos(Math.floor(s / 3600) % 24);
+      campos.min.textContent = dos(Math.floor(s / 60) % 60);
+      campos.seg.textContent = dos(s % 60);
+      window.setTimeout(pintar, 1000);
+    }
+    pintar();
+  })();
+
+  /* ============================================================
+     6. AMBIENTE: pétalos que caen en loop. Pocos en el teléfono
+     (rendimiento de gama media), más en pantalla grande.
+     ============================================================ */
+  (function () {
+    var caja = document.getElementById("con-ambiente");
+    if (!caja) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var ancho = window.innerWidth || 390;
+    var cuantos = ancho < 768 ? 16 : 30;
+    var formas = [
+      '<svg viewBox="0 0 20 20" fill="#f3a9c4"><path d="M10 2c4 3 6 7 4 11s-6 5-8 3-2-6 0-9 3-4 4-5z"/></svg>',
+      '<svg viewBox="0 0 20 20" fill="#fbe3ec"><circle cx="10" cy="10" r="7"/></svg>',
+      '<svg viewBox="0 0 20 20" fill="#e2568d"><path d="M10 17S3 12 3 7.6A3.6 3.6 0 0 1 10 6a3.6 3.6 0 0 1 7 1.6C17 12 10 17 10 17z"/></svg>'
+    ];
+    var html = "";
+    for (var i = 0; i < cuantos; i++) {
+      var izq = Math.random() * 100;
+      var dur = 11 + Math.random() * 12;
+      var esp = -Math.random() * 18;
+      var esc = 0.6 + Math.random() * 0.8;
+      html +=
+        '<span class="con-petalo" style="left:' + izq.toFixed(1) + '%;' +
+        'animation-duration:' + dur.toFixed(1) + 's;' +
+        'animation-delay:' + esp.toFixed(1) + 's;' +
+        'scale:' + esc.toFixed(2) + '">' +
+        formas[i % formas.length] + "</span>";
+    }
+    caja.innerHTML = html;
+  })();
+
+  /* ============================================================
+     7. MICRO-INTERACCIONES: todo lo tocable brinca y suelta su
+     burbujita. Por TAP, que en el teléfono el hover no existe.
+     ============================================================ */
+  (function () {
+    var raiz = document.querySelector(".con");
+    if (!raiz) return;
+    function reaccionar(el) {
+      if (!el || el.classList.contains("con-saltando")) return;
+      el.classList.add("con-saltando");
+      window.setTimeout(function () { el.classList.remove("con-saltando"); }, 640);
+      var dice = el.getAttribute("data-con-dice");
+      if (!dice) return;
+      var padre = el.offsetParent || el.parentElement;
+      if (!padre) return;
+      if (getComputedStyle(padre).position === "static") padre.style.position = "relative";
+      var b = document.createElement("span");
+      b.className = "con-burbuja";
+      b.textContent = dice;
+      b.style.left = (el.offsetLeft + el.offsetWidth / 2) + "px";
+      b.style.top = Math.max(el.offsetTop - 12, 0) + "px";
+      padre.appendChild(b);
+      window.setTimeout(function () { b.remove(); }, 1150);
+    }
+    raiz.addEventListener("click", function (e) {
+      var el = e.target.closest ? e.target.closest(".con-tocable") : null;
+      if (el) reaccionar(el);
+    });
+    raiz.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      var el = e.target.closest ? e.target.closest(".con-tocable") : null;
+      if (el) { e.preventDefault(); reaccionar(el); }
+    });
+  })();
+</script>
