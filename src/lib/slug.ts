@@ -31,18 +31,14 @@ export const RESERVED_SLUGS = new Set([
   "cuenta",
   "mensajes",
   "lealtad",
-  // /solutions (3 sep 2026): la landing de los productos para negocios
-  // —linktree, menú digital, lealtad—. Carpeta real en src/app.
+  // /solutions, /soluciones, /s/<slug> y /linksy eran las rutas de un
+  // producto que se sacó el 30 sep 2026 (la página con menú y links).
+  // Siguen reservadas A PROPÓSITO: puede haber links y QR viejos que
+  // apunten ahí, y un negocio nuevo con uno de estos slugs recibiría
+  // visitas que no son suyas.
   "solutions",
   "soluciones",
-  // /s/<slug>: la página pública de un negocio de Solutions (0230).
   "s",
-  // ── LAS TRES DE linksy.lat (6 sep 2026) ──────────────────────────
-  // En bookea.lat el slug vive bajo /s/, así que «crear» no chocaba
-  // con nada. En linksy.lat el slug está en la RAÍZ —linksy.lat/<slug>—
-  // y ahí sí choca: un negocio llamado «crear» taparía el alta. La
-  // lista viva es `RUTAS_LINKSY` en src/lib/solutions/dominios.ts;
-  // estas tres la espejan para que ningún alta nueva las tome.
   "linksy",
   // CELEBRAR (sep 2026): vive en /celebrar; un negocio con ese slug
   // tendría una ficha muerta detrás de la portada del producto.

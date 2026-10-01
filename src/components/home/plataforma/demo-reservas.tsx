@@ -108,7 +108,7 @@ export default function DemoReservas() {
       <Cabecera
         inicial="S"
         titulo="Silence Barber"
-        bajada="bookea.lat/s/silence-barber"
+        bajada="bookea.lat/citas/silence-barber"
         corriendo={corriendo}
       />
 

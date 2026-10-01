@@ -73,7 +73,7 @@ export default function EscenaAgenda() {
               Silence Barber
             </span>
             <span className="block truncate text-[11px] text-[color:var(--tinta-suave)]">
-              bookea.lat/s/silence-barber
+              bookea.lat/citas/silence-barber
             </span>
           </span>
         </div>

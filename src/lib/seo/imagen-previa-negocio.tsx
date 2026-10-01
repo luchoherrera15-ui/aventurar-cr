@@ -9,12 +9,11 @@ import { ImageResponse } from "next/og";
  * «más profesional, personalizado hacia cada negocio», no con la
  * imagen genérica de Bookea.
  *
- * Un solo dibujo para las tres páginas que un negocio reparte —su
- * tarjeta de lealtad (/tarjeta), su página (/r) y su link hub de
- * Solutions (/s)— con SU marca: el color de fondo, el color del sello
- * o acento, el logo y el nombre. Lo que cambia entre una y otra es el
- * texto de arriba, la frase de abajo y, en la tarjeta, la fila de
- * sellos que promete.
+ * Un solo dibujo para las páginas que un negocio reparte —su tarjeta de
+ * lealtad (/tarjeta) y su página (/r)— con SU marca: el color de
+ * fondo, el color del sello o acento, el logo y el nombre. Lo que
+ * cambia entre una y otra es el texto de arriba, la frase de abajo y,
+ * en la tarjeta, la fila de sellos que promete.
  *
  * ── LAS REGLAS DE SATORI ───────────────────────────────────────────
  * `next/og` dibuja con Satori, que NO es un navegador: cada <div> con
@@ -43,7 +42,7 @@ export type PreviaNegocio = {
   colorFondo: string;
   colorAcento: string;
   logoUrl: string | null;
-  /** Foto de fondo (la portada de Solutions). Va con un velo encima. */
+  /** Foto de fondo (una portada), opcional. Va con un velo encima. */
   fotoUrl?: string | null;
   /** Cuántos círculos dibujar (la meta de sellos). 0 = ninguno. */
   sellos?: number;

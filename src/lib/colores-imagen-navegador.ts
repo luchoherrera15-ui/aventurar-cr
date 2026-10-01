@@ -13,7 +13,7 @@ import { paletaDePixeles, type PropuestaColores } from "./colores-imagen";
  * subirlo: es instantáneo y no depende de la red. `coloresDeUrl` es
  * para una imagen ya guardada; solo funciona si el servidor que la
  * sirve permite CORS (Cloudflare Images sí). Si no, devuelve null y
- * quien llama cae a la acción del servidor (`coloresDeImagenSolutions`).
+ * quien llama decide cómo seguir (por ejemplo, leerla en el servidor).
  */
 
 const LADO = 64;

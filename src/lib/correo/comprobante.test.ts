@@ -12,16 +12,16 @@ const BASE: Comprobante = {
   numero: "BK-2026-09-1A2B3C",
   fechaISO: "2026-09-09T15:04:00.000Z",
   cliente: { nombre: "Luis Herrera", correo: "luis@ejemplo.com" },
-  producto: "Linksy Pro",
+  producto: "Módulo de Lealtad",
   periodo: "9 de septiembre al 8 de octubre de 2026",
   metodoPago: "Tarjeta terminada en 4242",
   renglones: [
-    { concepto: "Linksy Pro · mensual", detalle: "Tu página, sin límites", monto: 9 },
-    { concepto: "Add-on: Instagram Auto Reply", monto: 3 },
+    { concepto: "Módulo de Lealtad · plan Impulso", detalle: "Tarjetas y sellos para tus clientes", monto: 9 },
+    { concepto: "Add-on: Asistente IA", monto: 3 },
   ],
   moneda: "USD",
   proximoCobroISO: "2026-10-09",
-  urlPanel: "https://bookea.lat/solutions/panel/abc",
+  urlPanel: "https://bookea.lat/lealtad/panel/abc",
 };
 
 describe("numeroDeComprobante", () => {
@@ -85,13 +85,13 @@ describe("htmlComprobante", () => {
 
   it("muestra el total, el producto y el número", () => {
     expect(html).toContain("$12.00");
-    expect(html).toContain("Linksy Pro");
+    expect(html).toContain("Módulo de Lealtad");
     expect(html).toContain("BK-2026-09-1A2B3C");
   });
 
   it("pinta un renglón por concepto, con su detalle", () => {
-    expect(html).toContain("Add-on: Instagram Auto Reply");
-    expect(html).toContain("Tu página, sin límites");
+    expect(html).toContain("Add-on: Asistente IA");
+    expect(html).toContain("Tarjetas y sellos para tus clientes");
   });
 
   it("anuncia el próximo cobro cuando la suscripción sigue", () => {

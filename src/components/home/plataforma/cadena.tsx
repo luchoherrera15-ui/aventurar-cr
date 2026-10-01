@@ -1,8 +1,8 @@
 import type { ComponentType } from "react";
 import {
-  IconCloche,
+  IconCalendarLine,
   IconClipboard,
-  IconEnlace,
+  IconStore,
   IconWallet,
 } from "@/components/icons";
 import { Encabezado, Seccion } from "./piezas";
@@ -24,8 +24,9 @@ import { Encabezado, Seccion } from "./piezas";
  * mirada, siete pastillas se estudian.
  *
  * ── LA REGLA DE SIEMPRE ─────────────────────────────────────────────
- * Cada paso existe: la página (`/s/`), pedidos y reservas (comandas y
- * agenda), el panel, y Lealtad. Acá no se promete nada que no esté.
+ * Cada paso existe: la ficha en el directorio, la reserva instantánea
+ * (con la agenda del negocio), el panel, y Lealtad. Acá no se promete
+ * nada que no esté.
  */
 
 type Paso = {
@@ -36,18 +37,18 @@ type Paso = {
 
 const PASOS: Paso[] = [
   {
-    titulo: "Creás tu página",
-    detalle: "Tu menú, tus links y tu QR, listos en minutos.",
-    Icono: IconEnlace,
+    titulo: "Publicás tu negocio",
+    detalle: "Tu ficha con fotos, servicios y precios.",
+    Icono: IconStore,
   },
   {
-    titulo: "Tus clientes piden o reservan",
-    detalle: "Desde el QR de la mesa o desde tu link.",
-    Icono: IconCloche,
+    titulo: "Tus clientes reservan",
+    detalle: "Eligen servicio y hora, y la reserva entra sola.",
+    Icono: IconCalendarLine,
   },
   {
     titulo: "Todo entra a tu panel",
-    detalle: "Cada pedido y cada reserva quedan registrados.",
+    detalle: "Cada reserva y cada visita quedan registradas.",
     Icono: IconClipboard,
   },
   {
@@ -61,8 +62,7 @@ export default function Cadena() {
   return (
     <Seccion id="como-funciona">
       <Encabezado rotulo="Cómo funciona" titulo="Una cosa lleva a la otra.">
-        No son cuatro herramientas sueltas: cada paso alimenta al
-        siguiente.
+        No son herramientas sueltas: cada paso alimenta al siguiente.
       </Encabezado>
 
       <ol className="mx-auto mt-12 grid max-w-[1020px] gap-8 sm:mt-14 sm:grid-cols-2 lg:grid-cols-4 lg:gap-0">

@@ -1,31 +1,28 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { negociosDeLaCuenta } from "@/lib/solutions/acceso";
-import { addonsDeVarios, ADDON, type AddonId as AddonPaginaId } from "@/lib/solutions/addons";
 import { nombreAddon, estadoDeAddon } from "@/lib/addons";
 import { rutaDeNegocio } from "@/lib/ruta-negocio";
 
 /**
  * ════════════════════════════════════════════════════════════════════
- *  LOS NEGOCIOS DE UNA CUENTA — las tres entidades, UNA lista
+ *  LOS NEGOCIOS DE UNA CUENTA — UNA lista, con sus add-ons y paneles
  * ════════════════════════════════════════════════════════════════════
  *
  * Pedido del dueño (24 sep 2026): «ahora vamos a tener un Bookea
  * totalmente junto… los negocios van a estar acá, en esta página
  * [/cuenta]… para que unifiques todo».
  *
- * Este módulo es la FEDERACIÓN DE LECTURA que eso necesita: junta en
- * una sola lista los negocios que la cuenta administra, vengan de
- * donde vengan —`ranchos` (marketplace y Lealtad) y
- * `solutions_negocios` (la página /s/)— sin tocar ni una tabla.
+ * Este módulo junta en una sola lista los negocios que la cuenta
+ * administra —propios y colaborados, del marketplace o de Lealtad (los
+ * dos viven en `ranchos`)— con sus add-ons activos y la puerta a su
+ * panel, sin tocar ni una tabla.
  *
  * ── LO QUE ESTE MÓDULO **NO** HACE, A PROPÓSITO ─────────────────────
  *
- * NO unifica las entidades. La decisión congelada #6 de
- * `docs/arquitectura.md` dice que `ranchos`, `solutions_negocios` y
- * `celebrar_perfiles` no se funden todavía: primero federación por
- * identidad, después migración progresiva. Esto es exactamente esa
- * federación: cada entidad se consulta con SUS consultas de siempre y
+ * NO unifica entidades. La decisión congelada #6 de
+ * `docs/arquitectura.md` dice que `ranchos` y `celebrar_perfiles` no se
+ * funden todavía: primero federación por identidad, después migración
+ * progresiva. Cada entidad se consulta con SUS consultas de siempre y
  * lo único nuevo es la lista de salida. Cero joins nuevos entre
  * productos, cero columnas nuevas.
  *
@@ -33,22 +30,19 @@ import { rutaDeNegocio } from "@/lib/ruta-negocio";
  * negocio del panel.
  *
  * ── DÓNDE SE USA ────────────────────────────────────────────────────
- * `/cuenta` (el modo Negocio). Antes esa pantalla solo miraba
- * `ranchos`: una cuenta cuyo único negocio era su página de `/s/`
- * entraba y ni siquiera veía el botón de «Modo Negocio».
+ * `/cuenta` (el modo Negocio).
  *
- * ⚠️ SOLO SERVIDOR: usa la llave de servicio (igual que
- * `negociosDeLaCuenta`). Desde un componente de cliente se importa
- * ÚNICAMENTE el tipo (`import type`), nunca la función — la frontera
- * cliente↔servidor ya rompió el build dos veces.
+ * ⚠️ SOLO SERVIDOR: usa la llave de servicio. Desde un componente de
+ * cliente se importa ÚNICAMENTE el tipo (`import type`), nunca la
+ * función — la frontera cliente↔servidor ya rompió el build dos veces.
  */
 
 /** En qué mundo vive el negocio — decide su URL pública y su panel. */
-export type MundoNegocio = "marketplace" | "lealtad" | "pagina";
+export type MundoNegocio = "marketplace" | "lealtad";
 
 export type NegocioDeCuenta = {
   /** De qué entidad sale la fila. `rancho` = marketplace/Lealtad. */
-  origen: "rancho" | "pagina";
+  origen: "rancho";
   id: string;
   nombre: string;
   esDueno: boolean;
@@ -79,10 +73,11 @@ type FilaRancho = {
 const SELECT_RANCHO = "id, nombre, slug, vertical, estado, en_marketplace, foto_url";
 
 /**
- * La lista federada, para la sesión actual. Devuelve `[]` sin sesión.
+ * La lista, para la sesión actual. Devuelve `[]` sin sesión.
  *
- * Costo: 6 consultas fijas (2 ranchos + 1 colaboradores + 1 add-ons +
- * 1 programas + lo de Solutions). Nada por-negocio: todo va con `.in()`.
+ * Costo: 5 consultas como mucho (propios + colaboradores, los ranchos
+ * colaborados, add-ons y programas). Nada por-negocio: todo va con
+ * `.in()`.
  */
 export async function negociosDeCuenta(): Promise<NegocioDeCuenta[]> {
   const supabase = await createClient();
@@ -156,39 +151,6 @@ export async function negociosDeCuenta(): Promise<NegocioDeCuenta[]> {
       tieneTarjeta: conTarjeta.has(fila.id),
     };
   });
-
-  // ── LA PÁGINA (/s/): la consulta que ya existe, sin duplicarla ────
-  const paginas = await negociosDeLaCuenta();
-  if (paginas.length > 0) {
-    const admin = createAdminClient();
-    const ids = paginas.map((p) => p.id);
-    const [addons, { data: extras }] = await Promise.all([
-      admin ? addonsDeVarios(admin, ids) : Promise.resolve({} as Awaited<ReturnType<typeof addonsDeVarios>>),
-      admin
-        ? admin.from("solutions_negocios").select("id, logo_url").in("id", ids)
-        : Promise.resolve({ data: [] as { id: string; logo_url: string | null }[] }),
-    ]);
-    const logoPorId = new Map(((extras ?? []) as { id: string; logo_url: string | null }[]).map((e) => [e.id, e.logo_url]));
-    for (const p of paginas) {
-      const estado = addons[p.id];
-      const activos = estado
-        ? (Object.keys(estado) as AddonPaginaId[]).filter((a) => estado[a]).map((a) => ADDON[a].nombre)
-        : [];
-      lista.push({
-        origen: "pagina",
-        id: p.id,
-        nombre: p.nombre,
-        esDueno: p.esDueno,
-        mundo: "pagina",
-        publicado: p.publicado,
-        fotoUrl: logoPorId.get(p.id) ?? null,
-        urlPublica: `/s/${p.slug}`,
-        hrefPanel: `/solutions/panel/${p.id}`,
-        activos,
-        tieneTarjeta: false,
-      });
-    }
-  }
 
   // Dueños primero, y dentro de cada grupo por nombre — el orden que
   // uno espera en «mis negocios».

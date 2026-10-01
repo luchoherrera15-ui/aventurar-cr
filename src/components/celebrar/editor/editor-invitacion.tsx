@@ -6,7 +6,7 @@ import { cambiarPublicacion, guardarDocumento, pagarYPublicar, resumenPublicacio
 import { guardarComoPlantillaPartner } from "@/app/celebrar/app/partner/acciones";
 import { VALOR_CREDITO_CRC, colones } from "@/lib/celebrar/creditos";
 import BotonCopiar from "@/components/boton-copiar";
-import Telefono from "@/components/solutions/telefono";
+import Telefono from "@/components/telefono";
 import type { Documento, Seccion } from "@/lib/celebrar/invitacion/esquema";
 import { asignarRuta } from "@/lib/celebrar/invitacion/ruta-datos";
 import { rutaEditor, rutaFicha } from "@/lib/celebrar/rutas";

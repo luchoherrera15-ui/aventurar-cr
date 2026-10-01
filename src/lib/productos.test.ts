@@ -19,15 +19,16 @@ import { PRODUCTOS, PRODUCTOS_ID, hayProductosPagos, producto } from "./producto
 
 const APP = join(process.cwd(), "src", "app");
 
-/** `/solutions/crear` → `src/app/solutions/crear/page.tsx` */
+/** `/lealtad/nuevo` → `src/app/lealtad/nuevo/page.tsx` */
 function hayPagina(ruta: string): boolean {
   return existsSync(join(APP, ...ruta.split("/").filter(Boolean), "page.tsx"));
 }
 
 describe("catálogo de productos", () => {
-  it("tiene los cuatro productos que se ofrecen", () => {
-    expect(PRODUCTOS).toHaveLength(4);
+  it("tiene los dos productos que se ofrecen: lealtad y reservas", () => {
+    expect(PRODUCTOS).toHaveLength(2);
     expect(PRODUCTOS.map((p) => p.id)).toEqual([...PRODUCTOS_ID]);
+    expect(PRODUCTOS.map((p) => p.id)).toEqual(["lealtad", "marketplace"]);
   });
 
   it("no repite ids", () => {
@@ -63,6 +64,7 @@ describe("catálogo de productos", () => {
 
   it("producto() encuentra por id y explota con uno inventado", () => {
     expect(producto("lealtad").nombre).toBe("Pases de lealtad");
+    expect(producto("marketplace").nombre).toBe("Reservas");
     // @ts-expect-error — el id inventado es justo lo que se prueba
     expect(() => producto("no-existe")).toThrow();
   });

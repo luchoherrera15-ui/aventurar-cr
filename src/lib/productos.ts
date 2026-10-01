@@ -1,20 +1,21 @@
 /**
  * ════════════════════════════════════════════════════════════════════
- *  LOS CUATRO PRODUCTOS DE BOOKEA — una sola lista, un solo lugar
+ *  LOS PRODUCTOS DE BOOKEA — una sola lista, un solo lugar
  * ════════════════════════════════════════════════════════════════════
  *
  * Pedido del dueño (24 sep 2026): «la gente se registra, ingresa, y ahí
- * va a tener por cards qué servicios quiere agregar. ¿Qué ofrecemos?
- * Tu link app, los planes de lealtad, las automatizaciones y el
- * marketplace de servicios. La idea es cobrar por esto, pero al
- * principio todo va a ser gratis para poder entrar».
+ * va a tener por cards qué servicios quiere agregar… La idea es cobrar
+ * por esto, pero al principio todo va a ser gratis para poder entrar».
  *
- * Esta es esa lista. La misma que pinta las cuatro tarjetas del home y
- * la misma que pinta la pantalla de «elegí qué activar». Un archivo, no
- * dos: si se agrega un quinto producto o cambia un nombre, cambia acá y
- * las dos pantallas lo siguen. Si vivieran separadas, en tres semanas
- * el home diría una cosa y el panel otra — que es exactamente lo que
- * pasó antes con los nombres de Linksy.
+ * Decisión del dueño (30 sep 2026): «Deja solo PLANES DE LEALTAD Y
+ * RESERVAS». La página con menú y links y las automatizaciones de
+ * Instagram salieron del producto: hoy se ofrecen dos cosas.
+ *
+ * Esta es esa lista. La misma que pinta las tarjetas del home y la
+ * misma que pinta la pantalla de «elegí qué activar». Un archivo, no
+ * dos: si se agrega un producto o cambia un nombre, cambia acá y las
+ * dos pantallas lo siguen. Si vivieran separadas, en tres semanas el
+ * home diría una cosa y el panel otra.
  *
  * ── ⚠️ QUÉ **NO** ES ESTE ARCHIVO ───────────────────────────────────
  *
@@ -24,8 +25,8 @@
  * es el de más arriba:
  *
  *   1. PRODUCTO      ← este archivo. Lo que se OFRECE y se cobra.
- *   2. add-on        `src/lib/solutions/addons.ts` — las partes que se
- *                    prenden dentro de la página (menú, pedidos…).
+ *   2. add-on        `src/lib/addons.ts` — los complementos que se
+ *                    prenden por negocio (lealtad, asistente IA…).
  *   3. módulo        `src/lib/business/modulos.ts` — las pantallas del
  *                    panel de operación (agenda, clientes, equipo…).
  *
@@ -41,21 +42,13 @@
  * cambia `precioMes` acá y nada más se entera.
  */
 
-export const PRODUCTOS_ID = [
-  "pagina",
-  "lealtad",
-  "automatizaciones",
-  "marketplace",
-] as const;
+export const PRODUCTOS_ID = ["lealtad", "marketplace"] as const;
 
 export type ProductoId = (typeof PRODUCTOS_ID)[number];
 
-/** Qué tan real es hoy. Lo que se enseña tiene que poder entregarse. */
-export type EstadoProducto = "vivo" | "en-obra";
-
 export type Producto = {
   id: ProductoId;
-  /** Como se llama de cara al cliente. Ver la nota de nombres abajo. */
+  /** Como se llama de cara al cliente. */
   nombre: string;
   /** Una frase. La promesa, no la descripción técnica. */
   promesa: string;
@@ -74,38 +67,9 @@ export type Producto = {
   activar: string;
   /** A dónde va el «Ver más» del home. */
   verMas: string;
-  estado: EstadoProducto;
 };
 
-/**
- * ── SOBRE EL NOMBRE DEL PRIMERO ─────────────────────────────────────
- *
- * El dueño lo llamó «tu link app, o tu página web, o como queramos
- * llamarlo». La decisión congelada #2 ya lo resolvió: de cara al
- * cliente es **«tu página»**, sin marca nueva que aprender («Bookea
- * Link» queda solo como nombre técnico interno, donde el repo ya lo
- * usa). Por eso acá dice «Tu página» y la promesa explica que es el
- * link hub. Si el dueño prefiere «Tu link app», se cambia esta línea y
- * el home y el onboarding cambian juntos.
- */
 export const PRODUCTOS: readonly Producto[] = [
-  {
-    id: "pagina",
-    nombre: "Tu página",
-    promesa: "Tu menú, tus links y tu QR en una sola página.",
-    antes: "Un menú en PDF que nadie abre",
-    incluye: [
-      "Menú o catálogo con fotos y precios",
-      "Tus redes y tus links, en un solo lugar",
-      "QR propio y dominio si lo querés",
-    ],
-    precioMes: 0,
-    // `/solutions/crear` es la pantalla real de alta: pide el nombre,
-    // arma el slug y deja el link hub andando. No se duplica acá.
-    activar: "/solutions/crear",
-    verMas: "/solutions",
-    estado: "vivo",
-  },
   {
     id: "lealtad",
     nombre: "Pases de lealtad",
@@ -122,27 +86,6 @@ export const PRODUCTOS: readonly Producto[] = [
     // Nada de este archivo toca su lógica.
     activar: "/lealtad/nuevo",
     verMas: "/lealtad",
-    estado: "vivo",
-  },
-  {
-    id: "automatizaciones",
-    nombre: "Automatizaciones",
-    promesa: "Comentan una palabra en Instagram y les llega tu link.",
-    antes: "Responder cada comentario a mano",
-    incluye: [
-      "Respuesta pública bajo el comentario",
-      "Mensaje directo con tu página",
-      "La palabra clave la elegís vos",
-    ],
-    precioMes: 0,
-    // Vive dentro del panel de la página: sin página no hay a dónde
-    // mandar el DM. Por eso su alta es la misma.
-    activar: "/solutions/crear",
-    verMas: "/solutions",
-    // ⚠️ El código está construido y probado en local (0238 aplicada),
-    // pero la app de Meta todavía no existe, así que hoy no se puede
-    // entregar. Mientras siga en «en-obra», la pantalla lo dice.
-    estado: "en-obra",
   },
   {
     id: "marketplace",
@@ -157,7 +100,6 @@ export const PRODUCTOS: readonly Producto[] = [
     precioMes: 0,
     activar: "/publicar",
     verMas: "/negocios",
-    estado: "vivo",
   },
 ] as const;
 

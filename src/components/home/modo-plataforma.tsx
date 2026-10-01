@@ -2,10 +2,9 @@ import Link from "next/link";
 import SiteFooter from "@/components/site-footer";
 import RevealOnScroll from "@/components/reveal-on-scroll";
 import HeaderPlataforma from "@/components/home/plataforma/header-plataforma";
-import CuatroProductos from "@/components/home/plataforma/cuatro-productos";
+import Productos from "@/components/home/plataforma/productos";
 import Cadena from "@/components/home/plataforma/cadena";
 import QueNegocio from "@/components/home/plataforma/que-negocio";
-import UnPanel from "@/components/home/plataforma/un-panel";
 import Lealtad from "@/components/home/plataforma/lealtad";
 import { Encabezado, Seccion, TITULO_GRANDE } from "@/components/home/plataforma/piezas";
 import { hayProductosPagos } from "@/lib/productos";
@@ -30,28 +29,31 @@ import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
  *
  *   1. Héroe          la promesa: digitalizá tu negocio, vendé más
  *   2. Cadena         cómo se conecta todo, en cuatro pasos
- *   3. Productos      los cuatro, con su «antes» tachado
+ *   3. Productos      pases de lealtad y reservas, con su «antes»
+ *                     tachado
  *   4. ¿Qué tenés?    gastronomía · tienda · citas — el onboarding
  *                     empieza acá, con la misma pregunta del alta
- *   5. Un panel       el lado del dueño: menú lateral y comandas
- *   6. Lealtad        destacada aparte: es donde nos enfatizamos
- *   7. Marketplace    y además, clientes nuevos
- *   8. Precio         gratis mientras arranca, sin letra chica
- *   9. Cierre         la puerta, otra vez
+ *   5. Lealtad        destacada aparte: es donde nos enfatizamos
+ *   6. Marketplace    y además, clientes nuevos
+ *   7. Precio         gratis mientras arranca, sin letra chica
+ *   8. Cierre         la puerta, otra vez
  *
- * La versión anterior (titular + cuatro teléfonos, 23 sep) explicaba
- * QUÉ vendemos pero no QUÉ resolvemos. Ahora el héroe da la promesa
- * en las palabras del dueño («digitalizá tu negocio, aumentá tus
- * ventas») y el PROBLEMA lo cuentan las secciones que siguen: el
- * «antes» tachado de cada producto y el dolor de cada rubro.
+ * La versión anterior (titular + teléfonos, 23 sep) explicaba QUÉ
+ * vendemos pero no QUÉ resolvemos. Ahora el héroe da la promesa en las
+ * palabras del dueño («digitalizá tu negocio, aumentá tus ventas») y
+ * el PROBLEMA lo cuentan las secciones que siguen: el «antes» tachado
+ * de cada producto y el dolor de cada rubro.
+ *
+ * Decisión del dueño (30 sep 2026): «Deja solo PLANES DE LEALTAD Y
+ * RESERVAS». La página con menú y pedidos, las automatizaciones de
+ * Instagram y la sección del panel de comandas salieron del home.
  *
  * ── LA REGLA QUE SIGUE VIGENTE ──────────────────────────────────────
  *
  * Solo se promete lo que el repositorio respalda: sin prueba social
- * (hay CERO reseñas), sin cifras inventadas, sin «reservá tu mesa»,
- * sin nombrar a «Linksy», y las Automatizaciones con su «muy pronto»
- * mientras la app de Meta no exista. Celebrar y Foorkie no aparecen:
- * son productos aparte (decisiones congeladas #3 y #4).
+ * (hay CERO reseñas), sin cifras inventadas y sin «reservá tu mesa».
+ * Celebrar y Foorkie no aparecen: son productos aparte (decisiones
+ * congeladas #3 y #4).
  */
 
 /**
@@ -61,8 +63,8 @@ import { DATOS_ORGANIZACION } from "@/lib/seo-organizacion";
  * `…#catalogo`, y cuando alguien lo envía VACÍO `urlBusqueda()` no
  * emite ningún parámetro: la URL queda en `/#catalogo`, o sea el modo
  * Plataforma. Sin este id, esa persona aterriza en el héroe sin
- * entender por qué. Lo lleva la sección de los cuatro productos, que
- * es donde está la puerta al marketplace.
+ * entender por qué. Lo lleva la sección de los productos, que es donde
+ * está la puerta al marketplace.
  */
 export const ID_CATALOGO = "catalogo";
 
@@ -109,14 +111,14 @@ export default function ModoPlataforma() {
           </h1>
 
           <p className="mx-auto mt-6 max-w-[600px] text-pretty text-[17px] leading-relaxed text-[color:var(--tinta-suave)] sm:text-[20px]">
-            Tu página, tus pedidos, tus reservas y tu plan de lealtad, en
-            un solo panel — y todos hablando entre sí.
+            Tus reservas y tu plan de lealtad, en un solo lugar: que te
+            encuentren y que vuelvan.
           </p>
 
           <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-            {/* `/empezar` muestra los cuatro productos y deja elegir —
-                el orden que pidió el dueño: ver qué hay, elegir, y
-                recién ahí registrarse. */}
+            {/* `/empezar` muestra los productos y deja elegir — el orden
+                que pidió el dueño: ver qué hay, elegir, y recién ahí
+                registrarse. */}
             <Link href="/empezar" className="btn-tinta">
               Empezá gratis
             </Link>
@@ -129,30 +131,27 @@ export default function ModoPlataforma() {
         {/* ── 2 · LA CADENA: una cosa lleva a la otra ────────────── */}
         <Cadena />
 
-        {/* ── 3 · LOS CUATRO PRODUCTOS ───────────────────────────── */}
+        {/* ── 3 · LOS PRODUCTOS ──────────────────────────────────── */}
         <Seccion id={ID_CATALOGO}>
-          <Encabezado rotulo="Lo que te llevás" titulo="Cuatro productos. Un solo lugar.">
-            Cada uno funciona solo; juntos se potencian. Y todos arrancan
-            gratis.
+          <Encabezado rotulo="Lo que te llevás" titulo="Dos productos. Un solo lugar.">
+            Cada uno funciona solo; juntos se potencian. Y los dos
+            arrancan gratis.
           </Encabezado>
           <div className="mt-12 sm:mt-14">
-            <CuatroProductos />
+            <Productos />
           </div>
         </Seccion>
 
         {/* ── 4 · ¿QUÉ NEGOCIO TENÉS? ────────────────────────────── */}
         <QueNegocio />
 
-        {/* ── 5 · UN PANEL, TODO SINCRONIZADO ────────────────────── */}
-        <UnPanel />
-
-        {/* ── 6 · LEALTAD, DESTACADA ─────────────────────────────── */}
+        {/* ── 5 · LEALTAD, DESTACADA ─────────────────────────────── */}
         {/* Sección aparte y no una tarjeta más: es el producto donde
             el dueño quiere enfatizarse. La sección es la que ya
             existía, con el pase de verdad (`VistaPase`) adentro. */}
         <Lealtad />
 
-        {/* ── 7 · EL MARKETPLACE: clientes nuevos ────────────────── */}
+        {/* ── 6 · EL MARKETPLACE: clientes nuevos ────────────────── */}
         <Seccion id="marketplace">
           <Encabezado
             rotulo="El directorio"
@@ -168,7 +167,7 @@ export default function ModoPlataforma() {
           </div>
         </Seccion>
 
-        {/* ── 8 · EL PRECIO, SIN LETRA CHICA ─────────────────────── */}
+        {/* ── 7 · EL PRECIO, SIN LETRA CHICA ─────────────────────── */}
         {/* La condición lee el catálogo: el día que un producto tenga
             precio, esta sección desaparece sola en vez de mentir. */}
         {!hayProductosPagos() && (
@@ -180,10 +179,12 @@ export default function ModoPlataforma() {
           </Seccion>
         )}
 
-        {/* ── 9 · EL CIERRE ──────────────────────────────────────── */}
+        {/* ── 8 · EL CIERRE ──────────────────────────────────────── */}
+        {/* «En minutos» y no «en cinco»: el alta de Lealtad promete
+            menos de diez y la de Reservas, unos minutos. */}
         <Seccion id="cierre">
           <div className="mx-auto max-w-[760px] text-center">
-            <h2 className={TITULO_GRANDE}>Creá tu página en cinco minutos.</h2>
+            <h2 className={TITULO_GRANDE}>Tu tarjeta y tu agenda, listas en minutos.</h2>
             <div className="mt-8">
               <Link href="/empezar" className="btn-tinta">
                 Empezá gratis

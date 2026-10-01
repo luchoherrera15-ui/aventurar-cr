@@ -23,8 +23,8 @@ import { MARCA } from "@/lib/celebrar/marca";
  */
 
 // Montserrat es la voz de la marca (títulos, botones, rótulos); Inter
-// lleva el texto corrido. Montserrat ya se carga en Lealtad y Linksy
-// con el mismo nombre de variable, así que Next la descarga una vez.
+// lleva el texto corrido. Montserrat ya se carga en Lealtad con el
+// mismo nombre de variable, así que Next la descarga una vez.
 const montserrat = Montserrat({
   variable: "--font-montserrat",
   subsets: ["latin"],

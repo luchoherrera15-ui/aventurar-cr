@@ -143,10 +143,11 @@ interface TableroModosProps {
   /** El id del único negocio con lealtad activa, o null si son 0 o 2+. */
   lealtadNegocioUnico: string | null;
   /**
-   * LA LISTA FEDERADA (24 sep 2026): todos los negocios de la cuenta,
-   * vengan de `ranchos` (marketplace/Lealtad) o de la página `/s/`.
-   * El modo Negocio arranca acá: la grilla de negocios, y al abrir
-   * uno, sus add-ons y sus puertas. Ver `src/lib/negocios-cuenta.ts`.
+   * LA LISTA DE NEGOCIOS (24 sep 2026): todos los negocios de la
+   * cuenta, del marketplace o de Lealtad (`ranchos`, propios y
+   * colaborados). El modo Negocio arranca acá: la grilla de negocios, y
+   * al abrir uno, sus add-ons y sus puertas. Ver
+   * `src/lib/negocios-cuenta.ts`.
    */
   negocios: NegocioDeCuenta[];
   confirmacionesNuevas: number;
@@ -414,7 +415,7 @@ export default function TableroModos({
               </h1>
               <p className={`mt-2.5 max-w-[480px] ${BAJADA_PANTALLA}`}>
                 {modoNegocio
-                  ? "Tu página, tus reservas, tus pedidos y tu lealtad — todo lo que administrás con Bookea entra por acá."
+                  ? "Tus reservas y tu lealtad — todo lo que administrás con Bookea entra por acá."
                   : "Reservas, invitaciones y beneficios reunidos en tu cuenta Bookea."}
               </p>
             </div>
@@ -501,9 +502,9 @@ export default function TableroModos({
               <>
                 {/* ── PRIMERO, LOS NEGOCIOS (24 sep 2026) ────────────
                     «Un Bookea totalmente junto»: el modo Negocio abre
-                    con la grilla federada de TODOS los negocios de la
-                    cuenta — del marketplace, de Lealtad o de su página
-                    /s/ — y al tocar uno se ven sus add-ons y paneles.
+                    con la grilla de TODOS los negocios de la cuenta
+                    — del marketplace o de Lealtad — y al tocar uno se
+                    ven sus add-ons y paneles.
                     Las secciones agregadas de siempre quedan debajo. */}
                 <MisNegocios negocios={negocios} alAbrir={setNegocioAbiertoId} />
 
@@ -1106,14 +1107,13 @@ function BannerNegocio({
 //
 // Pedido del dueño: «un Bookea totalmente junto… al ingresar vemos los
 // negocios que tenemos, y al darle clic a uno, los add-ons y todo lo
-// que tiene agregado». La lista llega ya federada de
-// `src/lib/negocios-cuenta.ts` (ranchos + la página /s/); acá solo se
+// que tiene agregado». La lista llega ya armada de
+// `src/lib/negocios-cuenta.ts` (marketplace y Lealtad); acá solo se
 // pinta con las piezas del panel — ni un hex ni un radio nuevo.
 
 const MUNDO_ETIQUETA: Record<NegocioDeCuenta["mundo"], string> = {
   marketplace: "Marketplace",
   lealtad: "Lealtad",
-  pagina: "Tu página",
 };
 
 /** El logo del negocio, o su inicial en el disco navy del sistema. */
@@ -1311,7 +1311,7 @@ function DetalleNegocio({
       <div className={`${SUPERFICIE_PANEL} ${RADIO_TILE} flex flex-wrap items-center justify-between gap-3 p-4`}>
         <div className="min-w-0">
           <p className="text-[14px] font-extrabold text-aventurea-navy">¿Le falta algo?</p>
-          <p className={DETALLE}>Tu página, pedidos, pases de lealtad y reservas — todo con la misma cuenta.</p>
+          <p className={DETALLE}>Pases de lealtad y reservas — todo con la misma cuenta.</p>
         </div>
         <Link href="/empezar" className={ENLACE_CARD}>
           Ver los productos

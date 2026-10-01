@@ -402,7 +402,7 @@ export const PAISES = [
   // nivel oficiales de cada país (departamentos, estados, provincias,
   // regiones; en Puerto Rico, que no las tiene, los 78 municipios). La
   // moneda y el prefijo tienen que coincidir con `src/lib/monedas.ts`,
-  // que es el catálogo que usa Solutions — hay un test que lo exige.
+  // el catálogo de monedas y teléfonos — hay un test que lo exige.
   {
     codigo: "bz",
     nombre: "Belice",

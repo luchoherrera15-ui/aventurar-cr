@@ -1,24 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { PAISES, paisDePrefijoUno } from "./paises";
-import { PAIS, PAISES as CODIGOS_SOLUTIONS, MONEDA } from "./monedas";
+import { PAIS, PAISES as CODIGOS_MONEDAS, MONEDA } from "./monedas";
 
 /**
  * DOS CATÁLOGOS, UNA VERDAD.
  *
  * `src/lib/paises.ts` es el catálogo del marketplace (regiones, zonas,
  * códigos en minúscula para la URL) y `src/lib/monedas.ts` el de
- * Solutions (monedas con decimales, largos de teléfono, códigos en
- * mayúscula). Nacieron separados por razones reales, pero tienen que
- * decir lo MISMO sobre cada país: si uno gana un país y el otro no, el
- * selector de un producto lo muestra y el del otro no — que es
- * exactamente lo que el dueño vio el 6 sep 2026 con ocho países en el
- * alta de Lealtad.
+ * monedas y teléfonos (monedas con decimales, largos de teléfono,
+ * códigos en mayúscula). Nacieron separados por razones reales, pero
+ * tienen que decir lo MISMO sobre cada país: si uno gana un país y el
+ * otro no, el selector de un producto lo muestra y el del otro no — que
+ * es exactamente lo que el dueño vio el 6 sep 2026 con ocho países en
+ * el alta de Lealtad.
  */
 describe("paises.ts y monedas.ts coinciden", () => {
   it("tienen exactamente los mismos países", () => {
     const marketplace = PAISES.map((p) => p.codigo.toUpperCase()).sort();
-    const solutions = [...CODIGOS_SOLUTIONS].sort();
-    expect(marketplace).toEqual(solutions);
+    const monedas = [...CODIGOS_MONEDAS].sort();
+    expect(marketplace).toEqual(monedas);
   });
 
   it("el prefijo telefónico, la moneda y su símbolo son los mismos en los dos", () => {

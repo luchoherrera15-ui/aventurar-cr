@@ -7,7 +7,7 @@
    limpias. (La v1, crema + serif editorial, se descartó el mismo día.)
 
    Todo vive bajo `.celebrar` (lo pone el layout de src/app/celebrar):
-   mismo truco que `.lealtad` y `.linksy` en globals.css — se
+   mismo truco que `.lealtad` en globals.css — se
    re-declaran las variables base del sitio y cualquier utilidad
    heredada (sombras, foco) sigue el scope sola. Fuera de `.celebrar`
    nada de esto existe.

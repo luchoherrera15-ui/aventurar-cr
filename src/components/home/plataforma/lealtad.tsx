@@ -18,8 +18,7 @@ import { Encabezado, Escenario, NotaDemo, Seccion } from "./piezas";
  * componente que pinta la vista previa del panel de Lealtad, la
  * pantalla de afiliación y el modal del admin — con su banda superior,
  * su tira de sellos, su QR de 21 módulos y el conmutador Apple/Google.
- * La misma decisión que se tomó con `<VistaPagina>` en la sección de
- * «tu página»: mostrar el producto, no una imitación del producto.
+ * La regla: mostrar el producto, no una imitación del producto.
  *
  * `marco="telefono"` lo mete dentro del teléfono dibujado que el
  * propio componente trae, y `superficie="clara"` le dice que el fondo

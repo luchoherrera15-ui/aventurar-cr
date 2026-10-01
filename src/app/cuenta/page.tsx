@@ -60,16 +60,8 @@ export default async function CuentaPage({
   // (formulario-developer.tsx): sin reconocerlo acá, quien se logueaba
   // desde ese formulario caía al tablero y perdía la página que estaba
   // llenando. Whitelist, no passthrough: `volver` viene de la URL.
-  // volver=solutions (3 sep 2026): quien llega a /solutions/crear o al
-  // panel sin sesion vuelve a Solutions, no al tablero de cliente.
-  // Misma whitelist, un valor mas.
   const destino =
-    destinoLealtad ??
-    (volver === "lealtad/developers"
-      ? "/lealtad/developers"
-      : volver === "solutions"
-        ? "/solutions/panel"
-        : null);
+    destinoLealtad ?? (volver === "lealtad/developers" ? "/lealtad/developers" : null);
 
   const supabase = await createClient();
   const {
@@ -257,11 +249,9 @@ export default async function CuentaPage({
   const negocios = [...propios, ...colaborados];
   const invitacionIds = ((invitacionesData ?? []) as { id: string }[]).map((i) => i.id);
 
-  // ── LA LISTA FEDERADA (24 sep 2026): ranchos + la página /s/ ─────
+  // ── LA LISTA DE NEGOCIOS (24 sep 2026) ────────────────────────────
   // Un solo Bookea: el modo Negocio muestra TODOS los negocios de la
-  // cuenta, vengan del marketplace, de Lealtad o de su página. Antes
-  // esta pantalla solo miraba ranchos, y una cuenta cuyo único negocio
-  // era su página de /s/ ni siquiera veía el botón de Modo Negocio.
+  // cuenta, del marketplace o de Lealtad, con sus add-ons y paneles.
   const negociosCuenta = await negociosDeCuenta();
   const tieneNegocio = negocios.length > 0 || negociosCuenta.length > 0;
 

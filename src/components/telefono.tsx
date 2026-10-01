@@ -3,7 +3,7 @@
  *
  * Dibuja el aparato (bisel, isla, botones del canto, barra de estado,
  * indicador) y le hace de ventana a lo que se le meta adentro. No sabe
- * nada de Solutions: recibe `children` y los recorta.
+ * nada del producto que lo usa: recibe `children` y los recorta.
  *
  * Es puro y sin estado, así que sirve igual en la landing (Server
  * Component) y en el panel (dentro de uno de cliente).

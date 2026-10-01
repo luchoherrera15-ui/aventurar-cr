@@ -41,9 +41,7 @@ import {
 
 /** Lo que Bookea hace, con su ancla en el home. */
 const PRODUCTO: { nombre: string; resumen: string; href: string }[] = [
-  { nombre: "Tu página", resumen: "Tu negocio, en un solo link", href: "/#tu-pagina" },
   { nombre: "Reservas", resumen: "Tus clientes reservan solos", href: "/#reservas" },
-  { nombre: "Pedidos", resumen: "Te llegan por WhatsApp", href: "/#pedidos" },
   { nombre: "Clientes", resumen: "La ficha se llena sola", href: "/#clientes" },
   { nombre: "Lealtad", resumen: "Sellos en Apple y Google Wallet", href: "/lealtad" },
   { nombre: "Marketing", resumen: "Campañas que salen solas", href: "/#marketing" },
@@ -105,7 +103,7 @@ export default function HeaderPlataforma() {
 
         {/* ── EL NAV ────────────────────────────────────────────────
             Se esconde abajo de `lg` y en su lugar queda el cajón de
-            siempre: siete secciones y cinco rubros no entran en un
+            siempre: cinco secciones y cinco rubros no entran en un
             teléfono sin convertirse en otra cosa. */}
         <nav className="ml-6 hidden items-center gap-0.5 lg:flex">
           <Menu etiqueta="Producto" ancho="w-[520px]">

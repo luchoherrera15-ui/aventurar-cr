@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Telefono from "@/components/solutions/telefono";
+import Telefono from "@/components/telefono";
 
 /**
  * EL TELÉFONO CON UNA INVITACIÓN DE VERDAD ADENTRO.

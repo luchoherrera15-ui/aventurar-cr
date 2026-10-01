@@ -6,8 +6,8 @@
  *
  * El archivo de pasos exporta `default async (page, capturar) => {…}`:
  * `capturar("nombre")` guarda nombre.jpg en el scratchpad indicado por
- * la variable de entorno SALIDA (o en ./qa). La sesión se fabrica como en
- * captura-panel-linksy.mjs (magic link → verifyOtp → cookie).
+ * la variable de entorno SALIDA (o en ./qa). La sesión se fabrica con
+ * magic link → verifyOtp → cookie.
  */
 import fs from "node:fs";
 import path from "node:path";

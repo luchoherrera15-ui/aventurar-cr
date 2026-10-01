@@ -13,11 +13,9 @@ import { PREFIJO_CELEBRAR, RUTA } from "./rutas";
  *
  * Este módulo decide, con funciones PURAS y probadas en
  * `dominios.test.ts`, qué hacer con cada petición según el host y la
- * ruta. `src/proxy.ts` solo ejecuta lo que estas funciones deciden —
- * igual que hace con Linksy (`src/lib/solutions/dominios.ts`), que es
- * el precedente de este patrón en el repo. No se comparte código con
- * ese módulo a propósito: cada producto tiene sus rutas, y un cambio
- * en las de uno no debe poder romper al otro.
+ * ruta. `src/proxy.ts` solo ejecuta lo que estas funciones deciden.
+ * Las rutas son de CELEBRAR y de nadie más: un cambio en las de otro
+ * producto no debe poder romper estas.
  *
  * El interruptor del estreno es UNA variable de entorno:
  *   NEXT_PUBLIC_CELEBRAR_URL=https://celebrar.lat
@@ -88,7 +86,7 @@ export type DestinoCelebrar =
  *
  * Todo lo que no es de CELEBRAR (por ejemplo `/mi-negocio`) cae en el
  * rewrite general y termina en el 404 de CELEBRAR: bajo `celebrar.lat`
- * no se sirve Bookea. Es lo mismo que hace Linksy con su dominio.
+ * no se sirve Bookea.
  */
 export function destinoEnCelebrar(pathname: string): DestinoCelebrar {
   const p = pathname.replace(/\/+$/, "") || "/";

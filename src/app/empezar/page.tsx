@@ -13,16 +13,16 @@ import ElegirServicios from "@/components/business/elegir-servicios";
  * Pedido del dueño (24 sep 2026): «la gente se registra, ingresa, y ahí
  * va a tener por cards qué servicios quiere agregar».
  *
- * Este es ese paso. Cuatro tarjetas, una por producto, y cada una lleva
- * a su alta de verdad.
+ * Este es ese paso. Una tarjeta por producto —pases de lealtad y
+ * reservas—, y cada una lleva a su alta de verdad.
  *
  * ── POR QUÉ ES PÚBLICA Y NO PIDE SESIÓN ─────────────────────────────
  *
- * Porque cada alta ya pide la suya. `/solutions/crear`, `/lealtad/nuevo`
- * y `/publicar` mandan a `/cuenta` si no hay sesión y vuelven. Poner
- * una segunda puerta acá no agregaría seguridad —las tres de abajo
- * siguen estando— y sí le pediría la cuenta a alguien antes de dejarle
- * ver qué le estamos ofreciendo.
+ * Porque cada alta ya pide la suya. `/lealtad/nuevo` y `/publicar`
+ * mandan a iniciar sesión si no hay una y vuelven. Poner una segunda
+ * puerta acá no agregaría seguridad —las de cada alta siguen estando—
+ * y sí le pediría la cuenta a alguien antes de dejarle ver qué le
+ * estamos ofreciendo.
  *
  * El orden queda: **ver qué hay → elegir → registrarse**, en vez de
  * registrarse a ciegas. Es también el orden que pidió el dueño para el
@@ -31,17 +31,16 @@ import ElegirServicios from "@/components/business/elegir-servicios";
  * ── LO QUE FALTA, ANOTADO ───────────────────────────────────────────
  *
  * `ElegirServicios` acepta `activos` para marcar lo que el negocio ya
- * tiene prendido. Hoy va vacío porque el estado está repartido: la
- * página lo guarda en `solutions_addons`, Lealtad en sus propias
- * tablas y el marketplace en `ranchos`. Unificar esa lectura es trabajo
- * de la federación por identidad (§6 de `docs/arquitectura.md`), no de
- * esta pantalla. Mientras tanto muestra las cuatro puertas abiertas.
+ * tiene prendido. Hoy va vacío porque el estado está repartido: Lealtad
+ * lo guarda en sus propias tablas y el marketplace en `ranchos`.
+ * Unificar esa lectura es trabajo de la federación por identidad (§6 de
+ * `docs/arquitectura.md`), no de esta pantalla. Mientras tanto muestra
+ * todas las puertas abiertas.
  */
 
 export const metadata: Metadata = {
   title: "Empezá gratis",
-  description:
-    "Elegí qué querés activar para tu negocio: tu página, pases de lealtad, automatizaciones o reservas.",
+  description: "Elegí qué querés activar para tu negocio: pases de lealtad o reservas.",
 };
 
 export default function Empezar() {
@@ -65,8 +64,8 @@ export default function Empezar() {
             </h1>
 
             <p className="mx-auto mt-6 max-w-[600px] text-pretty text-[17px] leading-relaxed text-[color:var(--tinta-suave)] sm:text-[20px]">
-              Elegí uno, elegí los cuatro. Se prenden por separado y podés
-              agregar el resto cuando quieras.
+              Elegí uno o los dos. Se prenden por separado y podés sumar
+              el otro cuando quieras.
             </p>
           </div>
 

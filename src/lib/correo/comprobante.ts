@@ -24,10 +24,10 @@ import { fmtMoneda, type Moneda } from "@/lib/monedas";
  * la acompaña; no la reemplaza.
  *
  * ── POR QUÉ ES UNO SOLO PARA TODO ───────────────────────────────────
- * Bookea cobra cosas distintas —el módulo de Lealtad, Linksy Pro, los
- * add-ons, las invitaciones— y todas terminan en la misma pregunta del
- * cliente: «¿qué me cobraron?». Un comprobante por producto serían
- * cuatro plantillas que se desincronizan; acá el producto es un dato
+ * Bookea cobra cosas distintas —el módulo de Lealtad, los add-ons, las
+ * invitaciones— y todas terminan en la misma pregunta del cliente:
+ * «¿qué me cobraron?». Un comprobante por producto serían varias
+ * plantillas que se desincronizan; acá el producto es un dato
  * (`producto`) y los renglones son una lista. Enchufar un cobro nuevo es
  * llamar a `enviarComprobanteDePago` con sus renglones.
  *
@@ -40,7 +40,7 @@ import { fmtMoneda, type Moneda } from "@/lib/monedas";
  */
 
 export type RenglonComprobante = {
-  /** «Linksy Pro · mensual», «Módulo de Lealtad · plan Crecer». */
+  /** «Módulo de Lealtad · plan Crecer», «Add-on: Asistente IA». */
   concepto: string;
   /** Una línea chica bajo el concepto. Opcional. */
   detalle?: string;

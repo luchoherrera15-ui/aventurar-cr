@@ -12,7 +12,7 @@ import { normalizarDocumento, type Documento } from "@/lib/celebrar/invitacion/e
 import { datosParaDocumento, rellenarConCelebracion } from "@/lib/celebrar/invitacion/rellenar";
 import { PREFIJO_CELEBRAR, RUTA } from "@/lib/celebrar/rutas";
 import { cloudflareConfigurado, configuracionCF, solicitarSubidaDirecta } from "@/lib/media/cloudflare-images";
-import { urlDeEntrega } from "@/lib/solutions/fotos";
+import { urlDeEntrega } from "@/lib/media/entrega";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -156,8 +156,8 @@ export async function pagarYPublicar(celebracionId: string): Promise<ResultadoPa
 
 /**
  * Permiso de subida a Cloudflare Images para las fotos de la invitación
- * (el mismo camino que Solutions: el archivo va directo del navegador a
- * Cloudflare, nunca por Vercel). Sin Cloudflare configurado, el uploader
+ * (subida directa: el archivo va del navegador a Cloudflare, nunca por
+ * Vercel). Sin Cloudflare configurado, el uploader
  * avisa que no se puede subir — CELEBRAR no usa buckets de Supabase.
  */
 export type PermisoSubida =

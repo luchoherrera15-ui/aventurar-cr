@@ -24,7 +24,10 @@ import { Encabezado, Seccion, VerMas } from "./piezas";
  * Todo lo que aparece existe y se puede entregar hoy. Por eso citas
  * dice «aparecés en el directorio» (el marketplace vive en `/all`) y
  * gastronomía NO dice «reservá tu mesa» (las mesas no son un recurso
- * reservable — la misma regla de `reservas.tsx`).
+ * reservable — la misma regla de `reservas.tsx`). El menú digital, el
+ * catálogo y el QR por mesa son los de Lealtad (`/r/<slug>` y su
+ * `/menu`, con los pósteres del panel); los pedidos en línea no se
+ * prometen porque no existen.
  */
 
 type Perfil = {
@@ -39,10 +42,9 @@ const PERFILES: Perfil[] = [
   {
     nombre: "Gastronomía",
     ejemplos: "Restaurante · cafetería · soda · panadería",
-    dolor: "El menú desactualizado y los pedidos perdidos en el chat.",
+    dolor: "El menú desactualizado y la tarjeta de sellos que se pierde.",
     seLleva: [
-      "Tu página con menú y fotos",
-      "Pedidos que entran armados a tu panel",
+      "Menú digital con fotos",
       "QR por mesa",
       "Plan de lealtad con sellos",
     ],
@@ -51,12 +53,11 @@ const PERFILES: Perfil[] = [
   {
     nombre: "Tienda",
     ejemplos: "Física o en línea · boutique · floristería",
-    dolor: "Sin dónde mostrar el catálogo ni cómo recibir un pedido.",
+    dolor: "Clientes que compran una vez y no vuelven.",
     seLleva: [
       "Catálogo con fotos y precios",
-      "Pedidos para recoger o con envío",
-      "Tus redes y tus links en un lugar",
       "Plan de lealtad con sellos",
+      "El cliente se suma con un QR",
     ],
     Icono: IconStore,
   },

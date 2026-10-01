@@ -49,7 +49,7 @@ function relacionNumerica(texto: string): number {
  * archivo de verdad raro — y ahí el mensaje puede ser honesto.
  */
 
-/** El bucket por defecto. Solutions (0230) sube al suyo vía la prop «bucket». */
+/** El bucket de Supabase donde van las imágenes. */
 const BUCKET = "ranchos-fotos";
 
 /**
@@ -126,7 +126,6 @@ export default function SubirImagen({
   etiqueta,
   carpeta,
   alAnalizar,
-  bucket = BUCKET,
   subidaDirecta,
   recortar = false,
   alColores,
@@ -147,21 +146,14 @@ export default function SubirImagen({
    * se cae al bucket de siempre, sin que el dueño note nada.
    *
    * Es una función y no un booleano para que este componente no
-   * importe una server action de Solutions: quien lo usa le pasa la
-   * suya (`prepararSubidaSolutions`).
+   * importe la server action de ningún producto: quien lo usa le pasa
+   * la suya (`prepararSubidaCelebrar`).
    */
   subidaDirecta?: () => Promise<
     | { ok: true; configurado: true; uploadURL: string; urlFinal: string }
     | { ok: true; configurado: false }
     | { ok: false; motivo: string }
   >;
-  /**
-   * A qué bucket subir. Por defecto «ranchos-fotos», el de siempre.
-   * Solutions (3 sep 2026) tiene el suyo, «solutions-fotos», porque el
-   * dueño pidió que nada de ese producto dependa de ranchos-fotos — y
-   * un prop es lo único que hizo falta para no duplicar este componente.
-   */
-  bucket?: string;
   /**
    * Qué se vio en la imagen: si tiene fondo opaco y de qué color es en
    * promedio (`analizarImagen`). Opcional, y solo lo pide quien tenga
@@ -268,7 +260,7 @@ export default function SubirImagen({
       const ruta = `${carpeta}/${user.id}/${crypto.randomUUID()}.${ext}`;
 
       const { error: eSubida } = await supabase.storage
-        .from(bucket)
+        .from(BUCKET)
         .upload(ruta, liviano, { contentType: liviano.type, upsert: false });
       if (eSubida) {
         setError("No se pudo subir. Probá de nuevo en un momento.");
@@ -280,7 +272,7 @@ export default function SubirImagen({
       // aplastado contra blanco en el paso anterior.
       if (alAnalizar) alAnalizar(await analizarImagen(liviano));
 
-      const { data } = supabase.storage.from(bucket).getPublicUrl(ruta);
+      const { data } = supabase.storage.from(BUCKET).getPublicUrl(ruta);
       alCambiar(data.publicUrl);
       alColores?.(colores);
     } catch {

@@ -1,14 +1,5 @@
 ﻿import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import {
-  CABECERA_DOMINIO,
-  destinoEnDominioPropio,
-  destinoEnLinksy,
-  esHostLinksy,
-  esHostPropio,
-  slugPorDominio,
-  urlBookea,
-} from "@/lib/solutions/dominios";
 import { destinoEnCelebrar, esHostCelebrar } from "@/lib/celebrar/dominios";
 
 // NOTA: en esta versión de Next.js el archivo "middleware.ts" pasó a
@@ -63,52 +54,6 @@ export default async function proxy(request: NextRequest) {
    * que apunta acá y sirve otra cosa confunde más que un dominio que
    * no resuelve.
    */
-  /**
-   * ══════════════════════════════════════════════════════════════════
-   *  EL DOMINIO PROPIO DE UN NEGOCIO DE SOLUTIONS (0234)
-   * ══════════════════════════════════════════════════════════════════
-   * Pedido del dueño (5 sep 2026): «que la gente agregue su propio
-   * dominio y tenga sus mini portales».
-   *
-   * Si el Host NO es nuestro (bookea.lat, localhost, *.vercel.app),
-   * puede ser el dominio de un negocio: casanostra.com. Se busca con la
-   * llave anónima —la política pública de la 0230 solo devuelve
-   * negocios publicados— y con un caché de un minuto por host, porque
-   * este proxy corre en todas las rutas. Si existe, la raíz se
-   * reescribe a /s/<slug>, /menu a /s/<slug>/menu, y el resto del sitio
-   * vuelve a la raíz: bajo el dominio del negocio no se sirve Bookea.
-   *
-   * Es el mismo truco que usó food.bookea.lat, por la misma razón: el
-   * proxy corre ANTES del sistema de archivos y es la única capa donde
-   * «/» puede ser otra página. La cabecera es lo que «Verificar» busca
-   * para dar el dominio por activo (ver vercel-dominios.ts).
-   *
-   * Un host nuestro no paga nada: `esHostPropio` corta antes de tocar la
-   * red. Un host ajeno que no es de nadie sigue su camino normal.
-   */
-  /**
-   * ══════════════════════════════════════════════════════════════════
-   *  LINKSY.LAT — EL DOMINIO DEL LINK HUB
-   * ══════════════════════════════════════════════════════════════════
-   * Pedido del dueño (6 sep 2026): el producto estrena dominio propio.
-   * `linksy.lat/pizza-lucia` sirve la misma página que
-   * `bookea.lat/s/pizza-lucia`, sin duplicar un solo archivo.
-   *
-   * VA PRIMERO, ANTES QUE EL DOMINIO PROPIO DE UN NEGOCIO. linksy.lat
-   * ahora es `esHostPropio`, así que la rama de abajo ya no lo mira; y
-   * tiene que ser así, porque si no un negocio podría reclamarlo como
-   * dominio suyo. El orden acá es la mitad de esa defensa; la otra
-   * mitad la pone `guardarDominio`, que rechaza lo que es nuestro.
-   *
-   * Mismo truco que usó food.bookea.lat y por la misma razón: el proxy
-   * corre ANTES del sistema de archivos, y es la única capa donde «/»
-   * puede servir otra página (ver el comentario grande de
-   * next.config.ts sobre el rewrite que nunca disparaba).
-   *
-   * El decidir cuál ruta es cuál NO vive acá: es una función pura,
-   * `destinoEnLinksy`, probada en dominios.test.ts. Acá solo se
-   * ejecuta lo que esa función decide.
-   */
   const host = request.headers.get("host") ?? "";
 
   /**
@@ -119,16 +64,17 @@ export default async function proxy(request: NextRequest) {
    * portada y `celebrar.lat/maria-y-juan` la invitación pública — el
    * mismo despliegue que bookea.lat/celebrar/…, sin duplicar archivos.
    *
-   * Mismo mecanismo que Linksy y por la misma razón (el proxy corre
-   * ANTES del sistema de archivos). Va antes que Linksy y que el dominio
-   * propio de un negocio porque `esHostPropio` ya lo reconoce como
-   * nuestro: nadie puede reclamarlo. La decisión de qué ruta es cuál
-   * vive en `destinoEnCelebrar`, probada en src/lib/celebrar/dominios.test.ts.
+   * Mismo truco que usó food.bookea.lat y por la misma razón: el proxy
+   * corre ANTES del sistema de archivos, y es la única capa donde «/»
+   * puede servir otra página (ver el comentario grande de
+   * next.config.ts sobre el rewrite que nunca disparaba). La decisión
+   * de qué ruta es cuál vive en `destinoEnCelebrar`, probada en
+   * src/lib/celebrar/dominios.test.ts; acá solo se ejecuta.
    *
-   * A diferencia de Linksy, acá NO hay rama «bookea»: el login, el panel
-   * y el callback de Auth viven dentro de CELEBRAR (decisión D-3 del
-   * dueño, ver docs/celebrar/audit.md). La cookie de sesión nace en
-   * celebrar.lat y ahí se queda.
+   * No hay rama «bookea»: el login, el panel y el callback de Auth
+   * viven dentro de CELEBRAR (decisión D-3 del dueño, ver
+   * docs/celebrar/audit.md). La cookie de sesión nace en celebrar.lat y
+   * ahí se queda.
    */
   if (esHostCelebrar(host)) {
     const destino = destinoEnCelebrar(request.nextUrl.pathname);
@@ -141,48 +87,6 @@ export default async function proxy(request: NextRequest) {
       return NextResponse.rewrite(url);
     }
     // "pasar": assets, /api, robots.txt… siguen el camino normal.
-  }
-
-  if (esHostLinksy(host)) {
-    const destino = destinoEnLinksy(request.nextUrl.pathname);
-    if (destino.tipo === "bookea") {
-      // El mundo con sesión (alta, login, panel, cuenta) vive en
-      // bookea.lat porque la cookie no cruza entre dominios de apex
-      // distinto (ver LINKSY_HOST). Absoluta a propósito: es otro sitio,
-      // no otra ruta de este. La query viaja intacta: `?nombre=…` del
-      // reclamo del link y `?volver=solutions` del alta sin sesión.
-      return NextResponse.redirect(new URL(destino.pathname + request.nextUrl.search, urlBookea("/")));
-    }
-    if (destino.tipo === "redirect") {
-      return NextResponse.redirect(new URL(destino.pathname, request.url));
-    }
-    if (destino.tipo === "rewrite") {
-      const url = request.nextUrl.clone();
-      url.pathname = destino.pathname;
-      return NextResponse.rewrite(url);
-    }
-    // "pasar": sigue el camino normal (assets, /api, robots.txt…).
-  }
-
-  const hostAjeno = host;
-  if (hostAjeno && !esHostPropio(hostAjeno)) {
-    const slugDominio = await slugPorDominio(hostAjeno);
-    if (slugDominio) {
-      const destino = destinoEnDominioPropio(request.nextUrl.pathname, slugDominio);
-      if (destino.tipo === "redirect") {
-        return NextResponse.redirect(new URL(destino.pathname, request.url));
-      }
-      let salida: NextResponse;
-      if (destino.tipo === "rewrite") {
-        const url = request.nextUrl.clone();
-        url.pathname = destino.pathname;
-        salida = NextResponse.rewrite(url);
-      } else {
-        salida = NextResponse.next({ request });
-      }
-      salida.headers.set(CABECERA_DOMINIO, slugDominio);
-      return salida;
-    }
   }
 
   const path = request.nextUrl.pathname;

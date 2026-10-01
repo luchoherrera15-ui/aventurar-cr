@@ -55,9 +55,9 @@ export default function ChatAyuda({
   const [hilo, setHilo] = useState(hiloInicial);
   const [nombre, setNombre] = useState("");
   const [contacto, setContacto] = useState("");
-  // `?mensaje=` prellena el chat (8 sep 2026): el panel de Linksy manda
-  // acá «Quiero Pro» con el negocio ya escrito. Solo el texto; enviar
-  // sigue siendo un clic de la persona.
+  // `?mensaje=` prellena el chat (8 sep 2026): un enlace puede llegar
+  // acá con el pedido ya escrito. Solo el texto; enviar sigue siendo un
+  // clic de la persona.
   const mensajeInicial = useSearchParams().get("mensaje");
   const [mensaje, setMensaje] = useState(() => (mensajeInicial ?? "").slice(0, 500));
   const [panal, setPanal] = useState("");

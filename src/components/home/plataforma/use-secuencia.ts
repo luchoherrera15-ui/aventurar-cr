@@ -16,10 +16,10 @@ import { useEffect, useRef, useState } from "react";
  *
  * ── POR QUÉ UN HOOK Y NO DOS COPIAS ─────────────────────────────────
  *
- * Lo usan la demo de automatizaciones y la de reservas. Son escenas
+ * Lo usan los teléfonos del home y la demo de reservas. Son escenas
  * distintas con el mismo mecanismo: avanzar, terminar, rebobinar.
- * Duplicarlo era garantizar que una de las dos se quedara con un bug
- * que la otra ya tenía arreglado.
+ * Duplicarlo era garantizar que una se quedara con un bug que la otra
+ * ya tenía arreglado.
  *
  * ── DOS CUIDADOS QUE NO SON OPCIONALES ──────────────────────────────
  *

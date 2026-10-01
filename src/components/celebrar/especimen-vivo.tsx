@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Telefono from "@/components/solutions/telefono";
+import Telefono from "@/components/telefono";
 import { DEMOS_DESTACADAS as DEMOS } from "@/lib/celebrar/demos";
 import { useMovimientoReducido } from "@/lib/use-movimiento-reducido";
 import RenderInvitacion from "./invitacion/render-invitacion";
