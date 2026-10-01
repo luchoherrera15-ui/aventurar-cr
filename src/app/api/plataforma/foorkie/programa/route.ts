@@ -1,16 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { vinculoConFoorkie } from "@/lib/plataforma/foorkie";
-import {
-  disenoDeFila,
-  estaPausada,
-  leerPedidoFirmado,
-  metaDelPrograma,
-  responder,
-  sitioDeBookea,
-  UUID,
-} from "@/lib/plataforma/foorkie-api";
-import { camposSegunModo, tarjetaDesdeFila } from "@/lib/wallet/tarjeta";
-import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
+import { leerPedidoFirmado, programaParaFoorkie, responder, sitioDeBookea, UUID } from "@/lib/plataforma/foorkie-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,36 +29,7 @@ export async function POST(request: Request) {
   const vinculo = await vinculoConFoorkie(db, ranchoId, programaId);
   if (!vinculo) return responder({ ok: false, codigo: "no_vinculado" }, 403);
 
-  const [{ data: fila }, { data: rancho }, meta, { count: miembros }] = await Promise.all([
-    db.from("programa_lealtad").select("*").eq("id", programaId).maybeSingle(),
-    db.from("ranchos").select("nombre, slug").eq("id", ranchoId).maybeSingle(),
-    metaDelPrograma(db, programaId),
-    db.from("miembros").select("id", { count: "exact", head: true }).eq("programa_id", programaId).eq("estado", "activa"),
-  ]);
-  if (!fila) return responder({ ok: false, codigo: "sin_programa" }, 404);
-
-  const negocio = String(rancho?.nombre ?? "");
-  const { config, beneficio } = tarjetaDesdeFila(fila as Record<string, unknown>);
-  const pausada = estaPausada(fila as Record<string, unknown>);
-  const base = sitioDeBookea(request);
-  return responder({
-    ok: true,
-    programa: {
-      id: programaId,
-      rancho_id: ranchoId,
-      negocio,
-      nombre: typeof fila.nombre === "string" ? fila.nombre : negocio,
-      modo: tipoDe(config.modo),
-      estado: typeof fila.estado === "string" ? fila.estado : null,
-      pausada,
-      beneficio,
-      meta,
-      diseno: disenoDeFila(fila as Record<string, unknown>),
-      // Lo que diría la tarjeta de alguien que recién se une (saldo 0).
-      textos: camposSegunModo({ negocioNombre: negocio, saldo: 0, meta, config, beneficio, pausado: pausada }),
-      miembros: miembros ?? 0,
-      // La página de Bookea donde alguien se une (formulario + consentimiento).
-      unirse: rancho?.slug ? `${base}/tarjeta/${rancho.slug}/${programaId}` : null,
-    },
-  });
+  const programa = await programaParaFoorkie(db, ranchoId, programaId, sitioDeBookea(request));
+  if (!programa) return responder({ ok: false, codigo: "sin_programa" }, 404);
+  return responder({ ok: true, programa });
 }

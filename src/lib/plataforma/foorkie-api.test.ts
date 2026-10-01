@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { armarTarjeta, firmarLinkPase, leerLinkPase, linksDelMiembro, VIDA_LINK_PASE_MS } from "./foorkie-api";
+import {
+  armarTarjeta,
+  beneficioEditado,
+  cambioElBeneficio,
+  firmarLinkPase,
+  leerEdicionDeFoorkie,
+  leerLinkPase,
+  linksDelMiembro,
+  VIDA_LINK_PASE_MS,
+} from "./foorkie-api";
 
 const SECRETO = "secreto-de-prueba-de-la-puerta";
 const MIEMBRO = "0b6c0b8e-4f1e-4d5a-9a43-2b1f3c4d5e6f";
@@ -84,5 +93,86 @@ describe("armarTarjeta (foorkie-api)", () => {
     expect(t.textos.encabezado.label).toBe("SALDO");
     expect(t.diseno).toMatchObject({ colorFondo: "#1B2A6B", colorSello: "#FCB700" });
     expect(t.wallet).toBe(links);
+  });
+});
+
+describe("editar la tarjeta desde Foorkie (foorkie-api)", () => {
+  it("lee colores (en mayúscula), imágenes y beneficio; lo que no viene no se toca", () => {
+    const r = leerEdicionDeFoorkie({
+      colorFondo: "#1b2a6b",
+      logoUrl: "https://x.supabase.co/storage/v1/object/public/foorkie_media/u/logo.png",
+      bannerUrl: null,
+      beneficio: { tipo: "cashback", porcentaje: 7.456 },
+    });
+    expect(r).toEqual({
+      ok: true,
+      edicion: {
+        colorFondo: "#1B2A6B",
+        logoUrl: "https://x.supabase.co/storage/v1/object/public/foorkie_media/u/logo.png",
+        bannerUrl: null,
+        beneficio: { tipo: "cashback", porcentaje: 7.46 },
+      },
+    });
+    expect(r.ok && "colorSello" in r.edicion).toBe(false);
+  });
+
+  it("rechaza colores mal escritos, tipos que no se editan y pedidos vacíos", () => {
+    expect(leerEdicionDeFoorkie({ colorSello: "rojo" })).toMatchObject({ ok: false });
+    expect(leerEdicionDeFoorkie({ beneficio: { tipo: "giftcard", valor: 5000 } })).toMatchObject({ ok: false });
+    expect(leerEdicionDeFoorkie({ beneficio: { tipo: "sellos", requeridos: "10" } })).toMatchObject({ ok: false });
+    expect(leerEdicionDeFoorkie({})).toMatchObject({ ok: false });
+    expect(leerEdicionDeFoorkie(null)).toMatchObject({ ok: false });
+    expect(leerEdicionDeFoorkie([])).toMatchObject({ ok: false });
+  });
+
+  it("cashback: cambia el % y conserva la compra mínima y el tope", () => {
+    const actual = { tipo: "cashback" as const, porcentaje: 5, compraMinima: 3000, topePorCompra: 2000 };
+    const r = beneficioEditado(actual, "cashback", { tipo: "cashback", porcentaje: 8 });
+    expect(r).toEqual({ ok: true, beneficio: { tipo: "cashback", porcentaje: 8, compraMinima: 3000, topePorCompra: 2000 } });
+    expect(beneficioEditado(actual, "cashback", { tipo: "cashback", porcentaje: 0 })).toEqual({
+      ok: false,
+      motivo: "El cashback va de 1 a 100 por ciento.",
+    });
+  });
+
+  it("sellos: cambia meta y regalía, conserva el resto y respeta las reglas de Bookea", () => {
+    const actual = {
+      tipo: "sellos" as const,
+      requeridos: 10,
+      recompensa: "Café",
+      inicial: 2,
+      repetible: true,
+      sellosPor: "compra" as const,
+      montoPorSello: null,
+    };
+    expect(beneficioEditado(actual, "sellos", { tipo: "sellos", requeridos: 8, recompensa: "Postre" })).toEqual({
+      ok: true,
+      beneficio: { ...actual, requeridos: 8, recompensa: "Postre" },
+    });
+    expect(beneficioEditado(actual, "sellos", { tipo: "sellos", requeridos: 20, recompensa: "Postre" })).toEqual({
+      ok: false,
+      motivo: "Los sellos de la meta van de 1 a 15.",
+    });
+    // Los 2 sellos de regalo tienen que quedar por debajo de la meta.
+    expect(beneficioEditado(actual, "sellos", { tipo: "sellos", requeridos: 2, recompensa: "Postre" })).toMatchObject({ ok: false });
+    expect(beneficioEditado(actual, "sellos", { tipo: "sellos", requeridos: 8, recompensa: "  " })).toMatchObject({ ok: false });
+  });
+
+  it("el tipo no se cambia desde Foorkie; sin config guardada arranca de la de fábrica", () => {
+    expect(beneficioEditado(null, "sellos", { tipo: "cashback", porcentaje: 5 })).toMatchObject({ ok: false });
+    expect(beneficioEditado(null, "cashback", { tipo: "cashback", porcentaje: 6 })).toEqual({
+      ok: true,
+      beneficio: { tipo: "cashback", porcentaje: 6, compraMinima: 0, topePorCompra: null },
+    });
+  });
+
+  it("cambioElBeneficio mira solo lo que Foorkie edita", () => {
+    const cb = { tipo: "cashback" as const, porcentaje: 5, compraMinima: 0, topePorCompra: null };
+    expect(cambioElBeneficio(cb, { ...cb })).toBe(false);
+    expect(cambioElBeneficio(cb, { ...cb, porcentaje: 6 })).toBe(true);
+    expect(cambioElBeneficio(null, cb)).toBe(true);
+    const se = { tipo: "sellos" as const, requeridos: 10, recompensa: "Café", inicial: 0, repetible: true };
+    expect(cambioElBeneficio(se, { ...se, recompensa: "Café " })).toBe(false);
+    expect(cambioElBeneficio(se, { ...se, requeridos: 9 })).toBe(true);
   });
 });

@@ -237,8 +237,11 @@ repetir:
 > motor: Foorkie lee y cambia las tarjetas de sus locales solo por la API
 > firmada `/api/plataforma/foorkie/*` (`src/lib/plataforma/foorkie.ts` y
 > `foorkie-api.ts`: acreditar compras, listar las tarjetas de una persona
-> por correo con links firmados al Wallet, leer la tarjeta de un local y
-> crear el negocio y la tarjeta de un local). Nadie escribe en la tabla de
+> por correo con links firmados al Wallet, leer la tarjeta de un local,
+> crear el negocio y la tarjeta de un local, y cambiarle desde el panel de
+> Foorkie los colores, el logo, la banda y el beneficio —`programa/guardar`,
+> con las mismas reglas y el mismo aviso a los pases instalados que el
+> panel de Bookea; el tipo de tarjeta no se cambia desde allá). Nadie escribe en la tabla de
 > otro producto: Bookea no escribe `foorkie_*` y Foorkie no escribe las
 > tablas de Bookea. Lo de abajo queda como historia.
 

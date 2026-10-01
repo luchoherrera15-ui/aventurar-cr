@@ -3,7 +3,14 @@ import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { firmaValida } from "@/lib/plataforma/foorkie";
 import { normalizarCorreo } from "@/lib/lealtad/personas";
-import { tipoDe, type ConfigBeneficio, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import {
+  configPorDefecto,
+  tipoDe,
+  validarBeneficio,
+  type ConfigBeneficio,
+  type TipoTarjeta,
+} from "@/lib/lealtad/tipos-tarjeta";
+import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { minutoISOCR } from "@/lib/fechas";
 import {
   camposSegunModo,
@@ -247,4 +254,196 @@ export function linksDelMiembro(base: string, miembroId: string, secreto: string
     google: urlLinkPase(base, firmarLinkPase({ m: miembroId, w: "google", e }, secreto)),
     vence: new Date(e).toISOString(),
   };
+}
+
+// ── La tarjeta de un local, como la ve el panel de Foorkie ──────────
+
+/**
+ * La tarjeta de un negocio vinculado: tipo, beneficio, diseño, meta, si
+ * está en pausa, cuántos clientes la tienen y la página para unirse. La
+ * devuelven `programa` (leer) y `programa/guardar` (después de guardar).
+ * null = esa tarjeta no existe.
+ */
+export async function programaParaFoorkie(
+  db: SupabaseClient,
+  ranchoId: string,
+  programaId: string,
+  base: string,
+): Promise<Record<string, unknown> | null> {
+  const [{ data: fila }, { data: rancho }, meta, { count: miembros }] = await Promise.all([
+    db.from("programa_lealtad").select("*").eq("id", programaId).eq("rancho_id", ranchoId).maybeSingle(),
+    db.from("ranchos").select("nombre, slug").eq("id", ranchoId).maybeSingle(),
+    metaDelPrograma(db, programaId),
+    db.from("miembros").select("id", { count: "exact", head: true }).eq("programa_id", programaId).eq("estado", "activa"),
+  ]);
+  if (!fila) return null;
+
+  const negocio = String(rancho?.nombre ?? "");
+  const { config, beneficio } = tarjetaDesdeFila(fila as Record<string, unknown>);
+  const pausada = estaPausada(fila as Record<string, unknown>);
+  return {
+    id: programaId,
+    rancho_id: ranchoId,
+    negocio,
+    nombre: typeof fila.nombre === "string" ? fila.nombre : negocio,
+    modo: tipoDe(config.modo),
+    estado: typeof fila.estado === "string" ? fila.estado : null,
+    pausada,
+    beneficio,
+    meta,
+    diseno: disenoDeFila(fila as Record<string, unknown>),
+    // Lo que diría la tarjeta de alguien que recién se une (saldo 0).
+    textos: camposSegunModo({ negocioNombre: negocio, saldo: 0, meta, config, beneficio, pausado: pausada }),
+    miembros: miembros ?? 0,
+    // La página de Bookea donde alguien se une (formulario + consentimiento).
+    unirse: rancho?.slug ? `${base.replace(/\/+$/, "")}/tarjeta/${rancho.slug}/${programaId}` : null,
+  };
+}
+
+// ── Imágenes que llegan de Foorkie ──────────────────────────────────
+
+const BUCKET_FOORKIE = "foorkie_media";
+const TIPOS_IMAGEN: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+
+/**
+ * Copia una imagen pública de Foorkie (`foorkie_media`) al bucket del
+ * alta de Bookea (`comprobantes/logos-negocio/`, como el wizard de alta):
+ * un pase instalado no puede depender de un archivo que otro producto
+ * puede borrar o cambiar. Devuelve la URL nueva, o "error" si la URL no
+ * es de Foorkie, no es PNG/JPG/WebP o pesa más de 4 MB. Nunca lanza.
+ */
+export async function copiarImagenDeFoorkie(
+  db: SupabaseClient,
+  url: string,
+  destino: "logo" | "banda",
+): Promise<string | "error"> {
+  if (!esUrlDeNuestroStorage(url, BUCKET_FOORKIE)) return "error";
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(10_000), cache: "no-store" });
+    if (!r.ok) return "error";
+    const tipo = (r.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+    const ext = TIPOS_IMAGEN[tipo];
+    if (!ext) return "error";
+    const bytes = new Uint8Array(await r.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > 4 * 1024 * 1024) return "error";
+    const path = `logos-negocio/foorkie-${destino}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await db.storage.from("comprobantes").upload(path, bytes, { contentType: tipo, upsert: false });
+    if (error) return "error";
+    return db.storage.from("comprobantes").getPublicUrl(path).data.publicUrl ?? "error";
+  } catch {
+    return "error";
+  }
+}
+
+// ── Lo que el panel de Foorkie puede cambiar de una tarjeta ─────────
+//
+// Pedido del dueño (1 oct 2026): «nosotros le damos todo lo que tenemos
+// que cambiar, para verse reflejado en las tarjetas de Android y Apple».
+// Foorkie edita lo que un restaurante cambia de verdad: los dos colores,
+// el logo, la banda y el beneficio (el % del cashback, o la meta y la
+// regalía de los sellos). El TIPO no se cambia desde allá: con gente
+// adentro reinterpreta saldos (`editable.ts`), y es decisión de Bookea.
+// Las reglas son las MISMAS funciones que usa el panel de Bookea
+// (`validarBeneficio`, `puedeEditarse`, `acumulacionDe`): un solo criterio.
+
+const HEX = /^#[0-9A-Fa-f]{6}$/;
+
+export type BeneficioDesdeFoorkie =
+  | { tipo: "cashback"; porcentaje: number }
+  | { tipo: "sellos"; requeridos: number; recompensa: string };
+
+/** Lo que manda el panel de Foorkie. Lo que no viene, no se toca. */
+export type EdicionDesdeFoorkie = {
+  colorFondo?: string;
+  colorSello?: string;
+  /** URL de `foorkie_media` (se copia), la que ya tiene la tarjeta (se deja) o null (se saca). */
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  beneficio?: BeneficioDesdeFoorkie;
+};
+
+/** Lee y valida la FORMA de lo que manda Foorkie (las reglas del negocio van después). */
+export function leerEdicionDeFoorkie(
+  v: unknown,
+): { ok: true; edicion: EdicionDesdeFoorkie } | { ok: false; motivo: string } {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return { ok: false, motivo: "No vino nada para cambiar." };
+  const o = v as Record<string, unknown>;
+  const e: EdicionDesdeFoorkie = {};
+
+  for (const campo of ["colorFondo", "colorSello"] as const) {
+    const c = o[campo];
+    if (c === undefined) continue;
+    if (typeof c !== "string" || !HEX.test(c)) return { ok: false, motivo: "Los colores tienen que ser #RRGGBB." };
+    e[campo] = c.toUpperCase();
+  }
+
+  for (const campo of ["logoUrl", "bannerUrl"] as const) {
+    const u = o[campo];
+    if (u === undefined) continue;
+    if (u === null || u === "") {
+      e[campo] = null;
+      continue;
+    }
+    if (typeof u !== "string" || u.length > 600) {
+      return { ok: false, motivo: `${campo === "logoUrl" ? "El logo" : "La banda"} no se subió bien — probá de nuevo.` };
+    }
+    e[campo] = u.trim();
+  }
+
+  if (o.beneficio !== undefined) {
+    const b = o.beneficio && typeof o.beneficio === "object" ? (o.beneficio as Record<string, unknown>) : null;
+    if (b?.tipo === "cashback") {
+      if (typeof b.porcentaje !== "number" || !Number.isFinite(b.porcentaje)) {
+        return { ok: false, motivo: "El cashback va de 1 a 100 por ciento." };
+      }
+      e.beneficio = { tipo: "cashback", porcentaje: Math.round(b.porcentaje * 100) / 100 };
+    } else if (b?.tipo === "sellos") {
+      if (typeof b.requeridos !== "number" || typeof b.recompensa !== "string") {
+        return { ok: false, motivo: "Contá cuántos sellos pide la tarjeta y qué se gana." };
+      }
+      e.beneficio = { tipo: "sellos", requeridos: b.requeridos, recompensa: b.recompensa.trim().slice(0, 80) };
+    } else {
+      return { ok: false, motivo: "Desde Foorkie se editan las tarjetas de cashback y de sellos." };
+    }
+  }
+
+  if (Object.keys(e).length === 0) return { ok: false, motivo: "No vino nada para cambiar." };
+  return { ok: true, edicion: e };
+}
+
+/**
+ * El beneficio COMPLETO después del cambio. Lo que Foorkie no edita
+ * (compra mínima, tope, sellos de regalo, si se repite…) queda como
+ * estaba, y el resultado pasa por `validarBeneficio`, igual que en el
+ * panel de Bookea.
+ */
+export function beneficioEditado(
+  actual: ConfigBeneficio | null,
+  tipo: TipoTarjeta,
+  cambio: BeneficioDesdeFoorkie,
+): { ok: true; beneficio: ConfigBeneficio } | { ok: false; motivo: string } {
+  if (cambio.tipo !== tipo) {
+    return { ok: false, motivo: "El tipo de la tarjeta no se cambia desde Foorkie: escribinos y lo vemos." };
+  }
+  const base = actual && actual.tipo === tipo ? actual : configPorDefecto(tipo);
+  let nuevo: ConfigBeneficio;
+  if (cambio.tipo === "cashback" && base.tipo === "cashback") {
+    nuevo = { ...base, porcentaje: cambio.porcentaje };
+  } else if (cambio.tipo === "sellos" && base.tipo === "sellos") {
+    nuevo = { ...base, requeridos: cambio.requeridos, recompensa: cambio.recompensa };
+  } else {
+    return { ok: false, motivo: "Desde Foorkie se editan las tarjetas de cashback y de sellos." };
+  }
+  const invalido = validarBeneficio(nuevo);
+  return invalido ? { ok: false, motivo: invalido } : { ok: true, beneficio: nuevo };
+}
+
+/** ¿Cambió lo que Foorkie edita del beneficio? (El jsonb no se compara serializado: el orden de las claves cambia.) */
+export function cambioElBeneficio(actual: ConfigBeneficio | null, nuevo: ConfigBeneficio): boolean {
+  if (!actual || actual.tipo !== nuevo.tipo) return true;
+  if (actual.tipo === "cashback" && nuevo.tipo === "cashback") return actual.porcentaje !== nuevo.porcentaje;
+  if (actual.tipo === "sellos" && nuevo.tipo === "sellos") {
+    return actual.requeridos !== nuevo.requeridos || actual.recompensa.trim() !== nuevo.recompensa.trim();
+  }
+  return true;
 }

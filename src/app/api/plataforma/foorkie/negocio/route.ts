@@ -3,8 +3,7 @@ import { crearNegocioDeLealtadCompleto } from "@/lib/lealtad/crear-negocio-compl
 import { validarTarjetaDeAlta, type TarjetaDeAlta } from "@/lib/lealtad/tarjeta-alta";
 import { definicionDe } from "@/lib/lealtad/planes";
 import { normalizarCorreo } from "@/lib/lealtad/personas";
-import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
-import { leerPedidoFirmado, responder, UUID } from "@/lib/plataforma/foorkie-api";
+import { copiarImagenDeFoorkie, leerPedidoFirmado, responder, UUID } from "@/lib/plataforma/foorkie-api";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -38,28 +37,10 @@ export const maxDuration = 60;
  * `bookea_programa_id`): Bookea no escribe tablas de Foorkie.
  */
 
-const BUCKET_FOORKIE = "foorkie_media";
-const TIPOS_IMAGEN: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
-
 /** Copia una imagen pública de Foorkie al bucket del alta de Bookea. null = no vino; "error" = no se pudo. */
 async function copiarImagen(db: SupabaseClient, url: unknown, destino: "logo" | "banda"): Promise<string | null | "error"> {
   if (typeof url !== "string" || !url.trim()) return null;
-  if (!esUrlDeNuestroStorage(url, BUCKET_FOORKIE)) return "error";
-  try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(10_000), cache: "no-store" });
-    if (!r.ok) return "error";
-    const tipo = (r.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
-    const ext = TIPOS_IMAGEN[tipo];
-    if (!ext) return "error";
-    const bytes = new Uint8Array(await r.arrayBuffer());
-    if (bytes.length === 0 || bytes.length > 4 * 1024 * 1024) return "error";
-    const path = `logos-negocio/foorkie-${destino}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error } = await db.storage.from("comprobantes").upload(path, bytes, { contentType: tipo, upsert: false });
-    if (error) return "error";
-    return db.storage.from("comprobantes").getPublicUrl(path).data.publicUrl ?? "error";
-  } catch {
-    return "error";
-  }
+  return copiarImagenDeFoorkie(db, url.trim(), destino);
 }
 
 export async function POST(request: Request) {
