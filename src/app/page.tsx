@@ -50,7 +50,7 @@ const META_DESCUBRIR = {
 const META_PLATAFORMA = {
   titulo: "Bookea — Aumentá tus ventas",
   descripcion:
-    "Creá la página de tu negocio, recibí reservas y pedidos, conocé a tus clientes y hacelos volver. Bookea es la plataforma que centraliza la operación digital de tu negocio en Costa Rica.",
+    "Pases de lealtad en Apple Wallet y Google Wallet y reservas para tu negocio: que te encuentren y que vuelvan. Bookea es la plataforma para negocios en Costa Rica.",
 };
 
 /**
