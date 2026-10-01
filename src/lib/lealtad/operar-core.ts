@@ -186,7 +186,8 @@ function referenciaDeIntento(
  * línea. Un prefijo nuevo tipo `app:` caería al descarte y el movimiento
  * aparecería mal atribuido.
  */
-export type ViaOperacion = "escaneo" | "panel" | "mostrador";
+/** "foorkie": un pedido en línea entregado en Foorkie (src/lib/plataforma/foorkie.ts), prefijo `foorkie:`. */
+export type ViaOperacion = "escaneo" | "panel" | "mostrador" | "foorkie";
 
 /**
  * EL MOTIVO QUEDA EN EL LEDGER PARA SIEMPRE, así que dice lo que de
@@ -203,6 +204,7 @@ export type ViaOperacion = "escaneo" | "panel" | "mostrador";
  */
 function motivoDelLedger(via: ViaOperacion, acumula: boolean, monto: number | null): string {
   if (via === "panel") return monto === null ? "Sello por visita" : "Compra";
+  if (via === "foorkie") return "Compra en línea (Foorkie)";
 
   const sufijo = via === "escaneo" ? "(escaneo)" : "(mostrador)";
   // En una tarjeta que no acumula, este movimiento no es un sello: es el

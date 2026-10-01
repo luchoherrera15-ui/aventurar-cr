@@ -102,6 +102,8 @@ function quienAutomatico(canal: CanalDelSello): string {
       return "Automático (cita)";
     case "vencimiento":
       return "Automático (vencimiento)";
+    case "foorkie":
+      return "Automático (pedido en Foorkie)";
     default:
       return "Sistema";
   }

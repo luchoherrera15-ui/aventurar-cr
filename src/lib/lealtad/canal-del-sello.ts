@@ -72,6 +72,8 @@ export type CanalDelSello =
   | "cita"
   /** El cron que reinicia los sellos vencidos. */
   | "vencimiento"
+  /** Un pedido en línea entregado en Foorkie (src/lib/plataforma/foorkie.ts). */
+  | "foorkie"
   /** No hay con qué decidir. Se dice así, no se adivina. */
   | "desconocido";
 
@@ -84,6 +86,7 @@ const POR_PREFIJO: readonly (readonly [string, CanalDelSello])[] = [
   ["api:", "api"],
   ["cita:", "cita"],
   ["venc:", "vencimiento"],
+  ["foorkie:", "foorkie"],
 ];
 
 /**
@@ -121,6 +124,7 @@ export const ETIQUETA_CANAL: Record<CanalDelSello, string> = {
   api: "API",
   cita: "cita",
   vencimiento: "vencimiento",
+  foorkie: "Foorkie",
   desconocido: "sin origen",
 };
 
@@ -133,5 +137,6 @@ export const CANALES_AUTOMATICOS: readonly CanalDelSello[] = [
   "api",
   "cita",
   "vencimiento",
+  "foorkie",
   "desconocido",
 ];
