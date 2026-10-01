@@ -394,6 +394,24 @@ function loseta(d: Exclude<Decoracion, "ninguna">, c: string, fondo: string): Lo
           relleno(en(150, 40, 0, destello4(6)) + en(20, 150, 0, destello4(5)) + en(140, 270, 0, destello4(4)) + `<circle cx="110" cy="200" r="1.3"/><circle cx="280" cy="280" r="1.2"/>`),
       };
     }
+    case "conejos": {
+      // Conejitos sentados de perfil (orejas largas), zanahorias y
+      // florecitas: el «mundo de maravillas» del baby shower.
+      const conejo = `<path d="M-6 -20C-9 -30 -6 -38 -2 -38S3 -30 0 -20M4 -20C2 -31 5 -39 9 -39S14 -30 10 -20"/><ellipse cx="2" cy="-14" rx="9" ry="8"/><path d="M-4 -12c1.5 2 7 2 8.5 0" stroke-linecap="round"/><ellipse cx="2" cy="10" rx="14" ry="13"/><ellipse cx="2" cy="16" rx="6" ry="5.5"/><circle cx="-2" cy="-16" r="1" fill="black" stroke="none"/><circle cx="5" cy="-16" r="1" fill="black" stroke="none"/>`;
+      const zanahoria = `<path d="M0 -14L5 10Q0 15 -5 10Z"/><path d="M-1 -14l-4-6M1 -14l0-7M3 -14l4-6" stroke-linecap="round"/>`;
+      const flor = (r: number) =>
+        [0, 72, 144, 216, 288].map((a) => `<ellipse cx="0" cy="${-r}" rx="${n(r * 0.58)}" ry="${r}" transform="rotate(${a})"/>`).join("") + `<circle r="${n(r * 0.32)}" fill="currentColor" stroke="none"/>`;
+      return {
+        ancho: 260,
+        alto: 260,
+        cuerpo:
+          g(en(50, 190, 0, conejo, 1.1) + en(190, 70, 8, conejo, 0.9) + en(210, 210, -6, zanahoria, 0.9) + en(30, 60, 14, zanahoria, 0.8)) +
+          g(en(130, 30, 0, flor(7)), 1) +
+          g(en(130, 130, 0, flor(6)), 1) +
+          g(en(20, 230, 0, flor(5.5)), 1) +
+          relleno(`<circle cx="100" cy="90" r="1.6"/><circle cx="230" cy="140" r="1.4"/><circle cx="150" cy="230" r="1.3"/><circle cx="70" cy="150" r="1.2"/>`),
+      };
+    }
   }
 }
 

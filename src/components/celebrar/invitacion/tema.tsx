@@ -22,6 +22,7 @@ import type { Tema } from "@/lib/celebrar/invitacion/esquema";
 export default function Escenografia({ tema }: { tema: Exclude<Tema, "ninguno"> }) {
   if (tema === "magia") return <EscenografiaMagia />;
   if (tema === "carreras") return <EscenografiaCarreras />;
+  if (tema === "conejos") return <EscenografiaConejos />;
   return <EscenografiaCuento />;
 }
 
@@ -243,12 +244,131 @@ function EscenografiaCuento() {
   );
 }
 
+/* ── Mundo de conejitos ────────────────────────────────────────── */
+
+/** Una nube redondeada de tres bultos, para el cielo del prado. */
+function nubeSvg(x: number, y: number, s: number, i: number) {
+  return (
+    <g key={i} className="inv-tema-nubecita" style={{ "--i": i } as React.CSSProperties} transform={`translate(${x} ${y}) scale(${s})`}>
+      <ellipse cx="0" cy="0" rx="26" ry="15" />
+      <ellipse cx="20" cy="4" rx="18" ry="12" />
+      <ellipse cx="-20" cy="5" rx="16" ry="11" />
+    </g>
+  );
+}
+
+function EscenografiaConejos() {
+  // Madrigueras (montículos) con su entrada, repartidas en el prado.
+  const madriguera = (x: number, r: number, i: number) => (
+    <g key={i}>
+      <ellipse cx={x} cy={340} rx={r} ry={r * 0.42} className="inv-tema-monticulo" />
+      <ellipse cx={x} cy={340} rx={r * 0.4} ry={r * 0.28} className="inv-tema-madriguera" />
+    </g>
+  );
+  return (
+    <div className="inv-tema-escena inv-tema-conejos" aria-hidden="true">
+      {/* El sol, tibio y redondo */}
+      <div className="inv-tema-sol" />
+      {nubeSvg(220, 60, 1, 0)}
+      {nubeSvg(1180, 90, 0.8, 1)}
+      {nubeSvg(760, 40, 0.6, 2)}
+      <svg className="inv-tema-silueta" viewBox="0 0 1440 420" preserveAspectRatio="xMidYMax slice">
+        {/* Colinas lejanas, más claras */}
+        <path className="inv-tema-lejos" d="M0 300Q220 260 460 288Q760 240 1020 284Q1260 250 1440 290V420H0Z" />
+        {/* El prado: pasto ondulado con florecitas sueltas */}
+        <path className="inv-tema-colina" d="M0 340Q240 300 500 322Q780 292 1040 320Q1280 296 1440 328V420H0Z" />
+        {madriguera(230, 46, 0)}
+        {madriguera(980, 58, 1)}
+        {madriguera(1240, 38, 2)}
+        {/* Una cerquita de estacas, como de huerto de cuento */}
+        <g className="inv-tema-cerca">
+          {Array.from({ length: 14 }, (_, i) => (
+            <rect key={i} x={520 + i * 26} y={296} width="8" height="34" rx="2" />
+          ))}
+          <rect x="518" y="300" width="372" height="7" />
+          <rect x="518" y="316" width="372" height="7" />
+        </g>
+        {/* Florecitas del prado */}
+        {[
+          [80, 360], [160, 380], [340, 372], [420, 350], [620, 386], [900, 360],
+          [1100, 380], [1180, 350], [1320, 372], [1400, 356], [60, 400], [1400, 400],
+        ].map(([x, y], i) => (
+          <g key={i} className="inv-tema-florecita" transform={`translate(${x} ${y})`}>
+            {[0, 72, 144, 216, 288].map((a) => (
+              <ellipse key={a} cx="0" cy="-4.5" rx="2.6" ry="4.5" transform={`rotate(${a})`} />
+            ))}
+            <circle r="1.6" className="inv-tema-florecita-centro" />
+          </g>
+        ))}
+      </svg>
+      <ConejoQuieto />
+    </div>
+  );
+}
+
+/** El conejito sentado, mirando al frente, con las orejas erguidas — para la portada. */
+function ConejoQuieto() {
+  return (
+    <div className="inv-tema-conejo-quieto">
+      <svg viewBox="0 0 140 130">
+        <g className="inv-conejo-oreja-i">
+          <path d="M46 60C34 30 36 6 48 2S64 20 58 58Z" />
+          <path d="M47 52C40 32 41 14 49 12" className="inv-conejo-oreja-interior" />
+        </g>
+        <g className="inv-conejo-oreja-d">
+          <path d="M82 60C90 28 86 4 74 2S60 22 68 58Z" />
+          <path d="M79 50C84 32 82 16 74 12" className="inv-conejo-oreja-interior" />
+        </g>
+        <ellipse cx="70" cy="76" rx="34" ry="30" className="inv-conejo-cuerpo" />
+        <ellipse cx="70" cy="84" rx="15" ry="13" className="inv-conejo-panza" />
+        <circle cx="60" cy="66" r="3" className="inv-conejo-ojo" />
+        <circle cx="80" cy="66" r="3" className="inv-conejo-ojo" />
+        <path d="M66 76c2 2.6 6 2.6 8 0" className="inv-conejo-hocico" strokeLinecap="round" />
+        <circle cx="70" cy="72" r="2.2" className="inv-conejo-nariz" />
+        <ellipse cx="38" cy="96" rx="8" ry="6" className="inv-conejo-pata" />
+        <ellipse cx="102" cy="96" rx="8" ry="6" className="inv-conejo-pata" />
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * El conejito saltando de perfil — el que cruza cada sección. Un solo
+ * cuerpo ovalado (como el conejo sentado: nada de cabeza y cuerpo como
+ * dos óvalos separados, que es lo que lo hacía ver deforme), mirando y
+ * moviéndose hacia la derecha, con la cara en el borde de adelante y
+ * las orejas cayendo hacia atrás por el salto. Todas las piezas son
+ * óvalos o curvas CERRADAS (con «Z»): una curva abierta con relleno se
+ * cierra sola con una línea recta y deja una astilla — así se rompió
+ * la pata delantera de la versión anterior.
+ */
+function ConejoSalta() {
+  return (
+    <svg className="inv-conejo-salta" viewBox="0 0 160 110">
+      <ellipse className="inv-conejo-sombra" cx="82" cy="97" rx="30" ry="6" />
+      <g className="inv-conejo-cuerpo-grupo">
+        <ellipse cx="46" cy="80" rx="12" ry="9" className="inv-conejo-pata" transform="rotate(-18 46 80)" />
+        <ellipse cx="76" cy="60" rx="36" ry="27" className="inv-conejo-cuerpo" transform="rotate(-10 76 60)" />
+        <path className="inv-conejo-oreja-i" d="M90 34C82 6 84-14 94-16S106-2 100 32Z" />
+        <path className="inv-conejo-oreja-d" d="M104 32C110 4 106-16 96-17S86 0 92 30Z" />
+        <ellipse cx="106" cy="76" rx="11" ry="8" className="inv-conejo-pata" transform="rotate(14 106 76)" />
+        <ellipse cx="70" cy="70" rx="15" ry="11" className="inv-conejo-panza" />
+        <circle cx="100" cy="44" r="3" className="inv-conejo-ojo" />
+        <circle cx="109" cy="49" r="2.2" className="inv-conejo-nariz" />
+        <path d="M105 53c1.6 2 4.8 2 6.4 0" className="inv-conejo-hocico" strokeLinecap="round" />
+        <ellipse cx="42" cy="56" rx="7" ry="6" className="inv-conejo-panza" />
+      </g>
+    </svg>
+  );
+}
+
 /** El personaje que cruza cada escena al llegar a ella. */
 export function Cruce({ tema }: { tema: Exclude<Tema, "ninguno"> }) {
   return (
     <div className={`inv-cruce inv-cruce-${tema}`} aria-hidden="true">
       {tema === "magia" && <Lechuza carta />}
       {tema === "carreras" && <AutoCarrera />}
+      {tema === "conejos" && <ConejoSalta />}
       {tema === "cuento" && (
         <svg className="inv-fugaz" viewBox="0 0 220 60">
           <path className="inv-fugaz-estela" d="M4 50Q90 44 176 22" />

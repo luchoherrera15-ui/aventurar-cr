@@ -62,7 +62,7 @@ export const NOMBRE_HEROE: Record<Heroe, string> = {
 };
 
 /** El adorno bajo los títulos: la firma tipográfica de la invitación. */
-export const ORNAMENTOS = ["ninguno", "linea", "diamante", "floral", "estrella", "corazon", "anillos", "hoja", "huella", "varita", "banderas", "corona"] as const;
+export const ORNAMENTOS = ["ninguno", "linea", "diamante", "floral", "estrella", "corazon", "anillos", "hoja", "huella", "varita", "banderas", "corona", "conejo"] as const;
 export type Ornamento = (typeof ORNAMENTOS)[number];
 export const NOMBRE_ORNAMENTO: Record<Ornamento, string> = {
   ninguno: "Sin adorno",
@@ -77,6 +77,7 @@ export const NOMBRE_ORNAMENTO: Record<Ornamento, string> = {
   varita: "Varita mágica",
   banderas: "Banderas de meta",
   corona: "Corona",
+  conejo: "Orejas de conejo",
 };
 
 /** La textura del fondo: lo que hace que un color plano se sienta papel o seda. */
@@ -302,6 +303,7 @@ export const DECORACIONES = [
   "magia",
   "carreras",
   "castillos",
+  "conejos",
 ] as const;
 export type Decoracion = (typeof DECORACIONES)[number];
 export const NOMBRE_DECORACION: Record<Decoracion, string> = {
@@ -333,6 +335,7 @@ export const NOMBRE_DECORACION: Record<Decoracion, string> = {
   magia: "Colegio de magia",
   carreras: "Carreras",
   castillos: "Castillos y coronas",
+  conejos: "Conejitos",
 };
 /** Familias del selector, para agrupar los motivos. */
 export const GRUPOS_DECORACION: readonly { nombre: string; motivos: readonly Decoracion[] }[] = [
@@ -340,7 +343,7 @@ export const GRUPOS_DECORACION: readonly { nombre: string; motivos: readonly Dec
   { nombre: "Florales", motivos: ["flores", "peonias", "mariposas", "corazones"] },
   { nombre: "Geométricos", motivos: ["deco", "damasco", "celosia", "geometria", "lineas", "cuadricula", "ondas"] },
   { nombre: "Fiesta y cielo", motivos: ["estrellas", "confeti", "puntos", "terrazzo", "globos", "anillos"] },
-  { nombre: "Temáticos", motivos: ["dinosaurios", "magia", "carreras", "castillos"] },
+  { nombre: "Temáticos", motivos: ["dinosaurios", "magia", "carreras", "castillos", "conejos"] },
 ];
 
 /** Qué tan grande se repite el motivo. */
@@ -358,7 +361,7 @@ export const NOMBRE_DISPOSICION_DECORACION: Record<DisposicionDecoracion, string
 };
 
 /** Los adornos de esquina de la portada y el cierre: ilustraciones de línea en el acento. */
-export const ESQUINAS = ["ninguna", "floral", "hojas", "deco", "filigrana", "estrellas", "selva", "magia", "carreras", "cuento"] as const;
+export const ESQUINAS = ["ninguna", "floral", "hojas", "deco", "filigrana", "estrellas", "selva", "magia", "carreras", "cuento", "conejos"] as const;
 export type Esquinas = (typeof ESQUINAS)[number];
 export const NOMBRE_ESQUINAS: Record<Esquinas, string> = {
   ninguna: "Sin esquinas",
@@ -371,6 +374,7 @@ export const NOMBRE_ESQUINAS: Record<Esquinas, string> = {
   magia: "Estrellas y luna colgando",
   carreras: "Banderas de meta",
   cuento: "Enredadera con corona",
+  conejos: "Conejitos entre flores",
 };
 
 /**
@@ -383,13 +387,14 @@ export const NOMBRE_ESQUINAS: Record<Esquinas, string> = {
  * motivo de cada tema son opciones sueltas (carta_magica, almenas,
  * velas, magia…) que el tema no impone: los demos las combinan.
  */
-export const TEMAS = ["ninguno", "magia", "carreras", "cuento"] as const;
+export const TEMAS = ["ninguno", "magia", "carreras", "cuento", "conejos"] as const;
 export type Tema = (typeof TEMAS)[number];
 export const NOMBRE_TEMA: Record<Tema, string> = {
   ninguno: "Sin tema",
   magia: "Colegio de magia",
   carreras: "Gran premio (carreras)",
   cuento: "Cuento de hadas",
+  conejos: "Mundo de conejitos",
 };
 
 export const BORDES = ["rectos", "suaves", "redondos"] as const;
@@ -555,6 +560,8 @@ export type Musica = {
   titulo: string;
   /** Arranca sola al primer toque en la página (los navegadores no dejan antes). */
   autoplay: boolean;
+  /** El crédito de la canción, si su licencia lo pide (p. ej. «"Sleep" — Scott Buckley, CC BY 4.0»). Se ve chiquito en el pie. */
+  credito?: string;
 };
 
 export type Documento = {
@@ -569,7 +576,8 @@ export const MUSICA_VACIA: Musica = { url: "", titulo: "", autoplay: false };
 
 export function normalizarMusica(v: unknown): Musica {
   const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
-  return { url: url(o.url), titulo: texto(o.titulo, 120), autoplay: bool(o.autoplay, false) };
+  const credito = texto(o.credito, 160);
+  return { url: url(o.url), titulo: texto(o.titulo, 120), autoplay: bool(o.autoplay, false), ...(credito ? { credito } : {}) };
 }
 
 // ── Límites (defensa, no estética) ────────────────────────────────

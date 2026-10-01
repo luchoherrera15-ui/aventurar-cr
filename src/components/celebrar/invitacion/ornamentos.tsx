@@ -110,6 +110,19 @@ export function Ornamento({ tipo, className = "inv-orn" }: { tipo: TipoOrnamento
           <circle cx="137" cy="8" r="1.4" fill="currentColor" stroke="none" />
         </svg>
       );
+    case "conejo":
+      // Una carita de conejo de línea: orejas largas, cara redonda y un lacito.
+      return (
+        <svg {...comun} viewBox="0 0 240 34">
+          <path d="M10 20h84M146 20h84" strokeLinecap="round" />
+          <circle cx="120" cy="20" r="9" />
+          <path d="M114 14l-3-14M126 14l3-14" strokeLinecap="round" />
+          <path d="M115 22.5c1.5 1.6 8.5 1.6 10 0" strokeLinecap="round" />
+          <circle cx="116" cy="18" r="0.9" fill="currentColor" stroke="none" />
+          <circle cx="124" cy="18" r="0.9" fill="currentColor" stroke="none" />
+          <path d="M97 12l6 4-6 4" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
   }
 }
 

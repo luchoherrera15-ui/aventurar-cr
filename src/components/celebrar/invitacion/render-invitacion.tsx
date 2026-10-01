@@ -339,6 +339,9 @@ export default function RenderInvitacion({
           <p style={{ margin: 0 }}>
             Hecho con <a href="https://celebrar.lat">celebrar.lat</a>
           </p>
+          {documento.musica.credito && (
+            <p style={{ margin: "4px 0 0", opacity: 0.75, fontSize: "10.5px" }}>{documento.musica.credito}</p>
+          )}
         </footer>
       )}
     </article>
@@ -549,9 +552,11 @@ function SeccionRender({ s, doc, c, modo, hayMas }: { s: Seccion; doc: Documento
           {s.datos.texto && (
             <Texto sid={s.id} ruta="texto" valor={s.datos.texto} multilinea className="inv-lema inv-rev inv-ancho" style={{ marginTop: "calc(4 * var(--u))", whiteSpace: "pre-line", ...rev(2) }} />
           )}
-          <Texto sid={s.id} ruta="firma" valor={s.datos.firma || c.nombre} className="inv-firma inv-rev inv-rev-sumerge" style={{ margin: 0, marginTop: "calc(5 * var(--u))", ...rev(3) }}>
-            <Nombres texto={s.datos.firma || c.nombre} enLinea />
-          </Texto>
+          {s.datos.firma.trim() && (
+            <Texto sid={s.id} ruta="firma" valor={s.datos.firma} className="inv-firma inv-rev inv-rev-sumerge" style={{ margin: 0, marginTop: "calc(5 * var(--u))", ...rev(3) }}>
+              <Nombres texto={s.datos.firma} enLinea />
+            </Texto>
+          )}
           {c.fecha && (
             <p className="inv-caps inv-rev" style={{ marginTop: "calc(5 * var(--u))", color: "var(--esc-suave)", ...rev(4) }}>
               {fechaLargaCR(c.fecha)}

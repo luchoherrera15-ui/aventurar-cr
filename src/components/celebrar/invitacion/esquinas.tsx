@@ -257,6 +257,37 @@ function Cuento() {
   );
 }
 
+/** Un conejo sentado entre florecitas, en la esquina — el «mundo de maravillas». */
+function Conejos() {
+  const florecita = (x: number, y: number, r: number) => (
+    <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>
+      {[0, 72, 144, 216, 288].map((a) => (
+        <ellipse key={a} cx="0" cy={-r} rx={r * 0.6} ry={r} transform={`rotate(${a})`} />
+      ))}
+      <circle r={r * 0.35} fill="currentColor" stroke="none" />
+    </g>
+  );
+  return (
+    <>
+      {/* orejas, cabeza y cuerpo sentado, mirando hacia el centro */}
+      <path d="M18 30C14 14 20 4 26 4S34 14 30 30M34 30C31 16 35 6 40 6S46 16 42 30" />
+      <ellipse cx="24" cy="42" rx="15" ry="13" />
+      <path d="M16 46c2 3 10 3 12 0" strokeLinecap="round" />
+      <circle cx="18" cy="38" r="1.4" fill="currentColor" stroke="none" />
+      <circle cx="28" cy="38" r="1.4" fill="currentColor" stroke="none" />
+      <ellipse cx="24" cy="70" rx="22" ry="20" />
+      <ellipse cx="24" cy="76" rx="10" ry="9" />
+      {/* tallo y hojas sueltas subiendo por el borde */}
+      <path d="M60 92C56 70 66 50 58 24" />
+      <path d="M58 70c-8-2-12 4-8 9s12-1 8-9zM56 42c6-3 12 2 9 8s-13 0-9-8z" />
+      {florecita(72, 20, 6)}
+      {florecita(50, 96, 5)}
+      <circle cx="66" cy="60" r="1.6" fill="currentColor" stroke="none" />
+      <circle cx="40" cy="90" r="1.3" fill="currentColor" stroke="none" />
+    </>
+  );
+}
+
 const DIBUJO: Record<Exclude<TipoEsquinas, "ninguna">, () => React.JSX.Element> = {
   floral: Floral,
   hojas: Hojas,
@@ -267,6 +298,7 @@ const DIBUJO: Record<Exclude<TipoEsquinas, "ninguna">, () => React.JSX.Element> 
   magia: Magia,
   carreras: Carreras,
   cuento: Cuento,
+  conejos: Conejos,
 };
 
 /** Las cuatro esquinas; `soloArriba` deja solo las dos de arriba (para escenas cortas). */

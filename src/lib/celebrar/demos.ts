@@ -30,7 +30,11 @@ const MUSICA = {
   princesas: `${LEGADO}/princesas/cancion.mp3`,
   dinosaurios: `${LEGADO}/dinosaurios/cancion.mp3`,
   magia: `${LEGADO}/magia/cancion.mp3`,
+  // «Sleep» (mezcla solo piano) de Scott Buckley, CC BY 4.0 — subida acá
+  // el 28 sep 2026; crédito visible en el pie de la invitación.
+  conejos: `${LEGADO}/conejos/cancion.mp3`,
 } as const;
+const CREDITO_CANCION = "\"Cheery Monday\" — Kevin MacLeod (incompetech.com), CC BY 4.0";
 
 export type DemoInvitacion = {
   id: string;
@@ -655,7 +659,111 @@ export const DEMOS: DemoInvitacion[] = [
     }),
   },
 
-  // ── 7. Corporativa · Gala anual ──
+  // ── 7. Baby shower · Mundo de conejitos (full temática, sin marcas) ──
+  // El prado con madrigueras y cerquita en la portada, un conejito que
+  // salta de sección en sección, telón de apertura y una nana de piano
+  // de fondo. Paleta «Rosa bebé» del catálogo.
+  {
+    id: "conejos",
+    tipo: "baby_shower",
+    etiqueta: "Mundo de Conejitos · baby shower",
+    descripcion: "Se abre como un telón de teatro; un conejito salta entre las secciones, prado con madrigueras y una nana de piano.",
+    portada: foto("1787401189718-45fb2852cf29", 1000),
+    destacada: true,
+    tintaBarra: "#4b2a36",
+    celebracion: { nombre: "Baby shower de Emilia", fecha: "2027-03-06", hora: "16:00", lugarNombre: "Jardín Los Almendros", direccion: "Escazú, San José", mapsUrl: "" },
+    documento: normalizarDocumento({
+      plantilla: "demo-mundo-de-conejitos",
+      estilo: {
+        paleta: PALETAS.baby_shower[1], // Rosa bebé
+        fuenteTitulo: "baloo",
+        fuenteTexto: "nunito",
+        heroe: "clasico",
+        tema: "conejos",
+        decoracion: "conejos",
+        decoracionEscala: "media",
+        decoracionIntensidad: "sutil",
+        decoracionDisposicion: "bordes",
+        esquinas: "conejos",
+        bordes: "redondos",
+        animaciones: true,
+        entrada: "brinco",
+        ornamento: "conejo",
+        textura: "seda",
+        ritmo: "alternar",
+        transicion: "feston",
+        particulas: "petalos",
+        marco: false,
+        fondoVivo: "aurora",
+        fondoIntensidad: "sutil",
+        fondoVelocidad: "lenta",
+        apertura: "telon",
+      },
+      musica: { url: MUSICA.conejos, titulo: "La canción de los conejitos", autoplay: false, credito: CREDITO_CANCION },
+      secciones: [
+        {
+          id: "hero",
+          tipo: "hero",
+          datos: { saludo: "Está por llegar…", titulo: "Baby shower de Emilia", subtitulo: "Una tarde de conejitos, flores y muchas ganas de conocerla. Vení a celebrarlo con nosotros.", fotoUrl: "", mostrarFecha: true },
+        },
+        { id: "detalles", tipo: "detalles", datos: { titulo: "Guardá la fecha", texto: "Una tarde tranquila en el jardín, con juegos, cariño y muchos mimos para la bebé que viene en camino." } },
+        { id: "countdown", tipo: "countdown", datos: { titulo: "Faltan", texto: "para conocer un poquito más de ella" } },
+        {
+          id: "itinerario",
+          tipo: "itinerario",
+          datos: {
+            titulo: "El programa de la tarde",
+            items: [
+              { hora: "4:00 p. m.", titulo: "Bienvenida", detalle: "Café, limonada y bocas dulces en el jardín." },
+              { hora: "4:30 p. m.", titulo: "Juegos y adivinanzas", detalle: "¿Quién conoce mejor a mamá? Premios para las ganadoras." },
+              { hora: "5:15 p. m.", titulo: "Apertura de regalos", detalle: "" },
+              { hora: "5:45 p. m.", titulo: "Brindis y queque", detalle: "Con un deseo para Emilia." },
+            ],
+          },
+        },
+        { id: "ubicacion", tipo: "ubicacion", datos: { titulo: "Dónde", lugares: [{ titulo: "El jardín", lugar: "Jardín Los Almendros", direccion: "Escazú, San José", hora: "4:00 p. m.", mapsUrl: "" }] } },
+        {
+          id: "dress_code",
+          tipo: "dress_code",
+          datos: {
+            titulo: "Vestimenta sugerida",
+            texto: "Colores pastel, como el jardín: rosados, cremas y verdes suaves. Nada de blanco entero (¡ese lo llevamos nosotros!).",
+            grupos: [],
+            colores: ["#fdeaf0", "#f2a2bd", "#c9e8d3", "#f5e6c8"],
+          },
+        },
+        { id: "galeria", tipo: "galeria", datos: { titulo: "El mundo de conejitos", fotos: [foto("1753370241583-82d8c84f0c6e", 900), foto("1744371760034-fb60ebd2b198", 900), foto("1587953759356-901dd1aa3802", 900), foto("1766918780916-228d10b071be", 900)] } },
+        {
+          id: "rsvp",
+          tipo: "rsvp",
+          datos: {
+            titulo: "Confirmá tu asistencia",
+            texto: "Para tener listo el jardín y los bocaditos, confirmá antes del 27 de febrero.",
+            fechaLimite: "2027-02-27",
+            boton: "Confirmar asistencia",
+            whatsapp: "",
+            modo: "panel",
+            pedirPersonas: true,
+            pedirContacto: false,
+            preguntas: [{ id: "alergias", etiqueta: "¿Alguna alergia o restricción alimentaria?", tipo: "texto", opciones: [], requerida: false }],
+          },
+        },
+        {
+          id: "regalos",
+          tipo: "regalos",
+          datos: {
+            titulo: "Lista de regalos",
+            texto: "Lo más importante es que estés. Si además querés consentir a Emilia, esta es una forma fácil de hacerlo.",
+            items: [],
+            sinpe: "8888-8888",
+          },
+        },
+        { id: "mensaje", tipo: "mensaje", datos: { titulo: "Con todo el cariño", texto: "Gracias por acompañarnos a esperarla. Nos vemos en el jardín.", firma: "La familia de Emilia" } },
+      ],
+    }),
+  },
+
+  // ── 8. Corporativa · Gala anual ──
   {
     id: "gala",
     tipo: "corporativo",
@@ -751,7 +859,7 @@ export const DEMOS: DemoInvitacion[] = [
     }),
   },
 
-  // ── 8. Boda · Sofía & Andrés (portada con foto) ──
+  // ── 9. Boda · Sofía & Andrés (portada con foto) ──
   {
     id: "boda",
     tipo: "boda",
@@ -824,7 +932,7 @@ export const DEMOS: DemoInvitacion[] = [
     }),
   },
 
-  // ── 9. Graduación ──
+  // ── 10. Graduación ──
   {
     id: "grad",
     tipo: "graduacion",
