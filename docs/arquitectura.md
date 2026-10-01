@@ -230,10 +230,22 @@ repetir:
 - Un intento de revivirlo el 2 de septiembre quedó archivado en la rama `mundos-home-food`.
 - **El código se borró, el esquema no**: las 11 tablas `food_*` (migraciones 0190–0207) siguen en pie y con datos, pero ningún archivo de `src/` las lee. Las tres menciones que aparecen son la subcategoría «food_trucks» y un comentario en `sitemap.ts`.
 
-Lo que **sí** queda congelado es el alcance: Foorkie descubre → el
+> **Actualizado el 1 de octubre de 2026 (decisión del dueño).** Foorkie
+> hoy es un producto propio en su repositorio (`foorkie`), con su panel
+> de restaurante, sus pedidos y su app, en la misma base de Supabase
+> (tablas `foorkie_*`). Para la LEALTAD, Foorkie manda y Bookea es el
+> motor: Foorkie lee y cambia las tarjetas de sus locales solo por la API
+> firmada `/api/plataforma/foorkie/*` (`src/lib/plataforma/foorkie.ts` y
+> `foorkie-api.ts`: acreditar compras, listar las tarjetas de una persona
+> por correo con links firmados al Wallet, leer la tarjeta de un local y
+> crear el negocio y la tarjeta de un local). Nadie escribe en la tabla de
+> otro producto: Bookea no escribe `foorkie_*` y Foorkie no escribe las
+> tablas de Bookea. Lo de abajo queda como historia.
+
+Lo que **sí** quedaba congelado era el alcance: Foorkie descubre → el
 comensal cae en la página de Bookea Link del restaurante → menú, pedido y
-reserva salen de ahí. **Foorkie no tiene panel de restaurante propio**, y
-si se pide que tenga menú, pedidos o lealtad, eso ya es Bookea Link.
+reserva salen de ahí. **Foorkie no tenía panel de restaurante propio**, y
+si se pedía que tuviera menú, pedidos o lealtad, eso ya era Bookea Link.
 
 Lo que **no** está decidido es si arranca sobre el esquema `food_*` que
 quedó o sobre tablas nuevas (ver §9). Un dato a tener a mano cuando se
@@ -495,5 +507,5 @@ crear negocio → elegir tipo → el panel se arma solo
 
 ---
 
-*Última actualización: 22 de septiembre de 2026. Cambiar una decisión de
+*Última actualización: 1 de octubre de 2026 (Foorkie y su API de lealtad). Cambiar una decisión de
 §1 obliga a actualizar este archivo antes que el código.*
