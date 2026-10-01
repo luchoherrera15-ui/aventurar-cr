@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { ICONOS_SELLO, type IconoSello } from "@/lib/lealtad/iconos-sello";
 import { CONFIG_CLASICA, layoutDeLaTira, type ConfigTira } from "./layout-tira";
 import { svgDelFondo } from "./fondo-tira";
+import { tintaSobre } from "@/lib/colores-imagen";
 
 /**
  * Las imágenes de la tarjeta de lealtad.
@@ -492,12 +493,16 @@ export async function recortarBordes(imagen: Buffer | null): Promise<Buffer | nu
   }
 }
 
-/** Pinta un PNG con alfa de blanco: el fondo de la tarjeta es oscuro. */
-async function pintarBlanco(png: Buffer): Promise<Buffer> {
+/**
+ * Pinta un PNG con alfa de un color: blanco sobre las tarjetas oscuras,
+ * la tinta oscura de `tintaSobre` sobre las claras.
+ */
+async function pintarDe(png: Buffer, tinta: string): Promise<Buffer> {
+  const n = parseInt(hexSeguro(tinta, "#FFFFFF").slice(1), 16);
   return sharp(png)
     .composite([
       {
-        input: Buffer.from([255, 255, 255, 255]),
+        input: Buffer.from([(n >> 16) & 255, (n >> 8) & 255, n & 255, 255]),
         raw: { width: 1, height: 1, channels: 4 },
         tile: true,
         blend: "in",
@@ -552,7 +557,12 @@ export function partirEnRenglones(texto: string, n: number): string {
   return renglones.join("\n");
 }
 
-async function nombreQueEntra(texto: string, anchoMax: number, altoMax: number): Promise<Buffer> {
+async function nombreQueEntra(
+  texto: string,
+  anchoMax: number,
+  altoMax: number,
+  tinta: string,
+): Promise<Buffer> {
   const ESCALA = 4; // se dibuja a 4× y se baja: letras nítidas en @3x.
   const dibujar = (t: string, factor: number) =>
     sharp({
@@ -578,7 +588,7 @@ async function nombreQueEntra(texto: string, anchoMax: number, altoMax: number):
   for (const [renglones, factores] of intentos) {
     const t = partirEnRenglones(texto, renglones);
     for (const factor of factores) {
-      const png = await pintarBlanco(await dibujar(t, factor));
+      const png = await pintarDe(await dibujar(t, factor), tinta);
       const m = await sharp(png).metadata();
       const w = (m.width ?? 0) / ESCALA;
       const h = (m.height ?? 0) / ESCALA;
@@ -594,8 +604,10 @@ async function nombreQueEntra(texto: string, anchoMax: number, altoMax: number):
 
 /**
  * El logo de arriba a la izquierda: el nombre del negocio en
- * Montserrat, blanco. Si el negocio subió su logo, el logo va en una
- * caja CUADRADA a la izquierda y el nombre a su derecha.
+ * Montserrat, en la `tinta` del pase (blanco salvo sobre fondos claros,
+ * ver `tintaSobre`). Si el negocio subió su logo, el logo va en una
+ * caja CUADRADA a la izquierda y el nombre a su derecha. El logo NO se
+ * repinta: es la imagen del negocio tal como la subió.
  *
  * ── POR QUÉ EL NOMBRE VA DIBUJADO Y NO EN `logoText` ───────────────
  * Pedido del dueño (6 sep 2026): «en el pase de El Padrino sale el logo
@@ -615,11 +627,14 @@ export async function dibujarLogo({
   imagen,
   ancho,
   alto,
+  tinta = "#FFFFFF",
 }: {
   nombre: string;
   imagen: Buffer | null;
   ancho: number;
   alto: number;
+  /** Color del nombre. Por defecto blanco, como antes de oct 2026. */
+  tinta?: string;
 }): Promise<Buffer> {
   const transparente = { r: 0, g: 0, b: 0, alpha: 0 };
   const texto = nombreParaLogo(nombre);
@@ -637,7 +652,7 @@ export async function dibujarLogo({
 
     const anchoTexto = ancho - lado - hueco;
     if (texto && anchoTexto >= alto) {
-      const nombrePng = await nombreQueEntra(texto, anchoTexto, alto);
+      const nombrePng = await nombreQueEntra(texto, anchoTexto, alto, tinta);
       const m = await sharp(nombrePng).metadata();
       capas.push({
         input: nombrePng,
@@ -652,7 +667,7 @@ export async function dibujarLogo({
       .toBuffer();
   }
 
-  const png = await pintarBlanco(
+  const png = await pintarDe(
     await sharp({
       text: {
         text: texto || nombre,
@@ -664,6 +679,7 @@ export async function dibujarLogo({
     })
       .png()
       .toBuffer(),
+    tinta,
   );
 
   const encajado = await sharp(png).resize(ancho, alto, { fit: "inside" }).toBuffer();
@@ -814,18 +830,9 @@ export async function dibujarIcono(
       .png()
       .toBuffer();
 
-    const blanco = await sharp(texto)
-      .composite([
-        {
-          input: Buffer.from([255, 255, 255, 255]),
-          raw: { width: 1, height: 1, channels: 4 },
-          tile: true,
-          blend: "in",
-        },
-      ])
-      .toBuffer();
+    const pintado = await pintarDe(texto, tintaSobre(fondo));
 
-    const encajado = await sharp(blanco)
+    const encajado = await sharp(pintado)
       .resize(Math.round(lado * 0.62), Math.round(lado * 0.62), { fit: "inside" })
       .toBuffer();
 

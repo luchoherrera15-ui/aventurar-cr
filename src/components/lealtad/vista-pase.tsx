@@ -16,6 +16,7 @@ import { selloParaGuardar, type DibujoDelSello, type SelloElegido } from "@/lib/
 import { SelloConIcono, SelloConImagen } from "@/app/lealtad/panel/[id]/iconos";
 import { CONFIG_CLASICA, layoutDeLaTira, type ConfigTira } from "@/lib/wallet/layout-tira";
 import { cssDelFondo } from "@/lib/wallet/fondo-tira";
+import { tintaSobre } from "@/lib/colores-imagen";
 
 /**
  * LA VISTA PREVIA DEL PASE, en vivo.
@@ -444,6 +445,9 @@ function TarjetaApple({
   /** Qué lleva cada sello, ya filtrado por tipo. */
   sello: DibujoDelSello;
 }) {
+  // La misma tinta que el pass.json real (`foregroundColor`): blanco,
+  // salvo sobre fondos claros.
+  const tinta = tintaSobre(colores.fondo);
   return (
     <div
       className="mx-auto w-full max-w-[300px] overflow-hidden rounded-3xl shadow-flotante"
@@ -457,15 +461,21 @@ function TarjetaApple({
                  externa del negocio, y acá es una maqueta. */
               <img src={datos.logoUrl} alt="" className="h-6 w-6 shrink-0 rounded-md object-cover" />
             ) : null}
-            <span className="truncate text-[12.5px] font-medium text-white/90">
+            <span
+              className="truncate text-[12.5px] font-medium"
+              style={{ color: tinta, opacity: 0.9 }}
+            >
               {datos.negocioNombre || "Tu negocio"}
             </span>
           </span>
           <span className="shrink-0 text-right">
-            <span className="block text-[8.5px] uppercase tracking-wider text-white/55">
+            <span
+              className="block text-[8.5px] uppercase tracking-wider"
+              style={{ color: tinta, opacity: 0.55 }}
+            >
               {campos.encabezado.label}
             </span>
-            <span className="block text-[14px] font-bold leading-tight text-white">
+            <span className="block text-[14px] font-bold leading-tight" style={{ color: tinta }}>
               {campos.encabezado.value}
             </span>
           </span>
@@ -480,20 +490,26 @@ function TarjetaApple({
         />
 
         <div className="mt-3">
-          <span className="block text-[8.5px] uppercase tracking-wider text-white/55">
+          <span
+            className="block text-[8.5px] uppercase tracking-wider"
+            style={{ color: tinta, opacity: 0.55 }}
+          >
             {campos.detalle.label}
           </span>
-          <span className="block text-[12px] leading-snug text-white/90">
+          <span className="block text-[12px] leading-snug" style={{ color: tinta, opacity: 0.9 }}>
             {campos.detalle.value}
           </span>
         </div>
 
         {campos.regalia && (
           <div className="mt-2.5">
-            <span className="block text-[8.5px] uppercase tracking-wider text-white/55">
+            <span
+              className="block text-[8.5px] uppercase tracking-wider"
+              style={{ color: tinta, opacity: 0.55 }}
+            >
               {campos.regalia.label}
             </span>
-            <span className="block text-[12px] font-medium text-white">
+            <span className="block text-[12px] font-medium" style={{ color: tinta }}>
               {campos.regalia.value}
             </span>
           </div>
@@ -715,6 +731,9 @@ function TarjetaGoogle({
   campos: CamposTarjeta;
   colores: { fondo: string; sello: string };
 }) {
+  // Google elige solo el color del texto según el fondo; acá se imita
+  // con la misma regla que el pase de Apple.
+  const tinta = tintaSobre(colores.fondo);
   return (
     <div className="mx-auto w-full max-w-[300px] overflow-hidden rounded-3xl bg-white shadow-flotante">
       <div className="px-4 py-4" style={{ background: colores.fondo }}>
@@ -730,15 +749,21 @@ function TarjetaGoogle({
               (datos.negocioNombre || "B").slice(0, 1).toUpperCase()
             )}
           </span>
-          <span className="min-w-0 truncate text-[12.5px] font-medium text-white/90">
+          <span
+            className="min-w-0 truncate text-[12.5px] font-medium"
+            style={{ color: tinta, opacity: 0.9 }}
+          >
             {datos.negocioNombre || "Tu negocio"}
           </span>
         </div>
 
-        <p className="mt-3 text-[10px] uppercase tracking-wider text-white/60">
+        <p
+          className="mt-3 text-[10px] uppercase tracking-wider"
+          style={{ color: tinta, opacity: 0.6 }}
+        >
           {campos.encabezado.label}
         </p>
-        <p className="text-[26px] font-extrabold leading-none text-white">
+        <p className="text-[26px] font-extrabold leading-none" style={{ color: tinta }}>
           {campos.encabezado.value}
         </p>
       </div>

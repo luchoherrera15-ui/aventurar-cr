@@ -158,3 +158,20 @@ export function contraste(a: string, b: string): number {
   const [claro, oscuro] = la > lb ? [la, lb] : [lb, la];
   return (claro + 0.05) / (oscuro + 0.05);
 }
+
+/**
+ * El color del texto que va ENCIMA de un fondo de marca (el pase de
+ * Wallet y su vista previa).
+ *
+ * Blanco mientras se lea: contraste de al menos 3:1, el mínimo WCAG para
+ * texto grande. Todas las tarjetas oscuras emitidas hasta oct 2026 lo
+ * cumplen y siguen idénticas. Por debajo —un celeste, un crema— va un
+ * tono MUY oscuro del mismo matiz del fondo: se lee como parte de la
+ * marca, no como un negro pegado encima.
+ */
+export function tintaSobre(fondo: string): string {
+  if (!/^#[0-9a-fA-F]{6}$/.test(fondo) || contraste("#ffffff", fondo) >= 3) return "#ffffff";
+  const n = parseInt(fondo.slice(1), 16);
+  const { h, s } = rgbAHsl((n >> 16) & 255, (n >> 8) & 255, n & 255);
+  return hslAHex({ h, s: Math.min(s, 0.6), l: 0.16 });
+}

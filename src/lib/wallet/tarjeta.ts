@@ -20,6 +20,7 @@ import {
   type SelloElegido,
 } from "@/lib/lealtad/iconos-sello";
 import { configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
+import { tintaSobre } from "@/lib/colores-imagen";
 
 /**
  * Alias histórico de `TipoTarjeta`. El nombre «modo» quedó de cuando
@@ -591,7 +592,7 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
     organizationName: datos.negocioNombre,
     description: `Tarjeta de lealtad ${datos.negocioNombre}`,
     backgroundColor: aRgbCss(colores.fondo),
-    foregroundColor: "rgb(255, 255, 255)",
+    foregroundColor: aRgbCss(tintaSobre(colores.fondo)),
     labelColor: aRgbCss(colores.sello),
     storeCard: {
       // SIN primaryFields a propósito: Apple los dibuja ENCIMA de la

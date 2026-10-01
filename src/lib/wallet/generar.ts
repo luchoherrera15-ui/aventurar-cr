@@ -53,6 +53,7 @@ import {
   type TiraDelPase,
 } from "./tarjeta";
 import type { ConfigTira } from "./layout-tira";
+import { tintaSobre } from "@/lib/colores-imagen";
 
 /**
  * Genera el .pkpass de un cliente para un negocio.
@@ -407,7 +408,7 @@ export async function generarPaseDeLealtad({
     // El logo de arriba del pase es SIEMPRE el logo del negocio: el
     // ícono propio vive adentro de los sellos, no le quita el lugar a
     // la marca.
-    ...(await archivosDelLogo(negocio.nombre, logoNegocio)),
+    ...(await archivosDelLogo(negocio.nombre, logoNegocio, tintaSobre(colores.fondo))),
     ...(await archivosDeLaTira({
       tira,
       colores,
@@ -597,11 +598,12 @@ async function bajarImagen(url: string | null | undefined): Promise<Buffer | nul
 async function archivosDelLogo(
   nombre: string,
   imagen: Buffer | null,
+  tinta: string,
 ): Promise<Record<string, Buffer>> {
   const dibujar = async (img: Buffer | null) => ({
-    "logo.png": await dibujarLogo({ nombre, imagen: img, ancho: 160, alto: 50 }),
-    "logo@2x.png": await dibujarLogo({ nombre, imagen: img, ancho: 320, alto: 100 }),
-    "logo@3x.png": await dibujarLogo({ nombre, imagen: img, ancho: 480, alto: 150 }),
+    "logo.png": await dibujarLogo({ nombre, imagen: img, ancho: 160, alto: 50, tinta }),
+    "logo@2x.png": await dibujarLogo({ nombre, imagen: img, ancho: 320, alto: 100, tinta }),
+    "logo@3x.png": await dibujarLogo({ nombre, imagen: img, ancho: 480, alto: 150, tinta }),
   });
 
   if (!imagen) return dibujar(null);

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { contraste, hexDe, hslAHex, luminancia, paletaDePixeles, rgbAHsl } from "./colores-imagen";
+import {
+  contraste,
+  hexDe,
+  hslAHex,
+  luminancia,
+  paletaDePixeles,
+  rgbAHsl,
+  tintaSobre,
+} from "./colores-imagen";
 
 /** Un «cuadro» de píxeles RGBA a partir de una lista de colores con peso. */
 function pixeles(colores: { rgb: [number, number, number]; n: number; a?: number }[]): Uint8ClampedArray {
@@ -98,3 +106,30 @@ function hexARgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
+
+describe("tintaSobre", () => {
+  it("deja el texto blanco sobre los fondos oscuros y medios que ya existen", () => {
+    // Navy por defecto, Café Oscuro (4,9:1) y los verdes de Pura Matcha.
+    for (const fondo of ["#002472", "#92693a", "#38571a", "#123528", "#01675f"]) {
+      expect(tintaSobre(fondo)).toBe("#ffffff");
+    }
+  });
+
+  it("pasa a una tinta oscura del mismo matiz sobre un fondo claro", () => {
+    const tinta = tintaSobre("#92d1da"); // el celeste de Zuccherino: 1,7:1 con blanco
+    expect(tinta).not.toBe("#ffffff");
+    expect(contraste(tinta, "#92d1da")).toBeGreaterThanOrEqual(7);
+    const { h } = rgbAHsl(...hexARgb(tinta));
+    expect(Math.abs(h - rgbAHsl(146, 209, 218).h)).toBeLessThan(3);
+  });
+
+  it("sobre blanco o gris claro también oscurece", () => {
+    expect(contraste(tintaSobre("#ffffff"), "#ffffff")).toBeGreaterThanOrEqual(7);
+    expect(contraste(tintaSobre("#e5e5e5"), "#e5e5e5")).toBeGreaterThanOrEqual(7);
+  });
+
+  it("un valor que no es #RRGGBB se queda en blanco", () => {
+    expect(tintaSobre("celeste")).toBe("#ffffff");
+    expect(tintaSobre("#fff")).toBe("#ffffff");
+  });
+});
