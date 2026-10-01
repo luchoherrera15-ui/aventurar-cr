@@ -241,7 +241,13 @@ repetir:
 > crear el negocio y la tarjeta de un local, y cambiarle desde el panel de
 > Foorkie los colores, el logo, la banda y el beneficio —`programa/guardar`,
 > con las mismas reglas y el mismo aviso a los pases instalados que el
-> panel de Bookea; el tipo de tarjeta no se cambia desde allá). Nadie escribe en la tabla de
+> panel de Bookea; el tipo de tarjeta no se cambia desde allá). La caja
+> del restaurante en Foorkie usa `caja/buscar`, `caja/acreditar`,
+> `caja/canjear` y `caja/historial` (`foorkie-caja.ts`): encuentra al
+> cliente por el QR de su pase o por su correo, suma y canjea con el mismo
+> núcleo que la caja del teléfono de Bookea (`operar-core.ts`) y lista lo
+> acreditado y canjeado de la tarjeta; de cada persona solo sale el
+> nombre de pila y el correo enmascarado. Nadie escribe en la tabla de
 > otro producto: Bookea no escribe `foorkie_*` y Foorkie no escribe las
 > tablas de Bookea. Lo de abajo queda como historia.
 
@@ -510,5 +516,5 @@ crear negocio → elegir tipo → el panel se arma solo
 
 ---
 
-*Última actualización: 1 de octubre de 2026 (Foorkie y su API de lealtad). Cambiar una decisión de
+*Última actualización: 1 de octubre de 2026 (Foorkie: API de lealtad y caja). Cambiar una decisión de
 §1 obliga a actualizar este archivo antes que el código.*

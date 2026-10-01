@@ -56,21 +56,31 @@ export type PedidoFirmado =
   | { ok: true; datos: Record<string, unknown>; secreto: string }
   | { ok: false; respuesta: NextResponse };
 
+/** Lo que dice cada rechazo de la puerta, para quien lo tenga que leer en Foorkie. */
+export const MOTIVO_PUERTA = {
+  no_configurado: "La conexión con Bookea no está configurada en este momento.",
+  muy_grande: "El pedido a Bookea es demasiado grande.",
+  firma: "Bookea no reconoció la firma del pedido (o venció): probá de nuevo.",
+  json: "El pedido a Bookea no vino bien armado.",
+} as const;
+
 /** Lee un POST de Foorkie: firma válida y JSON con forma de objeto. */
 export async function leerPedidoFirmado(request: Request, max = 8000): Promise<PedidoFirmado> {
+  const rechazo = (codigo: keyof typeof MOTIVO_PUERTA, status: number) => ({
+    ok: false as const,
+    respuesta: responder({ ok: false, codigo, motivo: MOTIVO_PUERTA[codigo] }, status),
+  });
   const secreto = process.env.FOORKIE_PLATAFORMA_SECRETO?.trim();
-  if (!secreto) return { ok: false, respuesta: responder({ ok: false, codigo: "no_configurado" }, 503) };
+  if (!secreto) return rechazo("no_configurado", 503);
   const cuerpo = await request.text();
-  if (cuerpo.length > max) return { ok: false, respuesta: responder({ ok: false, codigo: "muy_grande" }, 413) };
-  if (!firmaValida(cuerpo, request.headers.get("x-foorkie-firma"), secreto)) {
-    return { ok: false, respuesta: responder({ ok: false, codigo: "firma" }, 401) };
-  }
+  if (cuerpo.length > max) return rechazo("muy_grande", 413);
+  if (!firmaValida(cuerpo, request.headers.get("x-foorkie-firma"), secreto)) return rechazo("firma", 401);
   try {
     const leido: unknown = JSON.parse(cuerpo);
     if (!leido || typeof leido !== "object" || Array.isArray(leido)) throw new Error("cuerpo");
     return { ok: true, datos: leido as Record<string, unknown>, secreto };
   } catch {
-    return { ok: false, respuesta: responder({ ok: false, codigo: "json" }, 400) };
+    return rechazo("json", 400);
   }
 }
 
@@ -210,6 +220,42 @@ export function estaPausada(fila: Record<string, unknown>, ahora: Date = new Dat
   return tarjetaDelPase([fila], minutoISOCR(ahora), String(fila.id ?? "")).pausado === true;
 }
 
+/**
+ * Lo que la tarjeta DICE hoy con este saldo: el tipo, si está en pausa,
+ * el texto del pase (`camposSegunModo`) y el «5 de 10». Lo comparten la
+ * tarjeta de «Mi cuenta» (`armarTarjeta`) y la caja (`foorkie-caja.ts`),
+ * así las dos pantallas de Foorkie leen lo mismo que el teléfono.
+ */
+export function lecturaDeTarjeta(d: {
+  fila: Record<string, unknown>;
+  negocio: string;
+  saldo: number;
+  meta: MetaRecompensa;
+  ahora?: Date;
+}): {
+  modo: TipoTarjeta;
+  pausada: boolean;
+  textos: CamposTarjeta;
+  progreso: { actual: number; total: number } | null;
+  beneficio: ConfigBeneficio | null;
+} {
+  const { config, beneficio } = tarjetaDesdeFila(d.fila);
+  const modo = tipoDe(config.modo);
+  const pausada = estaPausada(d.fila, d.ahora);
+  const textos = camposSegunModo({ negocioNombre: d.negocio, saldo: d.saldo, meta: d.meta, config, beneficio, pausado: pausada });
+  const total =
+    modo === "sellos"
+      ? (d.meta?.costo_puntos ?? (beneficio?.tipo === "sellos" ? beneficio.requeridos : null))
+      : null;
+  return {
+    modo,
+    pausada,
+    textos,
+    progreso: total && total > 0 ? { actual: Math.min(d.saldo, total), total } : null,
+    beneficio,
+  };
+}
+
 /** Todo lo que Foorkie necesita para dibujar UNA tarjeta y ofrecer el Wallet. */
 export function armarTarjeta(d: {
   miembroId: string;
@@ -220,14 +266,7 @@ export function armarTarjeta(d: {
   links: { apple: string; google: string; vence: string };
   ahora?: Date;
 }): TarjetaParaFoorkie {
-  const { config, beneficio } = tarjetaDesdeFila(d.fila);
-  const modo = tipoDe(config.modo);
-  const pausada = estaPausada(d.fila, d.ahora);
-  const textos = camposSegunModo({ negocioNombre: d.negocio, saldo: d.saldo, meta: d.meta, config, beneficio, pausado: pausada });
-  const total =
-    modo === "sellos"
-      ? (d.meta?.costo_puntos ?? (beneficio?.tipo === "sellos" ? beneficio.requeridos : null))
-      : null;
+  const { modo, pausada, textos, progreso, beneficio } = lecturaDeTarjeta(d);
   return {
     miembro_id: d.miembroId,
     programa_id: String(d.fila.id),
@@ -238,7 +277,7 @@ export function armarTarjeta(d: {
     pausada,
     saldo: d.saldo,
     meta: d.meta,
-    progreso: total && total > 0 ? { actual: Math.min(d.saldo, total), total } : null,
+    progreso,
     textos,
     beneficio,
     diseno: disenoDeFila(d.fila),
