@@ -31,6 +31,7 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
+import { MARCA_BOOKEA, marcaDeLaTarjeta, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
 
 /**
  * Pases de lealtad en GOOGLE Wallet (Android) — el espejo de Apple.
@@ -323,12 +324,22 @@ export function contenidoDelObjeto({
   beneficio,
   pausado,
   sellosVencenEl = null,
+  marca = null,
 }: {
   negocioNombre: string;
   saldo: number;
   config: ConfigPase;
   meta: MetaRecompensa;
   beneficio: ConfigBeneficio | null;
+  /**
+   * De quién es el pase (`foorkie-marca.ts`). Ausente o Bookea = el
+   * objeto de siempre, sin un campo de más. Una tarjeta de un local de
+   * Foorkie suma el módulo de links (unirse, tus tarjetas, soporte,
+   * términos, privacidad). Va en el OBJETO y no en la clase: así entra en
+   * cada pase con su propio refresco, sin reescribir de golpe todos los
+   * Android del negocio.
+   */
+  marca?: MarcaDelPase | null;
   /**
    * Hasta cuándo le valen los sellos a este cliente (0180), en ISO y
    * ya en la zona del negocio. null = no vencen, y entonces el objeto
@@ -363,6 +374,7 @@ export function contenidoDelObjeto({
   loyaltyPoints: { label: string; balance: { int: number } | { string: string } };
   textModulesData?: ModuloDeTexto[];
   heroImage?: ImagenGoogle;
+  linksModuleData?: { uris: LinkDeGoogle[] };
 } {
   const tipo = tipoDe(config.modo);
   // A PROPÓSITO sin `pausado`: el saldo, el cupón del 30% y el «5 de
@@ -458,7 +470,18 @@ export function contenidoDelObjeto({
     // es el objeto de siempre.
     ...(modulos.length > 0 || pausado !== undefined ? { textModulesData: modulos } : {}),
     ...(banda ? { heroImage: imagenGoogle(banda, `Banda de ${negocioNombre}`) } : {}),
+    // Los links de la marca: solo en una tarjeta de un local de Foorkie.
+    // Bookea no lleva ninguno y su objeto sale como siempre.
+    ...(marca && marca.links.length > 0 ? { linksModuleData: { uris: linksDeGoogle(marca) } } : {}),
   };
+}
+
+/** Un link del módulo de links de Google (`linksModuleData.uris`). */
+type LinkDeGoogle = { id: string; uri: string; description: string };
+
+/** Los links de la marca como los pide Google: la dirección y el texto que se toca. */
+function linksDeGoogle(marca: MarcaDelPase): LinkDeGoogle[] {
+  return marca.links.map((l) => ({ id: `${marca.marca}_${l.id}`, uri: l.url, description: l.etiqueta }));
 }
 
 /**
@@ -510,6 +533,7 @@ export function construirObjeto({
   config,
   meta,
   beneficio,
+  marca = null,
 }: {
   issuerId: string;
   ranchoId: string;
@@ -529,6 +553,8 @@ export function construirObjeto({
   meta: MetaRecompensa;
   /** La config propia del tipo (0135). null = programa anterior. */
   beneficio: ConfigBeneficio | null;
+  /** Bookea (ausente) o Foorkie, con sus links. Ver `contenidoDelObjeto`. */
+  marca?: MarcaDelPase | null;
 }) {
   return {
     id: idDeObjeto(issuerId, miembroId),
@@ -546,7 +572,7 @@ export function construirObjeto({
       type: "QR_CODE",
       value: serial,
     },
-    ...contenidoDelObjeto({ negocioNombre: nombreNegocio, saldo, config, meta, beneficio }),
+    ...contenidoDelObjeto({ negocioNombre: nombreNegocio, saldo, config, meta, beneficio, marca }),
   };
 }
 
@@ -848,6 +874,10 @@ export async function generarPaseGoogle({
     await db.from("miembros").update({ cliente_id: clienteId }).eq("id", miembro.id);
   }
 
+  // De quién es el pase (Bookea o Foorkie): UNA lectura, lanzada ya para
+  // que corra junto con lo de abajo. Nunca rechaza. Ver `foorkie-marca.ts`.
+  const marcaPromesa = marcaDeLaTarjeta(db, { programaId, ranchoId });
+
   // EL SALDO SE LEE ANTES DE CREAR EL PASE (sep 2026).
   // Se leía después, y la fila nacía con `saldo_cache: 0` aunque el
   // cliente ya tuviera sellos: quien agregaba la tarjeta a Google
@@ -900,6 +930,7 @@ export async function generarPaseGoogle({
   // entró por el póster —que no da su nombre, son dos campos— saldría
   // como "Cliente" aunque Bookea sepa cómo se llama.
   const nombreCliente = await nombreDeQuienLlega(db, { clienteId, personaId });
+  const marca = await marcaPromesa;
 
   try {
     await asegurarRecurso(
@@ -932,6 +963,8 @@ export async function generarPaseGoogle({
           : null,
         // Lo que hace que un cupón diga «30% OFF» y no «Puntos 0».
         beneficio,
+        // Bookea, o Foorkie con sus links (solo en este objeto, no en la clase).
+        marca,
       }),
     );
   } catch (e) {
@@ -1049,6 +1082,13 @@ export async function refrescarPaseGoogleDeMiembro(
     const programa = (programaFila ?? {}) as Record<string, unknown>;
     const { config, beneficio } = tarjetaDesdeFila(programa);
 
+    // De quién es el pase (Bookea o Foorkie): UNA lectura por refresco,
+    // lanzada ya. Nunca rechaza. Ver `foorkie-marca.ts`.
+    const marcaPromesa = marcaDeLaTarjeta(db, {
+      programaId: String(miembro.programa_id),
+      ranchoId: typeof programa.rancho_id === "string" ? programa.rancho_id : null,
+    });
+
     // El nombre del negocio es el respaldo del «dónde» de un evento; la
     // zona horaria (0062/0170) decide en qué DÍA se le vencen los
     // sellos a este cliente (0180) — hay negocios en ocho países.
@@ -1097,6 +1137,9 @@ export async function refrescarPaseGoogleDeMiembro(
       // Sin regla (el caso de casi todas) esto queda en null y el PATCH
       // sale igual que siempre.
       sellosVencenEl: await corteDeSellos(db, miembroId, programa, zonaNegocio),
+      // Bookea: nada nuevo. Foorkie: sus links, que entran en ESTE pase
+      // con este refresco (cada pase con el suyo, ninguno de golpe).
+      marca: await marcaPromesa,
     });
 
     const res = await llamarApi(
@@ -1158,10 +1201,16 @@ export async function refrescarPaseGoogleDeMiembro(
  *
  * `id` en el mensaje evita que el mismo aviso se duplique si esto se
  * reintenta — Google lo trata como el mismo mensaje si el id coincide.
+ *
+ * `encabezado`: el título del mensaje. «Bookea» si no viene (lo de
+ * siempre); en una tarjeta de un local de Foorkie, quien manda la tanda
+ * pasa `marca.encabezadoMensaje` («Foorkie»), leída UNA vez por tanda
+ * (`foorkie-marca.ts`).
  */
 export async function enviarMensajeGoogle(
   miembroId: string,
   mensaje: string,
+  { encabezado = MARCA_BOOKEA.encabezadoMensaje }: { encabezado?: string } = {},
 ): Promise<ResultadoRefresco> {
   try {
     const cred = credencialesGoogleDelEntorno();
@@ -1185,7 +1234,7 @@ export async function enviarMensajeGoogle(
       `/loyaltyObject/${idDeObjeto(cred.issuerId, miembroId)}/addMessage`,
       {
         message: {
-          header: "Bookea",
+          header: encabezado,
           body: mensaje,
           // Un id NUEVO por minuto: el mismo texto mandado dos veces en
           // dos ocasiones distintas son dos avisos reales, no uno

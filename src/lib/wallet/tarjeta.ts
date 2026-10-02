@@ -21,6 +21,7 @@ import {
 } from "@/lib/lealtad/iconos-sello";
 import { configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
 import { tintaSobre } from "@/lib/colores-imagen";
+import { MARCA_BOOKEA, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
 
 /**
  * Alias histórico de `TipoTarjeta`. El nombre «modo» quedó de cuando
@@ -195,7 +196,34 @@ export type DatosTarjeta = DatosDelTexto & {
   authToken?: string | null;
   /** Base del Web Service, sin el `/v1`. Apple se lo agrega. */
   webServiceUrl?: string | null;
+  /**
+   * De quién es la firma del pase (`foorkie-marca.ts`). Ausente = Bookea,
+   * byte por byte como siempre. Una tarjeta de un local de Foorkie firma
+   * «Powered by Foorkie», dice «Foorkie Lealtad» bajo el QR y suma en el
+   * reverso los links a Foorkie.
+   */
+  marca?: MarcaDelPase | null;
 };
+
+/** `&`, `<`, `>`, comillas: lo que no puede quedar suelto dentro de un `attributedValue`. */
+function escaparAtributo(texto: string): string {
+  return texto.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c] ?? c);
+}
+
+/**
+ * Los links de la marca, como renglones del reverso de Apple: el rótulo,
+ * la dirección en `value` (lo que muestra un iPhone viejo, que igual la
+ * detecta como link) y el link tocable en `attributedValue` (Apple solo
+ * acepta ahí la etiqueta `<a href>`). Vacío en Bookea.
+ */
+function renglonesDeLinks(marca: MarcaDelPase) {
+  return marca.links.map((l) => ({
+    key: `${marca.marca}_${l.id}`,
+    label: l.etiqueta,
+    value: l.url,
+    attributedValue: `<a href="${escaparAtributo(l.url)}">${escaparAtributo(l.texto)}</a>`,
+  }));
+}
 
 /**
  * La FILA de `programa_lealtad` (tal cual la devuelve `select *`)
@@ -578,11 +606,13 @@ export function textoDeVencimiento(venceEl: string): string {
  * El logo de arriba a la izquierda es del NEGOCIO. La firma de Bookea
  * va en `altText` del código de barras, que Apple dibuja justo debajo
  * del QR: es el único lugar del layout fijo donde cabe sin robarle
- * espacio a la marca del cliente.
+ * espacio a la marca del cliente. En una tarjeta de un local de Foorkie
+ * esa firma es la de Foorkie (`datos.marca`, ver `foorkie-marca.ts`).
  */
 export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> {
   const colores = coloresDe(datos.config);
   const campos = camposSegunModo(datos);
+  const marca = datos.marca ?? MARCA_BOOKEA;
 
   const pass: Record<string, unknown> = {
     formatVersion: 1,
@@ -646,7 +676,11 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
               },
             ]
           : []),
-        { key: "bookea", label: "Powered by", value: "Bookea.lat" },
+        // Los links de la marca (solo Foorkie; Bookea no lleva) y la
+        // firma, que cierra el reverso. Para Bookea es el mismo renglón
+        // de siempre: `{ key: "bookea", label: "Powered by", value: "Bookea.lat" }`.
+        ...renglonesDeLinks(marca),
+        { key: marca.firma.key, label: marca.firma.label, value: marca.firma.value },
       ],
     },
     barcodes: [
@@ -654,7 +688,7 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
         format: "PKBarcodeFormatQR",
         message: datos.serialNumber,
         messageEncoding: "iso-8859-1",
-        altText: "Powered by Bookea.lat",
+        altText: marca.altText,
       },
     ],
   };

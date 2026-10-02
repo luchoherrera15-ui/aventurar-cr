@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { enviarCorreo, escaparHtml } from "@/lib/email";
 import { SITIO } from "@/lib/sitio";
 import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
+import { losCorreosLosMandaFoorkie } from "@/lib/plataforma/foorkie-marca";
 
 /**
  * EL CORREO DE LOS SELLOS — solo en los HITOS, nunca en cada sello.
@@ -135,6 +136,11 @@ export async function avisarSelloPorCorreo(miembroId: string, saldo: number): Pr
       .eq("id", miembro.programa_id as string)
       .maybeSingle();
     if (!programa) return;
+
+    // Una tarjeta de un local de Foorkie: el correo se lo manda Foorkie,
+    // con su marca. Bookea no le escribe a ese cliente.
+    const tarjeta = { programaId: miembro.programa_id as string, ranchoId: programa.rancho_id as string | null };
+    if (await losCorreosLosMandaFoorkie(db, tarjeta)) return;
 
     const { data: negocio } = await db
       .from("ranchos")

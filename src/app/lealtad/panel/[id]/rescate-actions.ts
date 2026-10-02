@@ -40,6 +40,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { enviarCorreo } from "@/lib/email";
 import { correoDelMiembro } from "@/lib/correo/sello-acreditado";
 import { enviarMensajeGoogle } from "@/lib/wallet/google";
+import { losCorreosLosMandaFoorkie, marcaDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 import {
   liberarCupoNotificacion,
   reservarCupoNotificacion,
@@ -155,6 +156,15 @@ export async function enviarRescate(
     .maybeSingle();
   const negocioNombre = ((negocio?.nombre as string | null) ?? "Tu negocio").trim();
 
+  // ── Una tarjeta de un local de Foorkie ───────────────────────────
+  // Bookea no le escribe correos a esos clientes (se los manda Foorkie,
+  // con su marca), y el mensaje al pase de Google lleva el título de
+  // Foorkie. Se pregunta UNA vez por campaña, no por cliente.
+  const [correosDeFoorkie, marca] = await Promise.all([
+    losCorreosLosMandaFoorkie(db, { programaId, ranchoId }),
+    marcaDeLaTarjeta(db, { programaId, ranchoId }),
+  ]);
+
   let correos = 0;
   let google = 0;
   let sinCanal = 0;
@@ -162,7 +172,7 @@ export async function enviarRescate(
   for (const cliente of destinatarios) {
     let llego = false;
 
-    const correo = await correoDelMiembro(db, cliente.miembroId);
+    const correo = correosDeFoorkie ? null : await correoDelMiembro(db, cliente.miembroId);
     if (correo) {
       const saludo = cliente.sinNombre ? "¡Hola!" : `¡Hola, ${cliente.nombre.split(" ")[0]}!`;
       const saldoLinea =
@@ -196,7 +206,9 @@ export async function enviarRescate(
     }
 
     if (cliente.conPase) {
-      const envioGoogle = await enviarMensajeGoogle(cliente.miembroId, limpio);
+      const envioGoogle = await enviarMensajeGoogle(cliente.miembroId, limpio, {
+        encabezado: marca.encabezadoMensaje,
+      });
       if (envioGoogle.ok) {
         google += 1;
         llego = true;
@@ -212,8 +224,9 @@ export async function enviarRescate(
     await liberarCupoNotificacion(db, reserva.id);
     return {
       ok: false,
-      motivo:
-        "No se pudo entregar a nadie: los elegidos no tienen correo conocido ni pase de Google. A los de pase de Apple sin correo no hay forma de escribirles individualmente.",
+      motivo: correosDeFoorkie
+        ? "No se pudo entregar a nadie: ninguno de los elegidos tiene el pase en Google Wallet. Esta tarjeta es de Foorkie: los correos a sus clientes los manda Foorkie, no Bookea."
+        : "No se pudo entregar a nadie: los elegidos no tienen correo conocido ni pase de Google. A los de pase de Apple sin correo no hay forma de escribirles individualmente.",
     };
   }
 

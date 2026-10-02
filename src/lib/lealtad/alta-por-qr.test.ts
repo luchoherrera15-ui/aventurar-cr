@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { altaPorQr, textoConsentimientoNegocio } from "./personas";
+import { altaPorQr, altaPorQrSinSesion, textoConsentimientoNegocio } from "./personas";
 
 /**
  * EL ALTA POR QR, CONTRA UNA BASE DE MENTIRA.
@@ -626,5 +626,92 @@ describe("altaPorQr — el desvío sin cuenta (0200)", () => {
     );
     expect(resultado.estado).toBe("listo");
     expect(argsDelAltaLocal(registro)).not.toBeNull();
+  });
+});
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  LA MISMA PUERTA, SIN LA COOKIE — el alta desde Foorkie
+ * ═══════════════════════════════════════════════════════════════════
+ *
+ * Foorkie afilia a sus clientes por el MISMO núcleo (`foorkie-afiliar.ts`):
+ * mismas reglas, mismo RPC, mismo tope. Cambian dos cosas y solo dos: no
+ * se abre la sesión de un navegador de Bookea (no lo hay del otro lado)
+ * y el permiso que se archiva es el texto que la persona leyó en Foorkie.
+ */
+describe("altaPorQrSinSesion — el núcleo, sin la sesión del navegador", () => {
+  const FOORKIE = { texto: "Sí, quiero que Silence Barber y Foorkie me avisen de promociones.", version: "foorkie-v1" };
+
+  async function correrSinSesion(mundo: Mundo, extra: Partial<Parametros> = {}) {
+    const registro: Registro = { rpc: [], sesiones: [] };
+    const db = dbFalso(mundo, registro) as unknown as Admin;
+    const resultado = await altaPorQrSinSesion(db, {
+      programa: PROGRAMA,
+      ranchoId: "rancho-1",
+      planRancho: null,
+      nombreNegocio: "Silence Barber",
+      contacto: { correo: "ana@ejemplo.com", telefono: "88888888" },
+      nombre: "Ana",
+      acepta: true,
+      personaProbada: null,
+      sesion: { clienteId: null, correo: null },
+      ip: "190.7.1.20",
+      userAgent: "FoorkieApp/1.1",
+      ...extra,
+    });
+    return { resultado, registro };
+  }
+
+  it("deja la persona, la membresía y el permiso, sin abrir ninguna sesión", async () => {
+    const { resultado, registro } = await correrSinSesion({});
+    expect(resultado).toEqual({
+      estado: "listo",
+      personaId: "persona-nueva",
+      miembroId: "miembro-nuevo",
+      miembroNuevo: false,
+    });
+    expect(registro.sesiones).toHaveLength(0);
+  });
+
+  it("sin la tabla de sesiones igual queda lista: no la necesita", async () => {
+    const { resultado } = await correrSinSesion({ sinSesiones: true });
+    expect(resultado.estado).toBe("listo");
+  });
+
+  it("archiva el texto y la versión que mandó Foorkie, con la casilla tal cual", async () => {
+    const { registro } = await correrSinSesion({}, { consentimiento: FOORKIE, acepta: false });
+    const cuerpo = argsDelAlta(registro)?.p_consentimientos as {
+      version: string;
+      canales: string[];
+      negocio: { acepta: boolean; texto: string };
+    };
+    expect(cuerpo.version).toBe("foorkie-v1");
+    expect(cuerpo.negocio).toEqual({ acepta: false, texto: FOORKIE.texto });
+    expect(cuerpo.canales).toEqual(["whatsapp", "correo"]);
+  });
+
+  it("sin texto propio, el permiso es el del póster de siempre", async () => {
+    const { registro } = await correrSinSesion({});
+    const cuerpo = argsDelAlta(registro)?.p_consentimientos as { version: string; negocio: { texto: string } };
+    expect(cuerpo.version).toBe("qr-v1");
+    expect(cuerpo.negocio.texto).toBe(textoConsentimientoNegocio("Silence Barber"));
+  });
+
+  it("las mismas reglas: tope del paquete y portero", async () => {
+    const lleno = await correrSinSesion({ plan: "arranque", personasActivas: 100 });
+    expect(lleno.resultado.estado).toBe("lleno");
+    const ajeno = await correrSinSesion({
+      respuesta: { estado: "requiere_prueba", persona_id: "otra", canal_sugerido: "whatsapp" },
+    });
+    expect(ajeno.resultado).toEqual({ estado: "requiere_prueba", canal: "whatsapp" });
+    expect(argsDelAltaLocal(ajeno.registro)).toBeNull();
+  });
+
+  it("el póster (`altaPorQr`) sigue abriendo la sesión con el MISMO resultado del núcleo", async () => {
+    const { resultado, registro } = await correrAlta({}, { consentimiento: FOORKIE });
+    expect(registro.sesiones).toHaveLength(1);
+    expect(resultado.estado).toBe("listo");
+    const cuerpo = argsDelAlta(registro)?.p_consentimientos as { version: string };
+    expect(cuerpo.version).toBe("foorkie-v1");
   });
 });

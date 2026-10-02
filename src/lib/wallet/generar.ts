@@ -17,6 +17,7 @@ import { fechaDeCorte, reglaDeFila } from "@/lib/lealtad/vencimiento-sellos";
 import { minutoISOCR } from "@/lib/fechas";
 import { empaquetarPase } from "./empaquetar";
 import { credencialesDelEntorno } from "./firma";
+import { marcaDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 import {
   buscarMiembroDelPase,
   filaDeAfiliacion,
@@ -268,6 +269,12 @@ export async function generarPaseDeLealtad({
     await db.from("miembros").update({ cliente_id: clienteId }).eq("id", miembro.id);
   }
 
+  // ── De quién es la firma del pase: Bookea o Foorkie ──────────────
+  // UNA lectura por armado (`foorkie-marca.ts`), lanzada acá para que
+  // corra junto con el saldo, la meta y las imágenes. Nunca rechaza: si
+  // la base no contesta, el pase sale con la firma de siempre.
+  const marcaPromesa = marcaDeLaTarjeta(db, { programaId, ranchoId });
+
   // ── El saldo y la meta ────────────────────────────────────────────
   const saldo = (await consultarSaldo(miembro.id)) ?? 0;
 
@@ -499,6 +506,10 @@ export async function generarPaseDeLealtad({
     // vuelva a bajarlo.
     authToken,
     webServiceUrl: `${SITIO_URL}/api/wallet`,
+    // «Powered by Bookea.lat», o la firma y los links de Foorkie si la
+    // tarjeta es de un local de Foorkie. Entra la próxima vez que el
+    // teléfono pida el pase: nada de esto empuja un aviso.
+    marca: await marcaPromesa,
   });
   archivos["pass.json"] = Buffer.from(JSON.stringify(passJson, null, 2), "utf8");
 
