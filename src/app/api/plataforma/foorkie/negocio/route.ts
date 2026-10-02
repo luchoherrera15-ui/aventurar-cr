@@ -3,6 +3,7 @@ import { crearNegocioDeLealtadCompleto } from "@/lib/lealtad/crear-negocio-compl
 import { validarTarjetaDeAlta, type TarjetaDeAlta } from "@/lib/lealtad/tarjeta-alta";
 import { definicionDe } from "@/lib/lealtad/planes";
 import { normalizarCorreo } from "@/lib/lealtad/personas";
+import { beneficioDeFoorkie } from "@/lib/lealtad/canje-libre";
 import { copiarImagenDeFoorkie, leerPedidoFirmado, responder, UUID } from "@/lib/plataforma/foorkie-api";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -83,7 +84,9 @@ export async function POST(request: Request) {
 
   const cruda: TarjetaDeAlta = {
     modo: typeof tarjetaCruda.modo === "string" ? tarjetaCruda.modo : null,
-    beneficio: (tarjetaCruda.beneficio ?? null) as TarjetaDeAlta["beneficio"],
+    // Toda tarjeta de este alta es de Foorkie: su cashback nace con canje
+    // libre (0253, `canje-libre.ts`), sin el tramo de «₡1 000».
+    beneficio: (beneficioDeFoorkie(tarjetaCruda.beneficio) ?? null) as TarjetaDeAlta["beneficio"],
     colorFondo: typeof tarjetaCruda.colorFondo === "string" ? tarjetaCruda.colorFondo : null,
     colorSello: typeof tarjetaCruda.colorSello === "string" ? tarjetaCruda.colorSello : null,
     logoUrl,

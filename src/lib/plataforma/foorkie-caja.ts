@@ -8,6 +8,7 @@ import { canalDelMovimiento } from "@/lib/lealtad/canal-del-sello";
 import { identidadesDeMiembros, miembrosConIdentidad, type MiembroIdentificable } from "@/lib/lealtad/identidades-db";
 import type { PermisosLealtad } from "@/lib/lealtad/permisos";
 import type { TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import { canjeLibreDe, leerMontoLibre, type CanjeLibre } from "@/lib/lealtad/canje-libre";
 import type { CamposTarjeta } from "@/lib/wallet/tarjeta";
 
 /**
@@ -101,7 +102,20 @@ export type PedidoAcreditar = Vinculo & {
   operador: string | null;
 };
 
-export type PedidoCanjear = Vinculo & { miembroId: string; recompensaId: string; intentoId: string };
+/**
+ * Canjear es una de dos cosas, nunca las dos (0253):
+ *
+ *   · un PREMIO de la tarjeta (`recompensa_id`): su costo fijo, como siempre;
+ *   · un MONTO del cashback (`monto`, colones enteros): lo que el cliente
+ *     quiera usar de su saldo, en una tarjeta de canje libre
+ *     (`canje-libre.ts`, solo las de Foorkie). Lleva el `operador`, que
+ *     queda en el motivo del ledger («Cashback usado (Caja Foorkie · Ana)»).
+ */
+export type PedidoCanjear = Vinculo &
+  (
+    | { miembroId: string; recompensaId: string; intentoId: string; monto?: undefined }
+    | { miembroId: string; monto: number; intentoId: string; operador: string | null; recompensaId?: undefined }
+  );
 
 export type PedidoHistorial = Vinculo & { limite: number; antes: string | null };
 
@@ -177,6 +191,18 @@ export function leerPedidoCanjear(d: Record<string, unknown>): Lectura<PedidoCan
   const v = leerVinculo(d);
   if (!v.ok) return v;
   const miembroId = uuidDe(d.miembro_id);
+  if (!ausente(d.monto) && !ausente(d.recompensa_id)) {
+    return { ok: false, motivo: "Mandá el premio (recompensa_id) o el monto del cashback (monto), no los dos." };
+  }
+  // El monto del cashback (0253): colones enteros de 1 a ₡10.000.000.
+  if (!ausente(d.monto)) {
+    if (!miembroId) return { ok: false, motivo: "Falta el cliente (miembro_id)." };
+    const monto = leerMontoLibre(d.monto);
+    if (monto === null) return { ok: false, motivo: "El monto tiene que ser una cantidad entera de colones, de 1 a 10.000.000." };
+    const intentoId = uuidDe(d.intento_id);
+    if (!intentoId) return { ok: false, motivo: FALTA_INTENTO };
+    return { ok: true, valor: { ...v.valor, miembroId, monto, intentoId, operador: leerOperador(d.operador) } };
+  }
   const recompensaId = uuidDe(d.recompensa_id);
   if (!miembroId || !recompensaId) return { ok: false, motivo: "Faltan el cliente o el premio (miembro_id y recompensa_id)." };
   const intentoId = uuidDe(d.intento_id);
@@ -318,7 +344,25 @@ export type ClienteDeLaCaja = {
   textos: CamposTarjeta;
   progreso: { actual: number; total: number } | null;
   recompensas: RecompensaDeLaCaja[];
+  /**
+   * (0253) La tarjeta usa el cashback en MONTO LIBRE: «Canjear» pide cuánto
+   * quiere usar el cliente (`caja/canjear` con `monto`), desde `minimo`
+   * (null = desde ₡1) hasta su saldo. null = se canjean premios, como siempre.
+   */
+  canje_libre: CanjeLibre | null;
+  /**
+   * Lo que el motor aplica al ACREDITAR una compra: las columnas que lee
+   * `acreditar_lealtad`. La caja las usa para no prometer de más («Gana
+   * ₡500 aprox.» con un tope de ₡300). null = no hay.
+   */
+  acumulacion: { compra_minima: number | null; tope_por_compra: number | null };
 };
+
+/** Un entero positivo de una columna de reglas (0125), o null. */
+function enteroPositivo(v: unknown): number | null {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : null;
+}
 
 /** Los premios activos, del más barato al más caro, con «¿le alcanza?». */
 export function recompensasParaCaja(
@@ -360,6 +404,11 @@ export function armarClienteDeLaCaja(d: {
     textos: tarjeta.textos,
     progreso: tarjeta.progreso,
     recompensas,
+    canje_libre: tarjeta.modo === "cashback" ? canjeLibreDe(tarjeta.beneficio) : null,
+    acumulacion: {
+      compra_minima: enteroPositivo(d.fila.compra_minima),
+      tope_por_compra: enteroPositivo(d.fila.max_por_transaccion),
+    },
   };
 }
 

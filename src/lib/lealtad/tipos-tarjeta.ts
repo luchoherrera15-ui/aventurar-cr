@@ -299,6 +299,20 @@ export type ConfigCashback = {
   compraMinima: number;
   /** Tope de devolución por compra. null = sin tope. */
   topePorCompra: number | null;
+  /**
+   * CANJE LIBRE (0253): el cliente usa el MONTO que quiera de su saldo
+   * (`canjear_monto_lealtad`), en vez de canjearlo en tramos fijos
+   * (la recompensa «₡1 000 de tu cashback», `TRAMO_CASHBACK`). OPCIONAL
+   * a propósito: las tarjetas guardadas antes no traen el campo y se
+   * siguen leyendo igual — ausente = tramos, como siempre. Hoy lo llevan
+   * las tarjetas de Foorkie (ver `canje-libre.ts`).
+   */
+  canjeLibre?: boolean;
+  /**
+   * Con canje libre: lo MÍNIMO que se puede usar de una vez, en colones
+   * enteros. null o ausente = desde ₡1. Lo hace cumplir el RPC, bajo lock.
+   */
+  minimoCanje?: number | null;
 };
 
 export type ConfigBeneficio =
@@ -460,6 +474,17 @@ export function validarBeneficio(config: ConfigBeneficio): string | null {
       if (config.compraMinima < 0) return "La compra mínima no puede ser negativa.";
       if (config.topePorCompra !== null && config.topePorCompra <= 0) {
         return "El tope por compra tiene que ser mayor a 0.";
+      }
+      // El canje libre (0253). Los dos campos son opcionales: una tarjeta
+      // guardada antes no los trae y sigue siendo válida.
+      if (config.canjeLibre !== undefined && typeof config.canjeLibre !== "boolean") {
+        return "El canje libre se prende o se apaga (true o false).";
+      }
+      if (config.minimoCanje !== undefined && config.minimoCanje !== null) {
+        const m = config.minimoCanje;
+        if (typeof m !== "number" || !Number.isInteger(m) || m < 1 || m > 10_000_000) {
+          return "El mínimo para usar el saldo va en colones enteros, de ₡1 a ₡10.000.000.";
+        }
       }
       return null;
     }

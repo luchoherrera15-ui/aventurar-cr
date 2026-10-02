@@ -1,5 +1,5 @@
-import { fechaISOEnZona } from "@/lib/fechas";
-import { tipoDe } from "./tipos-tarjeta";
+import { fechaISOEnZona, fechaLargaCR } from "@/lib/fechas";
+import { tipoDe, type TipoTarjeta } from "./tipos-tarjeta";
 
 /**
  * CUÁNDO SE LE VENCEN LOS SELLOS A UN CLIENTE (0180).
@@ -73,6 +73,40 @@ export type ReglaSellos = {
 export const SIN_REGLA: ReglaSellos = { meses: null, desde: null };
 
 /**
+ * ── EL SALDO DE CASHBACK Y LOS PUNTOS TAMBIÉN (0253) ────────────────
+ *
+ * Pedido del dueño (2 oct 2026, desde Foorkie): «poder setear de cuándo a
+ * cuándo vencen los puntos». La 0180 dejó el vencimiento SOLO para sellos
+ * («en cashback el saldo es plata, y hacerla desaparecer por no volver es
+ * otra conversación»). Esa conversación la tuvo el dueño para las
+ * tarjetas de FOORKIE: ahí el restaurante decide, desde su panel, si el
+ * cashback o los puntos vencen por inactividad.
+ *
+ * Por eso el permiso es explícito (`saldoTambien`) y lo da SOLO quien sabe
+ * que la tarjeta es de Foorkie (`lealtad_por_foorkie`): el pase de Apple y
+ * el de Google (con su marca), el barrido (con una consulta) y el guardado
+ * de Foorkie. Sin él —las tarjetas de Bookea, Pura Matcha— todo sigue
+ * exactamente como la 0180: un cashback o unos puntos NUNCA vencen, aunque
+ * alguien haya escrito la columna a mano. La gift card no vence nunca: es
+ * plata que alguien pagó.
+ *
+ * Mismas columnas (`sellos_vencen_meses` / `sellos_vencen_desde`), mismo
+ * reloj por cliente, misma idempotencia (`venc:<fecha de corte>`) y el
+ * mismo aviso 14 días antes: no hay un segundo mecanismo que se pueda
+ * desalinear del primero.
+ */
+export type OpcionesDeLaRegla = {
+  /** true = la tarjeta es de Foorkie: el cashback y los puntos también pueden vencer. */
+  saldoTambien?: boolean;
+};
+
+/** ¿A este tipo de tarjeta se le puede vencer el saldo? */
+export function tipoConVencimiento(tipo: TipoTarjeta, opciones: OpcionesDeLaRegla = {}): boolean {
+  if (tipo === "sellos") return true;
+  return opciones.saldoTambien === true && (tipo === "cashback" || tipo === "puntos");
+}
+
+/**
  * La fila de `programa_lealtad` → la regla.
  *
  * Toma `Record<string, unknown>` y no un tipo cerrado por lo mismo que
@@ -82,10 +116,12 @@ export const SIN_REGLA: ReglaSellos = { meses: null, desde: null };
  *
  * El filtro por tipo vive acá y no en cada llamador: es la línea que
  * garantiza que un cashback o una gift card no pierdan saldo nunca,
- * aunque alguien haya escrito la columna a mano en esa fila.
+ * aunque alguien haya escrito la columna a mano en esa fila. Desde la
+ * 0253 el cashback y los puntos vencen SOLO con `saldoTambien` (ver
+ * arriba); la gift card, nunca.
  */
-export function reglaDeFila(fila: Record<string, unknown>): ReglaSellos {
-  if (tipoDe(typeof fila.modo === "string" ? fila.modo : null) !== "sellos") return SIN_REGLA;
+export function reglaDeFila(fila: Record<string, unknown>, opciones: OpcionesDeLaRegla = {}): ReglaSellos {
+  if (!tipoConVencimiento(tipoDe(typeof fila.modo === "string" ? fila.modo : null), opciones)) return SIN_REGLA;
 
   const meses = fila.sellos_vencen_meses;
   if (typeof meses !== "number" || !Number.isInteger(meses) || meses < MESES_MIN) return SIN_REGLA;
@@ -113,8 +149,9 @@ export function reglaDeFila(fila: Record<string, unknown>): ReglaSellos {
 export function mesesGuardables(
   tipo: string | null | undefined,
   valor: number | null | undefined,
+  opciones: OpcionesDeLaRegla = {},
 ): number | null {
-  if (tipoDe(tipo) !== "sellos") return null;
+  if (!tipoConVencimiento(tipoDe(tipo), opciones)) return null;
   if (typeof valor !== "number" || !Number.isInteger(valor)) return null;
   if (valor < MESES_MIN) return null;
   return Math.min(valor, MESES_MAX);
@@ -274,11 +311,54 @@ export function referenciaDeCorte(venceEl: string): string {
   return `venc:${venceEl}`;
 }
 
-/** El motivo que va escrito en el movimiento del ledger, en palabras. */
-export function motivoDeCorte(meses: number): string {
+/**
+ * El motivo que va escrito en el movimiento del ledger, en palabras. En
+ * sellos, el de siempre (byte por byte); en cashback y puntos (0253, solo
+ * Foorkie) dice qué se venció.
+ */
+export function motivoDeCorte(meses: number, tipo: TipoTarjeta = "sellos"): string {
+  const plazo = meses === 1 ? "pasó 1 mes" : `pasaron ${meses} meses`;
+  if (tipo === "cashback") return `Cashback vencido: ${plazo} sin usar la tarjeta`;
+  if (tipo === "puntos") return `Puntos vencidos: ${plazo} sin usar la tarjeta`;
   return meses === 1
     ? "Sellos reiniciados: pasó 1 mes sin visitas"
     : `Sellos reiniciados: pasaron ${meses} meses sin visitas`;
+}
+
+/**
+ * EL AVISO 14 DÍAS ANTES, EN EL PASE (0253) — para las tarjetas de Foorkie.
+ *
+ * Bookea no les escribe correos a los clientes de las tarjetas de Foorkie
+ * (`losCorreosLosMandaFoorkie`): para ellas el único aviso de que algo
+ * está por vencer llega a la tarjeta del teléfono, como un mensaje del
+ * restaurante (`foorkie-vencimiento.ts`). Hasta 120 caracteres, en una
+ * línea: es lo que entra en el reverso de Apple y en un mensaje de Google.
+ */
+export function textoPorVencerEnElPase({
+  tipo,
+  saldo,
+  venceEl,
+}: {
+  tipo: TipoTarjeta;
+  saldo: number;
+  /** ISO de la fecha de corte, en la zona del negocio. */
+  venceEl: string;
+}): string {
+  const largo = fechaLargaCR(venceEl);
+  // «Sábado 17 de octubre de 2026» → «17 de octubre de 2026».
+  const cuando = largo.slice(largo.indexOf(" ") + 1);
+  const n = Math.max(0, Math.round(saldo));
+  if (tipo === "cashback") {
+    return `Tus ₡${n.toLocaleString("es-CR")} de cashback vencen el ${cuando}. Usalos o volvé antes y no los perdés.`;
+  }
+  if (tipo === "puntos") {
+    return n === 1
+      ? `Tu punto vence el ${cuando}. Usalo o volvé antes y no lo perdés.`
+      : `Tus ${n.toLocaleString("es-CR")} puntos vencen el ${cuando}. Usalos o volvé antes y no los perdés.`;
+  }
+  return n === 1
+    ? `Tu sello vence el ${cuando}. Volvé antes y no lo perdés.`
+    : `Tus ${n} sellos vencen el ${cuando}. Volvé antes y no los perdés.`;
 }
 
 /**

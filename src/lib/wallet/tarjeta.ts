@@ -23,6 +23,7 @@ import { configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
 import { tintaSobre } from "@/lib/colores-imagen";
 import { MARCA_BOOKEA, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
 import { textoVisible } from "@/lib/wallet/mensaje-del-miembro";
+import { ayudaCashbackLibre, canjeLibreDe, textosCashbackLibre } from "@/lib/lealtad/canje-libre";
 
 /**
  * Alias histórico de `TipoTarjeta`. El nombre «modo» quedó de cuando
@@ -510,8 +511,15 @@ function camposDelTipo(datos: DatosDelTexto): CamposTarjeta {
   }
 
   if (modo === "cashback") {
+    const encabezado = { label: "SALDO", value: `₡${datos.saldo.toLocaleString("es-CR")}` };
+    // EL CANJE LIBRE (0253, las tarjetas de Foorkie): el saldo se usa en
+    // el monto que el cliente quiera, así que no hay un «CANJEÁ POR ₡1 000
+    // de tu cashback» que prometer. Sin la marca en el beneficio, la
+    // tarjeta de siempre, byte por byte.
+    const libre = canjeLibreDe(b);
+    if (libre) return { encabezado, ...textosCashbackLibre(datos.saldo, libre) };
     return {
-      encabezado: { label: "SALDO", value: `₡${datos.saldo.toLocaleString("es-CR")}` },
+      encabezado,
       detalle: { label: "ACUMULADO", value: "Se descuenta en tu próxima compra" },
       regalia: datos.meta ? { label: "CANJEÁ POR", value: datos.meta.nombre } : null,
     };
@@ -604,13 +612,28 @@ function camposDelTipo(datos: DatosDelTexto): CamposTarjeta {
  * (que corre la fecha seis horas en el servidor); el nombre del día
  * sobra acá, así que se recorta.
  */
-export function textoDeVencimiento(venceEl: string): string {
+export function textoDeVencimiento(venceEl: string, tipo: TipoTarjeta = "sellos"): string {
   const largo = fechaLargaCR(venceEl);
   const sinDia = largo.slice(largo.indexOf(" ") + 1);
+  // Cashback y puntos (0253, solo tarjetas de Foorkie): el plazo lo
+  // renueva cualquier movimiento —una compra o un canje—, no «un sello».
+  if (tipo === "cashback" || tipo === "puntos") {
+    return (
+      `El ${sinDia}, si no usás tu tarjeta antes. ` +
+      `Cada compra o canje renueva el plazo: la fecha se corre sola.`
+    );
+  }
   return (
     `El ${sinDia}, si no volvés antes. ` +
     `Cada visita renueva el plazo: con un sello más, la fecha se corre sola.`
   );
+}
+
+/** El título del renglón del vencimiento: «Tus sellos vencen», «Tu cashback vence»… */
+export function etiquetaDeVencimiento(tipo: TipoTarjeta): string {
+  if (tipo === "cashback") return "Tu cashback vence";
+  if (tipo === "puntos") return "Tus puntos vencen";
+  return "Tus sellos vencen";
 }
 
 /**
@@ -694,12 +717,15 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
         // la regla encendida. Va DESPUÉS de la promoción y antes de la
         // firma, que es el orden en que se lee el reverso: qué es, qué
         // hay de nuevo, hasta cuándo, quién lo hace.
+        // Desde la 0253 también el cashback y los puntos de una tarjeta de
+        // Foorkie: el título y la frase dicen qué vence (en sellos, los de
+        // siempre).
         ...(datos.sellosVencenEl
           ? [
               {
                 key: "vence",
-                label: "Tus sellos vencen",
-                value: textoDeVencimiento(datos.sellosVencenEl),
+                label: etiquetaDeVencimiento(tipoDe(datos.config.modo)),
+                value: textoDeVencimiento(datos.sellosVencenEl, tipoDe(datos.config.modo)),
               },
             ]
           : []),
@@ -784,6 +810,9 @@ function textoDeAyuda(datos: DatosDelTexto): string {
     return `Presentá esta tarjeta en cada visita. Al completar ${meta} sellos, ${datos.meta.nombre.toLowerCase()}.`;
   }
   if (modo === "cashback") {
+    // Canje libre (0253): el mínimo para usarlo, si la tarjeta tiene uno.
+    const libre = canjeLibreDe(b);
+    if (libre) return ayudaCashbackLibre(libre);
     return "Presentá esta tarjeta al pagar. Tu saldo crece con cada compra y se descuenta cuando quieras usarlo.";
   }
 

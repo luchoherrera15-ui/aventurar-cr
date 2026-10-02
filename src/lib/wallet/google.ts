@@ -7,6 +7,7 @@ import { minutoISOCR } from "@/lib/fechas";
 import {
   camposSegunModo,
   coloresDe,
+  etiquetaDeVencimiento,
   metaDeSellos,
   tarjetaDesdeFila,
   textoDePausa,
@@ -14,6 +15,7 @@ import {
   type ConfigPase,
   type MetaRecompensa,
 } from "./tarjeta";
+import { canjeLibreDe } from "@/lib/lealtad/canje-libre";
 import { estadoVisible } from "@/lib/lealtad/programas";
 import { fechaDeCorte, reglaDeFila } from "@/lib/lealtad/vencimiento-sellos";
 import { resumenDeFila } from "./programa-principal";
@@ -394,7 +396,17 @@ export function contenidoDelObjeto({
       body: textoDePausa(negocioNombre, tipo),
     });
   }
-  if (TIPOS_HEREDADOS.includes(tipo)) {
+  // El cashback de canje libre (0253, las tarjetas de Foorkie) no tiene un
+  // tramo que alcanzar: su módulo es el mismo renglón del frente de Apple
+  // («Tu cashback — Usalo cuando quieras»), no «₡1 000 de tu cashback».
+  const cashbackLibre = tipo === "cashback" && canjeLibreDe(beneficio) !== null;
+  if (cashbackLibre) {
+    modulos.push({
+      id: "beneficio",
+      header: enTitulo(campos.detalle.label),
+      body: campos.regalia ? `${campos.detalle.value}. Se usa desde ${campos.regalia.value}.` : campos.detalle.value,
+    });
+  } else if (TIPOS_HEREDADOS.includes(tipo)) {
     // La meta de un programa de los viejos vive en `recompensas`: es el
     // «5 de 10» de toda la vida y se deja intacto.
     const total = metaDeSellos(meta);
@@ -425,8 +437,9 @@ export function contenidoDelObjeto({
   if (sellosVencenEl) {
     modulos.push({
       id: "vence",
-      header: "Tus sellos vencen",
-      body: textoDeVencimiento(sellosVencenEl),
+      // Desde la 0253 también el cashback y los puntos (tarjetas de Foorkie).
+      header: etiquetaDeVencimiento(tipo),
+      body: textoDeVencimiento(sellosVencenEl, tipo),
     });
   }
 
@@ -497,8 +510,10 @@ async function corteDeSellos(
   miembroId: string,
   programa: Record<string, unknown>,
   zona: string | null,
+  /** La tarjeta es de Foorkie: su cashback o sus puntos también pueden vencer (0253). */
+  saldoTambien = false,
 ): Promise<string | null> {
-  const regla = reglaDeFila(programa);
+  const regla = reglaDeFila(programa, { saldoTambien });
   if (regla.meses === null) return null;
 
   const { data: ultimo } = await db
@@ -1126,6 +1141,7 @@ export async function refrescarPaseGoogleDeMiembro(
     // el estado del programa, así que el parche lleva la pausa (o la
     // saca). El booleano va SIEMPRE explícito —nunca `undefined`— para
     // que la vuelta borre el módulo que puso la ida.
+    const marca = await marcaPromesa;
     const parche = contenidoDelObjeto({
       negocioNombre: nombreNegocio,
       saldo,
@@ -1136,11 +1152,12 @@ export async function refrescarPaseGoogleDeMiembro(
       // El mismo cálculo que hace el pase de Apple, con los mismos
       // datos: la regla de la fila y el último movimiento del ledger.
       // Sin regla (el caso de casi todas) esto queda en null y el PATCH
-      // sale igual que siempre.
-      sellosVencenEl: await corteDeSellos(db, miembroId, programa, zonaNegocio),
+      // sale igual que siempre. En una tarjeta de Foorkie también vencen
+      // el cashback y los puntos (0253), igual que en Apple.
+      sellosVencenEl: await corteDeSellos(db, miembroId, programa, zonaNegocio, marca.marca === "foorkie"),
       // Bookea: nada nuevo. Foorkie: sus links, que entran en ESTE pase
       // con este refresco (cada pase con el suyo, ninguno de golpe).
-      marca: await marcaPromesa,
+      marca,
     });
 
     const res = await llamarApi(
@@ -1390,7 +1407,9 @@ export type ResultadoAvisoGoogle =
  */
 export async function avisarEventoGoogle(
   miembroId: string,
-  aviso: { evento: EventoDelPase; texto: string; encabezado: string },
+  // `vence`: el aviso de que el saldo está por vencer en una tarjeta de
+  // Foorkie (0253, `foorkie-vencimiento.ts`). Solo cambia el id del mensaje.
+  aviso: { evento: EventoDelPase | "vence"; texto: string; encabezado: string },
   { ahora = Date.now() }: { ahora?: number } = {},
 ): Promise<ResultadoAvisoGoogle> {
   try {

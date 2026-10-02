@@ -10,6 +10,9 @@ import {
   type ResultadoAltaSinSesion,
 } from "@/lib/lealtad/personas";
 import { estadoVisible, type EstadoVisible } from "@/lib/lealtad/programas";
+import { regalarSellosDeBienvenidaCore } from "@/lib/lealtad/operar-core";
+import { leerBeneficio, tipoDe } from "@/lib/lealtad/tipos-tarjeta";
+import { localDeFoorkieDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 import { resumenDeFila } from "@/lib/wallet/programa-principal";
 import {
   armarTarjeta,
@@ -347,7 +350,44 @@ export async function anotarOrigenDelPermiso(
 export type DependenciasAfiliar = {
   /** El alta del póster sin la cookie. Se inyecta solo en las pruebas. */
   alta: (db: Admin, p: ParametrosAlta) => Promise<ResultadoAltaSinSesion>;
+  /**
+   * Los sellos de regalo al unirse (0253). Por defecto
+   * `regaloDeBienvenidaDeFoorkie`; en las pruebas, un doble.
+   */
+  regalo?: (db: Admin, d: { ranchoId: string; programaId: string; miembroId: string }) => Promise<number>;
 };
+
+/**
+ * ¿La tarjeta regala sellos al unirse? Pura: lo dice su `beneficio`
+ * (`ConfigSellos.inicial`, menos que la meta). 0 si no.
+ */
+export function sellosDeRegalo(fila: Record<string, unknown>): number {
+  if (tipoDe(typeof fila.modo === "string" ? fila.modo : null) !== "sellos") return 0;
+  const b = leerBeneficio(fila.beneficio, "sellos");
+  if (b?.tipo !== "sellos" || !Number.isInteger(b.inicial) || b.inicial <= 0 || b.inicial >= b.requeridos) return 0;
+  return b.inicial;
+}
+
+/**
+ * LOS SELLOS DE REGALO AL UNIRSE, en una tarjeta de FOORKIE (0253).
+ *
+ * El restaurante los configura en las Reglas de su tarjeta y los recibe
+ * quien se une desde Foorkie (su página o su app), una sola vez
+ * (`referenciaDeBienvenida`). Solo con la marca `lealtad_por_foorkie`: una
+ * tarjeta de Bookea vinculada —Pura Matcha— no cambia. Nunca lanza.
+ */
+export async function regaloDeBienvenidaDeFoorkie(
+  db: Admin,
+  d: { ranchoId: string; programaId: string; miembroId: string },
+): Promise<number> {
+  try {
+    if (!(await localDeFoorkieDeLaTarjeta(db, { programaId: d.programaId, ranchoId: d.ranchoId }))) return 0;
+    return await regalarSellosDeBienvenidaCore({ db, ranchoId: d.ranchoId, miembroId: d.miembroId });
+  } catch (e) {
+    console.warn("[foorkie/afiliar] No entraron los sellos de regalo:", e);
+    return 0;
+  }
+}
 
 /**
  * De punta a punta: la tarjeta tiene que estar operando, los datos se
@@ -360,7 +400,7 @@ export async function afiliarDesdeFoorkie(
   db: Admin,
   pedido: PedidoAfiliar,
   { base, secreto, ahora = new Date() }: { base: string; secreto: string; ahora?: Date },
-  { alta }: DependenciasAfiliar = { alta: altaPorQrSinSesion },
+  { alta, regalo = regaloDeBienvenidaDeFoorkie }: DependenciasAfiliar = { alta: altaPorQrSinSesion },
 ): Promise<RespuestaAfiliar> {
   const { ranchoId, programaId } = pedido;
 
@@ -414,6 +454,13 @@ export async function afiliarDesdeFoorkie(
   if (!r.miembroId) return { ok: false, codigo: "reintentar", motivo: REINTENTAR };
   const { data: miembro } = await db.from("miembros").select("id, programa_id, estado").eq("id", r.miembroId).maybeSingle();
   if (!miembro || miembro.programa_id !== programaId) return { ok: false, codigo: "reintentar", motivo: REINTENTAR };
+  // Los sellos de regalo (0253): a la membresía NUEVA y activa (una dada
+  // de baja o suspendida cae justo abajo), antes de leer el saldo, así la
+  // tarjeta que se devuelve ya los trae. Solo si la tarjeta regala
+  // (`sellosDeRegalo`): las demás ni hacen la consulta de la marca.
+  if (r.miembroNuevo && miembro.estado === "activa" && sellosDeRegalo(fila) > 0) {
+    await regalo(db, { ranchoId, programaId, miembroId: r.miembroId });
+  }
   const baja = motivoDeBaja(String(miembro.estado ?? ""), nombreNegocio);
   if (baja) return { ok: false, codigo: "dada_de_baja", motivo: baja };
 

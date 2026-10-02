@@ -24,6 +24,7 @@ import { personasActivasDe } from "./cupo";
 import { definicionDe } from "./planes";
 import { estadoDelPrograma } from "./reglas";
 import type { PermisosLealtad } from "./permisos";
+import { canjeLibreDe, leerMontoLibre, motivoCanjeLibre, motivoDelCanjeLibre } from "./canje-libre";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -1050,6 +1051,253 @@ function anotarIntento(
       // Sin la 0137 no hay dónde anotar. El canje ya se decidió.
     }
   });
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  CANJEAR UN MONTO — el cashback que el cliente quiera usar (0253)
+// ════════════════════════════════════════════════════════════════════
+
+export type ResultadoCanjearMonto =
+  | {
+      ok: true;
+      /** Lo que se usó. En un reintento (`yaEstaba`), lo que usó ESE intento. */
+      monto: number;
+      /** El saldo que le queda. */
+      saldo: number;
+      /**
+       * NO SE DESCONTÓ NADA DE NUEVO: ese intento ya se había usado. Igual
+       * que `yaEstaba` al acreditar: quien pinte esto tiene que decirlo.
+       */
+      yaEstaba: boolean;
+    }
+  | { ok: false; codigo: string; motivo: string; saldo?: number; minimo?: number };
+
+/**
+ * El cliente usa un MONTO de su cashback (`canje-libre.ts`): lo que él
+ * quiera, entre el mínimo de la tarjeta y lo que tiene.
+ *
+ * Es el hermano de `canjearCore` y no una rama adentro: allá el costo lo
+ * pone una recompensa (`canjear_recompensa`, costo fijo) y acá lo pone el
+ * cliente (`canjear_monto_lealtad`, 0253). El RPC revalida TODO bajo el
+ * mismo lock que acreditar y canjear —que la membresía esté activa, que la
+ * tarjeta opere y tenga canje libre, la verificación, el mínimo y el
+ * saldo— y es idempotente por la referencia: un reintento no descuenta
+ * dos veces.
+ *
+ * Las reglas de la 0136 que no son del saldo —la vigencia de la tarjeta,
+ * los días y el horario— se miran ANTES del RPC, igual que en el canje de
+ * premios (`autorizarCanje`). Los topes de usos (uso único, por cliente,
+ * global) son de los PREMIOS: el cashback es plata del cliente y no se le
+ * raciona cuántas veces la usa.
+ *
+ * `referencia` la arma la puerta (`referenciaCanjeLibre`), nunca llega
+ * cruda de afuera: misma regla que el resto del archivo.
+ */
+export async function canjearMontoCore(entrada: {
+  db: SupabaseClient;
+  ranchoId: string;
+  quien: QuienOpera;
+  miembroId: string;
+  monto: number;
+  referencia: string;
+  /** El texto del ledger (`motivoCanjeLibre`). */
+  motivo?: string | null;
+}): Promise<ResultadoCanjearMonto> {
+  const { db, ranchoId, quien, miembroId, referencia } = entrada;
+
+  if (!quien.permisos.canjear) {
+    return {
+      ok: false,
+      codigo: "sin_permiso",
+      motivo: "No tenés permiso para canjear premios — pedíselo al dueño.",
+    };
+  }
+  const monto = leerMontoLibre(entrada.monto);
+  if (monto === null) {
+    return { ok: false, codigo: "monto_invalido", motivo: motivoDelCanjeLibre({ codigo: "monto_invalido" }) };
+  }
+  if (!referencia.trim()) {
+    return { ok: false, codigo: "sin_referencia", motivo: "Falta la llave de la operación. Probá de nuevo." };
+  }
+
+  const resuelto = await miembroDeEsteNegocio(db, ranchoId, miembroId);
+  if (!resuelto.ok) return { ok: false, codigo: "miembro_ajeno", motivo: resuelto.motivo };
+  const miembro = resuelto.miembro;
+  if (miembro.archivado) {
+    return { ok: false, codigo: "programa_archivado", motivo: motivoTarjetaArchivada(miembro.nombrePrograma) };
+  }
+  // El RPC vuelve a mirarlo bajo lock; esto solo da la frase antes.
+  if (tipoDe(miembro.modo) !== "cashback" || !canjeLibreDe(leerBeneficio(miembro.beneficio, "cashback"))) {
+    return { ok: false, codigo: "canje_no_libre", motivo: motivoDelCanjeLibre({ codigo: "canje_no_libre" }) };
+  }
+
+  const reglas = await reglasDeUsoDelMonto(db, miembro.programaId, monto);
+  if (!reglas.ok) return reglas;
+
+  const { data, error } = await db.rpc("canjear_monto_lealtad", {
+    p_miembro_id: miembro.miembroId,
+    p_monto: monto,
+    p_usuario_id: quien.usuarioId,
+    p_referencia: referencia,
+    p_motivo: entrada.motivo ?? motivoCanjeLibre(null),
+  });
+  if (error) {
+    // Sin la 0253 la función no existe: no se hizo nada (no es ambiguo).
+    if (error.code === "PGRST202" || error.code === "42883") {
+      return {
+        ok: false,
+        codigo: "sin_migracion",
+        motivo: "Todavía no se puede usar un monto del cashback. Probá más tarde.",
+      };
+    }
+    return { ok: false, codigo: "error_base", motivo: traducirErrorDeBase(error, "usar el cashback") };
+  }
+
+  const r = (data ?? {}) as {
+    ok?: boolean;
+    ya_estaba?: boolean;
+    codigo?: string;
+    motivo?: string;
+    saldo?: number;
+    monto?: number;
+    minimo?: number;
+  };
+  const saldo = typeof r.saldo === "number" ? r.saldo : 0;
+
+  if (r.ok !== true) {
+    return {
+      ok: false,
+      codigo: r.codigo ?? "rechazado",
+      motivo: motivoDelCanjeLibre(r),
+      ...(typeof r.saldo === "number" ? { saldo: r.saldo } : {}),
+      ...(typeof r.minimo === "number" ? { minimo: r.minimo } : {}),
+    };
+  }
+
+  // Un reintento: el saldo ya se había descontado y el pase ya se enteró
+  // (y agradecer de nuevo sería mentirle). No se avisa nada.
+  if (r.ya_estaba === true) {
+    return { ok: true, yaEstaba: true, monto: typeof r.monto === "number" ? r.monto : monto, saldo };
+  }
+
+  // Igual que el canje de premios: el aviso al Wallet corre después de
+  // responder y `canjear` es el agradecimiento del restaurante.
+  after(() => avisarCambioDePase(miembro.miembroId, "canjear"));
+  return { ok: true, yaEstaba: false, monto: typeof r.monto === "number" ? r.monto : monto, saldo };
+}
+
+/**
+ * Las reglas de la 0136 que valen para usar el cashback: que la tarjeta
+ * opere (estado y vigencia), el día y el horario. Con `autorizarCanje`, el
+ * MISMO juez del canje de premios; los topes de usos van en cero porque
+ * son de los premios, no del saldo. Sin las columnas de la 0136 no hay
+ * reglas que romper.
+ */
+async function reglasDeUsoDelMonto(
+  db: SupabaseClient,
+  programaId: string,
+  monto: number,
+): Promise<{ ok: true } | { ok: false; codigo: string; motivo: string }> {
+  const { autorizarCanje } = await import("@/lib/lealtad/canje");
+  const { hoyISOCR } = await import("@/lib/fechas");
+  const { data: programa } = await db.from("programa_lealtad").select("*").eq("id", programaId).maybeSingle();
+  if (!programa) return { ok: true };
+  const fila = programa as Record<string, unknown>;
+  const ahoraCR = `${hoyISOCR()}T${new Intl.DateTimeFormat("en-GB", {
+    timeZone: "America/Costa_Rica",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date())}`;
+  const veredicto = autorizarCanje({
+    programa: {
+      estado: (fila.estado as string | null) ?? null,
+      activo: !!fila.activo,
+      vigente_desde: (fila.vigente_desde as string | null) ?? null,
+      vigente_hasta: (fila.vigente_hasta as string | null) ?? null,
+      uso_unico: false,
+      max_por_cliente: null,
+      max_global: null,
+      dias_permitidos: (fila.dias_permitidos as number[] | null) ?? null,
+      hora_desde: (fila.hora_desde as string | null) ?? null,
+      hora_hasta: (fila.hora_hasta as string | null) ?? null,
+    },
+    saldo: monto,
+    costo: monto,
+    canjesDelCliente: 0,
+    canjesTotales: 0,
+    ahoraCR,
+  });
+  return veredicto.ok ? { ok: true } : { ok: false, codigo: veredicto.codigo, motivo: veredicto.motivo };
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  LOS SELLOS DE REGALO AL UNIRSE (0253, tarjetas de Foorkie)
+// ════════════════════════════════════════════════════════════════════
+
+/**
+ * La referencia del regalo: UNA por miembro, para siempre. Si el alta se
+ * repite, o la red corta y se reintenta, el índice único del ledger lo
+ * rebota (`ya-otorgado`): nadie recibe el regalo dos veces.
+ */
+export function referenciaDeBienvenida(miembroId: string): string {
+  return `bienvenida:${miembroId}`;
+}
+
+export const MOTIVO_BIENVENIDA = "Sellos de regalo por unirse";
+
+/**
+ * «Sellos de regalo al unirse» (`ConfigSellos.inicial`). El creador lo
+ * guarda desde siempre, pero ningún camino lo daba: la tarjeta prometía
+ * «arrancás con 2» y el cliente arrancaba en 0. Desde la 0253 lo da el
+ * alta de las tarjetas de FOORKIE (`afiliarDesdeFoorkie`), a la membresía
+ * NUEVA, con el mismo RPC que cualquier sello (`acreditar_lealtad` con
+ * `p_sellos`, 0197): estado del programa, topes y lock incluidos.
+ *
+ * Nunca lanza y nunca frena el alta: el cliente ya quedó adentro; sin
+ * el regalo, igual tiene su tarjeta. Devuelve los sellos que entraron (0
+ * si no había regalo, o si ya se había dado).
+ */
+export async function regalarSellosDeBienvenidaCore(entrada: {
+  db: SupabaseClient;
+  ranchoId: string;
+  miembroId: string;
+}): Promise<number> {
+  const { db, ranchoId, miembroId } = entrada;
+  try {
+    const resuelto = await miembroDeEsteNegocio(db, ranchoId, miembroId);
+    if (!resuelto.ok || resuelto.miembro.archivado) return 0;
+    const m = resuelto.miembro;
+    if (tipoDe(m.modo) !== "sellos") return 0;
+    const b = leerBeneficio(m.beneficio, "sellos");
+    const inicial = b?.tipo === "sellos" && Number.isInteger(b.inicial) ? b.inicial : 0;
+    // Menos que la meta: regalar la tarjeta llena la vuelve un cupón (`validarBeneficio`).
+    if (inicial <= 0 || (b?.tipo === "sellos" && inicial >= b.requeridos)) return 0;
+
+    const { data, error } = await db.rpc("acreditar_lealtad", {
+      p_miembro_id: m.miembroId,
+      p_monto: null,
+      p_referencia: referenciaDeBienvenida(m.miembroId),
+      p_usuario_id: null,
+      p_motivo: MOTIVO_BIENVENIDA,
+      p_sellos: inicial,
+    });
+    if (error) {
+      console.warn(`[lealtad] No entraron los sellos de regalo de ${m.miembroId}: ${error.message}`);
+      return 0;
+    }
+    const r = (data ?? {}) as { otorgado?: boolean; puntos?: number };
+    if (r.otorgado !== true) return 0;
+    try {
+      // Sin evento: no es una compra, y el pase casi nunca existe todavía.
+      after(() => avisarCambioDePase(m.miembroId));
+    } catch {
+      // Fuera de un pedido (`after` no tiene dónde colgarse): el pase se entera en su próximo refresco.
+    }
+    return typeof r.puntos === "number" ? r.puntos : inicial;
+  } catch (e) {
+    console.warn("[lealtad] No entraron los sellos de regalo:", e);
+    return 0;
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════

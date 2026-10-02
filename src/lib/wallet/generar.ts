@@ -314,7 +314,11 @@ export async function generarPaseDeLealtad({
   // tarjeta de sellos y para las filas que llegan sin las columnas de
   // la 0180 (que la pega el dueño a mano): ahí esto queda en null y el
   // pase sale exactamente igual que antes.
-  const regla = reglaDeFila(programaFila);
+  //
+  // Desde la 0253, en una tarjeta de FOORKIE también vencen el cashback
+  // y los puntos (lo decide el restaurante en su panel): por eso la marca
+  // se espera acá. Una tarjeta de Bookea, como siempre.
+  const regla = reglaDeFila(programaFila, { saldoTambien: (await marcaPromesa).marca === "foorkie" });
   let sellosVencenEl: string | null = null;
   if (regla.meses !== null) {
     const { data: ultimo } = await db

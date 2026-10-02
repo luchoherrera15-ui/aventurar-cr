@@ -9,6 +9,7 @@ import {
   type ReglaSellos,
   type Veredicto,
 } from "./vencimiento-sellos";
+import { tipoDe, type TipoTarjeta } from "./tipos-tarjeta";
 
 /**
  * EL BARRIDO QUE REINICIA LOS SELLOS VENCIDOS (0180).
@@ -96,8 +97,12 @@ export type AccionesVencimiento = {
   avisarPase(miembroId: string): Promise<void>;
   /** Reclama el aviso. false = ya lo mandó otra corrida (o ya se mandó). */
   reclamarAviso(a: { miembroId: string; venceEl: string; saldo: number }): Promise<boolean>;
-  /** El correo, uno solo. Nunca lanza. */
-  enviarAviso(a: { miembroId: string; venceEl: string; saldo: number }): Promise<void>;
+  /**
+   * El aviso, uno solo. Nunca lanza. El correo de siempre; en una tarjeta
+   * de Foorkie (`deFoorkie`, 0253), un mensaje a su pase: Bookea no les
+   * escribe correos a esos clientes.
+   */
+  enviarAviso(a: { miembroId: string; venceEl: string; saldo: number; tipo?: TipoTarjeta; deFoorkie?: boolean }): Promise<void>;
 };
 
 /** Qué terminó pasando con un miembro. */
@@ -123,6 +128,8 @@ export async function atenderMiembro({
   hoy,
   zona,
   acciones,
+  tipo = "sellos",
+  deFoorkie = false,
 }: {
   miembro: MiembroConSellos;
   regla: ReglaSellos;
@@ -130,6 +137,14 @@ export async function atenderMiembro({
   hoy: string;
   zona: string | null | undefined;
   acciones: AccionesVencimiento;
+  /**
+   * El tipo de la tarjeta (0253): en cashback y puntos —solo tarjetas de
+   * Foorkie— cambia el motivo del ledger y el texto del aviso. Ausente =
+   * sellos, exactamente como antes.
+   */
+  tipo?: TipoTarjeta;
+  /** La tarjeta es de Foorkie: el aviso va a su pase, no por correo. */
+  deFoorkie?: boolean;
 }): Promise<ResultadoMiembro> {
   const venceEl = fechaDeCorte({
     regla,
@@ -157,7 +172,13 @@ export async function atenderMiembro({
       saldo: miembro.saldo,
     });
     if (!mio) return "aviso-repetido";
-    await acciones.enviarAviso({ miembroId: miembro.id, venceEl, saldo: miembro.saldo });
+    await acciones.enviarAviso(
+      // Los dos campos de la 0253 solo viajan en una tarjeta de Foorkie:
+      // el aviso de una de Bookea es, campo por campo, el de siempre.
+      deFoorkie
+        ? { miembroId: miembro.id, venceEl, saldo: miembro.saldo, tipo, deFoorkie }
+        : { miembroId: miembro.id, venceEl, saldo: miembro.saldo },
+    );
     return "avisado";
   }
 
@@ -167,7 +188,7 @@ export async function atenderMiembro({
   const res = await acciones.registrarReinicio({
     miembroId: miembro.id,
     sellos: miembro.saldo,
-    motivo: motivoDeCorte(regla.meses),
+    motivo: motivoDeCorte(regla.meses, tipo),
     referencia: referenciaDeCorte(venceEl),
   });
 
@@ -232,7 +253,23 @@ export type OpcionesVencimiento = {
   db?: Admin | null;
   ahora?: Date;
   acciones?: AccionesVencimiento;
+  /**
+   * Cuáles de estas tarjetas son de Foorkie (0253). Por defecto,
+   * `tarjetasDeFoorkie` (una consulta); en las pruebas, un doble.
+   */
+  deFoorkie?: (db: Admin, tarjetas: { id: string; rancho_id: string | null }[]) => Promise<Set<string>>;
 };
+
+/** Las tarjetas de Foorkie entre estas (`foorkie-vencimiento.ts`). Nunca lanza: ante un error, ninguna. */
+async function cualesSonDeFoorkie(db: Admin, tarjetas: { id: string; rancho_id: string | null }[]): Promise<Set<string>> {
+  try {
+    const { tarjetasDeFoorkie } = await import("@/lib/plataforma/foorkie-vencimiento");
+    return await tarjetasDeFoorkie(db, tarjetas);
+  } catch (e) {
+    console.warn("[vencimiento] No se pudo saber qué tarjetas son de Foorkie:", e);
+    return new Set();
+  }
+}
 
 /** «Esa columna no existe» — o sea, falta pegar la 0180. */
 function faltaLaColumna(error: { code?: string; message?: string } | null): boolean {
@@ -299,8 +336,28 @@ async function correr(
     return { ...resumen, nota: `No se pudieron leer las tarjetas: ${error.message}` };
   }
 
-  const conRegla = ((filas ?? []) as Record<string, unknown>[])
-    .map((fila) => ({ fila, regla: reglaDeFila(fila) }))
+  // ── Cuáles son de Foorkie (0253) ─────────────────────────────────
+  // Solo se pregunta por las que tienen la columna escrita: en esas, si
+  // son de Foorkie, también vence el cashback o los puntos, y el aviso
+  // va a su pase. UNA consulta por corrida; si falla, ninguna es de
+  // Foorkie (`tarjetasDeFoorkie`): nadie pierde plata por eso.
+  const todas = (filas ?? []) as Record<string, unknown>[];
+  const candidatas = todas
+    .filter((f) => typeof f.sellos_vencen_meses === "number" && typeof f.id === "string")
+    .map((f) => ({ id: f.id as string, rancho_id: typeof f.rancho_id === "string" ? f.rancho_id : null }));
+  const deFoorkie =
+    candidatas.length > 0 ? await (opciones.deFoorkie ?? cualesSonDeFoorkie)(db, candidatas) : new Set<string>();
+
+  const conRegla = todas
+    .map((fila) => {
+      const esDeFoorkie = typeof fila.id === "string" && deFoorkie.has(fila.id);
+      return {
+        fila,
+        esDeFoorkie,
+        tipo: tipoDe(typeof fila.modo === "string" ? fila.modo : null),
+        regla: reglaDeFila(fila, { saldoTambien: esDeFoorkie }),
+      };
+    })
     .filter((x) => x.regla.meses !== null);
   resumen.programas = conRegla.length;
   if (conRegla.length === 0) return resumen;
@@ -322,7 +379,7 @@ async function correr(
     (ranchos ?? []).map((r) => [r.id as string, (r.zona_horaria as string | null) ?? null]),
   );
 
-  for (const { fila, regla } of conRegla) {
+  for (const { fila, regla, tipo, esDeFoorkie } of conRegla) {
     const programaId = typeof fila.id === "string" ? fila.id : null;
     if (!programaId) continue;
     const zona = zonas.get(typeof fila.rancho_id === "string" ? fila.rancho_id : "") ?? null;
@@ -336,7 +393,7 @@ async function correr(
 
     for (const miembro of miembros) {
       resumen.mirados++;
-      const res = await atenderMiembro({ miembro, regla, hoy, zona, acciones });
+      const res = await atenderMiembro({ miembro, regla, hoy, zona, acciones, tipo, deFoorkie: esDeFoorkie });
       if (res === "reiniciado" || res === "reinicio-repetido") resumen.reiniciados++;
       else if (res === "avisado") resumen.avisados++;
       else if (res === "pase-realineado") resumen.realineados++;
@@ -478,7 +535,19 @@ export function accionesReales(db: Admin): AccionesVencimiento {
       return false;
     },
 
-    async enviarAviso({ miembroId, venceEl, saldo }) {
+    async enviarAviso({ miembroId, venceEl, saldo, tipo, deFoorkie }) {
+      // Una tarjeta de Foorkie (0253): el aviso va a su pase, como un
+      // mensaje del restaurante. Bookea no les escribe correos a esos
+      // clientes (el correo de abajo igual se callaría solo).
+      if (deFoorkie) {
+        try {
+          const { avisarPorVencerEnElPase } = await import("@/lib/plataforma/foorkie-vencimiento");
+          await avisarPorVencerEnElPase(db, { miembroId, venceEl, saldo, tipo });
+        } catch (e) {
+          console.warn("[vencimiento] No salió el aviso en el pase:", e);
+        }
+        return;
+      }
       try {
         const { avisarSellosPorVencer } = await import("@/lib/correo/sellos-por-vencer");
         await avisarSellosPorVencer({ miembroId, venceEl, saldo });
