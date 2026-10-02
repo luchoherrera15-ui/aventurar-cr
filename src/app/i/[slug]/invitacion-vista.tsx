@@ -152,6 +152,59 @@ export default function InvitacionVista({
     };
   }, [rsvpEnModal]);
 
+  // La música de los diseños a la medida. El HTML saneado no puede
+  // traer <script>, así que el autoplay se arma acá, al límite de lo
+  // que el navegador permite: si el diseño trae un
+  // <audio data-bookea="musica"> (reproductor nativo, que queda de
+  // respaldo/pausa), (1) se INTENTA el play apenas monta la página —
+  // si el navegador lo autoriza (p. ej. el visitante ya interactuó
+  // con el dominio), suena de una; (2) si lo bloquea, arranca con el
+  // PRIMER gesto en cualquier parte (pointerdown/touchstart/keydown —
+  // el toque que abre la carta cuenta, pero cualquier toque sirve).
+  // Tras el primer play exitoso se sueltan los listeners: si el
+  // invitado pausa después, nada se la vuelve a encender.
+  const tieneMusica = !!invitacion.html_personalizado?.includes(
+    'data-bookea="musica"',
+  );
+  useEffect(() => {
+    if (!tieneMusica) return;
+    let sono = false;
+    const soltar = () => {
+      document.removeEventListener("pointerdown", alGesto, true);
+      document.removeEventListener("touchstart", alGesto, true);
+      document.removeEventListener("keydown", alGesto, true);
+    };
+    const intentar = () => {
+      if (sono) return;
+      const audio = document.querySelector<HTMLAudioElement>(
+        'audio[data-bookea="musica"]',
+      );
+      if (!audio) return;
+      if (!audio.paused) {
+        sono = true;
+        soltar();
+        return;
+      }
+      audio.volume = 0.55;
+      audio
+        .play()
+        .then(() => {
+          sono = true;
+          soltar();
+        })
+        .catch(() => {
+          /* autoplay bloqueado: se espera el primer gesto */
+        });
+    };
+    const alGesto = () => intentar();
+    intentar();
+    // Captura: corre aunque algo detenga la propagación más adentro.
+    document.addEventListener("pointerdown", alGesto, true);
+    document.addEventListener("touchstart", alGesto, true);
+    document.addEventListener("keydown", alGesto, true);
+    return soltar;
+  }, [tieneMusica]);
+
   // Destino de "cómo llegar": el link exacto si el equipo lo cargó, o
   // la búsqueda por texto del lugar. Waze siempre busca por texto.
   const busqueda = [invitacion.lugar_nombre, invitacion.direccion, "Costa Rica"]

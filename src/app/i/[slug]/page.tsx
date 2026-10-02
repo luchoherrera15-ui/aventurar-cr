@@ -133,10 +133,26 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const invitacion = await cargarInvitacion(slug);
+  const titulo = invitacion?.titulo ?? "Invitación";
+  const descripcion = "Estás en la lista — confirmá tu asistencia acá.";
   return {
-    title: invitacion?.titulo ?? "Invitación",
-    description: "Estás en la lista — confirmá tu asistencia acá.",
+    title: titulo,
+    description: descripcion,
     robots: { index: false },
+    // La previa al compartir por WhatsApp. Sin este bloque la página
+    // hereda el `openGraph` ENTERO del layout raíz (regla documentada
+    // ahí mismo: «poner solo title no alcanza») y el link de una
+    // invitación salía con el texto del marketplace — «¿Necesitás un
+    // servicio?…» — en vez del nombre del evento. La imagen no se
+    // declara: sigue llegando la de marca por convención de archivo
+    // (src/app/opengraph-image.tsx), y Twitter se deriva de este bloque.
+    openGraph: {
+      title: titulo,
+      description: descripcion,
+      siteName: "Bookea",
+      locale: "es_CR",
+      type: "website",
+    },
   };
 }
 
