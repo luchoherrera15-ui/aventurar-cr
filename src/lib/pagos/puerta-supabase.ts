@@ -14,6 +14,7 @@ import { notificarPedidoPagado } from "@/lib/invitaciones/pedido";
 import { crearNegocioDesdeSolicitud } from "@/lib/lealtad/alta-desde-solicitud";
 import { aplicarPlanDeLealtad } from "@/lib/lealtad/aplicar-plan";
 import { PLANES, type PlanId } from "@/lib/lealtad/planes";
+import { esNegocioDeFoorkie } from "@/lib/plataforma/negocio-de-foorkie";
 import { stripeDelEntorno } from "./stripe";
 import type { ClaseDeAviso, DatosSuscripcion, Dueno, Puerta } from "./suscripciones";
 
@@ -647,6 +648,15 @@ async function avisarAlDuenoEn(
     const quien = await duenoDelNegocio(db, aviso);
     if (!quien) {
       console.warn(`[stripe] Sin correo del dueño: no salió el aviso «${aviso.clase}».`);
+      return;
+    }
+
+    // Un negocio de Foorkie no recibe correos de Bookea: su restaurante
+    // maneja la lealtad desde el panel de Foorkie. La pausa, la
+    // reanudación y el corte YA se aplicaron antes de llegar acá; solo se
+    // calla el aviso (ver `negocio-de-foorkie.ts`).
+    if (await esNegocioDeFoorkie(db, quien.ranchoId)) {
+      console.warn(`[stripe] Negocio de Foorkie: Bookea no le escribe al dueño («${aviso.clase}»).`);
       return;
     }
 

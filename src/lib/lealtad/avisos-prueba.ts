@@ -5,6 +5,7 @@ import {
   asuntoPruebaPorVencer,
   plantillaPruebaPorVencer,
 } from "@/lib/correo/prueba-lealtad";
+import { esNegocioDeFoorkie } from "@/lib/plataforma/negocio-de-foorkie";
 import { DIAS_AVISO_PREVIO, estadoDePrueba } from "./prueba";
 
 /**
@@ -114,6 +115,15 @@ export async function avisarPruebasPorVencer(
       // Ya no está en prueba (eligió paquete entre medio) o la fecha no
       // es de una prueba: no hay nada que avisar.
       if (!estado.esPrueba || estado.vencida) {
+        resumen.omitidos++;
+        continue;
+      }
+
+      // Un negocio de Foorkie no recibe correos de Bookea: su restaurante
+      // maneja la lealtad desde el panel de Foorkie y nunca entra acá. La
+      // prueba vence igual —eso lo decide `addons_negocio`—; solo se calla
+      // el aviso (ver `negocio-de-foorkie.ts`).
+      if (await esNegocioDeFoorkie(db, fila.rancho_id)) {
         resumen.omitidos++;
         continue;
       }

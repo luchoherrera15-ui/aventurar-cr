@@ -72,7 +72,7 @@ const MAX_DETALLE = 140;
 
 export type Lectura<T> = { ok: true; valor: T } | { ok: false; motivo: string };
 
-type Vinculo = { ranchoId: string; programaId: string };
+export type Vinculo = { ranchoId: string; programaId: string };
 
 export type PedidoBuscar = Vinculo & ({ codigo: string; correo: null } | { codigo: null; correo: string });
 
@@ -89,18 +89,18 @@ export type PedidoCanjear = Vinculo & { miembroId: string; recompensaId: string;
 export type PedidoHistorial = Vinculo & { limite: number; antes: string | null };
 
 /** Un uuid en minúscula, o null. En minúscula porque viaja adentro de la llave de idempotencia. */
-function uuidDe(v: unknown): string | null {
+export function uuidDe(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const t = v.trim().toLowerCase();
   return UUID.test(t) ? t : null;
 }
 
 /** Vacío o ausente = no vino. */
-function ausente(v: unknown): boolean {
+export function ausente(v: unknown): boolean {
   return v === undefined || v === null || (typeof v === "string" && v.trim() === "");
 }
 
-function leerVinculo(d: Record<string, unknown>): Lectura<Vinculo> {
+export function leerVinculo(d: Record<string, unknown>): Lectura<Vinculo> {
   const ranchoId = uuidDe(d.rancho_id);
   const programaId = uuidDe(d.programa_id);
   if (!ranchoId || !programaId) return { ok: false, motivo: "Faltan el negocio o la tarjeta (rancho_id y programa_id)." };
@@ -161,7 +161,7 @@ export function leerPedidoCanjear(d: Record<string, unknown>): Lectura<PedidoCan
  * o un `toISOString()`. Va tal cual a la consulta: con los microsegundos
  * de la base, la página siguiente empieza exactamente donde terminó esta.
  */
-const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}(:?\d{2})?)$/;
+export const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}(:?\d{2})?)$/;
 
 export function leerPedidoHistorial(d: Record<string, unknown>): Lectura<PedidoHistorial> {
   const v = leerVinculo(d);
