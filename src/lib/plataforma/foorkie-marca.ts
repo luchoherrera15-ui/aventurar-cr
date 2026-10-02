@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { COLUMNA_LEALTAD_POR_FOORKIE } from "@/lib/plataforma/negocio-de-foorkie";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -9,16 +10,24 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * con su marca («Foorkie Lealtad») y Bookea queda como el motor que no se
  * ve —los certificados de Apple, Google Wallet, los pases y el ledger—.
  *
- * Una tarjeta es «de Foorkie» cuando un local de Foorkie la tiene
- * vinculada: `foorkie_restaurantes.bookea_programa_id` (con su
- * `bookea_rancho_id`), la misma tabla que lee `vinculoConFoorkie`. Para
- * esas tarjetas, y SOLO para esas:
+ * ── QUÉ TARJETA ES «DE FOORKIE»: UNA MARCA EXPLÍCITA ─────────────────
+ * Estar vinculada no alcanza: hay tarjetas de Bookea conectadas a un
+ * local de Foorkie —la de Pura Matcha— que siguen siendo de Bookea en
+ * todo (regla dura de Luis: ni su pase ni sus correos se tocan). Una
+ * tarjeta es de Foorkie SOLO si un local de Foorkie la tiene vinculada
+ * (`foorkie_restaurantes.bookea_programa_id`, con su `bookea_rancho_id`)
+ * Y marcada con `lealtad_por_foorkie = true` (la pone Foorkie; nace en
+ * false). Es la misma marca que usa la guardia de los correos al dueño
+ * (`negocio-de-foorkie.ts`). Para esas tarjetas, y SOLO para esas:
  *
  *   · el pase firma «Powered by Foorkie», bajo el QR dice «Foorkie
  *     Lealtad» y sus links llevan a Foorkie (el reverso de Apple, el
  *     módulo de links de Google y el encabezado de sus mensajes);
  *   · Bookea no le escribe correos al cliente: los manda Foorkie
  *     (`losCorreosLosMandaFoorkie`, la guardia de los correos).
+ *
+ * Si la consulta falla (la base no contesta, o la columna todavía no
+ * existe) la tarjeta es de Bookea: el pase y los correos de siempre.
  *
  * El nombre y el logo del negocio no cambian: ya son los del local.
  *
@@ -172,9 +181,11 @@ const MAX_LOCALES = 50;
 
 /**
  * El local de Foorkie de una tarjeta, o null si la tarjeta no es de
- * Foorkie. UNA consulta. Nunca lanza: si la base no contesta, null — o
- * sea, el pase y los correos de siempre, que es lo que pasaba antes de
- * que esto existiera.
+ * Foorkie: ningún local la tiene vinculada CON la marca
+ * `lealtad_por_foorkie` (una vinculada sin la marca, como la de Pura
+ * Matcha, es de Bookea). UNA consulta. Nunca lanza: si la base no
+ * contesta o la columna todavía no existe, null — o sea, el pase y los
+ * correos de siempre, que es lo que pasaba antes de que esto existiera.
  */
 export async function localDeFoorkieDeLaTarjeta(
   db: SupabaseClient,
@@ -186,6 +197,7 @@ export async function localDeFoorkieDeLaTarjeta(
       .from("foorkie_restaurantes")
       .select("slug, activo, estado_publicacion, created_at, bookea_rancho_id")
       .eq("bookea_programa_id", programaId)
+      .eq(COLUMNA_LEALTAD_POR_FOORKIE, true)
       .limit(MAX_LOCALES);
     if (error) {
       console.warn("[foorkie] No se pudo leer si la tarjeta es de Foorkie:", error.message);
@@ -211,14 +223,16 @@ export async function marcaDeLaTarjeta(
  *  LA GUARDIA DE LOS CORREOS AL CLIENTE
  * ════════════════════════════════════════════════════════════════════
  *
- * true = esta tarjeta es de un local de Foorkie y Bookea NO le escribe al
- * cliente (el sello acreditado, los sellos por vencer, la bienvenida, el
- * rescate): esos correos los manda Foorkie, con su marca. Cada correo al
- * miembro la pregunta una vez, antes de armar nada.
+ * true = esta tarjeta es de Foorkie —vinculada a un local de Foorkie Y
+ * marcada `lealtad_por_foorkie`— y Bookea NO le escribe al cliente (el
+ * sello acreditado, los sellos por vencer, la bienvenida, el rescate):
+ * esos correos los manda Foorkie, con su marca. Cada correo al miembro la
+ * pregunta una vez, antes de armar nada.
  *
- * Ante la duda (la base no contestó) dice false: el correo de siempre.
- * Es lo que pasaba antes de que esto existiera, y un negocio de Bookea no
- * puede quedarse sin sus avisos por una consulta que falló.
+ * Una tarjeta vinculada sin la marca (Pura Matcha) y, ante la duda (la
+ * base no contestó, la columna todavía no existe), cualquier tarjeta: false,
+ * el correo de siempre. Un negocio de Bookea no puede quedarse sin sus
+ * avisos por una consulta que falló.
  */
 export async function losCorreosLosMandaFoorkie(
   db: SupabaseClient,

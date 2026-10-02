@@ -258,13 +258,16 @@ repetir:
 > otro producto: Bookea no escribe `foorkie_*` y Foorkie no escribe las
 > tablas de Bookea. Lo de abajo queda como historia.
 >
-> Desde el 1 de octubre esa lealtad se vende como «Foorkie Lealtad» y
-> Bookea no se ve: el cliente se une desde Foorkie por `afiliar`
-> (`foorkie-afiliar.ts`, el mismo alta del póster —`altaPorQrSinSesion`—
-> con el consentimiento que leyó en Foorkie), el pase de esas tarjetas
-> firma «Powered by Foorkie» con links a Foorkie, y Bookea no les escribe
-> correos a sus clientes (`foorkie-marca.ts`: `marcaDeLaTarjeta` y la
-> guardia `losCorreosLosMandaFoorkie`).
+> Desde el 1 de octubre esa lealtad se vende como «Foorkie Lealtad»: el
+> cliente se une desde Foorkie por `afiliar` (`foorkie-afiliar.ts`, el
+> mismo alta del póster —`altaPorQrSinSesion`— con el consentimiento que
+> leyó en Foorkie). Bookea deja de verse SOLO en los negocios que Foorkie
+> marcó con `foorkie_restaurantes.lealtad_por_foorkie` (estar vinculado no
+> alcanza: Pura Matcha está vinculada sin la marca y sigue en todo como
+> Bookea): su pase firma «Powered by Foorkie» con links a Foorkie y Bookea
+> no les escribe ni a sus clientes (`foorkie-marca.ts`) ni al dueño
+> (`negocio-de-foorkie.ts`). Si la marca no se puede leer, todo sale como
+> Bookea.
 
 Lo que **sí** quedaba congelado era el alcance: Foorkie descubre → el
 comensal cae en la página de Bookea Link del restaurante → menú, pedido y

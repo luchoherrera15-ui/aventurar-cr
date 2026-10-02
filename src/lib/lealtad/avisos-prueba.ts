@@ -119,7 +119,8 @@ export async function avisarPruebasPorVencer(
         continue;
       }
 
-      // Un negocio de Foorkie no recibe correos de Bookea: su restaurante
+      // Un negocio de Foorkie (vinculado Y marcado `lealtad_por_foorkie`;
+      // ante la duda, no lo es) no recibe correos de Bookea: su restaurante
       // maneja la lealtad desde el panel de Foorkie y nunca entra acá. La
       // prueba vence igual —eso lo decide `addons_negocio`—; solo se calla
       // el aviso (ver `negocio-de-foorkie.ts`).

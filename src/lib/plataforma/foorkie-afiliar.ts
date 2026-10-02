@@ -54,8 +54,11 @@ import {
  *     entrega a quien solo tecleó el correo, y nunca se abre una segunda
  *     tarjeta (el desvío «sin cuenta» del póster no se usa acá: con el
  *     contacto en ESTA tarjeta, sería una tarjeta repetida);
- *   · no sale el correo de bienvenida de Bookea: a los clientes de una
- *     tarjeta de Foorkie les escribe Foorkie (`losCorreosLosMandaFoorkie`).
+ *   · el correo de bienvenida lo decide la MISMA guardia que en el póster
+ *     (`losCorreosLosMandaFoorkie`, adentro de `avisarBienvenidaAlPlan`):
+ *     una tarjeta marcada `lealtad_por_foorkie` no lo recibe de Bookea
+ *     (se lo manda Foorkie); cualquier otra vinculada —Pura Matcha— lo
+ *     recibe como siempre. La ruta lo dispara con `miembroParaLaBienvenida`.
  */
 
 /** El cliente con la llave de servicio: el mismo que usa el alta del póster. */
@@ -431,4 +434,14 @@ export async function afiliarDesdeFoorkie(
       ahora,
     }),
   };
+}
+
+/**
+ * A quién darle la bienvenida después de un alta: al miembro NUEVO, igual
+ * que el póster (`miembro_nuevo` de la 0138), nunca a quien ya tenía la
+ * tarjeta. Si el correo sale o no lo decide `avisarBienvenidaAlPlan` con
+ * su guardia: una tarjeta de Foorkie (marcada) no lo recibe de Bookea.
+ */
+export function miembroParaLaBienvenida(r: RespuestaAfiliar): string | null {
+  return r.ok && !r.ya_era_miembro ? r.tarjeta.miembro_id : null;
 }

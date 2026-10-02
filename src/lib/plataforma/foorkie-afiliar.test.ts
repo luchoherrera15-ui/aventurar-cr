@@ -5,6 +5,7 @@ import {
   leerPedidoAfiliar,
   motivoDeBaja,
   motivoNoOpera,
+  miembroParaLaBienvenida,
   rechazoDelAlta,
   revisarDatosAfiliar,
   type PedidoAfiliar,
@@ -392,5 +393,18 @@ describe("afiliarDesdeFoorkie — el alta del póster, desde Foorkie", () => {
     expect(sinMiembro.r).toMatchObject({ ok: false, codigo: "reintentar" });
     const deOtra = await correr({ mundo: { miembro: { id: MIEMBRO, programa_id: "otra", estado: "activa" } } });
     expect(deOtra.r).toMatchObject({ ok: false, codigo: "reintentar" });
+  });
+});
+
+describe("miembroParaLaBienvenida — el correo de bienvenida, como en el póster", () => {
+  it("solo a un miembro NUEVO; si sale o no lo decide la guardia de los correos al cliente", async () => {
+    const nuevo = await correr();
+    expect(miembroParaLaBienvenida(nuevo.r)).toBe(MIEMBRO);
+    const yaEra = await correr({
+      respuesta: { estado: "listo", personaId: PERSONA, miembroId: MIEMBRO, miembroNuevo: false },
+    });
+    expect(miembroParaLaBienvenida(yaEra.r)).toBeNull();
+    const rechazo = await correr({ respuesta: { estado: "lleno" } });
+    expect(miembroParaLaBienvenida(rechazo.r)).toBeNull();
   });
 });

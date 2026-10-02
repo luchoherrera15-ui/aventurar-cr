@@ -651,7 +651,8 @@ async function avisarAlDuenoEn(
       return;
     }
 
-    // Un negocio de Foorkie no recibe correos de Bookea: su restaurante
+    // Un negocio de Foorkie (vinculado Y marcado `lealtad_por_foorkie`;
+    // ante la duda, no lo es) no recibe correos de Bookea: su restaurante
     // maneja la lealtad desde el panel de Foorkie. La pausa, la
     // reanudación y el corte YA se aplicaron antes de llegar acá; solo se
     // calla el aviso (ver `negocio-de-foorkie.ts`).

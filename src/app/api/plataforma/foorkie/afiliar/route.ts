@@ -1,7 +1,8 @@
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { vinculoConFoorkie } from "@/lib/plataforma/foorkie";
 import { leerPedidoFirmado, responder, sitioDeBookea } from "@/lib/plataforma/foorkie-api";
-import { afiliarDesdeFoorkie, leerPedidoAfiliar } from "@/lib/plataforma/foorkie-afiliar";
+import { afiliarDesdeFoorkie, leerPedidoAfiliar, miembroParaLaBienvenida } from "@/lib/plataforma/foorkie-afiliar";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,8 +27,10 @@ export const dynamic = "force-dynamic";
  *   400 datos (el pedido no tiene la forma del contrato) · 401 firma ·
  *   403 no_vinculado · 413 muy_grande · 503 no_configurado · 500 error
  *
- * El correo de bienvenida NO sale de Bookea: a los clientes de una
- * tarjeta de Foorkie les escribe Foorkie.
+ * El correo de bienvenida sale como en el póster, con la misma guardia
+ * (`losCorreosLosMandaFoorkie`): una tarjeta marcada
+ * `lealtad_por_foorkie` no lo recibe de Bookea (se lo manda Foorkie);
+ * una vinculada sin la marca —Pura Matcha— lo recibe como siempre.
  */
 export async function POST(request: Request) {
   const firmado = await leerPedidoFirmado(request, 8000);
@@ -49,6 +52,22 @@ export async function POST(request: Request) {
 
   try {
     const r = await afiliarDesdeFoorkie(db, pedido, { base: sitioDeBookea(request), secreto: firmado.secreto });
+
+    // La bienvenida, SOLO en un alta nueva y después de responder, como el
+    // póster (`tarjeta/[slug]/actions.ts`). `after`: una promesa suelta
+    // muere apenas Vercel congela la función al responder.
+    const nuevo = miembroParaLaBienvenida(r);
+    if (nuevo) {
+      after(async () => {
+        try {
+          const { avisarBienvenidaAlPlan } = await import("@/lib/correo/bienvenida-al-plan");
+          await avisarBienvenidaAlPlan(nuevo);
+        } catch (e) {
+          console.warn("[foorkie/afiliar] No salió la bienvenida al plan:", e);
+        }
+      });
+    }
+
     return responder(r);
   } catch (e) {
     // El alta es idempotente: si algo se cortó a mitad de camino, repetir
