@@ -2,12 +2,17 @@ import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ausente,
+  canalParaFoorkie,
   cortarPagina,
+  detalleDelMovimiento,
   enmascararCorreo,
   ISO,
   leerVinculo,
   nombreDePila,
+  PRODUCTO_CAJA,
   uuidDe,
+  type CanalCaja,
+  type FilaLedger,
   type Lectura,
   type Vinculo,
 } from "@/lib/plataforma/foorkie-caja";
@@ -53,7 +58,10 @@ import { refrescarClaseGoogle } from "@/lib/wallet/google";
  * la MISMA puerta (`abrirLaCaja`: firma, forma del pedido, conexión y
  * vínculo con un local de Foorkie). Quien opera es el dueño del negocio.
  *
- *   clientes            la lista de la tarjeta, enmascarada y paginada
+ *   clientes            la lista de la tarjeta, enmascarada y paginada, con
+ *                       los números de cada uno (saldo, acumulado, visitas,
+ *                       canjes) y, si se pide, ordenada y con los totales
+ *   clientes/detalle    UN cliente y sus movimientos (solo lectura)
  *   recompensas         las regalías, de la más barata a la más cara
  *   recompensas/guardar crear o editar una (reglas de `guardarRecompensa`)
  *   recompensas/borrar  borrar una (reglas de `eliminarRecompensa`)
@@ -77,6 +85,14 @@ import { refrescarClaseGoogle } from "@/lib/wallet/google";
  * Lo mismo que en la caja: el nombre de pila (o «Cliente») y el correo
  * enmascarado («l***@gmail.com»), y acá también el teléfono enmascarado
  * («****-7777»). Nunca un contacto completo.
+ *
+ * ── LOS LECTORES DE CLIENTES NO ESCRIBEN ────────────────────────────
+ * `clientes` y `clientes/detalle` solo leen y valen para CUALQUIER
+ * tarjeta vinculada a un local de Foorkie, también las que el negocio
+ * maneja en Bookea (sin `lealtad_por_foorkie`): el dueño ve a su gente
+ * desde Foorkie (pedido del 2 oct 2026: «ver quién es el que más sellos
+ * lleva, quién ha canjeado y cuántas veces»). Todo sale del ledger, que
+ * es la única verdad del saldo (0060); ninguna cuenta se guarda.
  */
 
 type Db = SupabaseClient;
@@ -98,7 +114,42 @@ export const MAX_BUSCAR = 80;
 /** Por nombre (sin tildes, en cualquier parte) o por correo (desde el principio, con «@»). */
 export type Busqueda = { por: "nombre"; texto: string } | { por: "correo"; texto: string };
 
-export type PedidoClientes = Vinculo & { buscar: Busqueda | null; limite: number; antes: string | null };
+/**
+ * Cómo se ordena la lista (pedido del 2 oct 2026: «ver quién es el que más
+ * sellos lleva, quién ha canjeado y cuántas veces»):
+ *
+ *   nuevos     el alta más nueva primero (el orden de siempre)
+ *   saldo      el que más lleva HOY (sellos, colones de cashback o puntos)
+ *   canjes     el que más veces canjeó
+ *   visitas    el que más veces sumó (cada compra o visita que entró)
+ *   actividad  lo último que hizo (sumar o canjear), lo más reciente primero
+ *   antiguos   el alta más vieja primero
+ *   nombre     por nombre, de la A a la Z (los que no dieron su nombre, al final)
+ *
+ * Los empates se desempatan con el orden de siempre (el alta más nueva),
+ * así una misma lista da siempre las mismas páginas.
+ */
+export const ORDENES_CLIENTES = ["nuevos", "saldo", "canjes", "visitas", "actividad", "antiguos", "nombre"] as const;
+export type OrdenClientes = (typeof ORDENES_CLIENTES)[number];
+
+/** Hasta dónde se puede saltar con `desde` (el tope de miembros que se leen de una tarjeta). */
+export const MAX_DESDE = 20_000;
+
+/**
+ * `orden: null` es el pedido de siempre: el alta más nueva primero y la
+ * página siguiente con `antes` (la fecha de `siguiente`). Con `orden`, la
+ * lista se arma entera en el servidor y la página siguiente se pide con
+ * `desde` (cuántos saltar: el `siguiente_desde` de la anterior). `resumen`
+ * suma los totales de la tarjeta.
+ */
+export type PedidoClientes = Vinculo & {
+  buscar: Busqueda | null;
+  limite: number;
+  antes: string | null;
+  orden: OrdenClientes | null;
+  desde: number;
+  resumen: boolean;
+};
 
 /** Una línea, sin caracteres de control y sin espacios de más. */
 function unaLinea(texto: string): string {
@@ -163,17 +214,64 @@ export function leerPedidoClientes(d: Record<string, unknown>): Lectura<PedidoCl
     buscar = b.valor;
   }
 
-  let limite = CLIENTES_POR_DEFECTO;
-  if (!ausente(d.limite)) {
-    if (typeof d.limite !== "number" || !Number.isFinite(d.limite)) {
-      return { ok: false, motivo: "El límite tiene que ser un número de 1 a 100." };
-    }
-    limite = Math.min(CLIENTES_MAXIMO, Math.max(1, Math.trunc(d.limite)));
-  }
+  const limite = leerLimite(d.limite);
+  if (!limite.ok) return limite;
 
   const antes = leerAntes(d.antes);
   if (!antes.ok) return antes;
-  return { ok: true, valor: { ...v.valor, buscar, limite, antes: antes.valor } };
+
+  let orden: OrdenClientes | null = null;
+  if (!ausente(d.orden)) {
+    if (typeof d.orden !== "string" || !(ORDENES_CLIENTES as readonly string[]).includes(d.orden.trim())) {
+      return { ok: false, motivo: `Ese orden no existe: ${ORDENES_CLIENTES.join(", ")}.` };
+    }
+    orden = d.orden.trim() as OrdenClientes;
+  }
+
+  let desde = 0;
+  if (!ausente(d.desde)) {
+    if (orden === null) return { ok: false, motivo: "«desde» va con «orden»: sin orden, la página siguiente se pide con «antes»." };
+    if (typeof d.desde !== "number" || !Number.isInteger(d.desde) || d.desde < 0 || d.desde > MAX_DESDE) {
+      return { ok: false, motivo: `«desde» tiene que ser un número entero de 0 a ${MAX_DESDE} (el «siguiente_desde» de la página anterior).` };
+    }
+    desde = d.desde;
+  }
+  if (orden !== null && antes.valor !== null) {
+    return { ok: false, motivo: "Con «orden», la página siguiente se pide con «desde», no con «antes»." };
+  }
+
+  if (!ausente(d.resumen) && typeof d.resumen !== "boolean") {
+    return { ok: false, motivo: "«resumen» es true o false." };
+  }
+
+  return {
+    ok: true,
+    valor: { ...v.valor, buscar, limite: limite.valor, antes: antes.valor, orden, desde, resumen: d.resumen === true },
+  };
+}
+
+/** El límite de una página: 1..100 (sin decimales), 50 si no vino. */
+function leerLimite(v: unknown): Lectura<number> {
+  if (ausente(v)) return { ok: true, valor: CLIENTES_POR_DEFECTO };
+  if (typeof v !== "number" || !Number.isFinite(v)) {
+    return { ok: false, motivo: "El límite tiene que ser un número de 1 a 100." };
+  }
+  return { ok: true, valor: Math.min(CLIENTES_MAXIMO, Math.max(1, Math.trunc(v))) };
+}
+
+/** `clientes/detalle`: la tarjeta, el cliente y la página de sus movimientos. */
+export type PedidoDetalleCliente = Vinculo & { miembroId: string; limite: number; antes: string | null };
+
+export function leerPedidoDetalleCliente(d: Record<string, unknown>): Lectura<PedidoDetalleCliente> {
+  const v = leerVinculo(d);
+  if (!v.ok) return v;
+  const miembroId = uuidDe(d.miembro_id);
+  if (!miembroId) return { ok: false, motivo: "Falta el cliente (miembro_id)." };
+  const limite = leerLimite(d.limite);
+  if (!limite.ok) return limite;
+  const antes = leerAntes(d.antes);
+  if (!antes.ok) return antes;
+  return { ok: true, valor: { ...v.valor, miembroId, limite: limite.valor, antes: antes.valor } };
 }
 
 export type PedidoRecompensa = Vinculo & { recompensaId: string };
@@ -408,23 +506,77 @@ export function filaDeMiembroDelPanel(v: unknown): MiembroDelPanel | null {
   };
 }
 
-export type ActividadDelMiembro = { saldo: number; ultima: string | null };
+/** Lo que hace falta de una fila del ledger para las cuentas de un cliente. */
+export type FilaParaCuentas = {
+  id: string;
+  miembro_id: string;
+  puntos: number;
+  tipo: string;
+  reversion_de: string | null;
+  created_at: string;
+};
 
 /**
- * El saldo (la suma del ledger, como en todo el módulo) y la última vez
- * que el cliente HIZO algo: sumar una compra o canjear. Un ajuste del
- * negocio, una reversión o el vencimiento de los sellos no son una
- * visita del cliente y no cuentan como actividad.
+ * Los números de UN cliente, sacados de su ledger:
+ *
+ *   saldo       la suma de todo (como en todo el módulo, 0060)
+ *   acumulado   lo que ganó en toda la historia: sus 'ganado' que siguen
+ *               en pie (una compra revertida no la ganó; un ajuste a mano
+ *               o el vencimiento de los sellos no le quitan lo ganado)
+ *   visitas     cuántas veces sumó (los 'ganado' que siguen en pie)
+ *   canjes      cuántas veces canjeó (los 'canjeado' que siguen en pie:
+ *               revertir un canje lo anula, 0139)
+ *   ultimoCanje el último de esos canjes
+ *   ultima      la última vez que HIZO algo: sumar o canjear. Un ajuste
+ *               del negocio, una reversión o el vencimiento no son una
+ *               visita del cliente y no cuentan.
+ *
+ * Es la MISMA cuenta que hace la función de la 0252
+ * (`lealtad_resumen_por_miembro`), escrita dos veces a propósito: sin la
+ * migración, la lista la hace acá con el ledger leído por páginas.
  */
-export function actividadPorMiembro(
-  filas: readonly { miembro_id: string; puntos: number; tipo: string; created_at: string }[],
-): Map<string, ActividadDelMiembro> {
-  const mapa = new Map<string, ActividadDelMiembro>();
+export type AgregadoDelMiembro = {
+  saldo: number;
+  acumulado: number;
+  visitas: number;
+  canjes: number;
+  ultimoCanje: string | null;
+  ultima: string | null;
+};
+
+export const AGREGADO_VACIO: Readonly<AgregadoDelMiembro> = Object.freeze({
+  saldo: 0,
+  acumulado: 0,
+  visitas: 0,
+  canjes: 0,
+  ultimoCanje: null,
+  ultima: null,
+});
+
+/** La más nueva de dos fechas (null = ninguna). */
+function masNueva(a: string | null, b: string): string {
+  return a === null || esAnterior(a, b) ? b : a;
+}
+
+export function agregadosPorMiembro(filas: readonly FilaParaCuentas[]): Map<string, AgregadoDelMiembro> {
+  // Revertir deja una fila nueva que apunta a la original (`reversion_de`, una sola por fila: 0125).
+  const revertidas = new Set<string>();
+  for (const f of filas) if (f.reversion_de) revertidas.add(f.reversion_de);
+
+  const mapa = new Map<string, AgregadoDelMiembro>();
   for (const f of filas) {
-    const a = mapa.get(f.miembro_id) ?? { saldo: 0, ultima: null };
-    a.saldo += Number(f.puntos) || 0;
-    if ((f.tipo === "ganado" || f.tipo === "canjeado") && (a.ultima === null || esAnterior(a.ultima, f.created_at))) {
-      a.ultima = f.created_at;
+    const a = mapa.get(f.miembro_id) ?? { ...AGREGADO_VACIO };
+    const puntos = Number(f.puntos) || 0;
+    const enPie = !revertidas.has(f.id);
+    a.saldo += puntos;
+    if (f.tipo === "ganado" || f.tipo === "canjeado") a.ultima = masNueva(a.ultima, f.created_at);
+    if (f.tipo === "ganado" && enPie) {
+      a.acumulado += puntos;
+      a.visitas += 1;
+    }
+    if (f.tipo === "canjeado" && enPie) {
+      a.canjes += 1;
+      a.ultimoCanje = masNueva(a.ultimoCanje, f.created_at);
     }
     mapa.set(f.miembro_id, a);
   }
@@ -437,25 +589,354 @@ export type ClienteDelPanel = {
   correo: string | null;
   telefono: string | null;
   saldo: number;
+  /** Lo que ganó en toda la historia (sellos, colones de cashback o puntos). */
+  acumulado: number;
+  /** Cuántas veces sumó (cada compra o visita). */
+  visitas: number;
+  /** Cuántas veces canjeó. */
+  canjes: number;
+  ultimo_canje: string | null;
   desde: string;
   ultima_actividad: string | null;
   estado: "activa" | "pausada";
+  /** Con `orden`: su lugar en la lista ENTERA de la tarjeta (1 = el primero), aunque se esté buscando. */
+  posicion?: number;
 };
 
 export function armarClienteDelPanel(
   m: MiembroDelPanel,
   identidad: IdentidadCliente | undefined,
-  actividad: ActividadDelMiembro | undefined,
+  cuentas: AgregadoDelMiembro | undefined,
+  posicion?: number,
 ): ClienteDelPanel {
+  const a = cuentas ?? AGREGADO_VACIO;
   return {
     miembro_id: m.id,
     nombre: nombreDePila(identidad?.nombre),
     correo: enmascararCorreo(identidad?.correo),
     telefono: enmascararTelefono(identidad?.telefono),
-    saldo: actividad?.saldo ?? 0,
+    saldo: a.saldo,
+    acumulado: a.acumulado,
+    visitas: a.visitas,
+    canjes: a.canjes,
+    ultimo_canje: a.ultimoCanje ? isoDe(a.ultimoCanje) : null,
     desde: isoDe(m.created_at),
-    ultima_actividad: actividad?.ultima ? isoDe(actividad.ultima) : null,
+    ultima_actividad: a.ultima ? isoDe(a.ultima) : null,
     estado: m.estado,
+    ...(posicion !== undefined ? { posicion } : {}),
+  };
+}
+
+/** a antes que b si a es más nueva; las que faltan, al final. */
+function masNuevaPrimero(a: string | null, b: string | null): number {
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return esAnterior(a, b) ? 1 : esAnterior(b, a) ? -1 : 0;
+}
+
+/** El orden de siempre: el alta más nueva primero; en el mismo instante, el id mayor (como la base). */
+function altaMasNueva(a: MiembroDelPanel, b: MiembroDelPanel): number {
+  return masNuevaPrimero(a.created_at, b.created_at) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
+}
+
+/** El nombre con el que se ordena: sin tildes, sin correos ni teléfonos. Vacío = no lo dio. */
+export function nombreParaOrdenar(identidad: Pick<IdentidadCliente, "nombre"> | undefined): string {
+  return nombreBuscable(identidad?.nombre);
+}
+
+/**
+ * La lista entera, en el orden pedido (ver `ORDENES_CLIENTES`). Los
+ * empates se desempatan con el orden de siempre, así dos pedidos con los
+ * mismos datos dan las mismas páginas. `identidades` solo hace falta para
+ * ordenar por nombre.
+ */
+export function ordenarMiembros(
+  miembros: readonly MiembroDelPanel[],
+  cuentas: ReadonlyMap<string, AgregadoDelMiembro>,
+  orden: OrdenClientes,
+  identidades: ReadonlyMap<string, Pick<IdentidadCliente, "nombre">> = new Map(),
+): MiembroDelPanel[] {
+  const de = (m: MiembroDelPanel) => cuentas.get(m.id) ?? AGREGADO_VACIO;
+  const nombres = orden === "nombre" ? new Map(miembros.map((m) => [m.id, nombreParaOrdenar(identidades.get(m.id))])) : null;
+
+  const comparar = (x: MiembroDelPanel, y: MiembroDelPanel): number => {
+    const a = de(x);
+    const b = de(y);
+    switch (orden) {
+      case "nuevos":
+        return 0;
+      case "antiguos":
+        return -masNuevaPrimero(x.created_at, y.created_at) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
+      case "saldo":
+        return b.saldo - a.saldo || masNuevaPrimero(a.ultima, b.ultima);
+      case "canjes":
+        return b.canjes - a.canjes || masNuevaPrimero(a.ultimoCanje, b.ultimoCanje) || b.saldo - a.saldo;
+      case "visitas":
+        return b.visitas - a.visitas || masNuevaPrimero(a.ultima, b.ultima) || b.saldo - a.saldo;
+      case "actividad":
+        return masNuevaPrimero(a.ultima, b.ultima);
+      case "nombre": {
+        const p = nombres?.get(x.id) ?? "";
+        const q = nombres?.get(y.id) ?? "";
+        if (!p !== !q) return p ? -1 : 1;
+        return p.localeCompare(q, "es");
+      }
+    }
+  };
+
+  return [...miembros].sort((x, y) => comparar(x, y) || altaMasNueva(x, y));
+}
+
+/** Los totales de la tarjeta, para el resumen de arriba de la lista. */
+export type ResumenDeClientes = {
+  /** Clientes con la tarjeta (activos y en pausa; los dados de baja no). */
+  clientes: number;
+  /** Los que sumaron o canjearon en los últimos 30 días. */
+  activos_30: number;
+  /** Los que canjearon alguna vez. */
+  canjearon: number;
+  /** Canjes en total (los que siguen en pie). */
+  canjes: number;
+  /** Lo entregado en toda la historia: sellos, colones de cashback o puntos. */
+  acumulado: number;
+};
+
+export const DIAS_ACTIVOS = 30;
+
+export function resumenDeClientes(
+  miembros: readonly MiembroDelPanel[],
+  cuentas: ReadonlyMap<string, AgregadoDelMiembro>,
+  ahora: Date = new Date(),
+): ResumenDeClientes {
+  const corte = new Date(ahora.getTime() - DIAS_ACTIVOS * 86_400_000).toISOString();
+  const r: ResumenDeClientes = { clientes: miembros.length, activos_30: 0, canjearon: 0, canjes: 0, acumulado: 0 };
+  for (const m of miembros) {
+    const a = cuentas.get(m.id);
+    if (!a) continue;
+    if (a.ultima && !esAnterior(a.ultima, corte)) r.activos_30 += 1;
+    if (a.canjes > 0) r.canjearon += 1;
+    r.canjes += a.canjes;
+    r.acumulado += a.acumulado;
+  }
+  return r;
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  2b. Un cliente y sus movimientos (`clientes/detalle`)
+// ════════════════════════════════════════════════════════════════════
+
+/**
+ * Qué fue cada movimiento, en las palabras del historial de la caja
+ * (`TipoMovimientoCaja`) más uno: el vencimiento de los sellos, que en el
+ * ledger es un ajuste con la referencia «venc:…» (0180) y para el dueño
+ * no es lo mismo que un ajuste a mano.
+ */
+export type TipoMovimientoDelCliente = "acredito" | "canjeo" | "ajuste" | "reverso" | "vencimiento";
+
+/** La venta detrás de un sello (0197): lo que se compró, cuánto y quién la registró. */
+export type VentaDelCliente = {
+  id: string;
+  referencia: string | null;
+  producto: string | null;
+  monto: number | null;
+  registrado_por: string | null;
+  created_at: string;
+};
+
+/** Un canje (0060/0125): qué premio y quién lo entregó. */
+export type CanjeDelCliente = {
+  id: string;
+  transaccion_id: string | null;
+  premio: string | null;
+  entregado_por: string | null;
+  created_at: string;
+};
+
+export type MovimientoDelCliente = {
+  id: string;
+  /** Tal cual la guarda la base (con microsegundos): de acá sale el cursor `siguiente`. */
+  created_at: string;
+  /** ISO, para mostrar. */
+  fecha: string;
+  tipo: TipoMovimientoDelCliente;
+  /** Con signo: + al sumar (o al devolver un canje), − al canjear, vencer o revertir una compra. */
+  puntos: number;
+  /** Cómo quedó el saldo después de este movimiento. */
+  saldo: number;
+  canal: CanalCaja;
+  /** Lo que se compró (o el motivo de un ajuste). */
+  detalle: string | null;
+  /** En un canje: el premio. */
+  premio: string | null;
+  /** Colones de la compra, si el negocio los registró. */
+  monto: number | null;
+  /** Quién atendió, cuando se sabe (ver `movimientosDelCliente`). */
+  operador: string | null;
+  /** Una compra o un canje que después se revirtió (la reversión es otro movimiento). */
+  revertido: boolean;
+};
+
+/** Una venta o un canje se cruza con su movimiento por cercanía si no comparten referencia: se escriben en la misma operación. */
+export const VENTANA_CRUCE_MS = 10_000;
+
+const PRODUCTO_DE_LA_CAJA = new RegExp(`^${PRODUCTO_CAJA}(?:\\s+·\\s+(.+))?$`);
+
+/**
+ * El concepto que deja la caja de Foorkie («Caja Foorkie · Ana»,
+ * `productoDeLaCaja`): ahí viaja quién operó. null = no es de la caja.
+ */
+export function operadorDeLaCaja(producto: string | null): { operador: string | null } | null {
+  const m = PRODUCTO_DE_LA_CAJA.exec((producto ?? "").replace(/\s+/g, " ").trim());
+  if (!m) return null;
+  return { operador: m[1] ? nombreDeQuienOpera(m[1]) : null };
+}
+
+/**
+ * Quién atendió, para mostrar: su nombre de pila. Si en vez del nombre
+ * quedó su correo (la caja de Foorkie manda el correo cuando la cuenta
+ * no tiene nombre), el correo enmascarado. Nunca un teléfono ni un
+ * correo completo; null si no queda nada que mostrar.
+ */
+export function nombreDeQuienOpera(nombre: string | null | undefined): string | null {
+  const limpio = (nombre ?? "").replace(/\p{Cc}/gu, " ").replace(/\s+/g, " ").trim();
+  if (!limpio) return null;
+  if (limpio.includes("@") && !limpio.includes(" ")) return enmascararCorreo(limpio);
+  const pila = nombreDePila(limpio);
+  return pila === "Cliente" ? null : pila;
+}
+
+function tipoDelMovimientoDelCliente(f: Pick<FilaLedger, "tipo" | "reversion_de" | "referencia">): TipoMovimientoDelCliente {
+  if (f.tipo === "ganado") return "acredito";
+  if (f.tipo === "canjeado") return "canjeo";
+  if (f.reversion_de) return "reverso";
+  return (f.referencia ?? "").trim().startsWith("venc:") ? "vencimiento" : "ajuste";
+}
+
+/** De la más vieja a la más nueva (en el mismo instante, por id). */
+function cronologico<T extends { created_at: string; id: string }>(a: T, b: T): number {
+  return esAnterior(a.created_at, b.created_at) ? -1 : esAnterior(b.created_at, a.created_at) ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/** La primera que no se usó y quedó a menos de `VENTANA_CRUCE_MS` de este instante. */
+function cercana<T extends { id: string; created_at: string }>(lista: readonly T[], usadas: Set<string>, instante: string): T | null {
+  const t = Date.parse(instante);
+  if (!Number.isFinite(t)) return null;
+  for (const x of lista) {
+    if (usadas.has(x.id)) continue;
+    if (Math.abs(Date.parse(x.created_at) - t) < VENTANA_CRUCE_MS) return x;
+  }
+  return null;
+}
+
+/**
+ * TODO el ledger de un cliente, contado, del más nuevo al más viejo. El
+ * saldo de cada movimiento es la suma del ledger hasta ahí (no
+ * `saldo_posterior`, que las filas viejas no tienen).
+ *
+ * Cada compra se cruza con su venta (por referencia, o por cercanía, como
+ * las estadísticas de Bookea) y cada canje con su premio (`canjes`, por
+ * la transacción; si no, el motivo «Canje: …» del ledger).
+ *
+ * QUIÉN ATENDIÓ, SOLO CUANDO SE SABE:
+ *   · la caja de Foorkie deja el nombre en el concepto («Caja Foorkie ·
+ *     Ana»): ese manda;
+ *   · si no, la persona del equipo que anotó el movimiento (su nombre en
+ *     `equipo`, nunca un correo);
+ *   · pero la caja de Foorkie opera con el usuario del DUEÑO (no hay otro
+ *     usuario de Bookea detrás), así que un movimiento de caja a nombre del
+ *     dueño sin un concepto propio puede ser de cualquiera de su equipo en
+ *     Foorkie: ahí no se nombra a nadie, antes que nombrar mal.
+ */
+export function movimientosDelCliente(d: {
+  filas: readonly FilaLedger[];
+  ventas: readonly VentaDelCliente[];
+  canjes: readonly CanjeDelCliente[];
+  /** usuario → nombre para mostrar (perfiles del equipo). */
+  equipo: ReadonlyMap<string, string>;
+  duenoId: string | null;
+}): MovimientoDelCliente[] {
+  const filas = [...d.filas].sort(cronologico);
+  const revertidas = new Set(filas.map((f) => f.reversion_de).filter((x): x is string => !!x));
+
+  const ventaPorReferencia = new Map<string, VentaDelCliente>();
+  for (const v of d.ventas) if (v.referencia && !ventaPorReferencia.has(v.referencia)) ventaPorReferencia.set(v.referencia, v);
+  const canjePorTransaccion = new Map<string, CanjeDelCliente>();
+  for (const c of d.canjes) if (c.transaccion_id) canjePorTransaccion.set(c.transaccion_id, c);
+  const usadas = new Set<string>();
+
+  let saldo = 0;
+  const salida: MovimientoDelCliente[] = [];
+  for (const f of filas) {
+    saldo += f.puntos;
+    const tipo = tipoDelMovimientoDelCliente(f);
+    const canal = canalParaFoorkie(f);
+
+    let venta: VentaDelCliente | null = null;
+    if (tipo === "acredito") {
+      const porReferencia = f.referencia ? ventaPorReferencia.get(f.referencia) : undefined;
+      venta = porReferencia && !usadas.has(porReferencia.id) ? porReferencia : cercana(d.ventas, usadas, f.created_at);
+      if (venta) usadas.add(venta.id);
+    }
+    let canje: CanjeDelCliente | null = null;
+    if (tipo === "canjeo") {
+      const porTransaccion = canjePorTransaccion.get(f.id);
+      canje = porTransaccion && !usadas.has(porTransaccion.id) ? porTransaccion : cercana(d.canjes, usadas, f.created_at);
+      if (canje) usadas.add(canje.id);
+    }
+
+    const deLaCaja = venta ? operadorDeLaCaja(venta.producto) : null;
+    let operador: string | null;
+    if (deLaCaja) operador = deLaCaja.operador;
+    else {
+      const quien = f.usuario_id ?? venta?.registrado_por ?? canje?.entregado_por ?? null;
+      const conConceptoPropio = !!venta && !!(venta.producto ?? "").trim();
+      const dudoso = quien !== null && quien === d.duenoId && canal === "caja" && !conConceptoPropio;
+      operador = quien && !dudoso ? (d.equipo.get(quien) ?? null) : null;
+    }
+
+    let detalle: string | null = null;
+    if (tipo === "acredito") detalle = detalleDelMovimiento({ tipo: "acredito", motivo: f.motivo, producto: deLaCaja ? null : (venta?.producto ?? null) });
+    else if (tipo !== "canjeo") detalle = detalleDelMovimiento({ tipo: "ajuste", motivo: f.motivo, producto: null });
+
+    const premio =
+      tipo === "canjeo"
+        ? ((canje?.premio ?? "").replace(/\s+/g, " ").trim() || detalleDelMovimiento({ tipo: "canjeo", motivo: f.motivo, producto: null }))
+        : null;
+    const monto = venta && typeof venta.monto === "number" && Number.isFinite(venta.monto) && venta.monto >= 0 ? venta.monto : null;
+
+    salida.push({
+      id: f.id,
+      created_at: f.created_at,
+      fecha: isoDe(f.created_at),
+      tipo,
+      puntos: f.puntos,
+      saldo,
+      canal,
+      detalle,
+      premio,
+      monto,
+      operador,
+      revertido: revertidas.has(f.id),
+    });
+  }
+  return salida.reverse();
+}
+
+/** Lo que sale hacia Foorkie de un movimiento (sin la fecha cruda de la base, que ya viaja en `siguiente`). */
+export function movimientoParaFoorkie(m: MovimientoDelCliente): Omit<MovimientoDelCliente, "created_at"> {
+  return {
+    id: m.id,
+    fecha: m.fecha,
+    tipo: m.tipo,
+    puntos: m.puntos,
+    saldo: m.saldo,
+    canal: m.canal,
+    detalle: m.detalle,
+    premio: m.premio,
+    monto: m.monto,
+    operador: m.operador,
+    revertido: m.revertido,
   };
 }
 
@@ -699,49 +1180,199 @@ async function todosLosMiembros(db: Db, programaId: string): Promise<MiembroDelP
   return todos;
 }
 
-type FilaDeSaldo = { miembro_id: string; puntos: number; tipo: string; created_at: string };
+const COLUMNAS_CUENTAS = "id, miembro_id, puntos, tipo, reversion_de, created_at";
+
+function filaParaCuentas(v: unknown): FilaParaCuentas | null {
+  if (!v || typeof v !== "object") return null;
+  const f = v as Record<string, unknown>;
+  if (typeof f.id !== "string" || typeof f.miembro_id !== "string" || typeof f.created_at !== "string") return null;
+  return {
+    id: f.id,
+    miembro_id: f.miembro_id,
+    puntos: Number(f.puntos) || 0,
+    tipo: typeof f.tipo === "string" ? f.tipo : "",
+    reversion_de: typeof f.reversion_de === "string" ? f.reversion_de : null,
+    created_at: f.created_at,
+  };
+}
 
 /** El ledger completo de estos miembros, por páginas. null = no se pudo leer entero (nunca se inventa un saldo). */
-async function ledgerDe(db: Db, ids: string[]): Promise<FilaDeSaldo[] | null> {
-  const filas: FilaDeSaldo[] = [];
+async function ledgerDe(db: Db, ids: string[]): Promise<FilaParaCuentas[] | null> {
+  const filas: FilaParaCuentas[] = [];
   for (let desde = 0; ; desde += PAGINA_BASE) {
     if (desde >= TOPE_LEDGER) return null;
     const { data, error } = await db
       .from("transacciones_puntos")
-      .select("id, miembro_id, puntos, tipo, created_at")
+      .select(COLUMNAS_CUENTAS)
       .in("miembro_id", ids)
       .order("id", { ascending: true })
       .range(desde, desde + PAGINA_BASE - 1);
     if (error) return null;
-    const lote = (data ?? []) as Record<string, unknown>[];
+    const lote = (data ?? []) as unknown[];
     for (const f of lote) {
-      if (typeof f.miembro_id !== "string" || typeof f.created_at !== "string") continue;
-      filas.push({
-        miembro_id: f.miembro_id,
-        puntos: Number(f.puntos) || 0,
-        tipo: typeof f.tipo === "string" ? f.tipo : "",
-        created_at: f.created_at,
-      });
+      const fila = filaParaCuentas(f);
+      if (fila) filas.push(fila);
     }
     if (lote.length < PAGINA_BASE) return filas;
   }
 }
 
-export type PaginaDeClientes = { clientes: ClienteDelPanel[]; total: number; siguiente: string | null };
+/**
+ * El ledger de TODA la tarjeta, por páginas (el respaldo de la 0252). La
+ * tarjeta va en la consulta (`miembros!inner`), igual que el historial
+ * de la caja. null = no se pudo leer entero.
+ */
+async function ledgerDeLaTarjeta(db: Db, programaId: string): Promise<FilaParaCuentas[] | null> {
+  const filas: FilaParaCuentas[] = [];
+  for (let desde = 0; ; desde += PAGINA_BASE) {
+    if (desde >= TOPE_LEDGER) return null;
+    const { data, error } = await db
+      .from("transacciones_puntos")
+      .select(`${COLUMNAS_CUENTAS}, miembros!inner(programa_id)`)
+      .eq("miembros.programa_id", programaId)
+      .order("id", { ascending: true })
+      .range(desde, desde + PAGINA_BASE - 1);
+    if (error) return null;
+    const lote = (data ?? []) as unknown[];
+    for (const f of lote) {
+      const fila = filaParaCuentas(f);
+      if (fila) filas.push(fila);
+    }
+    if (lote.length < PAGINA_BASE) return filas;
+  }
+}
+
+/** La función de la 0252 todavía no está en la base (o PostgREST no la ve): se cuenta acá. */
+function faltaLaFuncion(error: { code?: string | null; message?: string | null }): boolean {
+  return error.code === "PGRST202" || error.code === "42883" || /lealtad_resumen_por_miembro/.test(error.message ?? "");
+}
+
+/** Una fila de `lealtad_resumen_por_miembro` (0252). */
+function cuentasDeFila(v: unknown): [string, AgregadoDelMiembro] | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  if (typeof r.miembro_id !== "string") return null;
+  const n = (x: unknown) => Number(x) || 0;
+  const fecha = (x: unknown) => (typeof x === "string" && x ? x : null);
+  return [
+    r.miembro_id,
+    {
+      saldo: n(r.saldo),
+      acumulado: n(r.acumulado),
+      visitas: n(r.visitas),
+      canjes: n(r.canjes),
+      ultimoCanje: fecha(r.ultimo_canje),
+      ultima: fecha(r.ultima_actividad),
+    },
+  ];
+}
+
+/**
+ * Los números de TODOS los clientes de la tarjeta (los que tienen algún
+ * movimiento; el resto, en cero). Primero con la función de la 0252, una
+ * consulta que la base agrupa; si todavía no está, leyendo el ledger de
+ * la tarjeta por páginas y haciendo la misma cuenta acá
+ * (`agregadosPorMiembro`). null = la base no contestó.
+ */
+export async function cuentasDeLaTarjeta(db: Db, programaId: string): Promise<Map<string, AgregadoDelMiembro> | null> {
+  const mapa = new Map<string, AgregadoDelMiembro>();
+  for (let desde = 0; desde < TOPE_MIEMBROS; desde += PAGINA_BASE) {
+    const { data, error } = await db
+      .rpc("lealtad_resumen_por_miembro", { p_programa_id: programaId })
+      .order("miembro_id", { ascending: true })
+      .range(desde, desde + PAGINA_BASE - 1);
+    if (error) {
+      if (desde > 0 || !faltaLaFuncion(error)) return null;
+      const ledger = await ledgerDeLaTarjeta(db, programaId);
+      return ledger ? agregadosPorMiembro(ledger) : null;
+    }
+    const filas = (Array.isArray(data) ? data : []) as unknown[];
+    for (const f of filas) {
+      const c = cuentasDeFila(f);
+      if (c) mapa.set(c[0], c[1]);
+    }
+    if (filas.length < PAGINA_BASE) break;
+  }
+  return mapa;
+}
+
+export type PaginaDeClientes = {
+  clientes: ClienteDelPanel[];
+  total: number;
+  /** Sin `orden`: la fecha para pedir la página siguiente con `antes`. */
+  siguiente: string | null;
+  /** Con `orden`: cuántos saltar para la página siguiente (`desde`). */
+  siguienteDesde: number | null;
+  /** Con `resumen: true`: los totales de la tarjeta (de toda, aunque se busque). */
+  resumen: ResumenDeClientes | null;
+};
+
+/**
+ * Con `orden`: la lista ENTERA se ordena acá, con los números de todos
+ * (`cuentasDeLaTarjeta`), y se corta la página con `desde`. Cada cliente
+ * lleva su `posicion` en la lista entera: buscando «Ana» se sabe si es la
+ * segunda que más sellos lleva. Quién es cada uno se resuelve de todos
+ * solo si hace falta (buscar u ordenar por nombre); si no, de la página.
+ */
+async function clientesOrdenados(
+  db: Db,
+  p: PedidoClientes & { orden: OrdenClientes },
+  ahora: Date,
+): Promise<PaginaDeClientes | null> {
+  const [todos, cuentas] = await Promise.all([todosLosMiembros(db, p.programaId), cuentasDeLaTarjeta(db, p.programaId)]);
+  if (!todos || !cuentas) return null;
+
+  const deTodos = p.buscar !== null || p.orden === "nombre";
+  let identidades = deTodos ? await identidadesEnTandas(db, todos, p.ranchoId) : new Map<string, IdentidadCliente>();
+
+  const ordenados = ordenarMiembros(todos, cuentas, p.orden, identidades);
+  const posicion = new Map(ordenados.map((m, i) => [m.id, i + 1]));
+  const busqueda = p.buscar;
+  const coinciden = busqueda ? ordenados.filter((m) => coincideConLaBusqueda(busqueda, identidades.get(m.id))) : ordenados;
+  const pagina = coinciden.slice(p.desde, p.desde + p.limite);
+  if (!deTodos && pagina.length > 0) identidades = await identidadesEnTandas(db, pagina, p.ranchoId);
+
+  return {
+    clientes: pagina.map((m) => armarClienteDelPanel(m, identidades.get(m.id), cuentas.get(m.id), posicion.get(m.id))),
+    total: coinciden.length,
+    siguiente: null,
+    siguienteDesde: p.desde + pagina.length < coinciden.length ? p.desde + pagina.length : null,
+    resumen: p.resumen ? resumenDeClientes(todos, cuentas, ahora) : null,
+  };
+}
+
+/** Los totales de la tarjeta para el pedido de siempre (sin `orden`) que los pide. */
+async function resumenDeLaTarjeta(db: Db, programaId: string, ahora: Date): Promise<ResumenDeClientes | null> {
+  const [todos, cuentas] = await Promise.all([todosLosMiembros(db, programaId), cuentasDeLaTarjeta(db, programaId)]);
+  return todos && cuentas ? resumenDeClientes(todos, cuentas, ahora) : null;
+}
 
 /**
  * Los clientes de ESTA tarjeta (la vinculada a Foorkie, no otra del
- * mismo negocio), del alta más nueva a la más vieja, con su saldo y su
- * última actividad. `total` cuenta todos los que coinciden, no solo los
+ * mismo negocio), con sus números (saldo, acumulado, visitas, canjes,
+ * última actividad). `total` cuenta todos los que coinciden, no solo los
  * de la página. null = la base no contestó.
  *
- * Sin búsqueda, la página la arma la base (`lt` + `limit`). Con búsqueda
- * hay que resolver quién es cada uno antes de filtrar —el nombre puede
- * vivir en `personas`, en la ficha del negocio o en `perfiles`, y sin
- * tildes `ilike` no sirve—, igual que el buscador del mostrador de
- * Bookea (`buscarClientesCore`).
+ * Sin `orden`, del alta más nueva a la más vieja, como siempre: sin
+ * búsqueda la página la arma la base (`lt` + `limit`); con búsqueda hay
+ * que resolver quién es cada uno antes de filtrar —el nombre puede vivir
+ * en `personas`, en la ficha del negocio o en `perfiles`, y sin tildes
+ * `ilike` no sirve—, igual que el buscador del mostrador de Bookea
+ * (`buscarClientesCore`). Con `orden`, `clientesOrdenados`.
  */
-export async function clientesDeLaTarjeta(db: Db, p: PedidoClientes): Promise<PaginaDeClientes | null> {
+export async function clientesDeLaTarjeta(
+  db: Db,
+  p: PedidoClientes,
+  ahora: Date = new Date(),
+): Promise<PaginaDeClientes | null> {
+  if (p.orden !== null) return clientesOrdenados(db, { ...p, orden: p.orden }, ahora);
+
+  let resumen: ResumenDeClientes | null = null;
+  if (p.resumen) {
+    resumen = await resumenDeLaTarjeta(db, p.programaId, ahora);
+    if (!resumen) return null;
+  }
+
   let pagina: MiembroDelPanel[];
   let siguiente: string | null;
   let total: number;
@@ -784,17 +1415,198 @@ export async function clientesDeLaTarjeta(db: Db, p: PedidoClientes): Promise<Pa
     identidades = await identidadesEnTandas(db, pagina, p.ranchoId);
   }
 
-  if (pagina.length === 0) return { clientes: [], total, siguiente: null };
+  if (pagina.length === 0) return { clientes: [], total, siguiente: null, siguienteDesde: null, resumen };
   const ledger = await ledgerDe(
     db,
     pagina.map((m) => m.id),
   );
   if (!ledger) return null;
-  const actividad = actividadPorMiembro(ledger);
+  const cuentas = agregadosPorMiembro(ledger);
   return {
-    clientes: pagina.map((m) => armarClienteDelPanel(m, identidades.get(m.id), actividad.get(m.id))),
+    clientes: pagina.map((m) => armarClienteDelPanel(m, identidades.get(m.id), cuentas.get(m.id))),
     total,
     siguiente,
+    siguienteDesde: null,
+    resumen,
+  };
+}
+
+// ── Un cliente y sus movimientos ────────────────────────────────────
+
+/** Un cliente con más movimientos que esto no se cuenta (ninguno real se le acerca). */
+const TOPE_LEDGER_CLIENTE = 10_000;
+const COLUMNAS_LEDGER_CLIENTE = "id, miembro_id, tipo, puntos, motivo, referencia, reversion_de, usuario_id, created_at";
+
+function filaDelLedgerDelCliente(v: unknown): FilaLedger | null {
+  if (!v || typeof v !== "object") return null;
+  const r = v as Record<string, unknown>;
+  const texto = (x: unknown) => (typeof x === "string" ? x : null);
+  if (typeof r.id !== "string" || typeof r.miembro_id !== "string" || typeof r.created_at !== "string") return null;
+  return {
+    id: r.id,
+    miembro_id: r.miembro_id,
+    tipo: texto(r.tipo) ?? "",
+    puntos: Number(r.puntos) || 0,
+    motivo: texto(r.motivo),
+    referencia: texto(r.referencia),
+    reversion_de: texto(r.reversion_de),
+    usuario_id: texto(r.usuario_id),
+    llave_id: texto(r.llave_id),
+    created_at: r.created_at,
+  };
+}
+
+/** TODO el ledger de un miembro, de lo más viejo a lo más nuevo, por páginas. null = no se pudo leer entero. */
+async function ledgerDelMiembro(db: Db, miembroId: string): Promise<FilaLedger[] | null> {
+  const pedir = (columnas: string, desde: number) =>
+    db
+      .from("transacciones_puntos")
+      .select(columnas)
+      .eq("miembro_id", miembroId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(desde, desde + PAGINA_BASE - 1);
+  // `llave_id` es de la 0178 (por dónde entró, `canalParaFoorkie`): si no está pegada, se pide sin ella.
+  let columnas = `${COLUMNAS_LEDGER_CLIENTE}, llave_id`;
+  const filas: FilaLedger[] = [];
+  for (let desde = 0; ; desde += PAGINA_BASE) {
+    if (desde >= TOPE_LEDGER_CLIENTE) return null;
+    let leido = await pedir(columnas, desde);
+    if (leido.error && desde === 0 && columnas !== COLUMNAS_LEDGER_CLIENTE) {
+      columnas = COLUMNAS_LEDGER_CLIENTE;
+      leido = await pedir(columnas, desde);
+    }
+    if (leido.error) return null;
+    const lote = (leido.data ?? []) as unknown[];
+    for (const f of lote) {
+      const fila = filaDelLedgerDelCliente(f);
+      if (fila) filas.push(fila);
+    }
+    if (lote.length < PAGINA_BASE) return filas;
+  }
+}
+
+/** Las ventas del cliente (0197). Sin la tabla, o si falla, ninguna: las compras salen con el motivo del ledger. */
+async function ventasDelMiembro(db: Db, ranchoId: string, miembroId: string): Promise<VentaDelCliente[]> {
+  const { data, error } = await db
+    .from("lealtad_transacciones")
+    .select("id, referencia, producto, monto, registrado_por, created_at")
+    .eq("rancho_id", ranchoId)
+    .eq("miembro_id", miembroId)
+    .order("created_at", { ascending: false })
+    .limit(PAGINA_BASE);
+  if (error) return [];
+  const texto = (x: unknown) => (typeof x === "string" ? x : null);
+  return ((data ?? []) as Record<string, unknown>[])
+    .filter((v) => typeof v.id === "string" && typeof v.created_at === "string")
+    .map((v) => ({
+      id: v.id as string,
+      referencia: texto(v.referencia),
+      producto: texto(v.producto),
+      monto: v.monto === null || v.monto === undefined || !Number.isFinite(Number(v.monto)) ? null : Number(v.monto),
+      registrado_por: texto(v.registrado_por),
+      created_at: v.created_at as string,
+    }));
+}
+
+/** Los canjes del cliente, con el nombre del premio. Si falla, ninguno: el premio sale del motivo del ledger («Canje: …»). */
+async function canjesDelMiembro(db: Db, miembroId: string): Promise<CanjeDelCliente[]> {
+  const { data, error } = await db
+    .from("canjes")
+    .select("id, transaccion_id, entregado_por, created_at, recompensas(nombre)")
+    .eq("miembro_id", miembroId)
+    .order("created_at", { ascending: false })
+    .limit(PAGINA_BASE);
+  if (error) return [];
+  const texto = (x: unknown) => (typeof x === "string" ? x : null);
+  return ((data ?? []) as Record<string, unknown>[])
+    .filter((c) => typeof c.id === "string" && typeof c.created_at === "string")
+    .map((c) => {
+      const r = Array.isArray(c.recompensas) ? c.recompensas[0] : c.recompensas;
+      const nombre = r && typeof r === "object" ? texto((r as Record<string, unknown>).nombre) : null;
+      return {
+        id: c.id as string,
+        transaccion_id: texto(c.transaccion_id),
+        premio: nombre,
+        entregado_por: texto(c.entregado_por),
+        created_at: c.created_at as string,
+      };
+    });
+}
+
+/** Quién es cada persona del equipo que anotó algo: su nombre de pila (nunca un correo). */
+async function equipoDe(db: Db, ids: string[]): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const { data, error } = await db.from("perfiles").select("id, nombre").in("id", ids.slice(0, 200));
+  if (error) return new Map();
+  const mapa = new Map<string, string>();
+  for (const p of (data ?? []) as { id?: unknown; nombre?: unknown }[]) {
+    const nombre = nombreDePila(typeof p.nombre === "string" ? p.nombre : null);
+    if (typeof p.id === "string" && nombre !== "Cliente") mapa.set(p.id, nombre);
+  }
+  return mapa;
+}
+
+export type DetalleDelCliente = { cliente: ClienteDelPanel; movimientos: MovimientoDelCliente[]; siguiente: string | null };
+
+const ERROR_AL_LEER_CLIENTE: FalloDelPanel = {
+  ok: false,
+  codigo: "error_base",
+  motivo: "No pudimos leer a este cliente. Probá de nuevo.",
+  status: 500,
+};
+
+/**
+ * UN cliente de ESTA tarjeta y sus movimientos, del más nuevo al más
+ * viejo (de a `limite`, con `antes` = el `siguiente` de la página
+ * anterior). Los números del cliente salen de TODO su ledger; la página,
+ * de `movimientosDelCliente`. `duenoId` es el usuario con el que opera la
+ * caja de Foorkie (ver «quién atendió» allá).
+ *
+ * El miembro tiene que ser de esta tarjeta: uno de otra (de este negocio
+ * o de otro), uno dado de baja y uno que no existe contestan igual,
+ * «no encontrado», como `miembroPorId` en la caja.
+ */
+export async function detalleDelCliente(
+  db: Db,
+  p: PedidoDetalleCliente,
+  duenoId: string | null,
+): Promise<{ ok: true; detalle: DetalleDelCliente } | FalloDelPanel> {
+  const { data, error } = await db
+    .from("miembros")
+    .select(COLUMNAS_MIEMBRO)
+    .eq("id", p.miembroId)
+    .eq("programa_id", p.programaId)
+    .maybeSingle();
+  if (error) return ERROR_AL_LEER_CLIENTE;
+  const miembro = filaDeMiembroDelPanel(data);
+  if (!miembro) return { ok: false, codigo: "no_encontrado", motivo: "Ese cliente no tiene esta tarjeta.", status: 404 };
+
+  const [filas, identidades, ventas, canjes] = await Promise.all([
+    ledgerDelMiembro(db, miembro.id),
+    identidadesDeMiembros(db, [miembro], p.ranchoId),
+    ventasDelMiembro(db, p.ranchoId, miembro.id),
+    canjesDelMiembro(db, miembro.id),
+  ]);
+  if (!filas) return ERROR_AL_LEER_CLIENTE;
+
+  const ids = new Set<string>();
+  for (const f of filas) if (f.usuario_id) ids.add(f.usuario_id);
+  for (const v of ventas) if (v.registrado_por) ids.add(v.registrado_por);
+  for (const c of canjes) if (c.entregado_por) ids.add(c.entregado_por);
+  const equipo = await equipoDe(db, [...ids]);
+
+  const todos = movimientosDelCliente({ filas, ventas, canjes, equipo, duenoId });
+  const antes = p.antes;
+  const candidatos = antes ? todos.filter((m) => esAnterior(m.created_at, antes)) : todos;
+  const { pagina, siguiente } = cortarPagina(candidatos.slice(0, p.limite + 1), p.limite);
+  return {
+    ok: true,
+    detalle: {
+      cliente: armarClienteDelPanel(miembro, identidades.get(miembro.id), agregadosPorMiembro(filas).get(miembro.id)),
+      movimientos: pagina,
+      siguiente,
+    },
   };
 }
 
