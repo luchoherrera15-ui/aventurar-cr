@@ -9,6 +9,7 @@ import {
   linksDelMiembro,
   VIDA_LINK_PASE_MS,
 } from "./foorkie-api";
+import { marcaDelPase } from "./foorkie-marca";
 
 const SECRETO = "secreto-de-prueba-de-la-puerta";
 const MIEMBRO = "0b6c0b8e-4f1e-4d5a-9a43-2b1f3c4d5e6f";
@@ -93,6 +94,18 @@ describe("armarTarjeta (foorkie-api)", () => {
     expect(t.textos.encabezado.label).toBe("SALDO");
     expect(t.diseno).toMatchObject({ colorFondo: "#1B2A6B", colorSello: "#FCB700" });
     expect(t.wallet).toBe(links);
+  });
+
+  it("trae la vista del pase con el saldo de ESTE cliente y lo que su marca dice bajo el QR", () => {
+    const fila = { id: "p1", rancho_id: "r1", nombre: "Tarjeta", modo: "sellos", estado: "activo", activo: true, pase_sello_icono: "cafe" };
+    const meta = { nombre: "Un matcha gratis", costo_puntos: 10 };
+    const deBookea = armarTarjeta({ miembroId: MIEMBRO, fila, negocio: "Pura Prueba", saldo: 7, meta, links });
+    expect(deBookea.vista.saldo).toBe(7);
+    expect(deBookea.vista.textos).toEqual(deBookea.textos);
+    expect(deBookea.vista.tira).toMatchObject({ tipo: "sellos", total: 10, logrados: 7, sello: { clase: "icono", icono: "cafe" } });
+    expect(deBookea.vista.pie).toBe("Powered by Bookea.lat");
+    const deFoorkie = armarTarjeta({ miembroId: MIEMBRO, fila, negocio: "Pura Prueba", saldo: 7, meta, links, marca: marcaDelPase({ slug: "pura" }) });
+    expect(deFoorkie.vista).toMatchObject({ marca: "foorkie", pie: "Foorkie Lealtad" });
   });
 });
 
