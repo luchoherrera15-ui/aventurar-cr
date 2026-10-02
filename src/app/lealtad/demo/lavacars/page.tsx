@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import { srcDeFranja } from "@/lib/lealtad/plantillas-franjas";
 import PasesSlider from "./pases-slider";
 import GrillaProductos from "./grilla-productos";
 
@@ -35,8 +36,10 @@ import GrillaProductos from "./grilla-productos";
  *    el hero, baldes "Meguiar's" en el Porsche, "RANGE ROVER" escrito
  *    en el capó, el rodete de BMW) — inaceptable por la misma regla que
  *    ya se aplicó a las franjas de Lavacar/Courier. Se reemplazaron por
- *    fotos YA verificadas y autohosteadas del banco de franjas
- *    (`lavacar-1/2/4.jpg`), sin logo de terceros.
+ *    fotos YA verificadas del banco de franjas (`lavacar-1/2/4`), sin
+ *    logo de terceros. Salen de Cloudflare Images con `srcDeFranja` y en
+ *    la variante `gallery`: son verticales y la `public` las deja en
+ *    512 px de ancho, poco para un hero a lo ancho.
  *
  * 3. EL SLIDER DE LA DERECHA: pedido explícito del dueño — en vez de
  *    las 3 ofertas de servicio del mockup, muestra la MISMA tarjeta de
@@ -74,7 +77,7 @@ export const metadata: Metadata = {
   title: "Demo · Lavacar · Lealtad Bookea",
 };
 
-const FOTO_HERO = "/lealtad/plantillas/franjas/lavacar-4.jpg";
+const FOTO_HERO = srcDeFranja("lavacar-4", "gallery");
 
 export default function DemoLavacarsPage() {
   return (
