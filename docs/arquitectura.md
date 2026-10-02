@@ -281,6 +281,17 @@ repetir:
 > Google (3 por pase por día; los movimientos usan 2). Se guardan en
 > `programa_lealtad.configuracion` → `mensajes_automaticos`, que asegura
 > la 0251; sin ella salen los de fábrica.
+>
+> Y el AVISO POR CERCANÍA del iPhone (2 oct 2026): Foorkie registra las
+> ubicaciones de sus sucursales con pin (`foorkie-ubicaciones.ts`,
+> `programa/ubicaciones` + `/guardar`, de 0 a 10 con un mensaje de 3 a 80
+> caracteres) en la misma `lealtad_ubicaciones` de la 0196, que es POR
+> NEGOCIO: guardar reemplaza las del negocio escribiendo solo la
+> diferencia y refresca los pases de todas sus tarjetas
+> (`avisarCambioDeDiseno`). Solo con la marca, y solo si TODAS las
+> tarjetas del negocio son de Foorkie (si no, `negocio_compartido`). El
+> tope del paquete de Bookea no se aplica: manda el techo de Apple (10).
+> Google Wallet no tiene este aviso.
 
 Lo que **sí** quedaba congelado era el alcance: Foorkie descubre → el
 comensal cae en la página de Bookea Link del restaurante → menú, pedido y

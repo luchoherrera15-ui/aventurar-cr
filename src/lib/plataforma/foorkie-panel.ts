@@ -34,6 +34,7 @@ import {
 } from "@/lib/lealtad/cupo-notificaciones";
 import { enviarMensajePromocional } from "@/lib/wallet/mensaje-promocional";
 import { leerCambiosDeMensajes, type CambiosDeMensajes } from "@/lib/plataforma/foorkie-mensajes";
+import { leerUbicaciones, type UbicacionDeFoorkie } from "@/lib/plataforma/foorkie-ubicaciones";
 import { plataformasConfiguradas } from "@/lib/wallet/aviso-de-pausa";
 import { avisarCambioDeDiseno } from "@/lib/wallet/aviso-de-diseno";
 import { refrescarClaseGoogle } from "@/lib/wallet/google";
@@ -59,6 +60,8 @@ import { refrescarClaseGoogle } from "@/lib/wallet/google";
  *   mensaje             el aviso a todos los pases (`enviarMensajePromocional`)
  *   programa/mensajes   los mensajes automáticos al sumar, quitar y canjear
  *     (+ `/guardar`)    (`foorkie-mensajes.ts`; solo tarjetas de Foorkie)
+ *   programa/ubicaciones  el aviso por cercanía del iPhone: las ubicaciones
+ *     (+ `/guardar`)      del negocio (`foorkie-ubicaciones.ts`; solo Foorkie)
  *
  * ── ACÁ NO SE INVENTA NINGUNA REGLA ─────────────────────────────────
  * Validar y escribir una regalía es `@/lib/lealtad/recompensas`, el
@@ -295,6 +298,25 @@ export function leerPedidoGuardarMensajes(d: Record<string, unknown>): Lectura<P
   const cambios = leerCambiosDeMensajes(d.mensajes);
   if (!cambios.ok) return cambios;
   return { ok: true, valor: { ...v.valor, cambios: cambios.valor } };
+}
+
+/** `programa/ubicaciones`: solo la tarjeta. */
+export function leerPedidoUbicaciones(d: Record<string, unknown>): Lectura<Vinculo> {
+  return leerVinculo(d);
+}
+
+export type PedidoGuardarUbicaciones = Vinculo & { ubicaciones: UbicacionDeFoorkie[] };
+
+/**
+ * `programa/ubicaciones/guardar`: la tarjeta y la lista COMPLETA de
+ * `ubicaciones` (`leerUbicaciones`: de 0 a 10; lo que no viene se borra).
+ */
+export function leerPedidoGuardarUbicaciones(d: Record<string, unknown>): Lectura<PedidoGuardarUbicaciones> {
+  const v = leerVinculo(d);
+  if (!v.ok) return v;
+  const ubicaciones = leerUbicaciones(d.ubicaciones);
+  if (!ubicaciones.ok) return ubicaciones;
+  return { ok: true, valor: { ...v.valor, ubicaciones: ubicaciones.valor } };
 }
 
 // ════════════════════════════════════════════════════════════════════
