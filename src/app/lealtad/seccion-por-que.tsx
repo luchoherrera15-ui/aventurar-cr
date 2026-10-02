@@ -82,8 +82,8 @@ function MaquetaRescate() {
 /**
  * LOS DOS WALLETS — los íconos de verdad.
  *
- * Salen de la lámina que pasó el dueño (`referencia/wallet.png`,
- * 1 sep 2026), recortados a `public/wallets/`. Antes acá había dos
+ * Salen de la lámina que pasó el dueño (1 sep 2026; el original ya no
+ * está en el repo), recortados a `public/wallets/`. Antes acá había dos
  * SVG dibujados a mano porque en el repo solo estaban los logos de
  * Apple PAY y Google PAY, que son otro producto; con los archivos
  * buenos a mano, dibujarlos ya no tiene sentido.

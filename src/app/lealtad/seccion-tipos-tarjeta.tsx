@@ -161,8 +161,8 @@ export default function SeccionTiposTarjeta() {
                     dos formas de hacer la misma.
 
                     Los íconos son los PNG de la lámina que pasó el
-                    dueño (`referencia/wallet.png`), los mismos que
-                    usa «¿Por qué implementarlo?». Antes acá iba
+                    dueño (recortados a `public/wallets/`), los mismos
+                    que usa «¿Por qué implementarlo?». Antes acá iba
                     `google-pay.svg`, que es otro producto: Google
                     Pay paga, Google Wallet guarda el pase. */}
                 <div className="grid grid-cols-2 gap-2.5">

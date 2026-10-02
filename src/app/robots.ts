@@ -43,7 +43,6 @@ export default function robots(): MetadataRoute.Robots {
         "/baja",
         // Maquetas y demos internas: contenido de mentira que no tiene
         // por qué competir con el real en los resultados.
-        "/panel-demo",
         "/invitaciones2",
         "/lealtad/demo",
       ],

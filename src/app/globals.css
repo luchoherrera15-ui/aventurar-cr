@@ -477,52 +477,17 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   LA MANCHA NARANJA DE HeroBusqueda: deriva en vez de quedarse fija
+   LA AURORA — la técnica del fondo vivo, y la caja de la portada
    ═══════════════════════════════════════════════════════════════════
 
-   Pedido del dueño (ago 2026): la mancha naranja del fondo del héroe
-   —hasta acá un radial-gradient QUIETO, ver el comentario grande de
-   `hero-busqueda.tsx`— pasa a moverse despacio por la pantalla
-   principal del header, para que se sienta un efecto vivo y no un
-   degradado pegado en la esquina.
-
-   Sigue la MISMA idea que ya evitaba el canto recto contra el
-   `overflow-hidden` de la sección: el desenfoque es el propio
-   radial-gradient —se apaga solo, DENTRO de su radio fijo en
-   píxeles— y no un `filter: blur()`. Eso es justo lo que permite
-   animarla sin reabrir ese problema: un blur() que se mueve expone el
-   borde recto de su caja contra el recorte; un radial-gradient que se
-   mueve solo desplaza DÓNDE termina de apagarse, nunca corta en seco.
-   La caja además vive en su propio `div`, más grande que la sección
-   (`-inset-[18%]` en el componente) — margen de sobra para que la
-   deriva no acerque el centro de la mancha al borde recortado.
-
-   Solo anima `transform` (traslada + escala apenas) — corre en el
-   compositor, no dispara layout ni recalcula el gradiente cuadro a
-   cuadro. Lenta a propósito (26s): se siente atmósfera, no un anuncio
-   parpadeando. */
-@keyframes deriva-mancha-naranja {
-  0%,
-  100% {
-    transform: translate(0%, 0%) scale(1);
-  }
-  50% {
-    transform: translate(-14%, -12%) scale(1.12);
-  }
-}
-
-@utility mancha-flotante {
-  animation: deriva-mancha-naranja 26s ease-in-out infinite;
-  will-change: transform;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   AURORA NARANJA — el fondo vivo del héroe de la portada
-   ═══════════════════════════════════════════════════════════════════
+   Nació como la aurora NARANJA del héroe de la portada: tres capas,
+   `.aurora-1/2/3`, que se borraron el 1 oct 2026 porque el home ya
+   pinta la aurora AZUL de más abajo y no las usaba nadie. Lo que sigue
+   vale para las que quedan —la caja de acá abajo y las variantes
+   `aurora-lenta-*` y `aurora-azul-*`—, que usan esta misma técnica.
 
    Tres capas de radial-gradient con radio FIJO EN PÍXELES, que se
-   apagan solas. Misma técnica que `.mancha-flotante` de acá arriba, y
-   por los mismos tres motivos —que no se negocian porque los tres ya
+   apagan solas, por tres motivos que no se negocian porque los tres ya
    costaron un bug en este repo:
 
      1. El desenfoque ES el radial-gradient. Un `filter: blur()` que se
@@ -538,55 +503,19 @@
 
    ── POR QUÉ TRES Y NO UNA ────────────────────────────────────────
    Una sola mancha que va y viene se lee como UN OBJETO DESLIZÁNDOSE,
-   no como luz. Con duraciones primas entre sí (23/29/31s) y delays
-   negativos distintos, las fases no vuelven a coincidir en horas: el
-   ojo nunca encuentra el bucle. Eso es lo que lo hace sentir líquido.
+   no como luz. Con duraciones primas entre sí y delays negativos
+   distintos, las fases no vuelven a coincidir en horas: el ojo nunca
+   encuentra el bucle. Eso es lo que lo hace sentir líquido.
 
-   ── TECHO DE ALFA: 0,60 ACUMULADA EN CUALQUIER PUNTO ─────────────
-   Estos alfas están elegidos, no estimados. Debajo va el subtítulo del
-   héroe. En el punto de máximo solapamiento el fondo compuesto no baja
-   de L≈0,63, o sea que el texto en `--text` queda muy por encima de
-   4,5:1. SI ALGUIEN SUBE UN ALFA, HAY QUE VOLVER A MEDIRLO: el
-   contraste sobre un fondo animado es una función del tiempo y no se
-   puede medir una sola vez.
+   ── LOS ALFAS SE MIDEN, NO SE ESTIMAN ─────────────────────────────
+   Encima de la aurora va texto. SI ALGUIEN SUBE UN ALFA, HAY QUE
+   VOLVER A MEDIR EL CONTRASTE: sobre un fondo animado es una función
+   del tiempo y no se puede medir una sola vez.
 
    rgba() literales y no `color-mix()`: `globals.test.ts` exige que todo
    color-mix() viaje dentro de un @supports, y acá el mezclado iría
    sobre var(--orange), que Lightning CSS no resuelve.
    ═══════════════════════════════════════════════════════════════════ */
-
-@keyframes aurora-deriva-1 {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-  }
-  50% {
-    transform: translate3d(-9%, 7%, 0) scale(1.12);
-  }
-}
-
-@keyframes aurora-deriva-2 {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1.04);
-  }
-  50% {
-    transform: translate3d(8%, -6%, 0) scale(0.94);
-  }
-}
-
-@keyframes aurora-deriva-3 {
-  0%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(0.98);
-  }
-  33% {
-    transform: translate3d(7%, -6%, 0) scale(1.1);
-  }
-  66% {
-    transform: translate3d(-6%, 5%, 0) scale(0.97);
-  }
-}
 
 /* ⚠️ EL RECORTE VIVE ACÁ, EN SU PROPIA CAJA — NUNCA EN LA <section>.
    Ya pasó una vez (ver el comentario de `hero-busqueda.tsx`): con el
@@ -664,51 +593,6 @@
   backface-visibility: hidden;
 }
 
-/* Capa 1 · NARANJA DE MARCA (#ee7420 = --orange), arriba a la izquierda */
-.aurora-1 {
-  background: radial-gradient(
-    circle 900px at 18% 14%,
-    rgba(238, 116, 32, 0.2) 0%,
-    rgba(238, 116, 32, 0.09) 34%,
-    transparent 52%
-  );
-  animation: aurora-deriva-1 23s ease-in-out infinite;
-}
-
-/* Capa 2 · CORAL / DURAZNO, centro-derecha */
-.aurora-2 {
-  background: radial-gradient(
-    circle 820px at 84% 28%,
-    rgba(255, 150, 80, 0.2) 0%,
-    rgba(255, 150, 80, 0.08) 36%,
-    transparent 50%
-  );
-  animation: aurora-deriva-2 29s ease-in-out infinite;
-  animation-delay: -7s;
-}
-
-/* Capa 3 · ÁMBAR CÁLIDO, abajo — la que da profundidad */
-.aurora-3 {
-  background: radial-gradient(
-    circle 760px at 52% 94%,
-    rgba(250, 200, 112, 0.2) 0%,
-    rgba(250, 200, 112, 0.08) 38%,
-    transparent 48%
-  );
-  animation: aurora-deriva-3 31s ease-in-out infinite;
-  animation-delay: -13s;
-}
-
-/* En teléfono se cae la tercera capa: cada mancha es una capa de GPU del
-   tamaño del héroe × 1,44, y en un Android de gama baja tres capas
-   grandes son memoria de vídeo tirada para un efecto que a ese ancho ni
-   se distingue. */
-@media (max-width: 639px) {
-  .aurora-3 {
-    display: none;
-  }
-}
-
 /* ═══════════════════════════════════════════════════════════════════
    LA AURORA LENTA — para pantallas que se MIRAN, no que se recorren
    ═══════════════════════════════════════════════════════════════════
@@ -720,11 +604,12 @@
    Es la misma técnica de arriba —el desenfoque ES el radial-gradient, y
    se anima ÚNICAMENTE `transform`— con dos diferencias deliberadas:
 
-   1. RECORRE MÁS Y TARDA MÁS. La del héroe deriva un 6-9 % en 23-31 s:
-      ahí el visitante pasa unos segundos y sigue scrolleando, así que
-      alcanza con que respire. En una pantalla de login la persona se
-      queda quieta esperando un código, y ese mismo movimiento corto se
-      vuelve un tic repetitivo. Acá el viaje es del 18-26 % en 48-67 s.
+   1. RECORRE MÁS Y TARDA MÁS. La naranja del héroe (ya borrada)
+      derivaba un 6-9 % en 23-31 s: ahí el visitante pasa unos segundos
+      y sigue scrolleando, así que alcanza con que respire. En una
+      pantalla de login la persona se queda quieta esperando un código,
+      y ese mismo movimiento corto se vuelve un tic repetitivo. Acá el
+      viaje es del 18-26 % en 48-67 s.
 
    2. NO LLEVA MÁSCARA. `aurora-caja` se apaga hacia abajo porque en la
       portada tiene que fundirse con el catálogo; acá la aurora ES el
@@ -891,7 +776,7 @@
 
 /* ⚠️ QUIETA, NO AUSENTE. Con `prefers-reduced-motion` la aurora se
    queda PINTADA donde la deja su transform base — es la atmósfera de la
-   pantalla, no un adorno. Misma política que `.aurora-1/2/3`, y por eso
+   pantalla, no un adorno. Misma política que `.organico`, y por eso
    las tres keyframes arrancan y terminan en un transform que se ve bien
    por sí solo. */
 @media (prefers-reduced-motion: reduce) {
@@ -903,31 +788,6 @@
   .aurora-azul-3 {
     animation: none;
   }
-}
-
-/* ── LA ENTRADA DEL PANEL DEL MEGA MENÚ ────────────────────────────
-   180ms y nada más: es un menú de navegación, no una escena. Más lento
-   se siente pesado cuando alguien recorre las cinco puertas seguidas.
-
-   Solo `opacity` y `transform`, o sea compositor puro. Y ojo con lo que
-   NO lleva: nada de `backdrop-filter`. Un backdrop-filter encima de un
-   fondo animado obliga al navegador a releer el backdrop en CADA
-   fotograma — jank al scrollear y el INP por el piso. La variante
-   `flotante` de `SiteHeader` usa `backdrop-blur-xl`, y es justamente lo
-   que acá no se copia. */
-@keyframes entra-mega-panel {
-  from {
-    opacity: 0;
-    transform: translateY(-6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.anim-mega-panel {
-  animation: entra-mega-panel 180ms var(--ease-bookea, cubic-bezier(0.22, 1, 0.36, 1)) both;
 }
 
 /* El cajón de categorías en el teléfono: entra desde la derecha. */
@@ -971,26 +831,6 @@
 .flotante {
   animation: flota 7s ease-in-out infinite;
   will-change: transform;
-}
-
-/* La insignia «Nuevo» sobre la foto: un rebote apenas perceptible y un
-   halo azul que respira — se nota de reojo, no parpadea como un GIF
-   encima de la foto del negocio. */
-@keyframes insignia-nueva {
-  0%,
-  100% {
-    transform: translateY(0);
-    box-shadow: 0 0 0 0 rgba(59, 127, 196, 0.5);
-  }
-  50% {
-    transform: translateY(-2px);
-    box-shadow: 0 0 8px 2px rgba(59, 127, 196, 0.55);
-  }
-}
-
-.insignia-nueva {
-  animation: insignia-nueva 2.4s ease-in-out infinite;
-  will-change: transform, box-shadow;
 }
 
 /* El reflejo que cruza el vidrio. Pasa una vez cada 6 s y tarda 2,2 en
@@ -1085,8 +925,7 @@
   .elevar,
   .presionable,
   .paso,
-  .desplegable,
-  .acordeon-col {
+  .desplegable {
     transition-duration: 1ms !important;
   }
   /* El carrusel deja de deslizarse solo: el salto es instantáneo. */
@@ -1111,42 +950,17 @@
   .organico:hover::before {
     animation: none;
   }
-  /* La mancha naranja del héroe deja de moverse, pero se queda pintada
-     donde estaba en reposo — sigue siendo la atmósfera de la sección. */
-  .mancha-flotante {
-    animation: none;
-  }
-  /* ── LA AURORA, QUIETA ──────────────────────────────────────────
-     Se queda PINTADA, no desaparece: es la atmósfera de la portada, no
-     un adorno — misma política que `.organico` y `.mancha-flotante`.
-
-     ⚠️ EL FOTOGRAMA QUIETO ES UNA COMPOSICIÓN, NO UN RESIDUO. Con
-     `animation: none` el elemento NO se queda «donde estaba en reposo»:
-     se queda en su transform BASE, o sea SIN transform. Por eso las tres
-     keyframes arrancan y terminan en un transform que se ve bien por sí
-     solo, y por eso cada capa lleva su posición de reposo en el
-     `at X% Y%` de su propio gradiente y no en la animación. Ese
-     fotograma es el que ve quien pidió menos movimiento — y es el fondo
-     sobre el que también hay que medir el contraste del subtítulo. */
-  .aurora-1,
-  .aurora-2,
-  .aurora-3 {
-    animation: none;
-  }
-  /* El panel y el cajón APARECEN, sin deslizarse. No se les pone
-     `animation: none` porque los dos arrancan en `opacity: 0` o
-     desplazados: sin animación se quedarían invisibles o fuera de
-     pantalla. Se acortan a 1ms, que es el patrón que ya usa el resto de
+  /* El cajón APARECE, sin deslizarse. No se le pone `animation: none`
+     porque arranca desplazado: sin animación se quedaría fuera de
+     pantalla. Se acorta a 1ms, que es el patrón que ya usa el resto de
      este bloque para las entradas. */
-  .anim-mega-panel,
   .anim-cajon-nav {
     animation-duration: 1ms !important;
   }
   /* El teléfono deja de flotar y el vidrio de brillar. Los sellos se
      muestran puestos, sin el rebote de entrada. */
   .flotante,
-  .brillo-vidrio::before,
-  .insignia-nueva {
+  .brillo-vidrio::before {
     animation: none;
   }
   .sello-entra {
@@ -1649,29 +1463,8 @@ body {
   }
 }
 
-/* El avisito de invitaciones digitales en la página del rancho: entra
-   discreto desde abajo, sin robarle protagonismo a la reserva. */
-@keyframes aviso-entrar {
-  from {
-    opacity: 0;
-    transform: translateY(14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.anim-aviso-entrar {
-  animation: aviso-entrar 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .anim-aviso-entrar {
-    animation: none;
-  }
-}
-
-/* El desfile de mini-invitaciones dentro de ese avisito: las cinco
-   demos del catálogo pasando en un riel continuo.
+/* El desfile de mini-invitaciones (`.anim-mini-inv-desfile`, más
+   abajo): las cinco demos del catálogo pasando en un riel continuo.
 
    La lista se pinta DOS veces seguidas y el riel se corre exactamente
    -50%: al llegar ahí, la segunda copia está justo donde arrancó la
@@ -1788,23 +1581,6 @@ body {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   EL DESFILE DE RUBROS DE /lealtad — seis pases que pasan solos
-   ═══════════════════════════════════════════════════════════════════
-
-   Pedido del dueño (30 ago 2026), segunda vuelta: además de desfilar,
-   el riel se tiene que poder «agarrar y lanzar con el mouse».
-
-   ⚠️ ACÁ VIVÍAN UNOS @keyframes Y SE FUERON. La primera versión movía
-   el riel con `transform` desde CSS, sin una línea de JavaScript. Eso
-   NO se puede arrastrar: una animación de transform no se toma por la
-   mitad para seguir desde ahí sin pelearse con el motor de animación.
-
-   Ahora el riel es scroll NATIVO y quien lo empuja es
-   `requestAnimationFrame` sobre `scrollLeft` (ver desfile-rubros.tsx).
-   De acá solo queda lo que sigue siendo CSS: esconder la barra y el
-   realce al pasar el mouse. */
-
 /* Scroll horizontal sin la barra a la vista. El scroll SIGUE ahí —no
    es `overflow: hidden`— así que la rueda, el teclado y el dedo
    funcionan igual; lo único que se esconde es el riel gris, que en una
@@ -1818,65 +1594,11 @@ body {
   }
 }
 
-/* La tarjeta de abajo del cursor se levanta y crece apenas.
-
-   ⚠️ SIN `will-change: transform`. Es justo la combinación con `scale`
-   que difumina el texto —ya pasó en este repo: «al pasar el mouse se
-   nublan los textos»— y acá adentro hay tipografía de 6 px. El scale
-   es chico (1.04) y el salto lo hace `translateY`, que no re-rasteriza.
-
-   `z-index` para que al crecer pase por ENCIMA de sus vecinas en vez
-   de recortarse contra ellas. */
-.tarjeta-rubro {
-  transition:
-    transform var(--duracion-card) var(--ease-bookea),
-    filter var(--duracion-card) var(--ease-bookea);
-}
-.tarjeta-rubro:hover {
-  transform: translateY(-10px) scale(1.04);
-  z-index: 2;
-  filter: drop-shadow(0 22px 34px rgba(6, 12, 26, 0.34));
-}
-
-/* Quien pidió menos movimiento no ve el riel avanzar solo (eso lo
-   decide el componente), y tampoco el realce al pasar el mouse. Las
-   seis tarjetas siguen ahí y el riel se sigue pudiendo mover a mano:
-   la animación era el adorno, el contenido no. */
-@media (prefers-reduced-motion: reduce) {
-  .tarjeta-rubro {
-    transition: none;
-  }
-  .tarjeta-rubro:hover {
-    transform: none;
-  }
-}
-
-/* Los papelitos que flotan detrás del desfile — el toque de fiesta. */
-@keyframes mini-inv-flotar {
-  0%,
-  100% {
-    opacity: 0.28;
-    transform: translateY(0) rotate(0deg);
-  }
-  50% {
-    opacity: 0.6;
-    transform: translateY(-7px) rotate(8deg);
-  }
-}
-.anim-mini-inv-flotar {
-  animation: mini-inv-flotar 4.5s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .anim-mini-inv-flotar {
-    animation: none;
-  }
-}
-
 /* --- La línea de diseño "bento" (nacida en /lealtad y /publicar) ------
-   Bloques grandes de 18px de radio sobre el lienzo crema, con cuatro
-   pieles: navy (protagonista), naranja (acento), azul suave (secciones
-   de apoyo) y blanco con borde (contenido). Los botones son rectángulos
-   de esquina suave (12px), como los de los mockups de teléfono.
+   Bloques grandes de 18px de radio sobre el lienzo crema, con dos
+   pieles: navy (protagonista) y blanco con borde (contenido). Los
+   botones son rectángulos de esquina suave (12px), como los de los
+   mockups de teléfono.
    TODO el sitio usa estas piezas — no inventar variantes por página. */
 .bento {
   border-radius: 18px;
@@ -1886,13 +1608,6 @@ body {
 .bento-navy {
   background-color: var(--color-aventurea-navy);
   color: #fff;
-}
-.bento-naranja {
-  background-color: var(--color-aventurea-sky);
-  color: #fff;
-}
-.bento-azul {
-  background-color: var(--color-aventurea-blue-light);
 }
 .bento-blanco {
   background-color: #fff;
@@ -1924,23 +1639,6 @@ body {
 }
 .btn-naranja:hover {
   background-color: var(--color-aventurea-sky-dark);
-}
-.btn-blanco {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 12px;
-  background-color: #fff;
-  color: var(--color-aventurea-navy);
-  font-weight: 700;
-  font-size: 14px;
-  padding: 0.75rem 1.65rem;
-  border: 1px solid transparent;
-  transition: background-color 0.15s ease;
-}
-.btn-blanco:hover {
-  background-color: var(--color-aventurea-cream-2);
 }
 .btn-contorno {
   display: inline-flex;
@@ -2153,25 +1851,6 @@ body {
   border-color: #14161a;
   background-color: #f6f6f4;
 }
-
-/* Y el de la banda negra del cierre: blanco sobre tinta. */
-.btn-papel {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  border-radius: 12px;
-  background-color: #ffffff;
-  color: #14161a;
-  font-weight: 700;
-  font-size: 15px;
-  padding: 0.85rem 1.75rem;
-  transition: background-color 0.15s ease;
-}
-.btn-papel:hover {
-  background-color: #ecece8;
-}
-
 
 /* --- Imprimir / guardar como PDF -------------------------------------
    Hoy lo usa la lista de confirmaciones de un evento (el anfitrión
@@ -2978,112 +2657,4 @@ body {
   .notif-sello {
     top: 4.6rem;
   }
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   LA VERSIÓN OSCURA DEL HOME (.home-oscuro)
-   ══════════════════════════════════════════════════════════════════
-
-   Pedido del dueño (24 sep 2026): ver las veinte ideas del home «100 %
-   funcionales, o sea como se verían exactamente». Una de ellas es la
-   portada en carbón, y sin esto no se podía mirar de verdad.
-
-   Son DOCE líneas porque la paleta de `.home-plataforma` está hecha de
-   variables y una variable se resuelve POR ELEMENTO: basta con volver a
-   declararlas más adentro para que todo el subárbol —tarjetas, mockups,
-   botones, el pie— se repinte sin tocar un solo componente. Es la misma
-   mecánica con la que `.home-plataforma` repinta el sitio entero.
-
-   Los pares están medidos, no elegidos a ojo:
-     tinta   #ffffff sobre papel #0e1013 → 18,1:1
-     suave   #a8adb8 sobre papel         →  8,2:1
-     acento  #4da3ff sobre papel         →  7,4:1  (el #0082e6 del modo
-             claro da 4,0:1 sobre carbón: no alcanza, por eso sube)
-*/
-.home-plataforma.home-oscuro {
-  --tinta: #ffffff;
-  --tinta-suave: #a8adb8;
-  --tinta-tenue: #6b7280;
-  --papel: #0e1013;
-  --superficie: #191c21;
-  --superficie-2: #23272e;
-  --linea: #2b2f36;
-  --navy: #ffffff;
-  --text: #ffffff;
-  --muted: #a8adb8;
-  --line: #2b2f36;
-  --grey: #191c21;
-  --acento: #4da3ff;
-  --acento-suave: #12283d;
-  --ok: #4ade80;
-  --ok-suave: #14301f;
-  --aviso: #fb923c;
-  --aviso-suave: #35200f;
-  --orange: var(--acento);
-}
-
-/* Los botones dentro del home oscuro.
-   `.btn-tinta` y `.btn-tinta-contorno` traen sus colores en hexadecimal,
-   no en variables, así que el cambio de paleta no los alcanza: el
-   primario quedaba casi negro sobre casi negro y el secundario,
-   directamente invisible. Se invierten acá y solo acá. */
-.home-plataforma.home-oscuro .btn-tinta {
-  background-color: #ffffff;
-  color: #0e1013;
-}
-.home-plataforma.home-oscuro .btn-tinta:hover {
-  background-color: #e6e6e2;
-}
-.home-plataforma.home-oscuro .btn-tinta-contorno {
-  border-color: #3a3f48;
-  color: #ffffff;
-}
-.home-plataforma.home-oscuro .btn-tinta-contorno:hover {
-  background-color: #191c21;
-}
-
-/* El botón «Mi negocio» del header usa `bg-aventurea-navy`, que en el
-   home oscuro vale BLANCO —ahí `--navy` es el color del texto—, y su
-   letra blanca desaparecía. En modo oscuro la letra sobre ese fondo
-   tiene que ser la del papel. Se apunta a la utilidad a propósito: el
-   componente es compartido con el marketplace y no se toca. */
-.home-plataforma.home-oscuro .bg-aventurea-navy {
-  color: #0e1013;
-}
-
-/* ══════════════════════════════════════════════════════════════════
-   LA CABECERA SOBRE EL HÉROE MARINO (.cabecera-marina)
-   ══════════════════════════════════════════════════════════════════
-
-   Cuando el héroe va a sangre en navy, una cabecera blanca encima deja
-   una franja que parte la pantalla en dos y arruina el efecto: lo que
-   hace que un héroe a sangre se vea caro es justamente que NO tiene
-   borde arriba.
-
-   No hay una cabecera nueva. `HeaderPlataforma` se pinta con
-   `--papel`, `--tinta` y `--linea`, así que basta con re-declararlas en
-   su envoltorio para que la misma cabecera salga marina. Mismo
-   componente, mismo markup, mismos menús — otra piel.
-
-   `--navy` vale blanco acá (es el color del texto), y el botón «Mi
-   negocio» lo usa de FONDO: por eso su letra tiene que volverse
-   marina, igual que en el home oscuro. */
-.home-plataforma .cabecera-marina {
-  --papel: #16295e;
-  --tinta: #ffffff;
-  --tinta-suave: rgba(255, 255, 255, 0.75);
-  --tinta-tenue: rgba(255, 255, 255, 0.55);
-  --superficie: rgba(255, 255, 255, 0.10);
-  --superficie-2: rgba(255, 255, 255, 0.16);
-  --linea: rgba(255, 255, 255, 0.14);
-  --navy: #ffffff;
-  --text: #ffffff;
-  --muted: rgba(255, 255, 255, 0.75);
-  --line: rgba(255, 255, 255, 0.14);
-  --grey: rgba(255, 255, 255, 0.10);
-  --acento: #4da3ff;
-  --acento-suave: rgba(77, 163, 255, 0.18);
-}
-.home-plataforma .cabecera-marina .bg-aventurea-navy {
-  color: #16295e;
 }

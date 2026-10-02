@@ -1,5 +1,22 @@
 import type { NextConfig } from "next";
 
+/**
+ * Los redirects de Linksy (ver `redirects()`) NO corren en el dominio
+ * propio de Celebrar. Ahí `celebrar.lat/<slug>` es una invitación, y
+ * `linksy`, `solutions` y `soluciones` son slugs válidos para una
+ * (SEGMENTOS_SISTEMA, en src/lib/celebrar/rutas.ts, no los reserva);
+ * `s` sí lo reserva, para Celebrar. Bajo bookea.lat, Celebrar vive en
+ * /celebrar/…, que estas reglas no tocan.
+ *
+ * `missing` no aplica la regla si casa CUALQUIERA de los dos. El host
+ * va escrito a mano, igual que `CELEBRAR_HOST` en
+ * src/lib/celebrar/dominios.ts: si el dominio cambia, cambia en los dos.
+ */
+const FUERA_DE_CELEBRAR: { type: "host"; value: string }[] = [
+  { type: "host", value: "celebrar.lat" },
+  { type: "host", value: "www.celebrar.lat" },
+];
+
 const nextConfig: NextConfig = {
   // El creador de invitaciones manda imágenes/videos en base64 dentro
   // del body del server action; el default de 1 MB los rechazaría.
@@ -110,8 +127,9 @@ const nextConfig: NextConfig = {
           // nueva no tiene caché que la ensucie y el cambio se ve al
           // instante, sin tocar estas cabeceras ni pedirle a nadie que
           // limpie el navegador.
-          // El isotipo (`icono-bookea-v2`) sigue en v2: solo cambió el
-          // logotipo, así que no hay motivo para invalidar su caché.
+          // El isotipo (`icono-bookea-v2.png`) se borró el 1 oct 2026: no
+          // lo usaba nada desde el 1 sep. El patrón lo sigue cubriendo por
+          // si vuelve con otro sufijo.
           // ⚠️ ESTA REGLA APUNTABA A `-v3` Y LOS LOGOS SON `-v4`.
           //
           // O sea que durante todo ese tiempo NO CASÓ CON NADA: los tres
@@ -131,12 +149,6 @@ const nextConfig: NextConfig = {
           // cubierto solo, sin que nadie tenga que acordarse de venir a
           // tocar esta línea.
           "/:archivo(logo-bookea-[a-z0-9-]+\\.png|icono-bookea-[a-z0-9-]+\\.png|portada-bookea\\.jpg)",
-        headers: [
-          { key: "cache-control", value: "public, max-age=604800, stale-while-revalidate=2592000" },
-        ],
-      },
-      {
-        source: "/fondos/:archivo*",
         headers: [
           { key: "cache-control", value: "public, max-age=604800, stale-while-revalidate=2592000" },
         ],
@@ -190,6 +202,93 @@ const nextConfig: NextConfig = {
   // mandados, favoritos guardados) siguen sirviendo.
   async redirects() {
     return [
+      /**
+       * ════════════════════════════════════════════════════════════
+       *  LINKSY SE RETIRÓ EL 30 SEP 2026 (commit 3d5bb1d0)
+       * ════════════════════════════════════════════════════════════
+       *
+       * Era «la página con menú y links»: vivía en /solutions (y
+       * /soluciones), /linksy, la página de cada negocio en /s/<slug> y
+       * su propio dominio, linksy.lat. El código se borró el 30/9; estas
+       * reglas recogen lo que siga apuntando ahí —links compartidos,
+       * favoritos, lo que tenga indexado Google— y lo mandan a la
+       * portada de Bookea (pedido del dueño, 1 oct 2026).
+       *
+       * Los slugs siguen RESERVADOS en src/lib/slug.ts: ningún negocio
+       * nuevo puede quedar escondido detrás de estas rutas.
+       *
+       * ── EL DOMINIO VA PRIMERO ─────────────────────────────────────
+       * Los redirects se prueban en orden y gana el primero que casa. Más
+       * abajo, `linksy.lat/citas` saltaría antes a `linksy.lat/` por el
+       * redirect de /citas, y recién de ahí a Bookea: dos viajes en vez
+       * de uno. Next compara el host entero (sin puerto y en minúsculas),
+       * así que solo casan linksy.lat y www.linksy.lat: bookea.lat y los
+       * dominios de Celebrar no. Y como los redirects de este archivo
+       * corren ANTES que src/proxy.ts («Execution order» en
+       * node_modules/next/dist/docs/01-app/03-api-reference/
+       * 03-file-conventions/proxy.md), el proxy ni se entera.
+       *
+       * 307 y no 308: un 308 se queda guardado en el navegador y no hay
+       * forma de deshacerlo si el dominio vuelve a usarse.
+       */
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "linksy.lat" }],
+        destination: "https://www.bookea.lat/",
+        permanent: false,
+      },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.linksy.lat" }],
+        destination: "https://www.bookea.lat/",
+        permanent: false,
+      },
+      // Las rutas del producto en bookea.lat: 308, no vuelven.
+      {
+        source: "/solutions",
+        destination: "/",
+        permanent: true,
+        missing: FUERA_DE_CELEBRAR,
+      },
+      {
+        source: "/solutions/:path*",
+        destination: "/",
+        permanent: true,
+        missing: FUERA_DE_CELEBRAR,
+      },
+      {
+        source: "/soluciones",
+        destination: "/",
+        permanent: true,
+        missing: FUERA_DE_CELEBRAR,
+      },
+      {
+        source: "/linksy",
+        destination: "/",
+        permanent: true,
+        missing: FUERA_DE_CELEBRAR,
+      },
+      {
+        source: "/linksy/:path*",
+        destination: "/",
+        permanent: true,
+        missing: FUERA_DE_CELEBRAR,
+      },
+      // La página de cada negocio: 307 a propósito. Hay QR impresos con
+      // estas direcciones y más adelante se podrían mandar a la ficha de
+      // cada negocio en Bookea; un 308 ya no se podría corregir.
+      {
+        source: "/s/:slug",
+        destination: "/",
+        permanent: false,
+        missing: FUERA_DE_CELEBRAR,
+      },
+      {
+        source: "/s/:slug/:path*",
+        destination: "/",
+        permanent: false,
+        missing: FUERA_DE_CELEBRAR,
+      },
       // La raíz YA NO REDIRIGE — ahora es un rewrite (ver `rewrites()`
       // más abajo). Se midió: el 307 costaba ~340 ms desde Costa Rica,
       // un viaje completo de ida y vuelta a Virginia ANTES de que

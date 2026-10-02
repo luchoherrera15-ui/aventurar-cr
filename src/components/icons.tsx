@@ -33,15 +33,6 @@ export function IconTagLine({ className = base }: IconProps) {
   );
 }
 
-export function IconBag({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 8h12l-1 12.5a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 7 20.5L6 8Z" />
-      <path strokeLinecap="round" d="M9 8V6.5a3 3 0 0 1 6 0V8" />
-    </svg>
-  );
-}
-
 export function IconClock({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
@@ -127,16 +118,6 @@ export function IconChair({ className = base }: IconProps) {
   );
 }
 
-export function IconHeadphones({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 15v-3a8 8 0 0 1 16 0v3" />
-      <rect x="3" y="14" width="4" height="6" rx="1.5" />
-      <rect x="17" y="14" width="4" height="6" rx="1.5" />
-    </svg>
-  );
-}
-
 export function IconCelebrate({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className={className}>
@@ -144,19 +125,6 @@ export function IconCelebrate({ className = base }: IconProps) {
       <circle cx="17" cy="4" r="1" fill="currentColor" stroke="none" />
       <circle cx="21" cy="8" r="1" fill="currentColor" stroke="none" />
       <circle cx="13" cy="3" r="1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-export function IconBalloon({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className={className}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 3a5 5 0 0 1 2 9.6c-.3 1.1-.2 2-.7 2.9-.3.6-1 .5-1.3 0-.5-.9-.4-1.8-.7-2.9A5 5 0 0 1 12 3Z"
-      />
-      <path strokeLinecap="round" d="M12 15.5v2M11 19.5h2" />
     </svg>
   );
 }
@@ -357,14 +325,6 @@ export function IconSearch({ className = base }: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} className={className}>
       <circle cx="10.5" cy="10.5" r="7" />
       <path strokeLinecap="round" d="M16 16l5 5" />
-    </svg>
-  );
-}
-
-export function IconFiltro({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} className={className}>
-      <path strokeLinecap="round" d="M3 6h18M6 12h12M10 18h4" />
     </svg>
   );
 }
@@ -749,30 +709,6 @@ export function IconOliva({ className = base }: IconProps) {
 }
 
 /** Vegetariana y saludable: la hoja. */
-export function IconPalmera({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
-      <path strokeLinecap="round" d="M11.3 21c.3-4.8 1-8.7 2.7-12.3" />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M14 8.7C12.5 6.2 10 5 7.1 5.7c1.6 1.9 3.9 2.9 6.9 3Z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M14 8.7c-.4-2.9 1-5.1 3.7-6.2-.1 2.5-1.3 4.6-3.7 6.2Z"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M14 8.7c2.7-1.4 5.4-1.2 7.6.8-2.4 1-5 .8-7.6-.8Z"
-      />
-      <path strokeLinecap="round" d="M4.5 21h13" />
-    </svg>
-  );
-}
-
 export function IconHoja({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
@@ -859,41 +795,6 @@ export function IconBell({ className = base }: IconProps) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 10a6 6 0 1 1 12 0c0 3.4 1 5.2 1.8 6.2.3.4 0 1-.5 1H4.7c-.5 0-.8-.6-.5-1C5 15.2 6 13.4 6 10Z" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M9.5 19.5a2.5 2.5 0 0 0 5 0" />
-    </svg>
-  );
-}
-
-/** Configuración: engranaje simple. */
-export function IconGear({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
-      <circle cx="12" cy="12" r="3.2" />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 2.8v2.4M12 18.8v2.4M21.2 12h-2.4M5.2 12H2.8M18.5 5.5l-1.7 1.7M7.2 16.8l-1.7 1.7M18.5 18.5l-1.7-1.7M7.2 7.2 5.5 5.5"
-      />
-    </svg>
-  );
-}
-
-/** Ayuda: signo de pregunta en círculo. */
-export function IconAyuda({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9.6 9.2a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2 1-1.2 1.8v.4" />
-      <circle cx="12" cy="16.8" r="0.4" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-/** Cerrar sesión: puerta con flecha hacia afuera. */
-export function IconSalir({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14.5 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6.5a2 2 0 0 0 2-2v-2" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M10 12h10m0 0-3-3m3 3-3 3" />
     </svg>
   );
 }
@@ -999,123 +900,11 @@ export function IconCrema({ className = base }: IconProps) {
   );
 }
 
-
-// ── Los seis que le faltaban al set para Solutions (4 sep 2026) ──────
-// Mismo contrato que el resto: viewBox 24, sin relleno, trazo
-// `currentColor` de 1.6-1.8 y remates redondos.
-
 export function IconEnlace({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M10 13.5a3.5 3.5 0 0 0 5 0l3-3a3.5 3.5 0 0 0-5-5l-1.2 1.2" />
       <path strokeLinecap="round" strokeLinejoin="round" d="M14 10.5a3.5 3.5 0 0 0-5 0l-3 3a3.5 3.5 0 0 0 5 5l1.2-1.2" />
-    </svg>
-  );
-}
-
-export function IconTelefono({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M6.5 3.5h2l1.4 3.5-1.7 1.3a11 11 0 0 0 5.5 5.5l1.3-1.7 3.5 1.4v2a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2Z"
-      />
-    </svg>
-  );
-}
-
-export function IconYoutube({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
-      <rect x="2.5" y="5.5" width="19" height="13" rx="4" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="m10.5 9.3 4.2 2.7-4.2 2.7V9.3Z" />
-    </svg>
-  );
-}
-
-export function IconPaleta({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2-.9 2-1.8 0-1.5-1.3-1.8-1.3-2.9 0-.8.7-1.3 1.6-1.3h1.6a4.6 4.6 0 0 0 4.6-4.6C20.5 6.4 16.7 3.5 12 3.5Z"
-      />
-      <circle cx="8" cy="10" r="1.1" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="7.6" r="1.1" fill="currentColor" stroke="none" />
-      <circle cx="16" cy="9.6" r="1.1" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-export function IconArrastrar({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" className={className}>
-      <circle cx="9" cy="6" r="1.5" />
-      <circle cx="15" cy="6" r="1.5" />
-      <circle cx="9" cy="12" r="1.5" />
-      <circle cx="15" cy="12" r="1.5" />
-      <circle cx="9" cy="18" r="1.5" />
-      <circle cx="15" cy="18" r="1.5" />
-    </svg>
-  );
-}
-
-export function IconMovil({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} className={className}>
-      <rect x="6.5" y="2.5" width="11" height="19" rx="2.6" />
-      <path strokeLinecap="round" d="M10.5 5.4h3" />
-    </svg>
-  );
-}
-
-/* ── Redes para el link hub de Solutions (6 sep 2026) ───────────────
-   X, LinkedIn, Spotify, Telegram y Pinterest: los que una tienda o un
-   creador ponen en su fila de redes. Mismo trazo de 1,7 px y
-   currentColor que el resto, para que hereden la tinta del tema. */
-
-export function IconXSocial({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" className={className}>
-      <path d="M4 4l16 16M20 4L4 20" />
-    </svg>
-  );
-}
-
-export function IconLinkedin({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <rect x="3" y="3" width="18" height="18" rx="3" />
-      <path d="M8 10v7M8 7v.01M12 17v-4a2 2 0 0 1 4 0v4M12 10v7" />
-    </svg>
-  );
-}
-
-export function IconSpotify({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M7.5 9.5c3-1 6.5-.8 9 .7M8 12.5c2.5-.8 5.3-.6 7.5.6M8.5 15.3c2-.6 4-.5 5.8.4" />
-    </svg>
-  );
-}
-
-export function IconTelegram({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M21 4L3 11l6 2 2 6 3-4 5 3z" />
-      <path d="M9 13l9-7" />
-    </svg>
-  );
-}
-
-export function IconPinterest({ className = base }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M10 20l2.2-7.5M9.2 13.2a3.5 3.5 0 1 1 5.6.6c-.9 1.6-2.6 1.5-3 .6" />
     </svg>
   );
 }

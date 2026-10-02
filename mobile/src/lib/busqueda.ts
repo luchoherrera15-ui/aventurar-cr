@@ -1,8 +1,11 @@
 /**
- * Port a mano de `src/lib/busqueda.ts` de la web (paridad): la lupa
+ * Port a mano de `src/lib/busqueda.ts` de la web: la lupa
  * de Explorar entiende fechas en español — "3 de agosto", "03/08",
  * "mañana", "este viernes" — y esa parte se convierte en el filtro de
  * disponibilidad; el resto queda como búsqueda de texto normal.
+ *
+ * Ese original se borró el 1 oct 2026 (en la web ya no lo usaba nadie):
+ * esta copia es ahora la única, no hay paridad que mantener.
  *
  * Autocontenido: la app no tiene la lib de fechas de la web, así que
  * los helpers de días viven acá mismo.

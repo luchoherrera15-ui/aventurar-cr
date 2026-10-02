@@ -44,9 +44,9 @@ export const revalidate = 3600;
 const MAX_FICHAS = 5000;
 
 /**
- * Las secciones fijas. `/booking` queda AFUERA a propósito: hoy es una
- * página de "muy pronto" (PaginaMantenimiento) y no hay nada que
- * indexar todavía.
+ * Las secciones fijas. `/booking` queda AFUERA: su página de «muy
+ * pronto» se borró el 1 oct 2026 y la ruta ya no existe. Los hospedajes
+ * viven en `/hospedajes`, que sí está en la lista.
  */
 const SECCIONES: { ruta: string; prioridad: number; frecuencia: "daily" | "weekly" | "monthly" }[] =
   [
