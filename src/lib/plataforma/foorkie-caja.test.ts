@@ -26,6 +26,7 @@ import {
   leerPedidoCanjear,
   leerPedidoHistorial,
   miembroPorCodigo,
+  miembroPorId,
   nombreDePila,
   PERMISOS_CAJA,
   productoDeLaCaja,
@@ -67,6 +68,22 @@ describe("leer lo que manda la caja (foorkie-caja)", () => {
     expect(leerPedidoBuscar({ ...vinculo, codigo: 12345 })).toMatchObject({ ok: false });
     expect(leerPedidoBuscar({ ...vinculo, correo: "luis" })).toMatchObject({ ok: false });
     expect(leerPedidoBuscar({ rancho_id: "no-es-uuid", programa_id: PROGRAMA, codigo: SERIAL })).toMatchObject({ ok: false });
+  });
+
+  it("buscar: o el miembro_id que Foorkie sugirió por el nombre (en minúscula), solo, sin código ni correo", () => {
+    expect(leerPedidoBuscar({ ...vinculo, miembro_id: MIEMBRO.toUpperCase() })).toEqual({
+      ok: true,
+      valor: { ranchoId: RANCHO, programaId: PROGRAMA, codigo: null, correo: null, miembroId: MIEMBRO },
+    });
+    // Vacío es lo mismo que no mandarlo.
+    expect(leerPedidoBuscar({ ...vinculo, miembro_id: " ", codigo: SERIAL })).toMatchObject({ ok: true, valor: { codigo: SERIAL } });
+    // Uno solo de los tres.
+    expect(leerPedidoBuscar({ ...vinculo, miembro_id: MIEMBRO, codigo: SERIAL })).toMatchObject({ ok: false });
+    expect(leerPedidoBuscar({ ...vinculo, miembro_id: MIEMBRO, correo: "luis@gmail.com" })).toMatchObject({ ok: false });
+    // Un uuid y nada más: ni un número, ni un nombre, ni un id a medias.
+    expect(leerPedidoBuscar({ ...vinculo, miembro_id: "ana" })).toEqual({ ok: false, motivo: "El cliente (miembro_id) no es válido." });
+    expect(leerPedidoBuscar({ ...vinculo, miembro_id: 42 })).toMatchObject({ ok: false });
+    expect(leerPedidoBuscar({ ...vinculo, miembro_id: MIEMBRO.slice(0, 20) })).toMatchObject({ ok: false });
   });
 
   it("los ids llegan en minúscula: viajan adentro de la llave de idempotencia", () => {
@@ -415,6 +432,48 @@ describe("miembroPorCodigo — pase → miembro → la tarjeta de Foorkie", () =
   it("si la base falla no se dice «no existe»", async () => {
     const { db } = baseFalsa(() => ({ data: null, error: { message: "caída" } }));
     expect(await miembroPorCodigo(db, RANCHO, PROGRAMA, SERIAL)).toMatchObject({ ok: false, codigo: "error_base" });
+  });
+});
+
+describe("miembroPorId — el cliente que la caja eligió por su nombre", () => {
+  /** La base de `miembros`, aplicando los dos `eq` de la consulta (id Y tarjeta). */
+  function escenario(filas: { id: string; programa_id: string; estado?: string }[], error: unknown = null) {
+    return baseFalsa((c) => {
+      if (error) return { data: null, error };
+      const id = filtro(c, "eq", "id");
+      const programa = filtro(c, "eq", "programa_id");
+      const fila = filas.find((f) => f.id === id && f.programa_id === programa);
+      return { data: fila ? { persona_id: null, cliente_id: null, estado: "activa", ...fila } : null, error: null };
+    });
+  }
+
+  it("el miembro de ESTA tarjeta: la consulta va atada al id Y a la tarjeta", async () => {
+    const { db, consultas } = escenario([{ id: MIEMBRO, programa_id: PROGRAMA }]);
+    expect(await miembroPorId(db, PROGRAMA, MIEMBRO)).toMatchObject({ ok: true, miembro: { id: MIEMBRO, programa_id: PROGRAMA } });
+    expect(consultas).toHaveLength(1);
+    expect(filtro(consultas[0], "eq", "id")).toBe(MIEMBRO);
+    expect(filtro(consultas[0], "eq", "programa_id")).toBe(PROGRAMA);
+  });
+
+  it("uno de otra tarjeta y uno que no existe contestan EXACTAMENTE igual: «no encontrado»", async () => {
+    const otraTarjeta = "66666666-6666-4666-8666-666666666666";
+    const deOtra = await miembroPorId(escenario([{ id: MIEMBRO, programa_id: otraTarjeta }]).db, PROGRAMA, MIEMBRO);
+    const inexistente = await miembroPorId(escenario([]).db, PROGRAMA, MIEMBRO);
+    expect(deOtra).toEqual({ ok: false, codigo: "no_encontrado", motivo: "Ese cliente no tiene esta tarjeta de lealtad." });
+    expect(inexistente).toEqual(deOtra);
+  });
+
+  it("una membresía dada de baja no se atiende", async () => {
+    const r = await miembroPorId(escenario([{ id: MIEMBRO, programa_id: PROGRAMA, estado: "cancelada" }]).db, PROGRAMA, MIEMBRO);
+    expect(r).toMatchObject({ ok: false, codigo: "no_encontrado" });
+    expect(r.ok ? "" : r.motivo).toMatch(/dada de baja/);
+  });
+
+  it("si la base falla no se dice «no existe»", async () => {
+    expect(await miembroPorId(escenario([], { message: "caída" }).db, PROGRAMA, MIEMBRO)).toMatchObject({
+      ok: false,
+      codigo: "error_base",
+    });
   });
 });
 

@@ -20,6 +20,12 @@ import type { CamposTarjeta } from "@/lib/wallet/tarjeta";
  * del pase del cliente (o escribe su correo) y opera; y un historial de
  * lo acreditado y canjeado.
  *
+ * Y después (el mismo día): «con solo colocar el nombre, que salgan las
+ * opciones disponibles para poder colocar puntos, que no haya que
+ * colocar el correo completo». Foorkie sugiere por nombre con la ruta
+ * `clientes` (enmascarada) y pide la tarjeta del elegido con su
+ * `miembro_id` (`miembroPorId`, atado a ESTA tarjeta).
+ *
  * ── ACÁ NO SE DECIDE CUÁNTO ENTRA ───────────────────────────────────
  * Las rutas `/api/plataforma/foorkie/caja/*` llaman al MISMO núcleo que
  * la caja del teléfono de Bookea (`operar-core.ts`: regla de
@@ -74,7 +80,18 @@ export type Lectura<T> = { ok: true; valor: T } | { ok: false; motivo: string };
 
 export type Vinculo = { ranchoId: string; programaId: string };
 
-export type PedidoBuscar = Vinculo & ({ codigo: string; correo: null } | { codigo: null; correo: string });
+/**
+ * Cómo encuentra la caja al cliente: lo que leyó la cámara, su correo, o
+ * su `miembro_id` cuando Foorkie lo sugirió por el NOMBRE (la ruta
+ * `clientes` busca por nombre y devuelve el id; el empleado no tiene que
+ * escribir el correo completo). Uno solo de los tres.
+ */
+export type PedidoBuscar = Vinculo &
+  (
+    | { codigo: string; correo: null; miembroId?: undefined }
+    | { codigo: null; correo: string; miembroId?: undefined }
+    | { codigo: null; correo: null; miembroId: string }
+  );
 
 export type PedidoAcreditar = Vinculo & {
   miembroId: string;
@@ -112,10 +129,21 @@ export function leerPedidoBuscar(d: Record<string, unknown>): Lectura<PedidoBusc
   if (!v.ok) return v;
   if (!ausente(d.codigo) && typeof d.codigo !== "string") return { ok: false, motivo: "El código escaneado tiene que ser texto." };
   if (!ausente(d.correo) && typeof d.correo !== "string") return { ok: false, motivo: "El correo tiene que ser texto." };
+  if (!ausente(d.miembro_id) && typeof d.miembro_id !== "string") {
+    return { ok: false, motivo: "El cliente (miembro_id) tiene que ser un uuid." };
+  }
   const hayCodigo = !ausente(d.codigo);
   const hayCorreo = !ausente(d.correo);
-  if (hayCodigo === hayCorreo) return { ok: false, motivo: "Mandá el código escaneado o el correo: uno de los dos." };
+  const hayMiembro = !ausente(d.miembro_id);
+  if ([hayCodigo, hayCorreo, hayMiembro].filter(Boolean).length !== 1) {
+    return { ok: false, motivo: "Mandá el código escaneado, el correo o el cliente (miembro_id): uno de los tres." };
+  }
 
+  if (hayMiembro) {
+    const miembroId = uuidDe(d.miembro_id);
+    if (!miembroId) return { ok: false, motivo: "El cliente (miembro_id) no es válido." };
+    return { ok: true, valor: { ...v.valor, codigo: null, correo: null, miembroId } };
+  }
   if (hayCodigo) {
     const codigo = d.codigo as string;
     if (codigo.length > MAX_CODIGO) return { ok: false, motivo: "Ese código es demasiado largo para ser una tarjeta." };
@@ -609,6 +637,37 @@ export async function miembroDelCorreo(db: Db, ranchoId: string, programaId: str
   const miembro = await miembroDeLaTarjeta(db, programaId, miembroId);
   if (!miembro) return sinTarjeta;
   if (miembro.estado === "cancelada") return { ok: false, codigo: "no_miembro", motivo: DADA_DE_BAJA };
+  return { ok: true, miembro };
+}
+
+const CLIENTE_SIN_ESTA_TARJETA: BusquedaDeMiembro = {
+  ok: false,
+  codigo: "no_encontrado",
+  motivo: "Ese cliente no tiene esta tarjeta de lealtad.",
+};
+
+/**
+ * Del `miembro_id` al miembro, SOLO si es de ESTA tarjeta: es el camino
+ * del cliente que la caja encontró por su nombre (`clientes`).
+ *
+ * El id llega de afuera, así que la tarjeta va en la consulta: un
+ * miembro de otra tarjeta —de este negocio o de otro— y uno que no
+ * existe contestan exactamente igual, «no encontrado». Acá no hay un
+ * pase en la mano que delatar (por eso no hay `tarjeta_ajena`), y la
+ * respuesta no puede servir para averiguar qué ids existen en otro lado.
+ * Si la base falla, `error_base`, nunca «no existe».
+ */
+export async function miembroPorId(db: Db, programaId: string, miembroId: string): Promise<BusquedaDeMiembro> {
+  const { data, error } = await db
+    .from("miembros")
+    .select(COLUMNAS_MIEMBRO)
+    .eq("id", miembroId)
+    .eq("programa_id", programaId)
+    .maybeSingle();
+  if (error) return ERROR_AL_BUSCAR;
+  const miembro = filaDeMiembro(data);
+  if (!miembro || miembro.programa_id !== programaId) return CLIENTE_SIN_ESTA_TARJETA;
+  if (miembro.estado === "cancelada") return { ok: false, codigo: "no_encontrado", motivo: DADA_DE_BAJA };
   return { ok: true, miembro };
 }
 

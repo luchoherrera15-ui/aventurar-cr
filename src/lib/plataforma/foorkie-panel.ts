@@ -33,6 +33,7 @@ import {
   reservarCupoNotificacion,
 } from "@/lib/lealtad/cupo-notificaciones";
 import { enviarMensajePromocional } from "@/lib/wallet/mensaje-promocional";
+import { leerCambiosDeMensajes, type CambiosDeMensajes } from "@/lib/plataforma/foorkie-mensajes";
 import { plataformasConfiguradas } from "@/lib/wallet/aviso-de-pausa";
 import { avisarCambioDeDiseno } from "@/lib/wallet/aviso-de-diseno";
 import { refrescarClaseGoogle } from "@/lib/wallet/google";
@@ -56,6 +57,8 @@ import { refrescarClaseGoogle } from "@/lib/wallet/google";
  *   recompensas/guardar crear o editar una (reglas de `guardarRecompensa`)
  *   recompensas/borrar  borrar una (reglas de `eliminarRecompensa`)
  *   mensaje             el aviso a todos los pases (`enviarMensajePromocional`)
+ *   programa/mensajes   los mensajes automáticos al sumar, quitar y canjear
+ *     (+ `/guardar`)    (`foorkie-mensajes.ts`; solo tarjetas de Foorkie)
  *
  * ── ACÁ NO SE INVENTA NINGUNA REGLA ─────────────────────────────────
  * Validar y escribir una regalía es `@/lib/lealtad/recompensas`, el
@@ -273,6 +276,25 @@ export function leerPedidoMensaje(d: Record<string, unknown>): Lectura<PedidoMen
     return { ok: false, motivo: `El mensaje puede tener hasta ${MENSAJE_MAXIMO} caracteres: en la tarjeta no entra más.` };
   }
   return { ok: true, valor: { ...v.valor, texto, intentoId } };
+}
+
+/** `programa/mensajes`: solo la tarjeta. */
+export function leerPedidoMensajes(d: Record<string, unknown>): Lectura<Vinculo> {
+  return leerVinculo(d);
+}
+
+export type PedidoGuardarMensajes = Vinculo & { cambios: CambiosDeMensajes };
+
+/**
+ * `programa/mensajes/guardar`: la tarjeta y `mensajes`, con lo que cambia
+ * de cada evento (`leerCambiosDeMensajes`: lo que no viene se conserva).
+ */
+export function leerPedidoGuardarMensajes(d: Record<string, unknown>): Lectura<PedidoGuardarMensajes> {
+  const v = leerVinculo(d);
+  if (!v.ok) return v;
+  const cambios = leerCambiosDeMensajes(d.mensajes);
+  if (!cambios.ok) return cambios;
+  return { ok: true, valor: { ...v.valor, cambios: cambios.valor } };
 }
 
 // ════════════════════════════════════════════════════════════════════

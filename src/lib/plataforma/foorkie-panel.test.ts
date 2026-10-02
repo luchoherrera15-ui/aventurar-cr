@@ -38,8 +38,10 @@ import {
   guardarRecompensaDeFoorkie,
   leerPedidoBorrarRecompensa,
   leerPedidoClientes,
+  leerPedidoGuardarMensajes,
   leerPedidoGuardarRecompensa,
   leerPedidoMensaje,
+  leerPedidoMensajes,
   mandarMensajeDeFoorkie,
   microsDe,
   motivoSinCupo,
@@ -222,6 +224,18 @@ describe("leer lo que manda el panel de Foorkie", () => {
     expect(leerPedidoMensaje({ ...vinculo, texto: "x".repeat(120), intento_id: INTENTO })).toMatchObject({ ok: true });
     expect(leerPedidoMensaje({ ...vinculo, texto: "x".repeat(121), intento_id: INTENTO })).toMatchObject({ ok: false });
     expect(leerPedidoMensaje({ ...vinculo, texto: 5, intento_id: INTENTO })).toMatchObject({ ok: false });
+  });
+
+  it("mensajes automáticos: leer pide solo la tarjeta; guardar, la tarjeta y lo que cambia", () => {
+    expect(leerPedidoMensajes({ ...vinculo })).toEqual({ ok: true, valor: { ranchoId: RANCHO, programaId: PROGRAMA } });
+    expect(leerPedidoMensajes({ rancho_id: RANCHO })).toMatchObject({ ok: false });
+    expect(leerPedidoGuardarMensajes({ ...vinculo, mensajes: { canjear: { activo: false, texto: " ¡Que\nlo disfrutes! " } } })).toEqual({
+      ok: true,
+      valor: { ranchoId: RANCHO, programaId: PROGRAMA, cambios: { canjear: { activo: false, texto: "¡Que lo disfrutes!" } } },
+    });
+    expect(leerPedidoGuardarMensajes({ ...vinculo })).toMatchObject({ ok: false });
+    expect(leerPedidoGuardarMensajes({ ...vinculo, mensajes: { sumar: { texto: "no" } } })).toMatchObject({ ok: false });
+    expect(leerPedidoGuardarMensajes({ programa_id: PROGRAMA, mensajes: { sumar: { activo: true } } })).toMatchObject({ ok: false });
   });
 });
 

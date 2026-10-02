@@ -655,7 +655,12 @@ async function acreditarResuelto(args: {
   // están), pero SÍ tiene que ejecutarse: un `void` suelto muere cuando
   // Vercel congela la función al responder. `after` la mantiene viva, y
   // funciona igual desde un route handler que desde un server action.
-  after(() => avisarCambioDePase(miembro.miembroId));
+  //
+  // Con el evento `sumar`, una tarjeta de Foorkie le manda además al
+  // cliente el mensaje del restaurante («¡Gracias por preferirnos!»,
+  // `foorkie-mensajes.ts`). Sin evento si `yaEstaba`: un reintento no
+  // sumó nada y agradecer de nuevo sería mentirle.
+  after(() => avisarCambioDePase(miembro.miembroId, yaEstaba ? undefined : "sumar"));
 
   // El respaldo por correo. Sin correo si `yaEstaba`: un reescaneo por
   // señal mala no otorgó nada nuevo, y avisar «¡se acreditó tu sello!»
@@ -889,8 +894,9 @@ export async function canjearCore(entrada: {
   // sale el aviso, y funciona igual desde un route handler que desde un
   // server action. Un `void` suelto se muere cuando Vercel congela la
   // función al responder, y el premio se descontaría sin que la tarjeta
-  // del teléfono se enterara.
-  after(() => avisarCambioDePase(miembroId));
+  // del teléfono se enterara. El evento `canjear` es el agradecimiento
+  // del restaurante en las tarjetas de Foorkie (`foorkie-mensajes.ts`).
+  after(() => avisarCambioDePase(miembroId, "canjear"));
 
   return {
     ok: true,

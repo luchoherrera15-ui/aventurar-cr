@@ -69,10 +69,14 @@ export async function avisarHitoPorWallet(
 
     const mensaje = plantilla.slice(0, 120);
 
-    // Apple lo recibe la próxima vez que el teléfono pida el pase
-    // (generar.ts lee `miembros.ultimo_hito_mensaje` y lo mete en el
-    // reverso con `changeMessage`) — el push que dispara esa pedida lo
-    // hace quien llama a ESTA función, después de esperarla.
+    // Apple lo recibe la próxima vez que el teléfono pida el pase — el
+    // push que dispara esa pedida lo hace quien llama a ESTA función,
+    // después de esperarla. OJO: `generar.ts` lee esta columna (el
+    // renglón «Último mensaje», con `changeMessage`) SOLO en las tarjetas
+    // de Foorkie, que la usan para sus mensajes automáticos
+    // (`foorkie-mensajes.ts` + `mensaje-del-miembro.ts`). En una tarjeta
+    // de Bookea esta mitad todavía no se dibuja: cablearla es decidir
+    // cómo cambia el pase de todos los negocios de Bookea.
     await db
       .from("miembros")
       .update({ ultimo_hito_mensaje: mensaje })

@@ -18,6 +18,7 @@ import { minutoISOCR } from "@/lib/fechas";
 import { empaquetarPase } from "./empaquetar";
 import { credencialesDelEntorno } from "./firma";
 import { marcaDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
+import { renglonDelMensaje } from "@/lib/plataforma/foorkie-mensajes";
 import {
   buscarMiembroDelPase,
   filaDeAfiliacion,
@@ -275,6 +276,16 @@ export async function generarPaseDeLealtad({
   // la base no contesta, el pase sale con la firma de siempre.
   const marcaPromesa = marcaDeLaTarjeta(db, { programaId, ranchoId });
 
+  // ── El mensaje del restaurante para este cliente (solo Foorkie) ───
+  // El renglón «Último mensaje» con `changeMessage` (foorkie-mensajes.ts).
+  // Se pregunta SOLO si la marca dijo Foorkie: una tarjeta de Bookea no
+  // hace ni la consulta y su pase sale byte por byte como siempre.
+  // Nunca rechaza: sin el mensaje, el pase sale sin el renglón.
+  const miembroId = miembro.id;
+  const mensajePromesa = marcaPromesa.then((m) =>
+    m.marca === "foorkie" ? renglonDelMensaje(db, miembroId, programaFila) : null,
+  );
+
   // ── El saldo y la meta ────────────────────────────────────────────
   const saldo = (await consultarSaldo(miembro.id)) ?? 0;
 
@@ -510,6 +521,8 @@ export async function generarPaseDeLealtad({
     // tarjeta es de un local de Foorkie. Entra la próxima vez que el
     // teléfono pida el pase: nada de esto empuja un aviso.
     marca: await marcaPromesa,
+    // null en toda tarjeta que no sea de Foorkie: el pase de siempre.
+    mensajeDelMiembro: await mensajePromesa,
   });
   archivos["pass.json"] = Buffer.from(JSON.stringify(passJson, null, 2), "utf8");
 

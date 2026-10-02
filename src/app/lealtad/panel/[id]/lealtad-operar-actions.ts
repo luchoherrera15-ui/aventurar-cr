@@ -307,7 +307,9 @@ export async function revertirMovimiento(
   const r = data as { ok: boolean; motivo?: string; saldo?: number };
   if (!r.ok) return { ok: false, motivo: traducirMotivo(r.motivo, "No se pudo revertir.") };
 
-  after(() => avisarCambioDePase(miembroId));
+  // `quitar`: una corrección del negocio. En una tarjeta de Foorkie el
+  // cliente recibe «Tu tarjeta se modificó» (`foorkie-mensajes.ts`).
+  after(() => avisarCambioDePase(miembroId, "quitar"));
   revalidatePath(`/lealtad/panel/${ranchoId}`);
   return { ok: true, saldo: r.saldo ?? 0 };
 }

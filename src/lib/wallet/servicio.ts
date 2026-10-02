@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { EventoDelPase } from "./mensaje-del-miembro";
 
 /**
  * Piezas compartidas del Web Service de Apple Wallet.
@@ -100,8 +101,22 @@ export async function autenticarPase(
  * push no salga no puede tumbar la operación que lo originó — el sello
  * ya se dio y el pase se actualiza igual la próxima vez que el teléfono
  * pregunte.
+ *
+ * ── `evento`: QUÉ LE PASÓ A LA TARJETA ──────────────────────────────
+ * Quien movió el saldo dice qué fue (`sumar`, `quitar`, `canjear`). Sin
+ * evento —un reintento que no movió nada, el vencimiento de los sellos—
+ * esto es exactamente lo de siempre.
+ *
+ * Con evento, en una tarjeta de Foorkie que tenga ese mensaje activo
+ * (`foorkie-mensajes.ts`), el cliente recibe además el texto del
+ * restaurante: en Apple como el renglón «Último mensaje» del pase, que
+ * se deja escrito ANTES del push para que el pase que el teléfono baja
+ * ya lo traiga; en Google como un mensaje con notificación, DESPUÉS del
+ * refresco del saldo. En cualquier otra tarjeta —las de Bookea, Pura
+ * Matcha— la pregunta contesta que no y no cambia nada más. Nada de esto
+ * lanza: un mensaje que no sale no frena el aviso del saldo.
  */
-export async function avisarCambioDePase(miembroId: string): Promise<void> {
+export async function avisarCambioDePase(miembroId: string, evento?: EventoDelPase): Promise<void> {
   const db = createAdminClient();
   if (!db) return;
 
@@ -116,20 +131,53 @@ export async function avisarCambioDePase(miembroId: string): Promise<void> {
     .eq("activo", true);
 
   const filas = pases ?? [];
+  const seriales = filas.filter((p) => p.plataforma === "apple").map((p) => p.serial_number as string);
+  const conGoogle = filas.some((p) => p.plataforma === "google");
 
-  await avisarSeriales(
-    filas.filter((p) => p.plataforma === "apple").map((p) => p.serial_number as string),
-  );
+  // Sin pase no hay a quién mandarle el mensaje: ni se pregunta.
+  const mensaje = evento && filas.length > 0 ? await mensajeDelEvento(db, miembroId, evento, seriales.length > 0) : null;
+
+  await avisarSeriales(seriales);
 
   // Google no tiene push propio: el PATCH del objeto ES la
   // actualización, y los teléfonos se enteran solos. Nunca lanza.
-  if (filas.some((p) => p.plataforma === "google")) {
+  if (conGoogle) {
     try {
       const { refrescarPaseGoogleDeMiembro } = await import("./google");
       await refrescarPaseGoogleDeMiembro(miembroId);
     } catch (e) {
       console.warn("[wallet] No se pudo refrescar el pase de Google:", e);
     }
+  }
+
+  if (mensaje && conGoogle) {
+    try {
+      const { avisarEventoGoogle } = await import("./google");
+      const r = await avisarEventoGoogle(miembroId, mensaje);
+      if (!r.ok) console.warn(`[wallet] No salió el mensaje «${mensaje.evento}» al pase de Google: ${r.motivo}`);
+    } catch (e) {
+      console.warn("[wallet] No salió el mensaje al pase de Google:", e);
+    }
+  }
+}
+
+/**
+ * El mensaje automático del evento, si la tarjeta es de Foorkie y lo
+ * tiene activo (y, con pase de Apple, ya escrito para el renglón del
+ * pase). null en cualquier otro caso, también si algo falla.
+ */
+async function mensajeDelEvento(
+  db: NonNullable<ReturnType<typeof createAdminClient>>,
+  miembroId: string,
+  evento: EventoDelPase,
+  apple: boolean,
+) {
+  try {
+    const { prepararMensajeDelEvento } = await import("@/lib/plataforma/foorkie-mensajes");
+    return await prepararMensajeDelEvento(db, miembroId, evento, { apple });
+  } catch (e) {
+    console.warn("[wallet] No se pudo preparar el mensaje del evento:", e);
+    return null;
   }
 }
 

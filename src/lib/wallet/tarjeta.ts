@@ -22,6 +22,7 @@ import {
 import { configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
 import { tintaSobre } from "@/lib/colores-imagen";
 import { MARCA_BOOKEA, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
+import { textoVisible } from "@/lib/wallet/mensaje-del-miembro";
 
 /**
  * Alias histórico de `TipoTarjeta`. El nombre «modo» quedó de cuando
@@ -203,6 +204,18 @@ export type DatosTarjeta = DatosDelTexto & {
    * reverso los links a Foorkie.
    */
   marca?: MarcaDelPase | null;
+  /**
+   * EL MENSAJE DEL RESTAURANTE PARA ESTE CLIENTE (solo tarjetas de
+   * Foorkie): «¡Gracias por preferirnos!» al sumar, «Tu tarjeta se
+   * modificó.» al corregir, el agradecimiento al canjear
+   * (`foorkie-mensajes.ts`). Va en el reverso con `changeMessage`: cuando
+   * el valor cambia, Apple lo muestra en la pantalla bloqueada. El valor
+   * ya viene con su marcador de cambio (`mensaje-del-miembro.ts`).
+   *
+   * Ausente = el pase de siempre, sin el renglón: `generar.ts` solo lo
+   * manda en las tarjetas de Foorkie.
+   */
+  mensajeDelMiembro?: string | null;
 };
 
 /** `&`, `<`, `>`, comillas: lo que no puede quedar suelto dentro de un `attributedValue`. */
@@ -659,6 +672,20 @@ export function construirPassJson(datos: DatosTarjeta): Record<string, unknown> 
                 key: "promo",
                 label: "Promoción",
                 value: datos.mensajePromocional.trim(),
+                changeMessage: "%@",
+              },
+            ]
+          : []),
+        // El mensaje del restaurante para ESTE cliente (solo Foorkie): el
+        // mismo mecanismo que la promoción, pero por persona. El valor no
+        // se recorta: el marcador de cambio del final es lo que hace que
+        // el mismo «gracias» vuelva a avisar (`mensaje-del-miembro.ts`).
+        ...(datos.mensajeDelMiembro && textoVisible(datos.mensajeDelMiembro).trim()
+          ? [
+              {
+                key: "mensaje",
+                label: "Último mensaje",
+                value: datos.mensajeDelMiembro,
                 changeMessage: "%@",
               },
             ]

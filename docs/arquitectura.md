@@ -244,7 +244,9 @@ repetir:
 > panel de Bookea; el tipo de tarjeta no se cambia desde allá). La caja
 > del restaurante en Foorkie usa `caja/buscar`, `caja/acreditar`,
 > `caja/canjear` y `caja/historial` (`foorkie-caja.ts`): encuentra al
-> cliente por el QR de su pase o por su correo, suma y canjea con el mismo
+> cliente por el QR de su pase, por su correo o por su `miembro_id` (el
+> que Foorkie sugiere al escribir el nombre, con `clientes`; atado a ESA
+> tarjeta: uno de otra contesta «no encontrado»), suma y canjea con el mismo
 > núcleo que la caja del teléfono de Bookea (`operar-core.ts`) y lista lo
 > acreditado y canjeado de la tarjeta; de cada persona solo sale el
 > nombre de pila y el correo enmascarado. El panel de lealtad del
@@ -268,6 +270,17 @@ repetir:
 > no les escribe ni a sus clientes (`foorkie-marca.ts`) ni al dueño
 > (`negocio-de-foorkie.ts`). Si la marca no se puede leer, todo sale como
 > Bookea.
+>
+> Esas tarjetas (y solo esas) tienen además MENSAJES AUTOMÁTICOS al
+> sumar, al quitar (un ajuste o reversión del negocio) y al canjear
+> (`foorkie-mensajes.ts`, `programa/mensajes` + `/guardar`): el texto del
+> restaurante le llega a ESE cliente después del movimiento, por
+> `avisarCambioDePase(miembro, evento)` — en Apple, el renglón «Último
+> mensaje» del pase con `changeMessage` (`miembros.ultimo_hito_mensaje`,
+> 0205); en Google, un mensaje con notificación respetando el tope de
+> Google (3 por pase por día; los movimientos usan 2). Se guardan en
+> `programa_lealtad.configuracion` → `mensajes_automaticos`, que asegura
+> la 0251; sin ella salen los de fábrica.
 
 Lo que **sí** quedaba congelado era el alcance: Foorkie descubre → el
 comensal cae en la página de Bookea Link del restaurante → menú, pedido y

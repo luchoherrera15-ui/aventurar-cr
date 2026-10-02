@@ -84,7 +84,8 @@ vi.mock("@/lib/lealtad/identidades-db", () => ({
     new Map(miembrosDelNegocio.map((m) => [m.id, identidades[m.id]])),
 }));
 
-const { afiliarCore, buscarClientesCore, canjearCore } = await import("./operar-core");
+const { acreditarPorMiembroCore, afiliarCore, buscarClientesCore, canjearCore } = await import("./operar-core");
+const { avisarCambioDePase } = await import("@/lib/wallet/servicio");
 
 // ── El escenario ───────────────────────────────────────────────────
 
@@ -115,6 +116,8 @@ let referenciasUsadas: Set<string> = new Set();
 
 let personasActivas = 0;
 let planDelNegocio: string | null = "impulso";
+/** El RPC de acreditar contesta «ya-otorgado» (un reintento con la misma referencia). */
+let acreditacionRepetida = false;
 
 type FilaMiembro = {
   id: string;
@@ -235,6 +238,15 @@ const db = {
       return { data: { estado: "listo", miembro_id: "m-nuevo" }, error: null };
     }
 
+    if (nombre === "acreditar_lealtad") {
+      return {
+        data: acreditacionRepetida
+          ? { otorgado: false, motivo: "ya-otorgado", saldo: 4 }
+          : { otorgado: true, puntos: 1, saldo: 4 },
+        error: null,
+      };
+    }
+
     return { data: null, error: null };
   },
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -255,6 +267,8 @@ beforeEach(() => {
   referenciasUsadas = new Set();
   personasActivas = 0;
   planDelNegocio = "impulso";
+  acreditacionRepetida = false;
+  vi.mocked(avisarCambioDePase).mockClear();
   miembrosDelNegocio = [];
   identidades = {};
   programasConsultados = [];
@@ -546,5 +560,52 @@ describe("buscar clientes · la tenencia y el tope", () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.codigo).toBe("sin_permiso");
     expect(llamadas).toHaveLength(0);
+  });
+});
+
+describe("el aviso al Wallet dice QUÉ pasó (los mensajes de las tarjetas de Foorkie)", () => {
+  /**
+   * El núcleo no decide si hay mensaje: le pasa el evento a
+   * `avisarCambioDePase`, que pregunta si la tarjeta es de Foorkie
+   * (`foorkie-mensajes.ts`). Lo que se fija acá es QUÉ evento sale de
+   * cada operación, y que el aviso —con mensaje o sin él— corre en
+   * `after()` y nunca frena la operación que ya quedó en el ledger.
+   */
+  const acreditar = () =>
+    acreditarPorMiembroCore({
+      db,
+      ranchoId: RANCHO,
+      quien: QUIEN_PUEDE_TODO,
+      monto: null,
+      miembroId: MIEMBRO,
+      referencia: `mostrador:${MIEMBRO}:intento-a1b2c3d4`,
+      via: "mostrador",
+    });
+
+  it("acreditar avisa con el evento `sumar`", async () => {
+    const r = await acreditar();
+    expect(r).toMatchObject({ ok: true, puntos: 1, yaEstaba: false });
+    expect(vi.mocked(avisarCambioDePase).mock.calls).toEqual([[MIEMBRO, "sumar"]]);
+  });
+
+  it("un reintento que no sumó nada empuja el pase igual, pero SIN evento: no se agradece dos veces", async () => {
+    acreditacionRepetida = true;
+    const r = await acreditar();
+    expect(r).toMatchObject({ ok: true, puntos: 0, yaEstaba: true });
+    expect(vi.mocked(avisarCambioDePase).mock.calls).toEqual([[MIEMBRO, undefined]]);
+  });
+
+  it("canjear avisa con el evento `canjear`", async () => {
+    await canjear("canje:con-evento");
+    expect(vi.mocked(avisarCambioDePase).mock.calls).toEqual([[MIEMBRO, "canjear"]]);
+  });
+
+  it("un aviso que no termina nunca no frena ni el canje ni la acreditación", async () => {
+    // Un Google o un APNs colgado: el aviso corre después de responder.
+    const colgado = () => new Promise<void>(() => {});
+    vi.mocked(avisarCambioDePase).mockImplementationOnce(colgado).mockImplementationOnce(colgado);
+    await expect(canjear("canje:colgado")).resolves.toMatchObject({ ok: true, recompensa: "Café gratis" });
+    await expect(acreditar()).resolves.toMatchObject({ ok: true, puntos: 1 });
+    expect(llamadas.filter((l) => l === "after").length).toBeGreaterThanOrEqual(2);
   });
 });

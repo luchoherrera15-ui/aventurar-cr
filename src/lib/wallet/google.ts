@@ -32,6 +32,7 @@ import {
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
 import { MARCA_BOOKEA, marcaDeLaTarjeta, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
+import type { EventoDelPase } from "./mensaje-del-miembro";
 
 /**
  * Pases de lealtad en GOOGLE Wallet (Android) — el espejo de Apple.
@@ -1256,6 +1257,191 @@ export async function enviarMensajeGoogle(
       return { ok: false, motivo: `Google respondió ${res.status} al agregar el mensaje.` };
     }
     return { ok: true };
+  } catch (e) {
+    return { ok: false, motivo: e instanceof Error ? e.message : "Google Wallet no respondió." };
+  }
+}
+
+// ── El mensaje de UN movimiento, a UN cliente ─────────────────────────
+//
+// Los mensajes automáticos de las tarjetas de Foorkie
+// (`src/lib/plataforma/foorkie-mensajes.ts`): «¡Gracias por preferirnos!»
+// cuando el cliente suma, otro cuando el negocio le corrige la tarjeta,
+// otro cuando canjea. A diferencia del aviso a todos, este sale cada vez
+// que el cliente hace algo — y por eso necesita dos cuidados que
+// `enviarMensajeGoogle` no tiene:
+//
+//   1. EL TOPE DE GOOGLE. Un pase acepta como mucho 3 mensajes CON
+//      notificación en 24 horas («You may send a maximum of 3 messages
+//      that trigger a push notification in a 24 hour period»); el
+//      cuarto rebota con QuotaExceededException. Los movimientos usan
+//      hasta 2 —uno menos que el tope— para que el aviso que el
+//      restaurante manda a todos (`mensaje`) siempre tenga lugar. Pasado
+//      eso el mensaje entra igual al pase, sin notificación («TEXT»,
+//      como dice Google que se haga), y si Google igual dice que se
+//      llegó al tope, se reintenta así.
+//   2. LOS 10 MENSAJES DEL OBJETO. Google guarda hasta 10 por pase, y un
+//      cliente de todos los días los llenaría en una semana con el mismo
+//      «gracias». Los nuestros de más de un día se podan antes de
+//      agregar el nuevo; los demás (los avisos del restaurante) no se
+//      tocan.
+//
+// Cuántos se mandaron hoy se cuenta en el propio objeto: cada mensaje
+// nuestro lleva su hora en el id (`evento-sumar-<ms>`, `promo-<minuto>`),
+// así que no hace falta una tabla para llevar la cuenta.
+
+/** El tope de Google: mensajes CON notificación por pase en 24 horas. */
+export const TOPE_GOOGLE_AVISOS_POR_DIA = 3;
+/** Los que se usan para los movimientos: uno menos, para que el aviso del restaurante siempre entre. */
+export const AVISOS_DE_EVENTO_POR_DIA = TOPE_GOOGLE_AVISOS_POR_DIA - 1;
+/** Google guarda hasta 10 mensajes por objeto. */
+export const MAX_MENSAJES_GOOGLE = 10;
+/** El id de los mensajes de un movimiento: `evento-<evento>-<ms>`. */
+export const PREFIJO_MENSAJE_DE_EVENTO = "evento-";
+
+const DIA_MS = 24 * 60 * 60 * 1000;
+/** Lo que se le tolera al reloj de quien escribió el id. */
+const DESFASE_MS = 5 * 60 * 1000;
+
+export type TipoMensajeGoogle = "TEXT_AND_NOTIFY" | "TEXT";
+
+/**
+ * Cuándo se mandó un mensaje del objeto, por su id (los nuestros llevan
+ * la hora adentro) o por su `displayInterval`. null = no se sabe.
+ */
+export function momentoDelMensaje(mensaje: unknown): number | null {
+  if (!mensaje || typeof mensaje !== "object") return null;
+  const m = mensaje as Record<string, unknown>;
+  const id = typeof m.id === "string" ? m.id : "";
+  const deEvento = /^evento-[a-z]+-(\d{12,16})$/.exec(id);
+  if (deEvento) return Number(deEvento[1]);
+  // `enviarMensajeGoogle`: el minuto en UTC (`toISOString().slice(0, 16)`).
+  const dePromo = /^promo-(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})$/.exec(id);
+  const fecha = dePromo
+    ? `${dePromo[1]}:00Z`
+    : (m.displayInterval as { start?: { date?: unknown } } | undefined)?.start?.date;
+  if (typeof fecha !== "string") return null;
+  const t = Date.parse(fecha);
+  return Number.isFinite(t) ? t : null;
+}
+
+export type PlanAvisoGoogle = {
+  /** Con notificación mientras no se pase el tope de los movimientos; si no, solo texto. */
+  tipo: TipoMensajeGoogle;
+  /** Los mensajes CON notificación de las últimas 24 horas, de cualquier origen. */
+  recientes: number;
+  /** Lo que queda en el objeto antes de agregar el nuevo; null = no hace falta tocarlo. */
+  quedan: Record<string, unknown>[] | null;
+};
+
+function esMensajeDeEvento(m: Record<string, unknown>): boolean {
+  return typeof m.id === "string" && m.id.startsWith(PREFIJO_MENSAJE_DE_EVENTO);
+}
+
+/**
+ * QUÉ HACER ANTES DE AGREGAR EL MENSAJE DE UN MOVIMIENTO. Pura.
+ *
+ * Cuenta los mensajes que notificaron en las últimas 24 horas (sin
+ * importar quién los mandó: el tope de Google es por pase) y decide si
+ * este notifica; poda los nuestros de más de un día y, si aun así no
+ * queda lugar entre los 10, los nuestros más viejos.
+ */
+export function planDelAvisoGoogle(mensajes: readonly unknown[], ahora: number): PlanAvisoGoogle {
+  const lista = mensajes.filter(
+    (m): m is Record<string, unknown> => !!m && typeof m === "object" && !Array.isArray(m),
+  );
+  const enLaVentana = (t: number | null) => t !== null && t <= ahora + DESFASE_MS && ahora - t < DIA_MS;
+
+  // Un mensaje sin tipo cuenta: ante la duda se notifica de menos.
+  const recientes = lista.filter((m) => m.messageType !== "TEXT" && enLaVentana(momentoDelMensaje(m))).length;
+
+  let quedan = lista.filter((m) => !esMensajeDeEvento(m) || enLaVentana(momentoDelMensaje(m)));
+  while (quedan.length >= MAX_MENSAJES_GOOGLE) {
+    const nuestros = quedan.filter(esMensajeDeEvento);
+    if (nuestros.length === 0) break;
+    const masViejo = nuestros.reduce((a, b) => ((momentoDelMensaje(a) ?? 0) <= (momentoDelMensaje(b) ?? 0) ? a : b));
+    quedan = quedan.filter((m) => m !== masViejo);
+  }
+
+  return {
+    tipo: recientes < AVISOS_DE_EVENTO_POR_DIA ? "TEXT_AND_NOTIFY" : "TEXT",
+    recientes,
+    quedan: quedan.length === lista.length ? null : quedan,
+  };
+}
+
+/** ¿Google contestó que el pase ya no acepta notificaciones hoy (QuotaExceededException)? */
+export function esTopeDeGoogle(res: { status: number; json: unknown }): boolean {
+  if (res.status === 429) return true;
+  if (res.status < 400) return false;
+  return /quota/i.test(JSON.stringify(res.json ?? ""));
+}
+
+export type ResultadoAvisoGoogle =
+  /** `tipo: null` = no había a quién (sin pase de Android, o su objeto nunca se creó). */
+  | { ok: true; tipo: TipoMensajeGoogle | null }
+  | { ok: false; motivo: string };
+
+/**
+ * El mensaje de un movimiento en el pase de Google de UN cliente, con el
+ * tope del día y la poda de arriba. Se llama DESPUÉS del refresco del
+ * saldo (`avisarCambioDePase`), para que la notificación llegue con la
+ * tarjeta ya al día. Nunca lanza.
+ */
+export async function avisarEventoGoogle(
+  miembroId: string,
+  aviso: { evento: EventoDelPase; texto: string; encabezado: string },
+  { ahora = Date.now() }: { ahora?: number } = {},
+): Promise<ResultadoAvisoGoogle> {
+  try {
+    const cred = credencialesGoogleDelEntorno();
+    if (!cred) return { ok: false, motivo: "Google Wallet no está configurado en este servidor." };
+    const db = createAdminClient();
+    if (!db) return { ok: false, motivo: "No hay conexión de servicio." };
+
+    const { data: pase } = await db
+      .from("pases_wallet")
+      .select("serial_number")
+      .eq("miembro_id", miembroId)
+      .eq("plataforma", "google")
+      .eq("activo", true)
+      .maybeSingle();
+    if (!pase) return { ok: true, tipo: null };
+
+    const ruta = `/loyaltyObject/${idDeObjeto(cred.issuerId, miembroId)}`;
+    const leido = await llamarApi(cred, "GET", ruta);
+    if (leido.status === 404) return { ok: true, tipo: null };
+    // Sin poder leerlo no se sabe cuántos avisos lleva hoy: se intenta con
+    // notificación, y si Google dice que ya no, va sin ella (abajo).
+    const crudos = leido.status < 300 ? (leido.json as { messages?: unknown } | null)?.messages : null;
+    const plan = planDelAvisoGoogle(Array.isArray(crudos) ? crudos : [], ahora);
+
+    if (plan.quedan) {
+      const poda = await llamarApi(cred, "PATCH", ruta, { messages: plan.quedan });
+      if (poda.status >= 300) {
+        console.warn(`[google-wallet] No se podaron los mensajes viejos del pase ${miembroId}: Google respondió ${poda.status}.`);
+      }
+    }
+
+    const agregar = (tipo: TipoMensajeGoogle) =>
+      llamarApi(cred, "POST", `${ruta}/addMessage`, {
+        message: {
+          header: aviso.encabezado,
+          body: aviso.texto,
+          id: `${PREFIJO_MENSAJE_DE_EVENTO}${aviso.evento}-${ahora}`,
+          messageType: tipo,
+        },
+      });
+
+    let tipo = plan.tipo;
+    let res = await agregar(tipo);
+    if (tipo === "TEXT_AND_NOTIFY" && esTopeDeGoogle(res)) {
+      tipo = "TEXT";
+      res = await agregar(tipo);
+    }
+    if (res.status === 404) return { ok: true, tipo: null };
+    if (res.status >= 300) return { ok: false, motivo: `Google respondió ${res.status} al agregar el mensaje.` };
+    return { ok: true, tipo };
   } catch (e) {
     return { ok: false, motivo: e instanceof Error ? e.message : "Google Wallet no respondió." };
   }

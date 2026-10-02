@@ -1,13 +1,19 @@
 import { generateKeyPairSync, createVerify } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  AVISOS_DE_EVENTO_POR_DIA,
   claseDeLaTarjeta,
   construirClase,
   construirObjeto,
   credencialesGoogleDelEntorno,
+  esTopeDeGoogle,
   firmarJwt,
   idDeClase,
   idDeObjeto,
+  MAX_MENSAJES_GOOGLE,
+  momentoDelMensaje,
+  planDelAvisoGoogle,
+  TOPE_GOOGLE_AVISOS_POR_DIA,
 } from "./google";
 
 /**
@@ -223,5 +229,106 @@ describe("credencialesGoogleDelEntorno", () => {
     const cred = credencialesGoogleDelEntorno();
     expect(cred?.issuerId).toBe(ISSUER);
     expect(cred?.clientEmail).toBe("sa@p.iam.gserviceaccount.com");
+  });
+});
+
+/**
+ * EL MENSAJE DE UN MOVIMIENTO (tarjetas de Foorkie) Y EL TOPE DE GOOGLE.
+ *
+ * Google acepta 3 mensajes CON notificación por pase en 24 horas; el
+ * cuarto rebota. Los movimientos usan 2 y dejan uno para el aviso que el
+ * restaurante manda a todos. La cuenta sale del propio objeto: cada
+ * mensaje nuestro lleva su hora en el id.
+ */
+describe("el tope de Google para los mensajes de un movimiento", () => {
+  const AHORA = Date.parse("2026-10-01T20:00:00Z");
+  const HORA = 60 * 60 * 1000;
+  const evento = (horasAtras: number, extra: Record<string, unknown> = {}) => ({
+    id: `evento-sumar-${AHORA - horasAtras * HORA}`,
+    header: "Foorkie",
+    body: "¡Gracias por preferirnos!",
+    messageType: "TEXT_AND_NOTIFY",
+    ...extra,
+  });
+  const promo = (iso: string, extra: Record<string, unknown> = {}) => ({
+    id: `promo-${iso}`,
+    header: "Foorkie",
+    body: "MIÉRCOLES 2X1",
+    messageType: "TEXT_AND_NOTIFY",
+    ...extra,
+  });
+
+  it("los números del tope: 3 de Google, 2 para los movimientos, 10 mensajes por pase", () => {
+    expect(TOPE_GOOGLE_AVISOS_POR_DIA).toBe(3);
+    expect(AVISOS_DE_EVENTO_POR_DIA).toBe(2);
+    expect(MAX_MENSAJES_GOOGLE).toBe(10);
+  });
+
+  it("la hora de cada mensaje sale de su id (o de su displayInterval)", () => {
+    expect(momentoDelMensaje(evento(1))).toBe(AHORA - HORA);
+    expect(momentoDelMensaje(promo("2026-10-01T14:05"))).toBe(Date.parse("2026-10-01T14:05:00Z"));
+    expect(momentoDelMensaje({ id: "otro", displayInterval: { start: { date: "2026-10-01T10:00:00Z" } } })).toBe(
+      Date.parse("2026-10-01T10:00:00Z"),
+    );
+    expect(momentoDelMensaje({ id: "sin-hora" })).toBeNull();
+    expect(momentoDelMensaje(null)).toBeNull();
+  });
+
+  it("sin mensajes de hoy: con notificación y sin tocar el objeto", () => {
+    expect(planDelAvisoGoogle([], AHORA)).toEqual({ tipo: "TEXT_AND_NOTIFY", recientes: 0, quedan: null });
+    expect(planDelAvisoGoogle([evento(1)], AHORA)).toMatchObject({ tipo: "TEXT_AND_NOTIFY", recientes: 1, quedan: null });
+  });
+
+  it("con 2 avisos en el día —de cualquier origen— el tercero va SIN notificación", () => {
+    expect(planDelAvisoGoogle([evento(3), evento(1)], AHORA)).toMatchObject({ tipo: "TEXT", recientes: 2 });
+    // La promo del restaurante también cuenta: el tope de Google es por pase.
+    expect(planDelAvisoGoogle([promo("2026-10-01T18:00"), evento(1)], AHORA)).toMatchObject({ tipo: "TEXT", recientes: 2 });
+  });
+
+  it("lo que ya no cuenta: más de un día, los que se mandaron sin notificación, los sin hora", () => {
+    const plan = planDelAvisoGoogle(
+      [evento(30), evento(2, { messageType: "TEXT" }), promo("2026-09-29T10:00"), { id: "ajeno", body: "x" }],
+      AHORA,
+    );
+    expect(plan.tipo).toBe("TEXT_AND_NOTIFY");
+    expect(plan.recientes).toBe(0);
+  });
+
+  it("un mensaje sin tipo cuenta como notificación: ante la duda se avisa de menos", () => {
+    expect(
+      planDelAvisoGoogle([evento(1, { messageType: undefined }), evento(2, { messageType: undefined })], AHORA).tipo,
+    ).toBe("TEXT");
+  });
+
+  it("se podan los nuestros de más de un día; los avisos del restaurante no se tocan", () => {
+    const viejo = evento(30);
+    const deHoy = evento(1);
+    const promoVieja = promo("2026-09-01T10:00");
+    const plan = planDelAvisoGoogle([viejo, promoVieja, deHoy], AHORA);
+    expect(plan.quedan).toEqual([promoVieja, deHoy]);
+  });
+
+  it("con los 10 lugares llenos, se va el nuestro más viejo para hacerle lugar al nuevo", () => {
+    const promos = Array.from({ length: 8 }, (_, i) => promo(`2026-09-0${i + 1}T10:00`));
+    const masViejo = evento(5);
+    const masNuevo = evento(1);
+    const plan = planDelAvisoGoogle([masNuevo, ...promos, masViejo], AHORA);
+    expect(plan.quedan).toHaveLength(MAX_MENSAJES_GOOGLE - 1);
+    expect(plan.quedan).not.toContainEqual(masViejo);
+    expect(plan.quedan).toContainEqual(masNuevo);
+  });
+
+  it("si los 10 son del restaurante, no se borra ninguno suyo", () => {
+    const promos = Array.from({ length: 10 }, (_, i) => promo(`2026-09-${String(i + 10)}T10:00`));
+    expect(planDelAvisoGoogle(promos, AHORA).quedan).toBeNull();
+  });
+
+  it("esTopeDeGoogle: el 429 o un rechazo que nombra la cuota", () => {
+    expect(esTopeDeGoogle({ status: 429, json: null })).toBe(true);
+    expect(
+      esTopeDeGoogle({ status: 400, json: { error: { message: "QuotaExceededException: too many notifications" } } }),
+    ).toBe(true);
+    expect(esTopeDeGoogle({ status: 400, json: { error: { message: "Invalid message" } } })).toBe(false);
+    expect(esTopeDeGoogle({ status: 200, json: { quota: "nada" } })).toBe(false);
   });
 });

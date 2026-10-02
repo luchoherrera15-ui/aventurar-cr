@@ -203,7 +203,9 @@ export async function POST(pedido: Request) {
    * pushes.
    */
   if (rpc.otorgado === true) {
-    after(() => avisarCambioDePase(miembro.miembroId));
+    // `sumar`: en una tarjeta de Foorkie, además el mensaje del
+    // restaurante (`foorkie-mensajes.ts`); en las demás, lo de siempre.
+    after(() => avisarCambioDePase(miembro.miembroId, "sumar"));
   }
 
   // Una regla del programa dijo que no (compra mínima, tope diario,

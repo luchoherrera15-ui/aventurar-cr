@@ -85,10 +85,14 @@ async function refrescarPases(
   // la función al responder. Los fallos no se propagan — los puntos ya
   // están en el ledger, y un push que no sale no puede tumbar la
   // operación que lo originó.
+  //
+  // El evento (`sumar`, `canjear`, `quitar` para un ajuste) es lo que una
+  // tarjeta de Foorkie usa para mandarle al cliente el mensaje del
+  // restaurante (`foorkie-mensajes.ts`); en las demás no cambia nada.
   after(async () => {
     try {
       const { avisarCambioDePase } = await import("@/lib/wallet/servicio");
-      await avisarCambioDePase(miembroId);
+      await avisarCambioDePase(miembroId, tipo === "ganado" ? "sumar" : tipo === "canjeado" ? "canjear" : "quitar");
     } catch (e) {
       console.warn("[wallet] No salió el aviso de pase actualizado:", e);
     }

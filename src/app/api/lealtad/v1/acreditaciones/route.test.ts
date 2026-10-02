@@ -152,7 +152,9 @@ describe("POST /acreditaciones — el pase SE TIENE QUE ACTUALIZAR", () => {
     await POST(pedido(CUERPO));
 
     expect(avisarCambioDePase).toHaveBeenCalledTimes(1);
-    expect(avisarCambioDePase).toHaveBeenCalledWith(MIEMBRO);
+    // Con el evento: en una tarjeta de Foorkie sale además el mensaje
+    // del restaurante al sumar (foorkie-mensajes.ts); en las demás, nada más.
+    expect(avisarCambioDePase).toHaveBeenCalledWith(MIEMBRO, "sumar");
   });
 
   it("el aviso va DESPUÉS del RPC, no antes ni en vez de", async () => {
@@ -213,7 +215,7 @@ describe("POST /acreditaciones — cuándo NO se avisa", () => {
     movimiento = null;
 
     await POST(pedido(CUERPO));
-    expect(avisarCambioDePase).toHaveBeenCalledWith(MIEMBRO);
+    expect(avisarCambioDePase).toHaveBeenCalledWith(MIEMBRO, "sumar");
   });
 });
 

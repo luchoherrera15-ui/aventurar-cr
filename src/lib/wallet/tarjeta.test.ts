@@ -330,3 +330,44 @@ describe("el mensaje promocional (0152)", () => {
     expect(claves).toEqual(expect.arrayContaining(["como", "bookea", "promo"]));
   });
 });
+
+describe("el mensaje del restaurante para ESTE cliente (tarjetas de Foorkie)", () => {
+  type Reverso = { key: string; label: string; value: string; changeMessage?: string };
+
+  function backFields(pass: Record<string, unknown>): Reverso[] {
+    return (pass.storeCard as { backFields: Reverso[] }).backFields;
+  }
+
+  it("sin mensaje (todas las tarjetas de Bookea): el pase de siempre, sin el renglón", () => {
+    for (const mensajeDelMiembro of [undefined, null, "", "   ", "\u200B"]) {
+      const pass = construirPassJson(datos({ mensajeDelMiembro }));
+      expect(backFields(pass).some((f) => f.key === "mensaje")).toBe(false);
+      expect(JSON.stringify(pass)).toBe(JSON.stringify(construirPassJson(datos())));
+    }
+  });
+
+  it("con mensaje, el renglón «Último mensaje» con changeMessage: así avisa en la pantalla bloqueada", () => {
+    const pass = construirPassJson(datos({ mensajeDelMiembro: "¡Gracias por preferirnos!" }));
+    const mensaje = backFields(pass).find((f) => f.key === "mensaje");
+    expect(mensaje).toEqual({
+      key: "mensaje",
+      label: "Último mensaje",
+      value: "¡Gracias por preferirnos!",
+      changeMessage: "%@",
+    });
+  });
+
+  it("el marcador de cambio viaja tal cual: es lo que hace que el mismo «gracias» vuelva a avisar", () => {
+    const pass = construirPassJson(datos({ mensajeDelMiembro: "¡Gracias por preferirnos!\u200B" }));
+    expect(backFields(pass).find((f) => f.key === "mensaje")?.value).toBe("¡Gracias por preferirnos!\u200B");
+  });
+
+  it("convive con la promoción del programa: cada uno con su clave, nada se pisa", () => {
+    const pass = construirPassJson(
+      datos({ mensajePromocional: "2X1 los miércoles", mensajeDelMiembro: "Tu tarjeta se modificó." }),
+    );
+    const claves = backFields(pass).map((f) => f.key);
+    expect(claves).toEqual(expect.arrayContaining(["como", "promo", "mensaje", "bookea"]));
+    expect(claves.indexOf("mensaje")).toBeGreaterThan(claves.indexOf("promo"));
+  });
+});
