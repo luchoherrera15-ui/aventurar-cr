@@ -25,7 +25,7 @@ import { liberarCupoNotificacion, reservarCupoNotificacion } from "@/lib/lealtad
 import { enviarMensajePromocional } from "@/lib/wallet/mensaje-promocional";
 import { plataformasConfiguradas } from "@/lib/wallet/aviso-de-pausa";
 import {
-  actividadPorMiembro,
+  agregadosPorMiembro,
   armarClienteDelPanel,
   borrarRecompensaDeFoorkie,
   clientesDeLaTarjeta,
@@ -119,10 +119,10 @@ const filtro = (c: Consulta, metodo: string, columna?: string) =>
 // ════════════════════════════════════════════════════════════════════
 
 describe("leer lo que manda el panel de Foorkie", () => {
-  it("clientes: por defecto 50, sin búsqueda ni cursor", () => {
+  it("clientes: por defecto 50, sin búsqueda ni cursor, en el orden de siempre y sin resumen", () => {
     expect(leerPedidoClientes({ ...vinculo })).toEqual({
       ok: true,
-      valor: { ranchoId: RANCHO, programaId: PROGRAMA, buscar: null, limite: 50, antes: null },
+      valor: { ranchoId: RANCHO, programaId: PROGRAMA, buscar: null, limite: 50, antes: null, orden: null, desde: 0, resumen: false },
     });
   });
 
@@ -273,21 +273,21 @@ describe("lo que sale de una persona", () => {
   });
 
   it("saldo = todo el ledger; actividad = lo último que sumó o canjeó (no un ajuste)", () => {
-    const a = actividadPorMiembro([
-      { miembro_id: "m-ana", puntos: 5, tipo: "ganado", created_at: "2026-09-01T10:00:00+00:00" },
-      { miembro_id: "m-ana", puntos: -3, tipo: "canjeado", created_at: "2026-09-20T10:00:00+00:00" },
-      { miembro_id: "m-ana", puntos: -1, tipo: "ajuste", created_at: "2026-09-30T10:00:00+00:00" },
-      { miembro_id: "m-beto", puntos: 2, tipo: "ajuste", created_at: "2026-09-30T10:00:00+00:00" },
+    const a = agregadosPorMiembro([
+      { id: "t1", miembro_id: "m-ana", puntos: 5, tipo: "ganado", reversion_de: null, created_at: "2026-09-01T10:00:00+00:00" },
+      { id: "t2", miembro_id: "m-ana", puntos: -3, tipo: "canjeado", reversion_de: null, created_at: "2026-09-20T10:00:00+00:00" },
+      { id: "t3", miembro_id: "m-ana", puntos: -1, tipo: "ajuste", reversion_de: null, created_at: "2026-09-30T10:00:00+00:00" },
+      { id: "t4", miembro_id: "m-beto", puntos: 2, tipo: "ajuste", reversion_de: null, created_at: "2026-09-30T10:00:00+00:00" },
     ]);
-    expect(a.get("m-ana")).toEqual({ saldo: 1, ultima: "2026-09-20T10:00:00+00:00" });
-    expect(a.get("m-beto")).toEqual({ saldo: 2, ultima: null });
+    expect(a.get("m-ana")).toMatchObject({ saldo: 1, ultima: "2026-09-20T10:00:00+00:00" });
+    expect(a.get("m-beto")).toMatchObject({ saldo: 2, ultima: null });
   });
 
   it("un cliente, como lo ve Foorkie: nunca un contacto completo", () => {
     const c = armarClienteDelPanel(
       { id: "m-ana", cliente_id: null, persona_id: "p", estado: "pausada", created_at: "2026-08-01T12:00:00.123456+00:00" },
       IDENTIDADES["m-ana"],
-      { saldo: 7, ultima: "2026-09-20T10:00:00+00:00" },
+      { saldo: 7, acumulado: 17, visitas: 12, canjes: 1, ultimoCanje: "2026-09-02T10:00:00+00:00", ultima: "2026-09-20T10:00:00+00:00" },
     );
     expect(c).toEqual({
       miembro_id: "m-ana",
@@ -295,6 +295,10 @@ describe("lo que sale de una persona", () => {
       correo: "a***@gmail.com",
       telefono: "****-7777",
       saldo: 7,
+      acumulado: 17,
+      visitas: 12,
+      canjes: 1,
+      ultimo_canje: "2026-09-02T10:00:00.000Z",
       desde: "2026-08-01T12:00:00.123Z",
       ultima_actividad: "2026-09-20T10:00:00.000Z",
       estado: "pausada",
@@ -304,8 +308,17 @@ describe("lo que sale de una persona", () => {
       correo: null,
       telefono: null,
       saldo: 0,
+      acumulado: 0,
+      visitas: 0,
+      canjes: 0,
+      ultimo_canje: null,
       ultima_actividad: null,
     });
+    // Sin `orden` no hay posición; con `orden`, la que se le dé.
+    expect(c).not.toHaveProperty("posicion");
+    expect(
+      armarClienteDelPanel({ id: "m-x", cliente_id: null, persona_id: null, estado: "activa", created_at: "2026-08-01T12:00:00Z" }, undefined, undefined, 3),
+    ).toMatchObject({ posicion: 3 });
   });
 });
 
@@ -475,6 +488,9 @@ describe("clientesDeLaTarjeta", () => {
       buscar: null,
       limite: 2,
       antes: "2026-09-30T00:00:00Z",
+      orden: null,
+      desde: 0,
+      resumen: false,
     });
 
     const deMiembros = consultas.filter((c) => c.tabla === "miembros");
@@ -493,6 +509,8 @@ describe("clientesDeLaTarjeta", () => {
     expect(r).toEqual({
       total: 3,
       siguiente: "2026-09-02T10:00:00.000002+00:00",
+      siguienteDesde: null,
+      resumen: null,
       clientes: [
         {
           miembro_id: "m-ana",
@@ -500,6 +518,10 @@ describe("clientesDeLaTarjeta", () => {
           correo: "a***@gmail.com",
           telefono: "****-7777",
           saldo: 6,
+          acumulado: 6,
+          visitas: 2,
+          canjes: 0,
+          ultimo_canje: null,
           desde: "2026-09-03T10:00:00.000Z",
           ultima_actividad: "2026-09-12T10:00:00.000Z",
           estado: "pausada",
@@ -510,12 +532,18 @@ describe("clientesDeLaTarjeta", () => {
           correo: "b***@correo.cr",
           telefono: "****-2233",
           saldo: 0,
+          acumulado: 0,
+          visitas: 0,
+          canjes: 0,
+          ultimo_canje: null,
           desde: "2026-09-02T10:00:00.000Z",
           ultima_actividad: null,
           estado: "activa",
         },
       ],
     });
+    // Para contar lo que se revirtió, el ledger se pide con `reversion_de`.
+    expect(String(filtro(ledger, "select")?.[1])).toContain("reversion_de");
     // Solo se resolvió quién es la gente de la página, no la de toda la tarjeta.
     expect(vi.mocked(identidadesDeMiembros).mock.calls[0][1].map((m) => m.id)).toEqual(["m-ana", "m-beto"]);
     expect(JSON.stringify(r)).not.toMatch(/ana\.solis@|beto@|8888-7777|70112233|Solís/);
@@ -535,7 +563,7 @@ describe("clientesDeLaTarjeta", () => {
       return { data: [] };
     });
     const pedir = (buscar: { por: "nombre" | "correo"; texto: string }, antes: string | null = null) =>
-      clientesDeLaTarjeta(db, { ranchoId: RANCHO, programaId: PROGRAMA, buscar, limite: 10, antes });
+      clientesDeLaTarjeta(db, { ranchoId: RANCHO, programaId: PROGRAMA, buscar, limite: 10, antes, orden: null, desde: 0, resumen: false });
 
     const porNombre = await pedir({ por: "nombre", texto: "hernandez" });
     expect(porNombre?.total).toBe(1);
@@ -558,10 +586,9 @@ describe("clientesDeLaTarjeta", () => {
   });
 
   it("si la base no contesta, null (nunca una lista inventada)", async () => {
+    const pedido = { ranchoId: RANCHO, programaId: PROGRAMA, buscar: null, limite: 50, antes: null, orden: null, desde: 0, resumen: false };
     const rota = baseFalsa(() => ({ error: { message: "caída" } }));
-    expect(
-      await clientesDeLaTarjeta(rota.db, { ranchoId: RANCHO, programaId: PROGRAMA, buscar: null, limite: 50, antes: null }),
-    ).toBeNull();
+    expect(await clientesDeLaTarjeta(rota.db, pedido)).toBeNull();
     const sinLedger = baseFalsa((c) =>
       c.tabla === "transacciones_puntos"
         ? { error: { message: "caída" } }
@@ -569,9 +596,7 @@ describe("clientesDeLaTarjeta", () => {
           ? { count: 1 }
           : { data: [miembro("m-ana", "2026-09-01T10:00:00+00:00")] },
     );
-    expect(
-      await clientesDeLaTarjeta(sinLedger.db, { ranchoId: RANCHO, programaId: PROGRAMA, buscar: null, limite: 50, antes: null }),
-    ).toBeNull();
+    expect(await clientesDeLaTarjeta(sinLedger.db, pedido)).toBeNull();
   });
 });
 

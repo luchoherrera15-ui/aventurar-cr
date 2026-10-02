@@ -22,6 +22,7 @@ import {
   UUID,
   type TarjetaParaFoorkie,
 } from "@/lib/plataforma/foorkie-api";
+import { marcaDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -464,7 +465,12 @@ export async function afiliarDesdeFoorkie(
   const baja = motivoDeBaja(String(miembro.estado ?? ""), nombreNegocio);
   if (baja) return { ok: false, codigo: "dada_de_baja", motivo: baja };
 
-  const [saldo, meta] = await Promise.all([saldoDelMiembro(db, r.miembroId), metaDelPrograma(db, programaId)]);
+  const [saldo, meta, marca] = await Promise.all([
+    saldoDelMiembro(db, r.miembroId),
+    metaDelPrograma(db, programaId),
+    // Lo que su pase dice bajo el QR (`vista.pie`). Nunca rechaza: ante la duda, Bookea.
+    marcaDeLaTarjeta(db, { programaId, ranchoId }),
+  ]);
   // Sin el ledger no se inventa un 0: el alta ya quedó y reintentar no duplica nada.
   if (saldo === null) return { ok: false, codigo: "reintentar", motivo: REINTENTAR };
 
@@ -479,6 +485,7 @@ export async function afiliarDesdeFoorkie(
       meta,
       links: linksDelMiembro(base, r.miembroId, secreto, ahora.getTime()),
       ahora,
+      marca,
     }),
   };
 }
