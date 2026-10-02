@@ -21,10 +21,10 @@ import { Icono } from "@/app/lealtad/panel/[id]/iconos";
  * ------------------------------------------------------------------
  * ESTO ES PREVIEW-ONLY, A PROPÓSITO — NUNCA VIAJA AL SERVIDOR
  * ------------------------------------------------------------------
- * Las fotos son archivos de `public/`, con rutas como
- * `/lealtad/plantillas/franjas/cafe-1.jpg`. `tarjeta-alta.ts` solo acepta
- * `bannerUrl` cuando es una URL de NUESTRO Storage
- * (`esUrlDeNuestroStorage`) — una ruta de `public/` no lo es y el
+ * Las fotos son URLs de Cloudflare Images (`PlantillaFranja.src`; hasta
+ * el 30 ago 2026 eran archivos de `public/`). `tarjeta-alta.ts` solo
+ * acepta `bannerUrl` cuando es una URL de NUESTRO Storage
+ * (`esUrlDeNuestroStorage`) — una de Cloudflare no lo es y el
  * servidor la rechazaría. Por eso quien monta este selector tiene que
  * guardar el id elegido en un campo separado (`franjaBancoId`, solo
  * preview) y mandar `bannerUrl: null` mientras la franja sea del banco;
@@ -161,7 +161,7 @@ export default function SelectorFranja({
                       puesta ? "border-bookea-azul ring-2 ring-bookea-azul" : "border-bookea-linea"
                     }`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- archivo de public/, no un asset de next/image */}
+                    {/* eslint-disable-next-line @next/next/no-img-element -- Cloudflare Images ya la entrega optimizada: next/image la encodearía dos veces */}
                     <img src={f.src} alt={ALT_FRANJA[f.id] ?? f.id} className="aspect-[3/1] w-full object-cover" />
                     {puesta && (
                       <span

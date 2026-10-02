@@ -8,9 +8,9 @@ import { PRESETS_RUBRO } from "./presets-rubro";
  * ------------------------------------------------------------------
  * Plantillas de fondo (una franja horizontal ancha, tipo 3:1 o 4:1) que
  * el dueño de un negocio puede elegir para el tope de su tarjeta, igual
- * a como Passtastic ofrece una galería de fotos por rubro. Viven como
- * archivos en `public/lealtad/plantillas/franjas/` y este módulo solo
- * las cataloga — no hay componente de UI acá todavía.
+ * a como Passtastic ofrece una galería de fotos por rubro. Viven en
+ * Cloudflare Images (ver «De dónde salen las fotos del banco», más
+ * abajo) y este módulo solo las cataloga — no hay componente de UI acá.
  *
  * ------------------------------------------------------------------
  * SOLO UNSPLASH, Y SOLO LICENCIA GRATUITA
@@ -48,7 +48,7 @@ const idsPresetValidos = new Set(
 export type PlantillaFranja = {
   /** El nombre de archivo sin extensión. */
   id: string;
-  /** Ruta pública servible tal cual desde `public/`. */
+  /** URL de Cloudflare Images (variante `public`), lista para un `<img>`. */
   src: string;
   /** Un `PresetRubro.id` de presets-rubro.ts (ej. "cafeteria", "barberia"), no el `Rubro` amplio. */
   rubro: string;
@@ -82,6 +82,19 @@ export type PlantillaFranja = {
 const BASE_FRANJAS =
   process.env.NEXT_PUBLIC_IMAGES_URL ?? "https://imagedelivery.net/X6xhTJPyvf9Jhtws4_jH8g";
 
+/**
+ * El tamaño que se le pide a Cloudflare. `public` (el de la galería del
+ * editor) achica cada foto hasta que entre en 1366×768, así que las
+ * VERTICALES —las de lavacar, 1600×2400 de origen— salen con 512 px de
+ * ancho. `gallery`, una de las variantes de la cuenta (ver
+ * `DEFINICION_VARIANTE` en `lib/media/tipos.ts`), deja el lado mayor en
+ * 1600 y la misma proporción: es la que aguanta una foto a lo ancho.
+ */
+export type VarianteFranja = "public" | "gallery";
+
+const urlDeFranja = (archivo: string, variante: VarianteFranja) =>
+  `${BASE_FRANJAS}/lealtad/franjas/${archivo}/${variante}`;
+
 const franja = (
   archivo: string,
   rubro: string,
@@ -94,7 +107,7 @@ const franja = (
   }
   return {
     id: archivo,
-    src: `${BASE_FRANJAS}/lealtad/franjas/${archivo}/public`,
+    src: urlDeFranja(archivo, "public"),
     rubro,
     creditoFotografo,
   };
@@ -172,4 +185,21 @@ export const PLANTILLAS_FRANJA: PlantillaFranja[] = [
 export function franjasDe(rubroPreset: string | null): PlantillaFranja[] {
   if (!rubroPreset) return [];
   return PLANTILLAS_FRANJA.filter((f) => f.rubro === rubroPreset);
+}
+
+/**
+ * La URL de UNA foto del banco, por su id, para mostrarla fuera del
+ * editor (la demo de ventas, `/lealtad/demo`).
+ *
+ * La demo apuntaba a rutas sueltas de `public/lealtad/plantillas/franjas/`
+ * y, cuando el banco se mudó a Cloudflare, sus fotos quedaron rotas en
+ * producción sin que fallara nada. Por eso esto TRUENA con un id que no
+ * está en `PLANTILLAS_FRANJA`: sacar una foto del banco rompe el build
+ * de la página que la usa, en vez de dejar un hueco que nadie ve.
+ */
+export function srcDeFranja(id: string, variante: VarianteFranja = "public"): string {
+  if (!PLANTILLAS_FRANJA.some((f) => f.id === id)) {
+    throw new Error(`plantillas-franjas: "${id}" no está en el banco de franjas`);
+  }
+  return urlDeFranja(id, variante);
 }

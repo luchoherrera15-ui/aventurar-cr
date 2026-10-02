@@ -1,3 +1,5 @@
+import { srcDeFranja } from "@/lib/lealtad/plantillas-franjas";
+
 /**
  * LOS DATOS DEL CATÁLOGO DE DEMOS — un objeto por rubro, compartido por
  * dos pantallas:
@@ -351,9 +353,9 @@ export const DEMOS: Record<string, Demo> = {
   },
   courier: {
     categoria: "Courier",
-    // Autohosteada (banco de franjas de hoy), no un hotlink nuevo — ya
+    // Del banco de franjas (Cloudflare Images), no un hotlink nuevo — ya
     // verificada a mano sin ninguna marca de otro courier visible.
-    foto: "/lealtad/plantillas/franjas/courier-2.jpg",
+    foto: srcDeFranja("courier-2"),
     negocio: "Envíos Rápido CR",
     iconoSello: ICONO_PAQUETE,
     pasos: [
@@ -383,7 +385,7 @@ export const DEMOS: Record<string, Demo> = {
   },
   tiendas: {
     categoria: "Tiendas de ropa",
-    foto: "/lealtad/plantillas/franjas/tienda-2.jpg",
+    foto: srcDeFranja("tienda-2"),
     negocio: "Boutique Aurora",
     iconoSello: ICONO_TIENDA,
     pasos: [
@@ -415,7 +417,7 @@ export const DEMOS: Record<string, Demo> = {
   },
   panaderias: {
     categoria: "Panaderías",
-    foto: "/lealtad/plantillas/franjas/panaderia-2.jpg",
+    foto: srcDeFranja("panaderia-2"),
     negocio: "Panadería Trigo Dorado",
     iconoSello: ICONO_PANADERIA,
     pasos: [
@@ -445,7 +447,7 @@ export const DEMOS: Record<string, Demo> = {
   },
   unas: {
     categoria: "Nail spas",
-    foto: "/lealtad/plantillas/franjas/unas-2.jpg",
+    foto: srcDeFranja("unas-2"),
     negocio: "Nail Studio Bella",
     iconoSello: ICONO_UNAS,
     pasos: [

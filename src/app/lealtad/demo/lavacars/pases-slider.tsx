@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PaseWallet } from "@/app/lealtad/pase-wallet";
+import { srcDeFranja } from "@/lib/lealtad/plantillas-franjas";
 
 /**
  * EL SLIDER DE PASES, en el hero — pedido explícito del dueño sobre el
@@ -22,8 +23,9 @@ import { PaseWallet } from "@/app/lealtad/pase-wallet";
 
 const NAVY_PROFUNDO = "#0a1226";
 
-const FOTO_A = "/lealtad/plantillas/franjas/lavacar-1.jpg";
-const FOTO_B = "/lealtad/plantillas/franjas/lavacar-2.jpg";
+// `gallery` y no `public`: son fotos verticales (ver `page.tsx`, punto 2).
+const FOTO_A = srcDeFranja("lavacar-1", "gallery");
+const FOTO_B = srcDeFranja("lavacar-2", "gallery");
 
 function Check({ className }: { className?: string }) {
   return (

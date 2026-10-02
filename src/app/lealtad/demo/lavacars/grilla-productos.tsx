@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { srcDeFranja } from "@/lib/lealtad/plantillas-franjas";
 
 /**
  * LOS PAQUETES, Y EL MOCKUP DE "SOLICITAR EL SERVICIO".
@@ -34,10 +35,11 @@ type Producto = {
   foto: string;
 };
 
-const FOTO_EXPRESS = "/lealtad/plantillas/franjas/lavacar-1.jpg";
-const FOTO_FULL = "/lealtad/plantillas/franjas/lavacar-2.jpg";
-const FOTO_CERAMICO = "/lealtad/plantillas/franjas/lavacar-4.jpg";
-const FOTO_INTERIOR = "/lealtad/plantillas/franjas/lavacar-1.jpg";
+// `gallery` y no `public`: son fotos verticales (ver `page.tsx`, punto 2).
+const FOTO_EXPRESS = srcDeFranja("lavacar-1", "gallery");
+const FOTO_FULL = srcDeFranja("lavacar-2", "gallery");
+const FOTO_CERAMICO = srcDeFranja("lavacar-4", "gallery");
+const FOTO_INTERIOR = srcDeFranja("lavacar-1", "gallery");
 
 const PRODUCTOS: Producto[] = [
   {

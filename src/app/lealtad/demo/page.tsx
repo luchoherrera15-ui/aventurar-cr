@@ -70,7 +70,7 @@ export default function IndiceDemosPage() {
             >
               {demo.foto ? (
                 <div className="relative h-32 w-full overflow-hidden">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- mezcla hotlinks de Unsplash con rutas de public/, sin un dominio único que next/image pueda optimizar */}
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Unsplash (w=640, auto=format) y el banco de franjas de Cloudflare Images ya la entregan optimizada: pasarla por next/image la encodearía dos veces */}
                   <img
                     src={demo.foto}
                     alt=""
