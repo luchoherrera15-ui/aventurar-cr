@@ -10,6 +10,7 @@ import {
   sitioDeBookea,
   type TarjetaParaFoorkie,
 } from "@/lib/plataforma/foorkie-api";
+import { marcaDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -74,7 +75,12 @@ export async function POST(request: Request) {
     const fila = programas.get(m.programa_id);
     if (!fila) continue;
     vistos.add(m.programa_id);
-    const [saldo, meta] = await Promise.all([saldoDelMiembro(db, m.id), metaDelPrograma(db, m.programa_id)]);
+    const [saldo, meta, marca] = await Promise.all([
+      saldoDelMiembro(db, m.id),
+      metaDelPrograma(db, m.programa_id),
+      // Lo que su pase dice bajo el QR (`vista.pie`). Nunca rechaza: ante la duda, Bookea.
+      marcaDeLaTarjeta(db, { programaId: m.programa_id, ranchoId: String(fila.rancho_id) }),
+    ]);
     if (saldo === null) continue;
     tarjetas.push(
       armarTarjeta({
@@ -84,6 +90,7 @@ export async function POST(request: Request) {
         saldo,
         meta,
         links: linksDelMiembro(base, m.id, pedido.secreto, ahora),
+        marca,
       }),
     );
   }

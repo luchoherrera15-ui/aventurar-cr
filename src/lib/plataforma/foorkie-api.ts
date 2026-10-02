@@ -20,6 +20,8 @@ import {
   type MetaRecompensa,
 } from "@/lib/wallet/tarjeta";
 import { tarjetaDelPase } from "@/lib/wallet/programa-principal";
+import { marcaDeLaTarjeta, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
+import { vistaParaFoorkie, type VistaParaFoorkie } from "@/lib/plataforma/foorkie-vista";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -185,6 +187,8 @@ export type TarjetaParaFoorkie = {
   textos: CamposTarjeta;
   beneficio: ConfigBeneficio | null;
   diseno: DisenoTarjeta;
+  /** El pase dibujado pieza por pieza, con ESTE saldo (`foorkie-vista.ts`). */
+  vista: VistaParaFoorkie;
   wallet: { apple: string; google: string; vence: string };
 };
 
@@ -265,6 +269,8 @@ export function armarTarjeta(d: {
   meta: MetaRecompensa;
   links: { apple: string; google: string; vence: string };
   ahora?: Date;
+  /** De quién es el pase (`marcaDeLaTarjeta`): lo que dice bajo el QR en la `vista`. Ausente = Bookea. */
+  marca?: MarcaDelPase | null;
 }): TarjetaParaFoorkie {
   const { modo, pausada, textos, progreso, beneficio } = lecturaDeTarjeta(d);
   return {
@@ -281,6 +287,7 @@ export function armarTarjeta(d: {
     textos,
     beneficio,
     diseno: disenoDeFila(d.fila),
+    vista: vistaParaFoorkie({ fila: d.fila, negocio: d.negocio, saldo: d.saldo, meta: d.meta, pausada, marca: d.marca }),
     wallet: d.links,
   };
 }
@@ -299,8 +306,9 @@ export function linksDelMiembro(base: string, miembroId: string, secreto: string
 
 /**
  * La tarjeta de un negocio vinculado: tipo, beneficio, diseño, meta, si
- * está en pausa, cuántos clientes la tienen y la página para unirse. La
- * devuelven `programa` (leer) y `programa/guardar` (después de guardar).
+ * está en pausa, cuántos clientes la tienen, la página para unirse y la
+ * `vista` del pase (`foorkie-vista.ts`). La devuelven `programa` (leer) y
+ * `programa/guardar` (después de guardar).
  * null = esa tarjeta no existe.
  */
 export async function programaParaFoorkie(
@@ -309,11 +317,13 @@ export async function programaParaFoorkie(
   programaId: string,
   base: string,
 ): Promise<Record<string, unknown> | null> {
-  const [{ data: fila }, { data: rancho }, meta, { count: miembros }] = await Promise.all([
+  const [{ data: fila }, { data: rancho }, meta, { count: miembros }, marca] = await Promise.all([
     db.from("programa_lealtad").select("*").eq("id", programaId).eq("rancho_id", ranchoId).maybeSingle(),
     db.from("ranchos").select("nombre, slug").eq("id", ranchoId).maybeSingle(),
     metaDelPrograma(db, programaId),
     db.from("miembros").select("id", { count: "exact", head: true }).eq("programa_id", programaId).eq("estado", "activa"),
+    // Lo que el pase dice bajo el QR (`vista.pie`). Nunca rechaza: ante la duda, Bookea.
+    marcaDeLaTarjeta(db, { programaId, ranchoId }),
   ]);
   if (!fila) return null;
 
@@ -333,6 +343,8 @@ export async function programaParaFoorkie(
     diseno: disenoDeFila(fila as Record<string, unknown>),
     // Lo que diría la tarjeta de alguien que recién se une (saldo 0).
     textos: camposSegunModo({ negocioNombre: negocio, saldo: 0, meta, config, beneficio, pausado: pausada }),
+    // Esa misma tarjeta dibujada como el pase, pieza por pieza (`foorkie-vista.ts`).
+    vista: vistaParaFoorkie({ fila: fila as Record<string, unknown>, negocio, saldo: 0, meta, pausada, marca }),
     miembros: miembros ?? 0,
     // La página de Bookea donde alguien se une (formulario + consentimiento).
     unirse: rancho?.slug ? `${base.replace(/\/+$/, "")}/tarjeta/${rancho.slug}/${programaId}` : null,
