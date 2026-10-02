@@ -247,9 +247,27 @@ repetir:
 > cliente por el QR de su pase o por su correo, suma y canjea con el mismo
 > núcleo que la caja del teléfono de Bookea (`operar-core.ts`) y lista lo
 > acreditado y canjeado de la tarjeta; de cada persona solo sale el
-> nombre de pila y el correo enmascarado. Nadie escribe en la tabla de
+> nombre de pila y el correo enmascarado. El panel de lealtad del
+> restaurante usa `clientes`, `recompensas` (+ `guardar` y `borrar`) y
+> `mensaje` (`foorkie-panel.ts`): la lista enmascarada de los clientes de
+> la tarjeta, las regalías con las reglas y la escritura del panel de
+> Bookea (`lib/lealtad/recompensas.ts`) y el aviso a todos los pases con
+> el núcleo y el cupo del botón «Enviar a todos»; y Bookea no le manda
+> correos al dueño de un negocio de Foorkie (`negocio-de-foorkie.ts`).
+> Nadie escribe en la tabla de
 > otro producto: Bookea no escribe `foorkie_*` y Foorkie no escribe las
 > tablas de Bookea. Lo de abajo queda como historia.
+>
+> Desde el 1 de octubre esa lealtad se vende como «Foorkie Lealtad»: el
+> cliente se une desde Foorkie por `afiliar` (`foorkie-afiliar.ts`, el
+> mismo alta del póster —`altaPorQrSinSesion`— con el consentimiento que
+> leyó en Foorkie). Bookea deja de verse SOLO en los negocios que Foorkie
+> marcó con `foorkie_restaurantes.lealtad_por_foorkie` (estar vinculado no
+> alcanza: Pura Matcha está vinculada sin la marca y sigue en todo como
+> Bookea): su pase firma «Powered by Foorkie» con links a Foorkie y Bookea
+> no les escribe ni a sus clientes (`foorkie-marca.ts`) ni al dueño
+> (`negocio-de-foorkie.ts`). Si la marca no se puede leer, todo sale como
+> Bookea.
 
 Lo que **sí** quedaba congelado era el alcance: Foorkie descubre → el
 comensal cae en la página de Bookea Link del restaurante → menú, pedido y

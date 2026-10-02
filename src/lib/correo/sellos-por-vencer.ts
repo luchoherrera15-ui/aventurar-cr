@@ -3,6 +3,7 @@ import { enviarCorreo, escaparHtml } from "@/lib/email";
 import { SITIO } from "@/lib/sitio";
 import { fechaLargaCR, fmtFechaCorta } from "@/lib/fechas";
 import { DIAS_DE_AVISO } from "@/lib/lealtad/vencimiento-sellos";
+import { losCorreosLosMandaFoorkie } from "@/lib/plataforma/foorkie-marca";
 import { correoDelMiembro } from "./sello-acreditado";
 
 /**
@@ -72,6 +73,12 @@ export async function avisarSellosPorVencer({
       .eq("id", miembro.programa_id as string)
       .maybeSingle();
     if (!programa) return;
+
+    // Una tarjeta de un local de Foorkie: el aviso se lo manda Foorkie,
+    // con su marca. Bookea no le escribe a ese cliente (el aviso ya quedó
+    // reclamado en `avisos_vencimiento_sellos`, así que no se reintenta).
+    const tarjeta = { programaId: miembro.programa_id as string, ranchoId: programa.rancho_id as string | null };
+    if (await losCorreosLosMandaFoorkie(db, tarjeta)) return;
 
     const { data: negocio } = await db
       .from("ranchos")

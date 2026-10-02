@@ -38,6 +38,13 @@ import { avisarCambioDeDiseno } from "@/lib/wallet/aviso-de-diseno";
 import { refrescarClaseGoogle } from "@/lib/wallet/google";
 import type { ModoPrograma } from "@/lib/wallet/tarjeta";
 import { configDesdeJson, type ConfigTira } from "@/lib/wallet/layout-tira";
+import {
+  borrarRecompensaDe,
+  escribirRecompensa,
+  validarRecompensa,
+  type RecompensaInput,
+  type TipoRecompensa,
+} from "@/lib/lealtad/recompensas";
 
 /**
  * AVISARLE A LOS PASES YA INSTALADOS QUE LA TARJETA CAMBIÓ (0150).
@@ -974,83 +981,15 @@ export async function contextoDeLaTarjeta(
   };
 }
 
-export type RecompensaInput = {
-  nombre: string;
-  descripcion: string;
-  /** En modo sellos, esto ES la meta: "10 sellos". */
-  costoPuntos: number;
-  activo: boolean;
-  /** Tipo de recompensa (0125). null = personalizada. */
-  tipo: TipoRecompensa | null;
-  /** % (1..100) o colones, según el tipo. Solo para descuentos. */
-  valor: number | null;
-  /** null = sin límite. El RPC lo CUENTA contra los canjes: no es un
-   *  contador que se descuenta y se desincroniza. */
-  stockTotal: number | null;
-  limitePorCliente: number | null;
-  /** Referencia externa para el POS. */
-  sku: string;
-  /** Qué debe hacer el personal al entregarla. */
-  instrucciones: string;
-};
-
-export type TipoRecompensa =
-  | "producto"
-  | "servicio"
-  | "descuento_porcentaje"
-  | "descuento_fijo"
-  | "personalizada";
-
-const TIPOS_RECOMPENSA: readonly TipoRecompensa[] = [
-  "producto",
-  "servicio",
-  "descuento_porcentaje",
-  "descuento_fijo",
-  "personalizada",
-];
-
-function validarRecompensa(datos: RecompensaInput) {
-  const nombre = datos.nombre.trim();
-  if (!nombre || nombre.length > 120) return "El nombre es obligatorio (máximo 120 caracteres).";
-  if (datos.descripcion.trim().length > 300) return "La descripción es muy larga.";
-  if (!Number.isInteger(datos.costoPuntos) || datos.costoPuntos < 1) {
-    return "La recompensa tiene que costar al menos 1.";
-  }
-  if (datos.tipo !== null && !TIPOS_RECOMPENSA.includes(datos.tipo)) {
-    return "Ese tipo de recompensa no existe.";
-  }
-  // Mismos rangos que recompensas_detalle_check (0125): un 150% de
-  // descuento o un fijo negativo son errores de digitación.
-  if (datos.tipo === "descuento_porcentaje") {
-    if (datos.valor === null || !(datos.valor > 0 && datos.valor <= 100)) {
-      return "El descuento porcentual va de 1 a 100.";
-    }
-  }
-  if (datos.tipo === "descuento_fijo") {
-    if (datos.valor === null || !(datos.valor > 0 && datos.valor <= 10000000)) {
-      return "El descuento fijo va de ₡1 a ₡10.000.000.";
-    }
-  }
-  if (
-    datos.stockTotal !== null &&
-    (!Number.isInteger(datos.stockTotal) || datos.stockTotal < 1 || datos.stockTotal > 1000000)
-  ) {
-    return "El stock debe estar entre 1 y 1.000.000 (vacío = sin límite).";
-  }
-  if (
-    datos.limitePorCliente !== null &&
-    (!Number.isInteger(datos.limitePorCliente) ||
-      datos.limitePorCliente < 1 ||
-      datos.limitePorCliente > 10000)
-  ) {
-    return "El límite por cliente debe estar entre 1 y 10.000.";
-  }
-  if (datos.sku.trim().length > 60) return "El SKU es muy largo (máximo 60).";
-  if (datos.instrucciones.trim().length > 500) {
-    return "Las instrucciones son muy largas (máximo 500).";
-  }
-  return null;
-}
+/**
+ * La forma de una recompensa, sus tipos y su validación viven en
+ * `@/lib/lealtad/recompensas` desde que el panel de Foorkie edita las
+ * regalías por la API firmada con LAS MISMAS reglas (1 oct 2026). Los
+ * tipos se reexportan para no tocar a quienes los importan desde acá
+ * (`editor-recompensas.tsx`, `programa-contexto.tsx`): son tipos, se
+ * borran al compilar y no rompen la regla de `"use server"`.
+ */
+export type { RecompensaInput, TipoRecompensa };
 
 /**
  * Las recompensas del programa. La MÁS BARATA activa es la que marca
@@ -1080,52 +1019,11 @@ export async function guardarRecompensa(
     .maybeSingle();
   if (!programa) return { error: "Ese programa no es de este negocio." };
 
-  const fila = {
-    nombre: datos.nombre.trim(),
-    descripcion: datos.descripcion.trim() || null,
-    costo_puntos: datos.costoPuntos,
-    activo: datos.activo,
-    tipo: datos.tipo,
-    valor: datos.tipo?.startsWith("descuento") ? datos.valor : null,
-    stock_total: datos.stockTotal,
-    limite_por_cliente: datos.limitePorCliente,
-    sku: datos.sku.trim() || null,
-    instrucciones: datos.instrucciones.trim() || null,
-  };
-
-  const guardarCon = (f: Record<string, unknown>) =>
-    recompensaId
-      ? supabase
-          .from("recompensas")
-          .update(f)
-          .eq("id", recompensaId)
-          .eq("programa_id", programaId)
-          .select("*")
-          .single()
-      : supabase
-          .from("recompensas")
-          .insert({ programa_id: programaId, ...f })
-          .select("*")
-          .single();
-
-  let { data, error } = await guardarCon(fila);
-
-  // Base sin la 0125: se reintenta con las columnas de la 0060 nada
-  // más, para que la recompensa básica se pueda seguir editando. Igual
-  // que arriba: por CÓDIGO y no por texto, porque `recompensas_detalle_check`
-  // menciona `tipo` y un descuento del 150% se estaba guardando «bien»
-  // con el tipo tirado a la basura.
-  if (
-    error &&
-    esColumnaAusente(error, ["tipo", "stock_total", "limite_por_cliente", "sku", "instrucciones"])
-  ) {
-    ({ data, error } = await guardarCon({
-      nombre: fila.nombre,
-      descripcion: fila.descripcion,
-      costo_puntos: fila.costo_puntos,
-      activo: fila.activo,
-    }));
-  }
+  // La fila, el insert o update atado a ESTE programa y el reintento sin
+  // las columnas de la 0125 (por CÓDIGO y no por texto, igual que
+  // arriba) viven en `escribirRecompensa`: la misma escritura que usa la
+  // API de Foorkie.
+  const { data, error } = await escribirRecompensa(supabase, programaId, datos, recompensaId);
 
   if (error) return { error: traducir(error, "guardar la recompensa") };
 
@@ -1150,11 +1048,7 @@ export async function eliminarRecompensa(
     .maybeSingle();
   if (!programa) return { error: "Ese programa no es de este negocio." };
 
-  const { error } = await supabase
-    .from("recompensas")
-    .delete()
-    .eq("id", recompensaId)
-    .eq("programa_id", programaId);
+  const { error } = await borrarRecompensaDe(supabase, programaId, recompensaId);
 
   if (error) return { error: traducir(error, "eliminar la recompensa") };
 

@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { hitoDelSaldo } from "@/lib/correo/sello-acreditado";
+import { marcaDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 import { enviarMensajeGoogle } from "./google";
 
 /**
@@ -88,7 +89,9 @@ export async function avisarHitoPorWallet(
       .eq("activo", true)
       .limit(1);
     if ((pasesGoogle ?? []).length > 0) {
-      await enviarMensajeGoogle(miembroId, mensaje);
+      // «Bookea», o «Foorkie» si la tarjeta es de un local de Foorkie.
+      const marca = await marcaDeLaTarjeta(db, { programaId: miembro.programa_id as string });
+      await enviarMensajeGoogle(miembroId, mensaje, { encabezado: marca.encabezadoMensaje });
     }
   } catch (e) {
     console.warn("[wallet] No se pudo avisar el hito por el pase:", e);

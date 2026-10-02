@@ -256,23 +256,37 @@ export type CuerpoConsentimientos = {
 };
 
 /**
+ * El texto y la versión que la persona leyó en OTRA pantalla: la de
+ * Foorkie, que afilia a sus clientes por `/api/plataforma/foorkie/afiliar`
+ * (`foorkie-afiliar.ts`). La 0138 guarda el texto EXACTO que se leyó
+ * (0138:551): si se leyó allá, el que se archiva es el de allá, no el del
+ * póster.
+ */
+export type ConsentimientoPropio = { texto: string; version: string };
+
+/**
  * El jsonb que espera `alta_persona_por_qr`.
  *
  * Va el "no acepto" también, no solo el sí: poder demostrar que la
  * casilla se MOSTRÓ y quedó sin marcar vale tanto como poder demostrar
  * que se marcó (0138:2058).
+ *
+ * Sin `propio` sale exactamente el de siempre (`qr-v1` y el texto del
+ * póster).
  */
 export function cuerpoDeConsentimientos({
   nombreNegocio,
   acepta,
+  propio = null,
 }: {
   nombreNegocio: string;
   acepta: boolean;
+  propio?: ConsentimientoPropio | null;
 }): CuerpoConsentimientos {
   return {
-    version: VERSION_CONSENTIMIENTO,
+    version: propio?.version ?? VERSION_CONSENTIMIENTO,
     canales: CANALES_CONSENTIMIENTO,
-    negocio: { acepta, texto: textoConsentimientoNegocio(nombreNegocio) },
+    negocio: { acepta, texto: propio?.texto ?? textoConsentimientoNegocio(nombreNegocio) },
   };
 }
 
@@ -719,16 +733,18 @@ export function mensajeDeFalloDeAlta(error: { message?: string; code?: string } 
 
 // ── 8. El alta, de punta a punta ─────────────────────────────────────
 
-export type ResultadoAlta =
-  /** Persona, vínculo, consentimiento y membresía, todo listo. */
-  | {
-      estado: "listo";
-      personaId: string;
-      miembroId: string | null;
-      /** true = esta membresía se creó recién (0138: `miembro_nuevo`), no un re-escaneo de quien ya era miembro — es la señal para el correo de bienvenida, que no puede salir en cada visita. */
-      miembroNuevo: boolean;
-      token: string;
-    }
+/** Persona, vínculo, consentimiento y membresía, todo listo. */
+export type AltaLista = {
+  estado: "listo";
+  personaId: string;
+  miembroId: string | null;
+  /** true = esta membresía se creó recién (0138: `miembro_nuevo`), no un re-escaneo de quien ya era miembro — es la señal para el correo de bienvenida, que no puede salir en cada visita. */
+  miembroNuevo: boolean;
+};
+
+/** Lo que deja el alta ANTES de abrir la sesión del navegador (`altaPorQrSinSesion`). */
+export type ResultadoAltaSinSesion =
+  | AltaLista
   /**
    * El contacto ya es de alguien PROTEGIDO (tiene cuenta, un contacto
    * probado, o sellos juntados) y quien pide no trae prueba. No se
@@ -740,7 +756,94 @@ export type ResultadoAlta =
   | { estado: "lleno" }
   | { estado: "error"; mensaje: string };
 
-export async function altaPorQr(
+/** El alta de la pantalla del póster: lo mismo, con el token de la cookie. */
+export type ResultadoAlta =
+  | (AltaLista & { token: string })
+  | Exclude<ResultadoAltaSinSesion, AltaLista>;
+
+export type ParametrosAlta = {
+  /** La fila CRUDA de la tarjeta que emite (`select *`). */
+  programa: Record<string, unknown>;
+  ranchoId: string | null;
+  planRancho: string | null;
+  nombreNegocio: string;
+  contacto: Contacto;
+  /**
+   * OBLIGATORIO desde el pedido del dueño («necesitamos saber quién se
+   * registra»). Ya viene revisado por `revisarAlta`, pero se vuelve a
+   * comprobar acá abajo: esta función es la puerta del servidor, y una
+   * petición armada a mano no pasa por ninguna pantalla.
+   */
+  nombre: string;
+  acepta: boolean;
+  /**
+   * La persona de la cookie de `sesiones_persona`, tal cual viene.
+   * Que valga o no como prueba se decide acá abajo — nunca lo decide
+   * quien llama.
+   */
+  personaProbada: string | null;
+  /** La sesión de Bookea, si hay. Igual: acá se decide qué prueba. */
+  sesion: { clienteId: string | null; correo: string | null };
+  /**
+   * «El contacto que escribí ya es de alguien: dame igual MI tarjeta,
+   * sin cuenta.»
+   *
+   * Lo enciende la persona en la pantalla, tocando la segunda opción
+   * del desvío (`formulario-alta.tsx`), NUNCA por defecto. Con esto
+   * en true, el `requiere_prueba` de la 0138 deja de ser un callejón
+   * sin salida: en vez de devolverla al login, se le abre una
+   * identidad NUEVA y LOCAL de este negocio —cero sellos, cero
+   * acceso a la ajena— con su contacto guardado solo como dato de
+   * contacto. Ver `altaLocalPorQr`, abajo.
+   */
+  sinReclamo?: boolean;
+  ip: string | null;
+  userAgent: string | null;
+  /**
+   * El texto y la versión del permiso que la persona leyó, si NO fue el
+   * del póster (Foorkie, `foorkie-afiliar.ts`). null/ausente = el de
+   * siempre (`cuerpoDeConsentimientos`).
+   */
+  consentimiento?: ConsentimientoPropio | null;
+};
+
+/**
+ * El alta del póster, de punta a punta: `altaPorQrSinSesion` y, si quedó
+ * lista, la sesión de la persona en ESTE navegador (la cookie que hace
+ * que no tenga que volver a escribir nada).
+ */
+export async function altaPorQr(db: Admin, parametros: ParametrosAlta): Promise<ResultadoAlta> {
+  const alta = await altaPorQrSinSesion(db, parametros);
+  if (alta.estado !== "listo") return alta;
+
+  const token = await abrirSesionDePersona(db, alta.personaId, {
+    ip: parametros.ip,
+    userAgent: parametros.userAgent,
+  });
+  if (!token) {
+    // La persona, el vínculo y la membresía YA quedaron: el alta es
+    // idempotente, así que reintentar no duplica nada.
+    return {
+      estado: "error",
+      mensaje: "Tu tarjeta quedó lista, pero este navegador no la pudo recordar. Probá otra vez.",
+    };
+  }
+
+  return { ...alta, token };
+}
+
+/**
+ * EL ALTA, SIN LA COOKIE DEL NAVEGADOR.
+ *
+ * Todo lo que decide si alguien se afilia —el mínimo de datos, quién
+ * puede reclamar el contacto, el tope del paquete, el RPC y el desvío
+ * sin cuenta— vive acá y en un solo lugar. Lo único que NO hace es abrir
+ * la sesión de `sesiones_persona`: esa cookie es de la pantalla del
+ * póster (`altaPorQr`, arriba). Foorkie afilia por esta misma puerta
+ * (`foorkie-afiliar.ts`) y no tiene un navegador de Bookea al que
+ * dejarle nada.
+ */
+export async function altaPorQrSinSesion(
   db: Admin,
   {
     programa,
@@ -755,46 +858,9 @@ export async function altaPorQr(
     sinReclamo = false,
     ip,
     userAgent,
-  }: {
-    /** La fila CRUDA de la tarjeta que emite (`select *`). */
-    programa: Record<string, unknown>;
-    ranchoId: string | null;
-    planRancho: string | null;
-    nombreNegocio: string;
-    contacto: Contacto;
-    /**
-     * OBLIGATORIO desde el pedido del dueño («necesitamos saber quién se
-     * registra»). Ya viene revisado por `revisarAlta`, pero se vuelve a
-     * comprobar acá abajo: esta función es la puerta del servidor, y una
-     * petición armada a mano no pasa por ninguna pantalla.
-     */
-    nombre: string;
-    acepta: boolean;
-    /**
-     * La persona de la cookie de `sesiones_persona`, tal cual viene.
-     * Que valga o no como prueba se decide acá abajo — nunca lo decide
-     * quien llama.
-     */
-    personaProbada: string | null;
-    /** La sesión de Bookea, si hay. Igual: acá se decide qué prueba. */
-    sesion: { clienteId: string | null; correo: string | null };
-    /**
-     * «El contacto que escribí ya es de alguien: dame igual MI tarjeta,
-     * sin cuenta.»
-     *
-     * Lo enciende la persona en la pantalla, tocando la segunda opción
-     * del desvío (`formulario-alta.tsx`), NUNCA por defecto. Con esto
-     * en true, el `requiere_prueba` de la 0138 deja de ser un callejón
-     * sin salida: en vez de devolverla al login, se le abre una
-     * identidad NUEVA y LOCAL de este negocio —cero sellos, cero
-     * acceso a la ajena— con su contacto guardado solo como dato de
-     * contacto. Ver `altaLocalPorQr`, abajo.
-     */
-    sinReclamo?: boolean;
-    ip: string | null;
-    userAgent: string | null;
-  },
-): Promise<ResultadoAlta> {
+    consentimiento = null,
+  }: ParametrosAlta,
+): Promise<ResultadoAltaSinSesion> {
   const programaId = typeof programa.id === "string" ? programa.id : null;
   if (!programaId) {
     return { estado: "error", mensaje: "Esa tarjeta ya no existe. Volvé a escanear el QR." };
@@ -893,7 +959,7 @@ export async function altaPorQr(
     p_correo: contacto.correo,
     p_telefono: contacto.telefono,
     p_nombre: nombreLimpio,
-    p_consentimientos: cuerpoDeConsentimientos({ nombreNegocio, acepta }),
+    p_consentimientos: cuerpoDeConsentimientos({ nombreNegocio, acepta, propio: consentimiento }),
     p_persona_probada: probada,
     p_cliente_id: clienteId,
     p_ip: ip,
@@ -943,6 +1009,7 @@ export async function altaPorQr(
         canal,
         ip,
         userAgent,
+        consentimiento,
       });
     }
     return { estado: "requiere_prueba", canal };
@@ -953,22 +1020,13 @@ export async function altaPorQr(
     return { estado: "error", mensaje: mensajeDeFalloDeAlta(null) };
   }
 
-  const token = await abrirSesionDePersona(db, personaId, { ip, userAgent });
-  if (!token) {
-    // La persona, el vínculo y la membresía YA quedaron: el alta es
-    // idempotente, así que reintentar no duplica nada.
-    return {
-      estado: "error",
-      mensaje: "Tu tarjeta quedó lista, pero este navegador no la pudo recordar. Probá otra vez.",
-    };
-  }
-
+  // La sesión del navegador NO se abre acá: la abre `altaPorQr`, que es
+  // la de la pantalla del póster.
   return {
     estado: "listo",
     personaId,
     miembroId: typeof salida.miembro_id === "string" ? salida.miembro_id : null,
     miembroNuevo: salida.miembro_nuevo === true,
-    token,
   };
 }
 
@@ -1045,6 +1103,7 @@ async function altaLocalPorQr(
     canal,
     ip,
     userAgent,
+    consentimiento,
   }: {
     programaId: string;
     nombreNegocio: string;
@@ -1055,14 +1114,15 @@ async function altaLocalPorQr(
     canal: "correo" | "whatsapp";
     ip: string | null;
     userAgent: string | null;
+    consentimiento: ConsentimientoPropio | null;
   },
-): Promise<ResultadoAlta> {
+): Promise<ResultadoAltaSinSesion> {
   const { data, error } = await db.rpc("alta_persona_local_por_qr", {
     p_programa: programaId,
     p_correo: contacto.correo,
     p_telefono: contacto.telefono,
     p_nombre: nombre,
-    p_consentimientos: cuerpoDeConsentimientos({ nombreNegocio, acepta }),
+    p_consentimientos: cuerpoDeConsentimientos({ nombreNegocio, acepta, propio: consentimiento }),
     p_ip: ip,
     p_user_agent: userAgent ? userAgent.slice(0, 400) : null,
   });
@@ -1089,20 +1149,12 @@ async function altaLocalPorQr(
     return { estado: "error", mensaje: mensajeDeFalloDeAlta(null) };
   }
 
-  const token = await abrirSesionDePersona(db, personaId, { ip, userAgent });
-  if (!token) {
-    return {
-      estado: "error",
-      mensaje: "Tu tarjeta quedó lista, pero este navegador no la pudo recordar. Probá otra vez.",
-    };
-  }
-
+  // La cookie, igual que en el alta normal, la abre `altaPorQr`.
   return {
     estado: "listo",
     personaId,
     miembroId: typeof salida.miembro_id === "string" ? salida.miembro_id : null,
     miembroNuevo: salida.miembro_nuevo === true,
-    token,
   };
 }
 

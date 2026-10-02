@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { enGrupos } from "./aviso-de-pausa";
 import { avisarCambioDeDiseno } from "./aviso-de-diseno";
 import { enviarMensajeGoogle } from "./google";
+import { marcaDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 
 /**
  * LA NOTIFICACIÓN DE MARKETING (0152) — «MIÉRCOLES MATCHAS 2X1» de
@@ -97,12 +98,17 @@ export async function enviarMensajePromocional(
   );
   const miembroIds = (miembros ?? []).map((m) => m.id as string).filter((id) => idsConGoogle.has(id));
 
+  // El título del mensaje: «Bookea», o «Foorkie» si la tarjeta es de un
+  // local de Foorkie. Una lectura por tanda, no por cliente.
+  const encabezado =
+    miembroIds.length > 0 ? (await marcaDeLaTarjeta(db, { programaId })).encabezadoMensaje : undefined;
+
   let googleEnviados = 0;
   let googleFallidos = 0;
   const tandas = enGrupos(miembroIds, TAMANO_TANDA);
   for (let i = 0; i < tandas.length; i++) {
     const resultados = await Promise.all(
-      tandas[i].map((miembroId) => enviarMensajeGoogle(miembroId, mensaje)),
+      tandas[i].map((miembroId) => enviarMensajeGoogle(miembroId, mensaje, { encabezado })),
     );
     for (const r of resultados) {
       if (r.ok) googleEnviados++;

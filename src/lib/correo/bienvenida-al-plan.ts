@@ -4,6 +4,7 @@ import { SITIO } from "@/lib/sitio";
 import { camposSegunModo } from "@/lib/wallet/tarjeta";
 import { tipoDe, leerBeneficio } from "@/lib/lealtad/tipos-tarjeta";
 import { consultarSaldo } from "@/lib/lealtad/motor";
+import { losCorreosLosMandaFoorkie } from "@/lib/plataforma/foorkie-marca";
 import { correoDelMiembro } from "./sello-acreditado";
 
 /**
@@ -47,6 +48,14 @@ export async function avisarBienvenidaAlPlan(miembroId: string): Promise<void> {
       .eq("id", miembro.programa_id as string)
       .maybeSingle();
     if (!programa) return;
+
+    // Una tarjeta de un local de Foorkie: la bienvenida se la da Foorkie,
+    // con su marca. Bookea no le escribe a ese cliente.
+    const tarjeta = {
+      programaId: miembro.programa_id as string,
+      ranchoId: typeof programa.rancho_id === "string" ? programa.rancho_id : null,
+    };
+    if (await losCorreosLosMandaFoorkie(db, tarjeta)) return;
 
     const { data: negocio } = await db
       .from("ranchos")
