@@ -247,7 +247,14 @@ repetir:
 > cliente por el QR de su pase o por su correo, suma y canjea con el mismo
 > núcleo que la caja del teléfono de Bookea (`operar-core.ts`) y lista lo
 > acreditado y canjeado de la tarjeta; de cada persona solo sale el
-> nombre de pila y el correo enmascarado. Nadie escribe en la tabla de
+> nombre de pila y el correo enmascarado. El panel de lealtad del
+> restaurante usa `clientes`, `recompensas` (+ `guardar` y `borrar`) y
+> `mensaje` (`foorkie-panel.ts`): la lista enmascarada de los clientes de
+> la tarjeta, las regalías con las reglas y la escritura del panel de
+> Bookea (`lib/lealtad/recompensas.ts`) y el aviso a todos los pases con
+> el núcleo y el cupo del botón «Enviar a todos»; y Bookea no le manda
+> correos al dueño de un negocio de Foorkie (`negocio-de-foorkie.ts`).
+> Nadie escribe en la tabla de
 > otro producto: Bookea no escribe `foorkie_*` y Foorkie no escribe las
 > tablas de Bookea. Lo de abajo queda como historia.
 >
