@@ -4,7 +4,17 @@ import { validarTarjetaDeAlta, type TarjetaDeAlta } from "@/lib/lealtad/tarjeta-
 import { definicionDe } from "@/lib/lealtad/planes";
 import { normalizarCorreo } from "@/lib/lealtad/personas";
 import { beneficioDeFoorkie } from "@/lib/lealtad/canje-libre";
-import { copiarImagenDeFoorkie, leerPedidoFirmado, responder, UUID } from "@/lib/plataforma/foorkie-api";
+import {
+  copiarImagenDeFoorkie,
+  leerIconoSello,
+  leerPedidoFirmado,
+  leerTira,
+  leerUrlDeIcono,
+  MOTIVO_DISENO,
+  responder,
+  UUID,
+} from "@/lib/plataforma/foorkie-api";
+import { SELLO_PROPIO } from "@/lib/lealtad/iconos-sello";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -17,8 +27,18 @@ export const maxDuration = 60;
  * de una marca comparten tarjeta). Ver `foorkie-api.ts`.
  *
  *   { restaurante_ids: uuid[], nombre, correo, telefono?, plan,
- *     tarjeta: { modo, beneficio, colorFondo?, colorSello?, logoUrl?, bannerUrl? } }
+ *     tarjeta: { modo, beneficio, colorFondo?, colorSello?, logoUrl?, bannerUrl?,
+ *                iconoSello?, iconoUrl?, diseno? } }
  *   firmado en `x-foorkie-firma`
+ *
+ *   iconoSello: null (el logo) | uno de los doce | "propio" (oct 2026). Un
+ *     id fuera del catálogo → 400. Solo en tarjetas de sellos: en otro tipo
+ *     se descarta, como `validarTarjetaDeAlta` (y el archivo no se copia).
+ *   iconoUrl: el archivo del ícono propio, de `foorkie_media` (PNG/JPG/WebP
+ *     ≤ 2 MB): se COPIA como el logo. Obligatorio con "propio".
+ *   diseno: la tira (`ConfigTira`), saneada con `configDesdeJson` como el
+ *     panel de Bookea (lo que falta o no se reconoce, clásico). Lo que no es
+ *     un objeto → 400.
  *
  *   200 { ok: true, rancho_id, programa_id, slug }
  *   400 datos/motivo · 409 ya_vinculado · 401 firma · 503
@@ -39,7 +59,7 @@ export const maxDuration = 60;
  */
 
 /** Copia una imagen pública de Foorkie al bucket del alta de Bookea. null = no vino; "error" = no se pudo. */
-async function copiarImagen(db: SupabaseClient, url: unknown, destino: "logo" | "banda"): Promise<string | null | "error"> {
+async function copiarImagen(db: SupabaseClient, url: unknown, destino: "logo" | "banda" | "icono"): Promise<string | null | "error"> {
   if (typeof url !== "string" || !url.trim()) return null;
   return copiarImagenDeFoorkie(db, url.trim(), destino);
 }
@@ -57,6 +77,21 @@ export async function POST(request: Request) {
   const tarjetaCruda = d.tarjeta && typeof d.tarjeta === "object" && !Array.isArray(d.tarjeta) ? (d.tarjeta as Record<string, unknown>) : null;
   if (ids.length === 0 || ids.length > 20 || nombre.length < 2 || nombre.length > 80 || !correo || !definicionDe(plan) || !tarjetaCruda) {
     return responder({ ok: false, codigo: "datos" }, 400);
+  }
+
+  // El sello y la tira (oct 2026), antes de tocar la base: solo la forma.
+  const icono = leerIconoSello(tarjetaCruda.iconoSello);
+  if (!icono.ok) return responder({ ok: false, codigo: "datos", motivo: icono.motivo }, 400);
+  const iconoUrlCruda = leerUrlDeIcono(tarjetaCruda.iconoUrl);
+  if (!iconoUrlCruda.ok) return responder({ ok: false, codigo: "datos", motivo: iconoUrlCruda.motivo }, 400);
+  const tira = leerTira(tarjetaCruda.diseno);
+  if (!tira.ok) return responder({ ok: false, codigo: "datos", motivo: tira.motivo }, 400);
+  // Mismo criterio que `validarTarjetaDeAlta`: sin `modo`, el programa del
+  // alta nace de sellos. En otro tipo el ícono se descarta y no se copia.
+  const modoCrudo = typeof tarjetaCruda.modo === "string" && tarjetaCruda.modo.trim() ? tarjetaCruda.modo.trim() : null;
+  const conSello = (modoCrudo ?? "sellos") === "sellos";
+  if (conSello && icono.valor === SELLO_PROPIO && !iconoUrlCruda.valor) {
+    return responder({ ok: false, codigo: "datos", motivo: MOTIVO_DISENO.sinArchivo }, 400);
   }
 
   const db = createAdminClient();
@@ -77,10 +112,15 @@ export async function POST(request: Request) {
     return responder({ ok: false, codigo: "ya_vinculado", motivo: "Alguno de esos locales ya tiene tarjeta de lealtad." }, 409);
   }
 
-  const [logoUrl, bannerUrl] = await Promise.all([copiarImagen(db, tarjetaCruda.logoUrl, "logo"), copiarImagen(db, tarjetaCruda.bannerUrl, "banda")]);
+  const [logoUrl, bannerUrl, iconoUrl] = await Promise.all([
+    copiarImagen(db, tarjetaCruda.logoUrl, "logo"),
+    copiarImagen(db, tarjetaCruda.bannerUrl, "banda"),
+    conSello ? copiarImagen(db, iconoUrlCruda.valor, "icono") : Promise.resolve(null),
+  ]);
   if (logoUrl === "error" || bannerUrl === "error") {
     return responder({ ok: false, codigo: "datos", motivo: "No pudimos copiar el logo o la banda (tienen que ser imágenes PNG, JPG o WebP de Foorkie)." }, 400);
   }
+  if (iconoUrl === "error") return responder({ ok: false, codigo: "datos", motivo: MOTIVO_DISENO.copia }, 400);
 
   const cruda: TarjetaDeAlta = {
     modo: typeof tarjetaCruda.modo === "string" ? tarjetaCruda.modo : null,
@@ -91,6 +131,11 @@ export async function POST(request: Request) {
     colorSello: typeof tarjetaCruda.colorSello === "string" ? tarjetaCruda.colorSello : null,
     logoUrl,
     bannerUrl,
+    // `validarTarjetaDeAlta` los deja coherentes (`selloParaGuardar`) y
+    // `crearNegocioDeLealtadCompleto` ya los escribe, como en el alta pública.
+    iconoSello: icono.valor ?? null,
+    iconoUrl,
+    diseno: tira.valor ?? null,
   };
   const validada = validarTarjetaDeAlta(cruda, plan);
   if (!validada.ok) return responder({ ok: false, codigo: "datos", motivo: validada.motivo }, 400);

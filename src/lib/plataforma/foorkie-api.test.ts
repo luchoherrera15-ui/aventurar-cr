@@ -3,13 +3,22 @@ import {
   armarTarjeta,
   beneficioEditado,
   cambioElBeneficio,
+  catalogoDeIconos,
+  disenoGuardadoDeFila,
   firmarLinkPase,
   leerEdicionDeFoorkie,
+  leerIconoSello,
   leerLinkPase,
+  leerTira,
+  leerUrlDeIcono,
   linksDelMiembro,
+  selloEditado,
+  tiraParaGuardar,
   VIDA_LINK_PASE_MS,
 } from "./foorkie-api";
 import { marcaDelPase } from "./foorkie-marca";
+import { CONFIG_CLASICA } from "@/lib/wallet/layout-tira";
+import { ICONOS_SELLO, ICONOS_SELLO_ID } from "@/lib/lealtad/iconos-sello";
 
 const SECRETO = "secreto-de-prueba-de-la-puerta";
 const MIEMBRO = "0b6c0b8e-4f1e-4d5a-9a43-2b1f3c4d5e6f";
@@ -187,5 +196,82 @@ describe("editar la tarjeta desde Foorkie (foorkie-api)", () => {
     const se = { tipo: "sellos" as const, requeridos: 10, recompensa: "Café", inicial: 0, repetible: true };
     expect(cambioElBeneficio(se, { ...se, recompensa: "Café " })).toBe(false);
     expect(cambioElBeneficio(se, { ...se, requeridos: 9 })).toBe(true);
+  });
+});
+
+describe("el sello y la tira desde Foorkie (foorkie-api, oct 2026)", () => {
+  const PROPIO = "https://x.supabase.co/storage/v1/object/public/comprobantes/logos-negocio/foorkie-icono-1.png";
+
+  it("leerEdicionDeFoorkie lee el ícono, su archivo y la tira (saneada); solo eso también es un cambio", () => {
+    const r = leerEdicionDeFoorkie({ iconoSello: " cafe ", iconoUrl: "", diseno: { filas: 3, escalaSello: 9 } });
+    expect(r).toEqual({
+      ok: true,
+      edicion: { iconoSello: "cafe", iconoUrl: null, diseno: { ...CONFIG_CLASICA, filas: 3, escalaSello: 2 } },
+    });
+    expect(leerEdicionDeFoorkie({ diseno: null })).toEqual({ ok: true, edicion: { diseno: null } });
+    expect(leerEdicionDeFoorkie({ iconoSello: null })).toEqual({ ok: true, edicion: { iconoSello: null } });
+    expect(leerEdicionDeFoorkie({ iconoSello: "propio", iconoUrl: PROPIO })).toEqual({ ok: true, edicion: { iconoSello: "propio", iconoUrl: PROPIO } });
+  });
+
+  it("rechaza con el texto del panel de Bookea lo que no se puede leer", () => {
+    expect(leerEdicionDeFoorkie({ iconoSello: "pizza" })).toEqual({ ok: false, motivo: "Ese icono de sello no existe." });
+    expect(leerEdicionDeFoorkie({ iconoSello: 3 })).toEqual({ ok: false, motivo: "Ese icono de sello no existe." });
+    expect(leerEdicionDeFoorkie({ iconoUrl: "x".repeat(601) })).toEqual({ ok: false, motivo: "El ícono no se subió bien — probá de nuevo." });
+    expect(leerEdicionDeFoorkie({ diseno: "auto" })).toEqual({ ok: false, motivo: "El diseño de la tira no vino bien armado." });
+    expect(leerEdicionDeFoorkie({ diseno: [] })).toEqual({ ok: false, motivo: "El diseño de la tira no vino bien armado." });
+    expect(leerIconoSello(undefined)).toEqual({ ok: true, valor: undefined });
+    expect(leerUrlDeIcono(undefined)).toEqual({ ok: true, valor: undefined });
+    expect(leerTira(undefined)).toEqual({ ok: true, valor: undefined });
+  });
+
+  it("selloEditado: lo que no vino sale de lo guardado; 'propio' sin archivo no; el archivo sobrevive a elegir otro", () => {
+    expect(selloEditado({ actual: { icono: null, url: null }, icono: "cafe" })).toEqual({ ok: true, icono: "cafe", url: null });
+    expect(selloEditado({ actual: { icono: "cafe", url: PROPIO }, icono: "propio" })).toEqual({ ok: true, icono: "propio", url: PROPIO });
+    expect(selloEditado({ actual: { icono: "propio", url: PROPIO }, icono: null })).toEqual({ ok: true, icono: null, url: PROPIO });
+    expect(selloEditado({ actual: { icono: "propio", url: PROPIO }, url: null })).toEqual({ ok: false, motivo: "Subí tu ícono antes de elegirlo como sello." });
+    expect(selloEditado({ actual: { icono: null, url: null }, icono: "propio" })).toMatchObject({ ok: false });
+    expect(selloEditado({ actual: { icono: "propio", url: PROPIO }, icono: "regalo", url: null })).toEqual({ ok: true, icono: "regalo", url: null });
+  });
+
+  it("tiraParaGuardar: `{}` para la clásica, la config si no, y nada si dibuja lo mismo", () => {
+    const propia = { ...CONFIG_CLASICA, filas: 2 as const, alineacionV: "abajo" as const };
+    expect(tiraParaGuardar({}, propia)).toEqual({ cambia: true, valor: propia });
+    expect(tiraParaGuardar(propia, null)).toEqual({ cambia: true, valor: {} });
+    expect(tiraParaGuardar({ filas: 2, alineacionV: "abajo" }, propia)).toEqual({ cambia: false });
+    expect(tiraParaGuardar({}, CONFIG_CLASICA)).toEqual({ cambia: false });
+    expect(tiraParaGuardar(null, null)).toEqual({ cambia: false });
+    const conFondo = { ...CONFIG_CLASICA, fondo: { forma: "cascada" as const, acento: "#aabbcc", acento2: null } };
+    expect(tiraParaGuardar({ fondo: { forma: "cascada", acento: "#AABBCC" } }, conFondo)).toEqual({ cambia: false });
+    expect(tiraParaGuardar({ fondo: { forma: "cascada", acento: "#AABBCC" } }, { ...conFondo, fondo: { ...conFondo.fondo, acento2: "#000000" } })).toMatchObject({ cambia: true });
+  });
+
+  it("disenoGuardadoDeFila: los cuatro de siempre + el sello y la tira; fuera de sellos, sin ícono", () => {
+    const fila = {
+      modo: "sellos",
+      pase_color_fondo: "#38571A",
+      pase_color_sello: null,
+      pase_logo_url: null,
+      pase_banner_url: null,
+      pase_sello_icono: "cafe",
+      pase_sello_icono_url: PROPIO,
+      pase_diseno: { filas: 1 },
+    };
+    expect(disenoGuardadoDeFila(fila)).toEqual({
+      colorFondo: "#38571A",
+      colorSello: "#F39200",
+      logoUrl: null,
+      bannerUrl: null,
+      iconoSello: "cafe",
+      iconoUrl: PROPIO,
+      tira: { ...CONFIG_CLASICA, filas: 1 },
+    });
+    expect(disenoGuardadoDeFila({ ...fila, modo: "cashback" })).toMatchObject({ iconoSello: null, iconoUrl: null });
+    expect(disenoGuardadoDeFila({ modo: "sellos" })).toMatchObject({ iconoSello: null, iconoUrl: null, tira: CONFIG_CLASICA });
+  });
+
+  it("el catálogo para el selector: los doce, con los trazos del pase", () => {
+    const c = catalogoDeIconos();
+    expect(c.iconos.map((i) => i.id)).toEqual([...ICONOS_SELLO_ID]);
+    expect(c.iconos[0]).toEqual({ id: "cafe", nombre: "Café", trazos: [...ICONOS_SELLO.cafe.trazos], viewBox: "0 0 24 24" });
   });
 });

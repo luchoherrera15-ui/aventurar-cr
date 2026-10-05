@@ -196,6 +196,32 @@ export function esClasica(config: ConfigTira): boolean {
   );
 }
 
+/**
+ * ¿Las dos geometrías dibujan la MISMA tira?
+ *
+ * Campo por campo, por lo mismo que `esClasica`: comparar serializado
+ * daría distinto con las mismas claves en otro orden. Los acentos del
+ * degradado se comparan sin mayúsculas — el selector del navegador los
+ * manda en minúscula y el editor de Bookea en mayúscula, y es el mismo
+ * color. La usa la API de Foorkie para no escribir (ni empujar a todos
+ * los teléfonos) una tira que no cambió.
+ */
+export function mismaConfigTira(a: ConfigTira, b: ConfigTira): boolean {
+  if (
+    a.filas !== b.filas ||
+    a.escalaSello !== b.escalaSello ||
+    a.alineacionH !== b.alineacionH ||
+    a.alineacionV !== b.alineacionV ||
+    a.margenY !== b.margenY ||
+    a.fondo.forma !== b.fondo.forma
+  ) {
+    return false;
+  }
+  if (a.fondo.forma === "plano" || b.fondo.forma === "plano") return true;
+  const color = (c: string | null) => (c ?? "").toUpperCase();
+  return color(a.fondo.acento) === color(b.fondo.acento) && color(a.fondo.acento2) === color(b.fondo.acento2);
+}
+
 /** El margen horizontal, fijo. Ver el aviso de `margenY`. */
 const MARGEN_X = 0.07;
 

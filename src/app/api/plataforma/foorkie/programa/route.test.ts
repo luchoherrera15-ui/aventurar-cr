@@ -136,6 +136,20 @@ describe("programa: la vista del pase", () => {
     expect((vista.tira as { layout: { posiciones: unknown[] } }).layout.posiciones).toHaveLength(10);
   });
 
+  it("`diseno` trae además lo GUARDADO del sello y la tira (oct 2026), para que el editor de Foorkie arranque con eso", async () => {
+    const r = await leer(vinculo);
+    expect((r.cuerpo.programa as { diseno: unknown }).diseno).toEqual({
+      colorFondo: "#38571a",
+      colorSello: "#929292",
+      logoUrl: null,
+      bannerUrl: null,
+      iconoSello: "propio",
+      iconoUrl: PROPIO,
+      // Saneada: el fondo que no estaba guardado, el clásico.
+      tira: { filas: 2, escalaSello: 1.1, alineacionH: "centro", alineacionV: "centro", margenY: 0.1, fondo: { forma: "plano" } },
+    });
+  });
+
   it("bajo el QR: lo de Bookea en una tarjeta vinculada SIN la marca; «Foorkie Lealtad» con ella", async () => {
     const deBookea = await leer(vinculo);
     expect((deBookea.cuerpo.programa as { vista: unknown }).vista).toMatchObject({ marca: "bookea", pie: "Powered by Bookea.lat" });

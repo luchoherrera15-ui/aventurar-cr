@@ -22,6 +22,15 @@ import {
 import { tarjetaDelPase } from "@/lib/wallet/programa-principal";
 import { marcaDeLaTarjeta, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
 import { vistaParaFoorkie, type VistaParaFoorkie } from "@/lib/plataforma/foorkie-vista";
+import {
+  esSelloElegido,
+  ICONOS_SELLO_LISTA,
+  SELLO_PROPIO,
+  selloParaGuardar,
+  urlDeIconoPropio,
+  type SelloElegido,
+} from "@/lib/lealtad/iconos-sello";
+import { CONFIG_CLASICA, configDesdeJson, esClasica, mismaConfigTira, type ConfigTira } from "@/lib/wallet/layout-tira";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -219,6 +228,39 @@ export function disenoDeFila(fila: Record<string, unknown>): DisenoTarjeta {
   return { colorFondo: fondo, colorSello: sello, logoUrl: config.pase_logo_url, bannerUrl: config.pase_banner_url ?? null };
 }
 
+/**
+ * Lo que la tarjeta tiene GUARDADO de diseño, para que el editor de
+ * Foorkie arranque con eso (`programa` y `programa/guardar`, oct 2026):
+ * los cuatro campos de siempre más el sello y la tira.
+ *
+ *   · `iconoSello` — null (el logo), uno de los doce del catálogo o
+ *     'propio'; solo en tarjetas de sellos (en otro tipo, null).
+ *   · `iconoUrl` — el archivo del ícono propio. Puede venir aunque el
+ *     sello elegido sea uno de los doce: el archivo sobrevive a un cambio
+ *     de idea (`selloParaGuardar`), y así el editor puede volver a él.
+ *   · `tira` — la geometría y el fondo de la franja (0212), saneados por
+ *     `configDesdeJson` (nunca null: sin diseño propio, el clásico).
+ *
+ * Campos NUEVOS dentro del mismo `diseno`: quien lee solo los cuatro de
+ * siempre sigue igual.
+ */
+export type DisenoGuardado = DisenoTarjeta & {
+  iconoSello: SelloElegido | null;
+  iconoUrl: string | null;
+  tira: ConfigTira;
+};
+
+export function disenoGuardadoDeFila(fila: Record<string, unknown>): DisenoGuardado {
+  const { config } = tarjetaDesdeFila(fila);
+  return {
+    ...disenoDeFila(fila),
+    // `tarjetaDesdeFila` ya las pasó por `selloParaGuardar`: coherentes y vacías fuera de sellos.
+    iconoSello: config.pase_sello_icono ?? null,
+    iconoUrl: config.pase_sello_icono_url ?? null,
+    tira: configDesdeJson(fila.pase_diseno),
+  };
+}
+
 /** ¿La tarjeta está en pausa? La misma lectura que hace el generador del pase. */
 export function estaPausada(fila: Record<string, unknown>, ahora: Date = new Date()): boolean {
   return tarjetaDelPase([fila], minutoISOCR(ahora), String(fila.id ?? "")).pausado === true;
@@ -340,7 +382,8 @@ export async function programaParaFoorkie(
     pausada,
     beneficio,
     meta,
-    diseno: disenoDeFila(fila as Record<string, unknown>),
+    // Los cuatro de siempre + lo guardado del sello y la tira (`disenoGuardadoDeFila`).
+    diseno: disenoGuardadoDeFila(fila as Record<string, unknown>),
     // Lo que diría la tarjeta de alguien que recién se une (saldo 0).
     textos: camposSegunModo({ negocioNombre: negocio, saldo: 0, meta, config, beneficio, pausado: pausada }),
     // Esa misma tarjeta dibujada como el pase, pieza por pieza (`foorkie-vista.ts`).
@@ -361,12 +404,16 @@ const TIPOS_IMAGEN: Record<string, string> = { "image/png": "png", "image/jpeg":
  * alta de Bookea (`comprobantes/logos-negocio/`, como el wizard de alta):
  * un pase instalado no puede depender de un archivo que otro producto
  * puede borrar o cambiar. Devuelve la URL nueva, o "error" si la URL no
- * es de Foorkie, no es PNG/JPG/WebP o pesa más de 4 MB. Nunca lanza.
+ * es de Foorkie, no es PNG/JPG/WebP o pesa más de lo que admite su destino
+ * (`MAX_BYTES_COPIA`: 4 MB el logo y la banda, 2 MB el ícono del sello,
+ * el mismo tope que el panel de Bookea). Nunca lanza.
  */
+export const MAX_BYTES_COPIA = { logo: 4 * 1024 * 1024, banda: 4 * 1024 * 1024, icono: 2 * 1024 * 1024 } as const;
+
 export async function copiarImagenDeFoorkie(
   db: SupabaseClient,
   url: string,
-  destino: "logo" | "banda",
+  destino: keyof typeof MAX_BYTES_COPIA,
 ): Promise<string | "error"> {
   if (!esUrlDeNuestroStorage(url, BUCKET_FOORKIE)) return "error";
   try {
@@ -376,7 +423,7 @@ export async function copiarImagenDeFoorkie(
     const ext = TIPOS_IMAGEN[tipo];
     if (!ext) return "error";
     const bytes = new Uint8Array(await r.arrayBuffer());
-    if (bytes.length === 0 || bytes.length > 4 * 1024 * 1024) return "error";
+    if (bytes.length === 0 || bytes.length > MAX_BYTES_COPIA[destino]) return "error";
     const path = `logos-negocio/foorkie-${destino}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
     const { error } = await db.storage.from("comprobantes").upload(path, bytes, { contentType: tipo, upsert: false });
     if (error) return "error";
@@ -396,6 +443,12 @@ export async function copiarImagenDeFoorkie(
 // adentro reinterpreta saldos (`editable.ts`), y es decisión de Bookea.
 // Las reglas son las MISMAS funciones que usa el panel de Bookea
 // (`validarBeneficio`, `puedeEditarse`, `acumulacionDe`): un solo criterio.
+//
+// Desde oct 2026 («elegir el diseño completo y verlo exactamente como en
+// Apple Wallet y Google Wallet») también el dibujo del sello —uno de los
+// doce, el ícono propio o el logo— y la tira (filas, tamaño, alineación,
+// margen y fondo), con `selloParaGuardar` y `configDesdeJson`, como el
+// editor de Bookea.
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 
@@ -411,7 +464,117 @@ export type EdicionDesdeFoorkie = {
   logoUrl?: string | null;
   bannerUrl?: string | null;
   beneficio?: BeneficioDesdeFoorkie;
+  /**
+   * Qué va adentro de cada sello (0145/0174): null = el logo, uno de los
+   * doce dibujos del catálogo o 'propio' (el archivo de `iconoUrl`, o el
+   * que ya tiene guardado). Solo en tarjetas de sellos: en otro tipo se
+   * ignora, igual que en el alta (`validarTarjetaDeAlta`).
+   */
+  iconoSello?: SelloElegido | null;
+  /** El archivo del ícono propio: URL de `foorkie_media` (se copia), la que ya tiene (se deja) o null (se saca). */
+  iconoUrl?: string | null;
+  /**
+   * La geometría y el fondo de la franja de sellos (0212), ENTERA: lo que
+   * no venga adentro toma el valor clásico. Ya saneada con
+   * `configDesdeJson` (como el panel de Bookea: un valor fuera de rango se
+   * acota, no se rechaza). null = volver al diseño por defecto.
+   */
+  diseno?: ConfigTira | null;
 };
+
+/** Los motivos de los campos de diseño del sello y la tira: los mismos textos que el panel de Bookea. */
+export const MOTIVO_DISENO = {
+  icono: "Ese icono de sello no existe.",
+  iconoUrl: "El ícono no se subió bien — probá de nuevo.",
+  sinArchivo: "Subí tu ícono antes de elegirlo como sello.",
+  copia: "El ícono no se pudo usar: tiene que ser una imagen PNG, JPG o WebP de hasta 2 MB.",
+  tira: "El diseño de la tira no vino bien armado.",
+} as const;
+
+type Leido<T> = { ok: true; valor: T | undefined } | { ok: false; motivo: string };
+
+/** `iconoSello`: undefined = no vino; null o "" = el logo; uno de los doce o 'propio'. Otro valor, rechazado. */
+export function leerIconoSello(v: unknown): Leido<SelloElegido | null> {
+  if (v === undefined) return { ok: true, valor: undefined };
+  if (v === null || v === "") return { ok: true, valor: null };
+  if (typeof v === "string" && esSelloElegido(v.trim())) return { ok: true, valor: v.trim() as SelloElegido };
+  return { ok: false, motivo: MOTIVO_DISENO.icono };
+}
+
+/** `iconoUrl`: undefined = no vino; null o "" = sin archivo; una URL de hasta 600 caracteres (de dónde es, se mira al copiar). */
+export function leerUrlDeIcono(v: unknown): Leido<string | null> {
+  if (v === undefined) return { ok: true, valor: undefined };
+  if (v === null || (typeof v === "string" && !v.trim())) return { ok: true, valor: null };
+  if (typeof v !== "string" || v.length > 600) return { ok: false, motivo: MOTIVO_DISENO.iconoUrl };
+  return { ok: true, valor: v.trim() };
+}
+
+/**
+ * `diseno` (la tira): undefined = no vino; null = el clásico; un objeto,
+ * saneado campo por campo con `configDesdeJson` (lo que no reconoce o
+ * falta toma el valor clásico; los números se acotan a sus rangos). Lo
+ * que no es un objeto se rechaza: no hay forma de leerlo como una tira.
+ */
+export function leerTira(v: unknown): Leido<ConfigTira | null> {
+  if (v === undefined) return { ok: true, valor: undefined };
+  if (v === null) return { ok: true, valor: null };
+  if (typeof v !== "object" || Array.isArray(v)) return { ok: false, motivo: MOTIVO_DISENO.tira };
+  return { ok: true, valor: configDesdeJson(v) };
+}
+
+/**
+ * El par de columnas del sello (`pase_sello_icono` + `pase_sello_icono_url`)
+ * después del cambio, en una tarjeta de SELLOS. Lo que no vino se toma de
+ * lo guardado; `url` ya es la copiada (o la misma que tenía).
+ *
+ * 'propio' sin archivo es el único estado que se rechaza: la base lo
+ * impide con un CHECK (0174) y `selloParaGuardar` lo convertiría en «el
+ * logo» sin avisar. Pedirlo explícito evita que un «sacá el archivo»
+ * cambie el dibujo de todas las tarjetas sin que nadie lo haya elegido.
+ */
+export function selloEditado(d: {
+  actual: { icono: unknown; url: unknown };
+  icono?: SelloElegido | null;
+  url?: string | null;
+}): { ok: true; icono: SelloElegido | null; url: string | null } | { ok: false; motivo: string } {
+  const icono = d.icono !== undefined ? d.icono : d.actual.icono;
+  const url = d.url !== undefined ? d.url : d.actual.url;
+  if (icono === SELLO_PROPIO && urlDeIconoPropio(url) === null) return { ok: false, motivo: MOTIVO_DISENO.sinArchivo };
+  const sello = selloParaGuardar({ tipo: "sellos", icono, url });
+  return { ok: true, icono: sello.icono, url: sello.url };
+}
+
+/**
+ * Qué se escribe en `pase_diseno` (columna `jsonb not null default '{}'`):
+ * `{}` si la tira nueva es la clásica —como el alta: así un cambio futuro
+ * del layout por defecto también le llega— y la config entera si no.
+ * `cambia: false` cuando dibuja lo mismo que lo guardado (no se escribe ni
+ * se empuja nada a los teléfonos).
+ */
+export function tiraParaGuardar(
+  guardada: unknown,
+  nueva: ConfigTira | null,
+): { cambia: false } | { cambia: true; valor: ConfigTira | Record<string, never> } {
+  const destino = nueva ?? CONFIG_CLASICA;
+  if (mismaConfigTira(configDesdeJson(guardada), destino)) return { cambia: false };
+  return { cambia: true, valor: esClasica(destino) ? {} : destino };
+}
+
+/**
+ * El catálogo de dibujos del sello, para el selector del editor de
+ * Foorkie (`/api/plataforma/foorkie/iconos-sello`). Los trazos son los
+ * MISMOS `d` que dibuja el pase (`iconos-sello.ts`): viewBox 24, trazo
+ * de 1,8 con puntas y uniones redondeadas, sin relleno. Dentro del sello
+ * del pase el dibujo va al 58 % del círculo (`svgDelSello`), y eso ya
+ * viaja resuelto en `vista.tira`.
+ */
+export function catalogoDeIconos() {
+  return {
+    viewBox: "0 0 24 24",
+    trazo: { grosor: 1.8, puntas: "round", uniones: "round" },
+    iconos: ICONOS_SELLO_LISTA.map((i) => ({ id: i.id, nombre: i.nombre, trazos: [...i.trazos], viewBox: "0 0 24 24" })),
+  };
+}
 
 /** Lee y valida la FORMA de lo que manda Foorkie (las reglas del negocio van después). */
 export function leerEdicionDeFoorkie(
@@ -457,6 +620,18 @@ export function leerEdicionDeFoorkie(
       return { ok: false, motivo: "Desde Foorkie se editan las tarjetas de cashback y de sellos." };
     }
   }
+
+  // El sello y la tira (oct 2026): solo la forma acá; si la tarjeta es de
+  // sellos, si el archivo existe y se copia, se decide en la ruta.
+  const icono = leerIconoSello(o.iconoSello);
+  if (!icono.ok) return icono;
+  if (icono.valor !== undefined) e.iconoSello = icono.valor;
+  const iconoUrl = leerUrlDeIcono(o.iconoUrl);
+  if (!iconoUrl.ok) return iconoUrl;
+  if (iconoUrl.valor !== undefined) e.iconoUrl = iconoUrl.valor;
+  const tira = leerTira(o.diseno);
+  if (!tira.ok) return tira;
+  if (tira.valor !== undefined) e.diseno = tira.valor;
 
   if (Object.keys(e).length === 0) return { ok: false, motivo: "No vino nada para cambiar." };
   return { ok: true, edicion: e };

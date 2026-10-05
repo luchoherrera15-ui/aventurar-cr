@@ -9,9 +9,12 @@ import {
   copiarImagenDeFoorkie,
   leerEdicionDeFoorkie,
   leerPedidoFirmado,
+  MOTIVO_DISENO,
   programaParaFoorkie,
   responder,
+  selloEditado,
   sitioDeBookea,
+  tiraParaGuardar,
   UUID,
 } from "@/lib/plataforma/foorkie-api";
 import { puedeEditarse } from "@/lib/lealtad/editable";
@@ -28,15 +31,24 @@ export const maxDuration = 60;
 
 /**
  * POST /api/plataforma/foorkie/programa/guardar — el panel de Foorkie
- * cambia la tarjeta de un local: los colores, el logo, la banda y el
- * beneficio (% del cashback, o meta y regalía de los sellos). Ver
- * `foorkie-api.ts`.
+ * cambia la tarjeta de un local: los colores, el logo, la banda, el
+ * beneficio (% del cashback, o meta y regalía de los sellos) y, desde oct
+ * 2026, el dibujo del sello y la tira. Ver `foorkie-api.ts`.
  *
  *   { rancho_id, programa_id,
- *     cambios: { colorFondo?, colorSello?, logoUrl?, bannerUrl?, beneficio? } }
+ *     cambios: { colorFondo?, colorSello?, logoUrl?, bannerUrl?, beneficio?,
+ *                iconoSello?, iconoUrl?, diseno? } }
  *   firmado en `x-foorkie-firma`
  *
- *   200 { ok: true, cambio, programa: {...} }
+ *   iconoSello: null (el logo) | uno de los doce | "propio" — solo en
+ *     tarjetas de sellos; en otro tipo se ignora (como el alta).
+ *   iconoUrl: URL de `foorkie_media` (se copia, PNG/JPG/WebP ≤ 2 MB), la
+ *     que ya tiene (se deja) o null (se saca). "propio" sin archivo → 400.
+ *   diseno: `ConfigTira` entera (saneada: lo que falta, clásico) o null =
+ *     el diseño por defecto.
+ *
+ *   200 { ok: true, cambio, programa: {...} }  (`programa.diseno` trae
+ *     también `iconoSello`, `iconoUrl` y `tira`: lo guardado)
  *   400 datos/motivo · 403 no_vinculado · 404 sin_programa · 409 no_editable · 401 firma · 503
  *
  * Escribe lo mismo que el panel de Bookea (`guardarPrograma` y
@@ -45,7 +57,9 @@ export const maxDuration = 60;
  * clase de Google (`refrescarClaseGoogle`), después de responder.
  */
 export async function POST(request: Request) {
-  const pedido = await leerPedidoFirmado(request, 4000);
+  // 6000: tres URLs de hasta 600 caracteres (logo, banda, ícono), la tira y
+  // el beneficio entran holgados (~3 000 en el peor caso).
+  const pedido = await leerPedidoFirmado(request, 6000);
   if (!pedido.ok) return pedido.respuesta;
   const ranchoId = typeof pedido.datos.rancho_id === "string" ? pedido.datos.rancho_id : "";
   const programaId = typeof pedido.datos.programa_id === "string" ? pedido.datos.programa_id : "";
@@ -121,6 +135,29 @@ export async function POST(request: Request) {
       );
     }
     cambios[columna] = copiada;
+  }
+
+  // El dibujo del sello (0145/0174). Solo las tarjetas de sellos tienen
+  // círculos donde dibujarlo: en otro tipo se ignora —ni se copia el
+  // archivo—, la misma decisión que `validarTarjetaDeAlta`.
+  if (tipo === "sellos" && (e.iconoSello !== undefined || e.iconoUrl !== undefined)) {
+    const urlGuardada = textoDe(fila.pase_sello_icono_url);
+    let url = e.iconoUrl;
+    if (typeof url === "string" && url !== urlGuardada) {
+      const copiada = await copiarImagenDeFoorkie(db, url, "icono");
+      if (copiada === "error") return responder({ ok: false, codigo: "datos", motivo: MOTIVO_DISENO.copia }, 400);
+      url = copiada;
+    }
+    const sello = selloEditado({ actual: { icono: fila.pase_sello_icono, url: urlGuardada }, icono: e.iconoSello, url });
+    if (!sello.ok) return responder({ ok: false, codigo: "datos", motivo: sello.motivo }, 400);
+    if (sello.icono !== textoDe(fila.pase_sello_icono)) cambios.pase_sello_icono = sello.icono;
+    if (sello.url !== urlGuardada) cambios.pase_sello_icono_url = sello.url;
+  }
+
+  // La tira (0212): entera, saneada; null = el clásico (`{}` en la columna).
+  if (e.diseno !== undefined) {
+    const tira = tiraParaGuardar(fila.pase_diseno, e.diseno);
+    if (tira.cambia) cambios.pase_diseno = tira.valor;
   }
 
   // El beneficio, completo y validado como en el panel de Bookea.

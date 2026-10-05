@@ -5,6 +5,7 @@ import {
   TIRA_ANCHO,
   configDesdeJson,
   layoutDeLaTira,
+  mismaConfigTira,
   type ConfigTira,
 } from "./layout-tira";
 
@@ -228,5 +229,21 @@ describe("lo que viene de la base se sanea antes de dibujar", () => {
         expect(p.y + l.diametro).toBeLessThanOrEqual(l.alto);
       }
     }
+  });
+});
+
+describe("mismaConfigTira: la misma tira, se guarde como se guarde", () => {
+  it("campo por campo; los acentos sin mayúsculas; el plano no mira acentos", () => {
+    expect(mismaConfigTira(CONFIG_CLASICA, configDesdeJson({}))).toBe(true);
+    expect(mismaConfigTira(CONFIG_CLASICA, { ...CONFIG_CLASICA, filas: 2 })).toBe(false);
+    expect(mismaConfigTira(CONFIG_CLASICA, { ...CONFIG_CLASICA, escalaSello: 1.25 })).toBe(false);
+    expect(mismaConfigTira(CONFIG_CLASICA, { ...CONFIG_CLASICA, alineacionH: "derecha" })).toBe(false);
+    expect(mismaConfigTira(CONFIG_CLASICA, { ...CONFIG_CLASICA, alineacionV: "arriba" })).toBe(false);
+    expect(mismaConfigTira(CONFIG_CLASICA, { ...CONFIG_CLASICA, margenY: 0.1 })).toBe(false);
+    const a: ConfigTira = { ...CONFIG_CLASICA, fondo: { forma: "resplandor", acento: "#aabbcc", acento2: null } };
+    expect(mismaConfigTira(a, { ...a, fondo: { forma: "resplandor", acento: "#AABBCC", acento2: null } })).toBe(true);
+    expect(mismaConfigTira(a, { ...a, fondo: { forma: "cascada", acento: "#AABBCC", acento2: null } })).toBe(false);
+    expect(mismaConfigTira(a, { ...a, fondo: { forma: "resplandor", acento: "#AABBCC", acento2: "#000000" } })).toBe(false);
+    expect(mismaConfigTira(a, CONFIG_CLASICA)).toBe(false);
   });
 });
