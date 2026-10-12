@@ -10,7 +10,7 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "@/lib/lealtad/tipos-tarjeta";
-import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
+import { esUrlDeCloudflareImages, esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { minutoISOCR } from "@/lib/fechas";
 import {
   camposSegunModo,
@@ -400,34 +400,60 @@ const BUCKET_FOORKIE = "foorkie_media";
 const TIPOS_IMAGEN: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
 /**
- * Copia una imagen pública de Foorkie (`foorkie_media`) al bucket del
- * alta de Bookea (`comprobantes/logos-negocio/`, como el wizard de alta):
- * un pase instalado no puede depender de un archivo que otro producto
- * puede borrar o cambiar. Devuelve la URL nueva, o "error" si la URL no
- * es de Foorkie, no es PNG/JPG/WebP o pesa más de lo que admite su destino
- * (`MAX_BYTES_COPIA`: 4 MB el logo y la banda, 2 MB el ícono del sello,
- * el mismo tope que el panel de Bookea). Nunca lanza.
+ * Copia una imagen de Foorkie a Cloudflare Images de NUESTRA cuenta (la
+ * misma cuenta que Foorkie, pero una copia INDEPENDIENTE: un pase
+ * instalado no puede depender de un archivo que otro producto puede
+ * borrar o cambiar — el comentario original de este archivo, que sigue
+ * siendo la razón; lo único que cambió el 2026-10-12 es el PROVEEDOR,
+ * de Supabase a Cloudflare Images, de los dos lados).
+ *
+ * Acepta tanto una URL de Cloudflare Images de Foorkie (lo normal desde
+ * el 2026-10-12) como una del bucket `foorkie_media` de Supabase (lo que
+ * Foorkie no migró todavía): en los dos casos, Cloudflare se descarga la
+ * imagen ÉL MISMO (`importarDesdeUrl`, nunca pasa por nuestro servidor)
+ * y queda un `cf_image_id` nuevo, nuestro. Devuelve la URL de entrega
+ * (variante `gallery`, la más grande sin recortar — Apple Wallet
+ * necesita el detalle completo para componer la tira de sellos con
+ * `sharp`), o "error" si la URL no es de Foorkie, no es PNG/JPG/WebP,
+ * pesa más de lo que admite su destino (`MAX_BYTES_COPIA`: 4 MB el logo
+ * y la banda, 2 MB el ícono del sello, el mismo tope que el panel de
+ * Bookea; se mira el `content-length` del HEAD) o Cloudflare no la pudo
+ * importar. Nunca lanza.
  */
 export const MAX_BYTES_COPIA = { logo: 4 * 1024 * 1024, banda: 4 * 1024 * 1024, icono: 2 * 1024 * 1024 } as const;
 
 export async function copiarImagenDeFoorkie(
-  db: SupabaseClient,
+  // Ya no se usa (antes subía a Supabase con este cliente): se deja en la
+  // firma para no tocar los dos lugares que la llaman.
+  _db: SupabaseClient,
   url: string,
   destino: keyof typeof MAX_BYTES_COPIA,
+  // Inyectables para pruebas sin red (mismo patrón que cloudflare-images.ts).
+  deps: { fetch?: typeof fetch; entorno?: NodeJS.ProcessEnv } = {},
 ): Promise<string | "error"> {
-  if (!esUrlDeNuestroStorage(url, BUCKET_FOORKIE)) return "error";
+  if (!esUrlDeCloudflareImages(url) && !esUrlDeNuestroStorage(url, BUCKET_FOORKIE)) return "error";
+  const hacerFetch = deps.fetch ?? fetch;
   try {
-    const r = await fetch(url, { signal: AbortSignal.timeout(10_000), cache: "no-store" });
+    // Un HEAD liviano para confirmar el tipo antes de pedirle a Cloudflare
+    // que la importe (así una URL que no es una imagen falla acá, no del
+    // lado de Cloudflare con un error menos claro).
+    const r = await hacerFetch(url, { method: "HEAD", signal: AbortSignal.timeout(10_000), cache: "no-store" });
     if (!r.ok) return "error";
     const tipo = (r.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
-    const ext = TIPOS_IMAGEN[tipo];
-    if (!ext) return "error";
-    const bytes = new Uint8Array(await r.arrayBuffer());
-    if (bytes.length === 0 || bytes.length > MAX_BYTES_COPIA[destino]) return "error";
-    const path = `logos-negocio/foorkie-${destino}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error } = await db.storage.from("comprobantes").upload(path, bytes, { contentType: tipo, upsert: false });
-    if (error) return "error";
-    return db.storage.from("comprobantes").getPublicUrl(path).data.publicUrl ?? "error";
+    if (!TIPOS_IMAGEN[tipo]) return "error";
+    const largo = Number(r.headers.get("content-length") ?? "");
+    if (Number.isFinite(largo) && largo > MAX_BYTES_COPIA[destino]) return "error";
+
+    // Import dinámico: cloudflare-images.ts trae `server-only`, y este archivo lo importan muchas
+    // rutas y pruebas que no copian imágenes (con un import fijo, todas tendrían que mockearlo).
+    const { importarDesdeUrl, urlDeVariante, configuracionCF } = await import("@/lib/media/cloudflare-images");
+    const importada = await importarDesdeUrl({ url, requiereFirma: false, metadata: { origen: "foorkie", destino } }, deps);
+    if (!importada.ok) return "error";
+
+    const config = configuracionCF(deps.entorno ?? process.env);
+    if (!config.ok) return "error";
+    const entrega = urlDeVariante({ deliveryUrl: config.valor.deliveryUrl, imageId: importada.valor.id, variante: "gallery" });
+    return entrega.ok ? entrega.valor : "error";
   } catch {
     return "error";
   }

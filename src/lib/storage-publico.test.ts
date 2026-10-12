@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { esUrlDeNuestroStorage } from "./storage-publico";
+import { esUrlDeCloudflareImages, esUrlDeNuestroStorage } from "./storage-publico";
 
 /**
  * El caso que rompió el creador de tarjetas en producción («El logo no
@@ -78,5 +78,50 @@ describe("esUrlDeNuestroStorage", () => {
         "comprobantes",
       ),
     ).toBe(false);
+  });
+});
+
+// Desde el 2026-10-12, Foorkie (que comparte esta cuenta de Cloudflare)
+// sube sus imágenes ahí en vez de a Supabase.
+describe("esUrlDeCloudflareImages", () => {
+  const DELIVERY = "https://imagedelivery.net/HASH-DE-PRUEBA";
+  const originalImagenes = process.env.NEXT_PUBLIC_IMAGES_URL;
+
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_IMAGES_URL = DELIVERY;
+  });
+
+  afterEach(() => {
+    if (originalImagenes === undefined) delete process.env.NEXT_PUBLIC_IMAGES_URL;
+    else process.env.NEXT_PUBLIC_IMAGES_URL = originalImagenes;
+  });
+
+  it("acepta una URL de entrega con id y variante", () => {
+    expect(esUrlDeCloudflareImages(`${DELIVERY}/un-id-cualquiera/gallery`)).toBe(true);
+  });
+
+  it("rechaza un host ajeno, aunque tenga la misma forma", () => {
+    expect(esUrlDeCloudflareImages("https://imagedelivery.net.evil.com/id/gallery")).toBe(false);
+    expect(esUrlDeCloudflareImages("https://otracuenta.imagedelivery.net/id/gallery")).toBe(false);
+  });
+
+  it("rechaza la raíz sin id/variante, http, usuario/contraseña y basura", () => {
+    expect(esUrlDeCloudflareImages(DELIVERY)).toBe(false);
+    expect(esUrlDeCloudflareImages(`${DELIVERY}/`)).toBe(false);
+    expect(esUrlDeCloudflareImages(`${DELIVERY}/solo-id`)).toBe(false);
+    expect(esUrlDeCloudflareImages(DELIVERY.replace("https:", "http:") + "/id/gallery")).toBe(false);
+    expect(esUrlDeCloudflareImages("https://a:b@imagedelivery.net/HASH-DE-PRUEBA/id/gallery")).toBe(false);
+    expect(esUrlDeCloudflareImages("no es una url")).toBe(false);
+    expect(esUrlDeCloudflareImages("")).toBe(false);
+  });
+
+  it("sin NEXT_PUBLIC_IMAGES_URL, no acepta nada (nunca abre la puerta por una variable ausente)", () => {
+    delete process.env.NEXT_PUBLIC_IMAGES_URL;
+    expect(esUrlDeCloudflareImages(`${DELIVERY}/un-id/gallery`)).toBe(false);
+  });
+
+  it("tolera una variable sucia (barra final, espacios)", () => {
+    process.env.NEXT_PUBLIC_IMAGES_URL = `${DELIVERY}/ `;
+    expect(esUrlDeCloudflareImages(`${DELIVERY}/un-id/gallery`)).toBe(true);
   });
 });

@@ -12,7 +12,7 @@ import {
   type ConfigBeneficio,
   type TipoTarjeta,
 } from "./tipos-tarjeta";
-import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
+import { esUrlDeCloudflareImages, esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { configDesdeJson, esClasica, type ConfigTira } from "@/lib/wallet/layout-tira";
 
 /**
@@ -45,6 +45,16 @@ import { configDesdeJson, esClasica, type ConfigTira } from "@/lib/wallet/layout
 
 const HEX = /^#[0-9A-Fa-f]{6}$/;
 const BUCKET_DEL_ALTA = "comprobantes";
+
+/**
+ * ¿Es una imagen NUESTRA? Desde el 2026-10-12 el alta sube a Cloudflare
+ * Images (ver `lib/lealtad/subida-cloudflare.ts`); se sigue aceptando el
+ * bucket viejo de Supabase (`comprobantes`) para lo que ya estaba subido
+ * antes de la migración.
+ */
+function esImagenValida(url: string): boolean {
+  return esUrlDeCloudflareImages(url) || esUrlDeNuestroStorage(url, BUCKET_DEL_ALTA);
+}
 
 /** Lo que manda el navegador. Todo opcional: el servidor no confía. */
 export type TarjetaDeAlta = {
@@ -188,11 +198,11 @@ export function validarTarjetaDeAlta(
   // ve el cliente en su teléfono — y pudiendo cambiarla o borrarla
   // para siempre, porque el pase ya está instalado.
   const logoUrl = limpiar(cruda.logoUrl);
-  if (logoUrl !== null && !esUrlDeNuestroStorage(logoUrl, BUCKET_DEL_ALTA)) {
+  if (logoUrl !== null && !esImagenValida(logoUrl)) {
     return { ok: false, motivo: "El logo no se subió bien — probá de nuevo." };
   }
   const bannerUrl = limpiar(cruda.bannerUrl);
-  if (bannerUrl !== null && !esUrlDeNuestroStorage(bannerUrl, BUCKET_DEL_ALTA)) {
+  if (bannerUrl !== null && !esImagenValida(bannerUrl)) {
     return { ok: false, motivo: "La banda no se subió bien — probá de nuevo." };
   }
   // El logo del aviso (0208) viaja desde el alta pública desde ago 2026:
@@ -200,7 +210,7 @@ export function validarTarjetaDeAlta(
   // se le exige el MISMO origen. Una URL ajena acá deja a un tercero
   // decidiendo qué imagen ve el cliente al lado de cada notificación.
   const notificacionLogoUrl = limpiar(cruda.notificacionLogoUrl);
-  if (notificacionLogoUrl !== null && !esUrlDeNuestroStorage(notificacionLogoUrl, BUCKET_DEL_ALTA)) {
+  if (notificacionLogoUrl !== null && !esImagenValida(notificacionLogoUrl)) {
     return { ok: false, motivo: "El logo del aviso no se subió bien — probá de nuevo." };
   }
 

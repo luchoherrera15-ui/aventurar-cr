@@ -1,6 +1,9 @@
 import { createHmac } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+// La copia de imágenes de Foorkie usa cloudflare-images.ts, que trae `server-only`.
+vi.mock("server-only", () => ({}));
+
 /**
  * POST /api/plataforma/foorkie/negocio — el alta de la tarjeta desde
  * Foorkie, de punta a punta hasta `crearNegocioDeLealtadCompleto` (que acá
@@ -91,10 +94,19 @@ const DUENO = "66666666-6666-4666-8666-666666666666";
 const FOORKIE = "https://x.supabase.co/storage/v1/object/public/foorkie_media/dueno/lealtad";
 
 let archivos: Record<string, { tipo: string; bytes: number }> = {};
-const traer = vi.fn(async (url: string) => {
+/** Desde el 2026-10-12 la copia la hace Cloudflare (`importarDesdeUrl`): las URLs que se le pidió importar. */
+let importadas: string[] = [];
+const CF = "https://imagedelivery.net/hash-de-prueba";
+const traer = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = String(input);
+  if (url.startsWith("https://api.cloudflare.com/")) {
+    const origen = String((init?.body as FormData).get("url"));
+    importadas.push(origen);
+    return Response.json({ success: true, result: { id: `cf-${origen.split("/").pop()}`, uploaded: "2026-10-12T00:00:00Z", requireSignedURLs: false, variants: [] } });
+  }
   const a = archivos[url];
   if (!a) return new Response("no", { status: 404 });
-  return new Response(new Uint8Array(a.bytes), { status: 200, headers: { "content-type": a.tipo } });
+  return new Response(init?.method === "HEAD" ? null : new Uint8Array(a.bytes), { status: 200, headers: { "content-type": a.tipo, "content-length": String(a.bytes) } });
 });
 
 const SELLOS = { tipo: "sellos", requeridos: 10, recompensa: "Café gratis", inicial: 0, repetible: true, sellosPor: "compra", montoPorSello: null };
@@ -127,6 +139,12 @@ function tarjetaDelAlta(): Record<string, unknown> | null {
 beforeAll(() => {
   vi.stubEnv("FOORKIE_PLATAFORMA_SECRETO", SECRETO);
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://x.supabase.co");
+  vi.stubEnv("NEXT_PUBLIC_IMAGES_URL", CF);
+  vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "cuenta");
+  vi.stubEnv("CLOUDFLARE_IMAGES_ACCOUNT_HASH", "hash-de-prueba");
+  vi.stubEnv("CLOUDFLARE_IMAGES_API_TOKEN", "token");
+  vi.stubEnv("CLOUDFLARE_IMAGES_DELIVERY_URL", CF);
+  vi.stubEnv("CLOUDFLARE_IMAGES_SIGNING_KEY", "firma");
   vi.stubGlobal("fetch", traer);
 });
 afterAll(() => {
@@ -136,6 +154,7 @@ afterAll(() => {
 
 beforeEach(() => {
   subidas = [];
+  importadas = [];
   traer.mockClear();
   vi.mocked(crearNegocioDeLealtadCompleto).mockClear();
   archivos = {
@@ -158,17 +177,12 @@ describe("negocio: el sello y la tira en el alta", () => {
     expect(vi.mocked(crearNegocioDeLealtadCompleto).mock.calls[0][0]).toMatchObject({ userId: DUENO, plan: "impulso", origen: "admin" });
   });
 
-  it("el ícono propio se COPIA de Foorkie a Bookea (como el logo) y llega con 'propio'", async () => {
+  it("el ícono propio se COPIA de Foorkie a Bookea (como el logo, una imagen propia en Cloudflare) y llega con 'propio'", async () => {
     const r = await alta({ modo: "sellos", beneficio: SELLOS, logoUrl: `${FOORKIE}/logo.png`, iconoSello: "propio", iconoUrl: `${FOORKIE}/matcha.webp` });
     expect(r.status).toBe(200);
-    expect(subidas.map((s) => [s.bucket, /^logos-negocio\/foorkie-([a-z]+)-/.exec(s.path)?.[1], s.tipo])).toEqual(
-      expect.arrayContaining([
-        ["comprobantes", "logo", "image/png"],
-        ["comprobantes", "icono", "image/webp"],
-      ]),
-    );
-    const icono = subidas.find((s) => s.path.includes("foorkie-icono-"));
-    expect(tarjetaDelAlta()).toMatchObject({ iconoSello: "propio", iconoUrl: `${BOOKEA}/${icono?.path}`, diseno: null });
+    expect(importadas).toEqual(expect.arrayContaining([`${FOORKIE}/logo.png`, `${FOORKIE}/matcha.webp`]));
+    expect(subidas).toEqual([]);
+    expect(tarjetaDelAlta()).toMatchObject({ iconoSello: "propio", iconoUrl: `${CF}/cf-matcha.webp/gallery`, logoUrl: `${CF}/cf-logo.png/gallery`, diseno: null });
   });
 
   it("rechazos con motivo: un ícono fuera del catálogo, 'propio' sin archivo, un archivo que no sirve, una tira que no es objeto", async () => {

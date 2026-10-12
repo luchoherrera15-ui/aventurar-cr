@@ -1,9 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+// `server-only` lanza al importarse fuera del bundler de Next. Desde el
+// 2026-10-12 `copiarImagenDeFoorkie` importa cloudflare-images.ts, que lo
+// trae: mismo mock que ya usan src/lib/media/*.test.ts.
+vi.mock("server-only", () => ({}));
+
 import {
   armarTarjeta,
   beneficioEditado,
   cambioElBeneficio,
   catalogoDeIconos,
+  copiarImagenDeFoorkie,
   disenoGuardadoDeFila,
   firmarLinkPase,
   leerEdicionDeFoorkie,
@@ -273,5 +280,98 @@ describe("el sello y la tira desde Foorkie (foorkie-api, oct 2026)", () => {
     const c = catalogoDeIconos();
     expect(c.iconos.map((i) => i.id)).toEqual([...ICONOS_SELLO_ID]);
     expect(c.iconos[0]).toEqual({ id: "cafe", nombre: "Café", trazos: [...ICONOS_SELLO.cafe.trazos], viewBox: "0 0 24 24" });
+  });
+});
+
+// Desde el 2026-10-12: copia a Cloudflare Images de nuestra cuenta (antes
+// copiaba a Supabase). db ya no se usa, queda solo por la firma.
+describe("copiarImagenDeFoorkie", () => {
+  const ENTORNO = {
+    CLOUDFLARE_ACCOUNT_ID: "cuenta-123",
+    CLOUDFLARE_IMAGES_ACCOUNT_HASH: "hash-123",
+    CLOUDFLARE_IMAGES_API_TOKEN: "token-123",
+    CLOUDFLARE_IMAGES_DELIVERY_URL: "https://imagedelivery.net/hash-123",
+    CLOUDFLARE_IMAGES_SIGNING_KEY: "firma-123",
+  } as unknown as NodeJS.ProcessEnv;
+  // Mismo prefijo que CLOUDFLARE_IMAGES_DELIVERY_URL de ENTORNO: es la
+  // MISMA cuenta de Cloudflare que comparten Foorkie y Bookea.
+  const URL_FOORKIE = "https://imagedelivery.net/hash-123/un-id-de-foorkie/gallery";
+
+  // esUrlDeCloudflareImages (storage-publico.ts) lee process.env directo,
+  // no el `entorno` inyectado de copiarImagenDeFoorkie: hay que ponerla.
+  const originalImagenes = process.env.NEXT_PUBLIC_IMAGES_URL;
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_IMAGES_URL = "https://imagedelivery.net/hash-123";
+  });
+  afterEach(() => {
+    if (originalImagenes === undefined) delete process.env.NEXT_PUBLIC_IMAGES_URL;
+    else process.env.NEXT_PUBLIC_IMAGES_URL = originalImagenes;
+  });
+
+  function fetchDeMentira(opciones: { tipoContenido?: string; headOk?: boolean; importarOk?: boolean }) {
+    const { tipoContenido = "image/png", headOk = true, importarOk = true } = opciones;
+    return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === "HEAD") {
+        if (!headOk) return new Response(null, { status: 404 });
+        return new Response(null, { status: 200, headers: { "content-type": tipoContenido } });
+      }
+      if (url.includes("/images/v1")) {
+        if (!importarOk) return Response.json({ success: false, errors: [{ code: 5455, message: "no se pudo bajar" }] }, { status: 200 });
+        return Response.json({ success: true, result: { id: "nuevo-id-en-bookea", uploaded: "2026-10-12T00:00:00Z", requireSignedURLs: false, variants: [] } });
+      }
+      throw new Error(`fetch no esperado: ${url}`);
+    });
+  }
+
+  it("copia una imagen de Cloudflare Images de Foorkie y devuelve la URL de entrega en nuestra cuenta", async () => {
+    const r = await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: fetchDeMentira({}), entorno: ENTORNO });
+    expect(r).toBe("https://imagedelivery.net/hash-123/nuevo-id-en-bookea/gallery");
+  });
+
+  it("también acepta la URL vieja del bucket foorkie_media de Supabase (lo que no se migró)", async () => {
+    const original = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://bjhprmtobmualefvcmau.supabase.co";
+    const vieja = "https://bjhprmtobmualefvcmau.supabase.co/storage/v1/object/public/foorkie_media/u1/logo.png";
+    const r = await copiarImagenDeFoorkie({} as never, vieja, "banda", { fetch: fetchDeMentira({}), entorno: ENTORNO });
+    expect(r).toBe("https://imagedelivery.net/hash-123/nuevo-id-en-bookea/gallery");
+    process.env.NEXT_PUBLIC_SUPABASE_URL = original;
+  });
+
+  it("rechaza una URL que no es de Foorkie (ni Cloudflare nuestro ni Supabase foorkie_media)", async () => {
+    const r = await copiarImagenDeFoorkie({} as never, "https://evil.example/logo.png", "logo", { fetch: fetchDeMentira({}), entorno: ENTORNO });
+    expect(r).toBe("error");
+  });
+
+  it("rechaza si el HEAD no es una imagen permitida (ni PNG, JPG ni WebP)", async () => {
+    const r = await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: fetchDeMentira({ tipoContenido: "image/gif" }), entorno: ENTORNO });
+    expect(r).toBe("error");
+  });
+
+  it("rechaza si el HEAD falla", async () => {
+    const r = await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: fetchDeMentira({ headOk: false }), entorno: ENTORNO });
+    expect(r).toBe("error");
+  });
+
+  it("rechaza si Cloudflare no pudo importar la imagen", async () => {
+    const r = await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: fetchDeMentira({ importarOk: false }), entorno: ENTORNO });
+    expect(r).toBe("error");
+  });
+
+  it("rechaza sin tirar si falta la configuración de Cloudflare", async () => {
+    const r = await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: fetchDeMentira({}), entorno: {} as NodeJS.ProcessEnv });
+    expect(r).toBe("error");
+  });
+
+  it("respeta el tope de cada destino con el content-length del HEAD (2 MB el ícono, 4 MB el logo)", async () => {
+    const pesada = (bytes: number) =>
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.method === "HEAD") return new Response(null, { status: 200, headers: { "content-type": "image/png", "content-length": String(bytes) } });
+        if (String(input).includes("/images/v1")) return Response.json({ success: true, result: { id: "nuevo-id-en-bookea", uploaded: "2026-10-12T00:00:00Z", requireSignedURLs: false, variants: [] } });
+        throw new Error("fetch no esperado");
+      });
+    const tresMb = 3 * 1024 * 1024;
+    expect(await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "icono", { fetch: pesada(tresMb), entorno: ENTORNO })).toBe("error");
+    expect(await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: pesada(tresMb), entorno: ENTORNO })).toBe("https://imagedelivery.net/hash-123/nuevo-id-en-bookea/gallery");
   });
 });

@@ -54,6 +54,47 @@ function hostDeSupabase(): string | null {
   }
 }
 
+/**
+ * ¿Es una URL de entrega de Cloudflare Images de NUESTRA cuenta?
+ *
+ * Desde el 2026-10-12 Foorkie (que comparte esta cuenta de Cloudflare,
+ * ver AGENTS.md de ese repo) sube ahí sus logos/bandas en vez de a su
+ * bucket de Supabase. `copiarImagenDeFoorkie` (foorkie-api.ts) la usa
+ * para seguir aceptando sus imágenes; también sirve para cuando Lealtad
+ * migre sus propias subidas a Cloudflare.
+ *
+ * `NEXT_PUBLIC_IMAGES_URL` es público por definición (aparece en cada
+ * `<img>`, como el `accountHash`), así que se lee directo del entorno.
+ */
+export function esUrlDeCloudflareImages(url: string): boolean {
+  const limpia = (url ?? "").trim();
+  if (!limpia) return false;
+  let u: URL;
+  try {
+    u = new URL(limpia);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== "https:" || u.username || u.password || u.port) return false;
+  const base = normalizarBase(process.env.NEXT_PUBLIC_IMAGES_URL);
+  if (!base) return false;
+  let prefijo: URL;
+  try {
+    prefijo = new URL(base);
+  } catch {
+    return false;
+  }
+  if (u.host.toLowerCase() !== prefijo.host.toLowerCase()) return false;
+  // La URL de entrega ya trae el hash de cuenta como parte de la ruta
+  // (`NEXT_PUBLIC_IMAGES_URL` = "https://imagedelivery.net/<hash>"): acá
+  // se compara esa ruta completa, no solo el host, y lo que sigue tiene
+  // que ser <id>/<variante> — dos segmentos más, no uno ni ninguno.
+  const rutaBase = prefijo.pathname.replace(/\/+$/, "");
+  if (!u.pathname.toLowerCase().startsWith(`${rutaBase.toLowerCase()}/`)) return false;
+  const resto = u.pathname.slice(rutaBase.length).replace(/^\/+/, "").split("/").filter(Boolean);
+  return resto.length >= 2;
+}
+
 export function esUrlDeNuestroStorage(url: string, bucket: string): boolean {
   const limpia = (url ?? "").trim();
   if (!limpia) return false;

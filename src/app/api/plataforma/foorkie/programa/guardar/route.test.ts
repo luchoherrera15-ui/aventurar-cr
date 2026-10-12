@@ -1,6 +1,9 @@
 import { createHmac } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+// La copia de imágenes de Foorkie usa cloudflare-images.ts, que trae `server-only`.
+vi.mock("server-only", () => ({}));
+
 /**
  * POST /api/plataforma/foorkie/programa/guardar, de punta a punta: la
  * firma de verdad, el vínculo de verdad, la copia de imágenes de verdad
@@ -108,10 +111,19 @@ const PROPIO_GUARDADO = `${BOOKEA}/logos-negocio/foorkie-icono-viejo.png`;
 
 /** Lo que «sirve» el bucket de Foorkie: URL → tipo y peso. */
 let archivos: Record<string, { tipo: string; bytes: number }> = {};
-const traer = vi.fn(async (url: string) => {
+/** Desde el 2026-10-12 la copia la hace Cloudflare (`importarDesdeUrl`): las URLs que se le pidió importar. */
+let importadas: string[] = [];
+const CF = "https://imagedelivery.net/hash-de-prueba";
+const traer = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = String(input);
+  if (url.startsWith("https://api.cloudflare.com/")) {
+    const origen = String((init?.body as FormData).get("url"));
+    importadas.push(origen);
+    return Response.json({ success: true, result: { id: `cf-${origen.split("/").pop()}`, uploaded: "2026-10-12T00:00:00Z", requireSignedURLs: false, variants: [] } });
+  }
   const a = archivos[url];
   if (!a) return new Response("no", { status: 404 });
-  return new Response(new Uint8Array(a.bytes), { status: 200, headers: { "content-type": a.tipo } });
+  return new Response(init?.method === "HEAD" ? null : new Uint8Array(a.bytes), { status: 200, headers: { "content-type": a.tipo, "content-length": String(a.bytes) } });
 });
 
 function firmado(cuerpo: Record<string, unknown>): Request {
@@ -141,6 +153,12 @@ function escritoEnPrograma(): Fila {
 beforeAll(() => {
   vi.stubEnv("FOORKIE_PLATAFORMA_SECRETO", SECRETO);
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://x.supabase.co");
+  vi.stubEnv("NEXT_PUBLIC_IMAGES_URL", CF);
+  vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "cuenta");
+  vi.stubEnv("CLOUDFLARE_IMAGES_ACCOUNT_HASH", "hash-de-prueba");
+  vi.stubEnv("CLOUDFLARE_IMAGES_API_TOKEN", "token");
+  vi.stubEnv("CLOUDFLARE_IMAGES_DELIVERY_URL", CF);
+  vi.stubEnv("CLOUDFLARE_IMAGES_SIGNING_KEY", "firma");
   vi.stubGlobal("fetch", traer);
 });
 afterAll(() => {
@@ -151,6 +169,7 @@ afterAll(() => {
 beforeEach(() => {
   escrituras = [];
   subidas = [];
+  importadas = [];
   despues = [];
   traer.mockClear();
   vi.mocked(avisarCambioDeDiseno).mockClear();
@@ -225,14 +244,13 @@ describe("programa/guardar: el sello y la tira", () => {
     expect(avisarCambioDeDiseno).toHaveBeenCalledWith(PROGRAMA);
   });
 
-  it("el ícono propio se COPIA de Foorkie a Bookea y queda elegido", async () => {
+  it("el ícono propio se COPIA de Foorkie a Bookea (una imagen propia en Cloudflare) y queda elegido", async () => {
     const r = await guardar({ iconoSello: "propio", iconoUrl: `${FOORKIE}/matcha.png` });
     expect(r.status).toBe(200);
-    expect(traer).toHaveBeenCalledWith(`${FOORKIE}/matcha.png`, expect.anything());
-    expect(subidas).toHaveLength(1);
-    expect(subidas[0]).toMatchObject({ bucket: "comprobantes", tipo: "image/png", bytes: 1200 });
-    expect(subidas[0].path).toMatch(/^logos-negocio\/foorkie-icono-\d+-[a-z0-9]+\.png$/);
-    const copiada = `${BOOKEA}/${subidas[0].path}`;
+    expect(traer).toHaveBeenCalledWith(`${FOORKIE}/matcha.png`, expect.objectContaining({ method: "HEAD" }));
+    expect(importadas).toEqual([`${FOORKIE}/matcha.png`]);
+    expect(subidas).toEqual([]);
+    const copiada = `${CF}/cf-matcha.png/gallery`;
     expect(escritoEnPrograma()).toEqual({ pase_sello_icono: "propio", pase_sello_icono_url: copiada });
     const p = r.cuerpo.programa as Record<string, unknown>;
     expect(p.diseno).toMatchObject({ iconoSello: "propio", iconoUrl: copiada });
@@ -250,6 +268,7 @@ describe("programa/guardar: el sello y la tira", () => {
     }
     expect(escrituras).toEqual([]);
     expect(subidas).toEqual([]);
+    expect(importadas).toEqual([]);
     expect(despues).toEqual([]);
   });
 
