@@ -573,9 +573,11 @@ function filaDelLedger(v: unknown): FilaLedger | null {
 export async function abrirLaCaja<T extends Vinculo>(
   request: Request,
   leer: (datos: Record<string, unknown>) => Lectura<T>,
-): Promise<{ ok: true; pedido: T; db: Db; duenoId: string } | { ok: false; respuesta: NextResponse }> {
   // 4000 y no 2000: un código crudo de 500 caracteres crece al escaparse en el JSON.
-  const firmado = await leerPedidoFirmado(request, 4000);
+  // Una ruta con una lista larga (200 uuid son ~8 KB) pide más.
+  maxCuerpo = 4000,
+): Promise<{ ok: true; pedido: T; db: Db; duenoId: string } | { ok: false; respuesta: NextResponse }> {
+  const firmado = await leerPedidoFirmado(request, maxCuerpo);
   if (!firmado.ok) return firmado;
   const leido = leer(firmado.datos);
   if (!leido.ok) return { ok: false, respuesta: responder({ ok: false, codigo: "datos", motivo: leido.motivo }, 400) };
