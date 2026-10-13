@@ -99,6 +99,17 @@ export function urlUnirseFoorkie(slug: string): string {
   return `${VITRINA_FOORKIE}/lealtad/${encodeURIComponent(slug)}`;
 }
 
+/**
+ * A DÓNDE MANDA LA PÁGINA VIEJA DE UNA TARJETA DE FOORKIE (Luis, 2026-10-13: «Pura Matcha pasa a Foorkie
+ * Lealtad» y su QR impreso apunta a bookea.lat/tarjeta/<negocio>). Una tarjeta de Foorkie (vinculada a un local
+ * de Foorkie Y marcada `lealtad_por_foorkie`) se une desde la página de Foorkie; una de Bookea (sin local, sin
+ * marca o sin slug válido) no tiene destino: sigue sirviendo su propia pantalla. Pura: la decisión se prueba sola.
+ */
+export function destinoDeFoorkieDeLaTarjeta(local: LocalDeFoorkie | null): string | null {
+  const slug = local ? slugDeFoorkie(local.slug) : null;
+  return slug ? urlUnirseFoorkie(slug) : null;
+}
+
 /** «https://www.foorkie.tech/cuenta» → «foorkie.tech/cuenta»: lo que se lee en el reverso. */
 function corta(url: string): string {
   return url.replace(/^https:\/\/(www\.)?/, "");

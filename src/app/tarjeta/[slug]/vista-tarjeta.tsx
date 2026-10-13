@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { usuarioActual } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,6 +26,7 @@ import {
 import FormularioAlta from "./formulario-alta";
 import VistaPase from "@/components/lealtad/vista-pase";
 import { datosVistaDeFila } from "@/lib/lealtad/datos-vista-pase";
+import { destinoDeFoorkieDeLaTarjeta, localDeFoorkieDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 import {
   avisoDeFalloDelPase,
   avisoDeSlugDesconocido,
@@ -237,6 +239,18 @@ export default async function VistaDeTarjeta({
   }
 
   const programaId = programa.id as string;
+
+  // ── SI ESTA TARJETA ES DE FOORKIE, SE UNE EN FOORKIE ──────────────
+  //
+  // Pura Matcha pasó a Foorkie Lealtad (2026-10-13) y su QR impreso sigue apuntando acá. El QR no cambia nunca: lo
+  // que cambia es adónde llega. Se decide por la tarjeta que pidió el link (con o sin llave), así que las demás
+  // tarjetas del negocio —como «Paint and Matcha», que no es de Foorkie— siguen sirviéndose acá. 307 y no 308 a
+  // propósito: si la marca se apaga, esta página vuelve a ser la de Bookea y ningún navegador se acordó del salto.
+  // `redirect()` lanza: no va dentro de un try.
+  const destinoFoorkie = destinoDeFoorkieDeLaTarjeta(
+    await localDeFoorkieDeLaTarjeta(admin, { programaId, ranchoId: negocio.id as string }),
+  );
+  if (destinoFoorkie) redirect(destinoFoorkie);
   const nombreTarjeta =
     typeof programa.nombre === "string" ? programa.nombre.trim() : "";
   // Los colores y el resto de la apariencia ya no se leen acá: los lee

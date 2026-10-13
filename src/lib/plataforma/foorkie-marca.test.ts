@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  destinoDeFoorkieDeLaTarjeta,
   elegirLocalDeFoorkie,
   localDeFoorkieDeLaTarjeta,
   losCorreosLosMandaFoorkie,
@@ -222,5 +223,21 @@ describe("localDeFoorkieDeLaTarjeta / marcaDeLaTarjeta — UNA lectura, con la m
     const { db, llamadas } = dbFalsa({ filas: [] });
     expect(await localDeFoorkieDeLaTarjeta(db, { programaId: "" })).toBeNull();
     expect(llamadas).toHaveLength(0);
+  });
+});
+
+describe("destinoDeFoorkieDeLaTarjeta — a dónde manda la página vieja de una tarjeta", () => {
+  it("una tarjeta de Foorkie manda a su página para unirse (el QR impreso de Pura Matcha)", () => {
+    expect(destinoDeFoorkieDeLaTarjeta({ slug: "puramatcha" })).toBe("https://www.foorkie.app/lealtad/puramatcha");
+  });
+
+  it("una tarjeta de Bookea (sin local de Foorkie) no tiene destino: sigue sirviendo su propia pantalla", () => {
+    expect(destinoDeFoorkieDeLaTarjeta(null)).toBeNull();
+  });
+
+  it("sin slug válido tampoco hay destino (nunca un link roto)", () => {
+    expect(destinoDeFoorkieDeLaTarjeta({ slug: null })).toBeNull();
+    expect(destinoDeFoorkieDeLaTarjeta({ slug: "../otra-cosa" })).toBeNull();
+    expect(destinoDeFoorkieDeLaTarjeta({ slug: "Con Mayúsculas" })).toBeNull();
   });
 });
