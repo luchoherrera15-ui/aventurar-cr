@@ -23,7 +23,11 @@ export const dynamic = "force-dynamic";
  *                    visitas, canjes, ultimo_canje, desde, ultima_actividad, estado },
  *         movimientos: [{ id, fecha, tipo, puntos, saldo, canal, detalle,
  *                         premio, monto, operador, revertido }],
- *         siguiente: ISO | null }
+ *         siguiente: ISO | null,
+ *         pases: null | [{ plataforma: "apple" | "google",
+ *                          estado: "instalado" | "no_instalado" | "sin_confirmar",
+ *                          pedido: ISO, desde: ISO | null,
+ *                          dispositivos: number | null, ultima_vez: ISO | null }] }
  *
  *       Del más nuevo al más viejo; la página siguiente se pide con
  *       `antes: siguiente`, tal cual.
@@ -34,6 +38,26 @@ export const dynamic = "force-dynamic";
  *       motivo de un ajuste); `premio`: el del canje; `monto`: colones de la
  *       compra si se registraron; `operador`: quién atendió, solo cuando se
  *       sabe; `revertido`: una compra o un canje que después se revirtió.
+ *
+ *       `pases`: si tiene el pase de la tarjeta en el teléfono (solo lee;
+ *       ver `src/lib/plataforma/foorkie-pases.ts`). Uno por plataforma, de
+ *       `pases_wallet`: el activo y, si no hay activo (fusión de personas,
+ *       0138), el más nuevo. `pedido` = cuándo se emitió el pase la
+ *       primera vez.
+ *         Apple: «instalado» si el serial tiene al menos un teléfono en
+ *         `registros_dispositivo` (iOS lo registra al agregar el pase y lo
+ *         borra al quitarlo); si no, «no_instalado». `desde` = el registro
+ *         más viejo (cuándo se agregó), `dispositivos` = cuántos,
+ *         `ultima_vez` = la última descarga del pase (`ultima_descarga_en`,
+ *         0151; null si nunca bajó o en una base sin la columna).
+ *         Google: se le pregunta a Google por el objeto (`hasUsers`, con
+ *         un tope de 2,5 s): true «instalado», false «no_instalado»; 404,
+ *         sin credenciales, error o tarde → «sin_confirmar». `desde`,
+ *         `dispositivos` y `ultima_vez` van en null.
+ *       Sin pases, `[]`. Si no se pudo leer `pases_wallet` o
+ *       `registros_dispositivo`, `null`, y la respuesta sigue siendo 200
+ *       con el cliente y los movimientos de siempre. Nunca sale el serial,
+ *       el token del pase, el de push ni nada del teléfono.
  *   400 datos · 401 firma · 403 no_vinculado · 404 no_encontrado (no es
  *   un cliente de esta tarjeta, o se dio de baja) · 500 error_base · 503 no_configurado
  *
@@ -52,5 +76,6 @@ export async function POST(request: Request) {
     cliente: r.detalle.cliente,
     movimientos: r.detalle.movimientos.map(movimientoParaFoorkie),
     siguiente: r.detalle.siguiente,
+    pases: r.detalle.pases,
   });
 }

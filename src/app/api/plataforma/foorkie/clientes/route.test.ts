@@ -33,10 +33,17 @@ vi.mock("@/lib/lealtad/plan-del-negocio", () => ({ planDelNegocio: vi.fn(async (
 vi.mock("@/lib/wallet/mensaje-promocional", () => ({ enviarMensajePromocional: vi.fn() }));
 vi.mock("@/lib/wallet/aviso-de-pausa", () => ({ plataformasConfiguradas: vi.fn(() => ["apple", "google"]) }));
 vi.mock("@/lib/wallet/aviso-de-diseno", () => ({ avisarCambioDeDiseno: vi.fn() }));
-vi.mock("@/lib/wallet/google", () => ({ refrescarClaseGoogle: vi.fn() }));
+// Lo que contesta Google sobre el pase de Android (`clientes/detalle`): true, false o null (no se sabe).
+vi.mock("@/lib/wallet/google", () => ({
+  refrescarClaseGoogle: vi.fn(),
+  paseGoogleGuardado: vi.fn(async () => googleGuardado),
+}));
 
 type Fila = Record<string, unknown>;
 let tablas: Record<string, Fila[]> = {};
+/** Tablas cuya lectura falla (la base de mentira contesta con error). */
+let fallan: string[] = [];
+let googleGuardado: boolean | null = null;
 let escrituras = 0;
 
 /** Una consulta encadenable que aplica los filtros, el orden y el rango a las filas de su tabla. */
@@ -88,13 +95,15 @@ function consulta(origen: () => { data: Fila[]; error: unknown }) {
 
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
-    from: (t: string) => consulta(() => ({ data: tablas[t] ?? [], error: null })),
+    from: (t: string) =>
+      consulta(() => (fallan.includes(t) ? { data: [], error: { message: `se cayó ${t}` } } : { data: tablas[t] ?? [], error: null })),
     // La 0252 todavía no está corrida: PostgREST no encuentra la función.
     rpc: (nombre: string) =>
       consulta(() => ({ data: [], error: { code: "PGRST202", message: `Could not find the function public.${nombre}(p_programa_id) in the schema cache` } })),
   }),
 }));
 
+import { paseGoogleGuardado } from "@/lib/wallet/google";
 import { POST as clientes } from "./route";
 import { POST as detalle } from "./detalle/route";
 
@@ -143,6 +152,8 @@ afterAll(() => vi.unstubAllEnvs());
 
 beforeEach(() => {
   escrituras = 0;
+  fallan = [];
+  googleGuardado = null;
   tablas = {
     // Una tarjeta que el negocio maneja en Bookea (sin la marca de Foorkie): los lectores igual contestan.
     foorkie_restaurantes: [{ id: "local-1", bookea_rancho_id: RANCHO, bookea_programa_id: PROGRAMA, lealtad_por_foorkie: false }],
@@ -248,6 +259,81 @@ describe("clientes/detalle", () => {
     const nadie = await pedir("clientes/detalle", { ...vinculo, miembro_id: "88888888-8888-4888-8888-888888888888" });
     expect(ajeno).toEqual({ status: 404, cuerpo: { ok: false, codigo: "no_encontrado", motivo: "Ese cliente no tiene esta tarjeta." } });
     expect(nadie).toEqual(ajeno);
+  });
+
+  it("si tiene el pase en el teléfono: Apple por los teléfonos registrados, Google por lo que dice Google", async () => {
+    const paseDe = (id: string, miembro: string, plataforma: string, serial: string, creado: string, extra: Fila = {}) => ({
+      id,
+      miembro_id: miembro,
+      plataforma,
+      serial_number: serial,
+      auth_token: `token-${serial}`,
+      activo: true,
+      created_at: creado,
+      ultima_descarga_en: null,
+      objeto_externo: null,
+      ...extra,
+    });
+    tablas.pases_wallet = [
+      paseDe("pa", ANA, "apple", "serial-ana", "2026-08-02T10:00:00+00:00", { ultima_descarga_en: "2026-09-25T10:05:00+00:00" }),
+      // Uno heredado de una fusión (0138): manda el activo.
+      paseDe("pa-viejo", ANA, "apple", "serial-heredado", "2026-09-20T10:00:00+00:00", { activo: false }),
+      paseDe("pg", ANA, "google", "serial-ana-g", "2026-08-03T10:00:00+00:00", { objeto_externo: "issuer.miembro_viejo" }),
+      paseDe("pb", BETO, "apple", "serial-beto", "2026-08-16T10:00:00+00:00"),
+    ];
+    tablas.registros_dispositivo = [
+      { device_library_id: "iphone-de-ana", push_token: "push-de-ana", pass_type_id: "pass.lat.bookea", serial_number: "serial-ana", created_at: "2026-08-02T10:01:00+00:00" },
+      { device_library_id: "ipad-de-ana", push_token: "push-del-ipad", pass_type_id: "pass.lat.bookea", serial_number: "serial-ana", created_at: "2026-08-20T10:00:00+00:00" },
+      { device_library_id: "iphone-viejo", push_token: "push-viejo", pass_type_id: "pass.lat.bookea", serial_number: "serial-heredado", created_at: "2026-09-21T10:00:00+00:00" },
+      { device_library_id: "iphone-de-beto", push_token: "push-de-beto", pass_type_id: "pass.lat.bookea", serial_number: "serial-beto", created_at: "2026-08-16T10:01:00+00:00" },
+    ];
+    googleGuardado = true;
+
+    const r = await pedir("clientes/detalle", { ...vinculo, miembro_id: ANA });
+    expect(r.status).toBe(200);
+    expect(r.cuerpo.pases).toEqual([
+      { plataforma: "apple", estado: "instalado", pedido: "2026-08-02T10:00:00.000Z", desde: "2026-08-02T10:01:00.000Z", dispositivos: 2, ultima_vez: "2026-09-25T10:05:00.000Z" },
+      { plataforma: "google", estado: "instalado", pedido: "2026-08-03T10:00:00.000Z", desde: null, dispositivos: null, ultima_vez: null },
+    ]);
+    // A Google se le pregunta por el objeto guardado al crearlo.
+    expect(vi.mocked(paseGoogleGuardado)).toHaveBeenLastCalledWith(ANA, "issuer.miembro_viejo");
+    // El cliente y los movimientos, los de siempre.
+    expect(r.cuerpo).toMatchObject({ ok: true, cliente: { miembro_id: ANA, saldo: 1 }, siguiente: null });
+    // Nada del pase ni del teléfono sale: ni el serial, ni los tokens, ni el dispositivo.
+    expect(JSON.stringify(r.cuerpo)).not.toMatch(/serial-|token-|push-|iphone|ipad|issuer\.miembro/);
+    expect(escrituras).toBe(0);
+  });
+
+  it("sin pases, []; Google que no contesta, sin_confirmar; un iPhone sin teléfono registrado, no_instalado", async () => {
+    expect((await pedir("clientes/detalle", { ...vinculo, miembro_id: BETO })).cuerpo.pases).toEqual([]);
+
+    tablas.pases_wallet = [
+      { id: "pa", miembro_id: BETO, plataforma: "apple", serial_number: "s-beto", auth_token: "t", activo: true, created_at: "2026-08-16T10:00:00+00:00" },
+      { id: "pg", miembro_id: BETO, plataforma: "google", serial_number: "g-beto", auth_token: "t", activo: true, created_at: "2026-08-17T10:00:00+00:00" },
+    ];
+    googleGuardado = null;
+    const r = await pedir("clientes/detalle", { ...vinculo, miembro_id: BETO });
+    expect(r.status).toBe(200);
+    expect(r.cuerpo.pases).toEqual([
+      { plataforma: "apple", estado: "no_instalado", pedido: "2026-08-16T10:00:00.000Z", desde: null, dispositivos: 0, ultima_vez: null },
+      { plataforma: "google", estado: "sin_confirmar", pedido: "2026-08-17T10:00:00.000Z", desde: null, dispositivos: null, ultima_vez: null },
+    ]);
+  });
+
+  it("si no se pueden leer los pases o los teléfonos: pases null y la ficha igual, 200", async () => {
+    tablas.pases_wallet = [{ id: "pa", miembro_id: ANA, plataforma: "apple", serial_number: "s-ana", auth_token: "t", activo: true, created_at: "2026-08-02T10:00:00+00:00" }];
+    for (const tabla of ["pases_wallet", "registros_dispositivo"]) {
+      fallan = [tabla];
+      const r = await pedir("clientes/detalle", { ...vinculo, miembro_id: ANA, limite: 2 });
+      expect(r.status).toBe(200);
+      expect(r.cuerpo).toMatchObject({
+        ok: true,
+        cliente: { miembro_id: ANA, saldo: 1, visitas: 3 },
+        movimientos: [{ id: "t4" }, { id: "t3" }],
+        siguiente: "2026-09-03T10:00:00+00:00",
+        pases: null,
+      });
+    }
   });
 
   it("la misma puerta de siempre: firma ajena 401, tarjeta sin vínculo con Foorkie 403, sin cliente 400", async () => {

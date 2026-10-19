@@ -40,6 +40,7 @@ import {
 import { enviarMensajePromocional } from "@/lib/wallet/mensaje-promocional";
 import { leerCambiosDeMensajes, type CambiosDeMensajes } from "@/lib/plataforma/foorkie-mensajes";
 import { leerUbicaciones, type UbicacionDeFoorkie } from "@/lib/plataforma/foorkie-ubicaciones";
+import { pasesDelCliente, type PaseDelCliente } from "@/lib/plataforma/foorkie-pases";
 import { plataformasConfiguradas } from "@/lib/wallet/aviso-de-pausa";
 import { avisarCambioDeDiseno } from "@/lib/wallet/aviso-de-diseno";
 import { refrescarClaseGoogle } from "@/lib/wallet/google";
@@ -61,7 +62,8 @@ import { refrescarClaseGoogle } from "@/lib/wallet/google";
  *   clientes            la lista de la tarjeta, enmascarada y paginada, con
  *                       los números de cada uno (saldo, acumulado, visitas,
  *                       canjes) y, si se pide, ordenada y con los totales
- *   clientes/detalle    UN cliente y sus movimientos (solo lectura)
+ *   clientes/detalle    UN cliente, sus movimientos y si tiene el pase en el
+ *                       teléfono (`foorkie-pases.ts`; solo lectura)
  *   recompensas         las regalías, de la más barata a la más cara
  *   recompensas/guardar crear o editar una (reglas de `guardarRecompensa`)
  *   recompensas/borrar  borrar una (reglas de `eliminarRecompensa`)
@@ -1547,7 +1549,13 @@ async function equipoDe(db: Db, ids: string[]): Promise<Map<string, string>> {
   return mapa;
 }
 
-export type DetalleDelCliente = { cliente: ClienteDelPanel; movimientos: MovimientoDelCliente[]; siguiente: string | null };
+export type DetalleDelCliente = {
+  cliente: ClienteDelPanel;
+  movimientos: MovimientoDelCliente[];
+  siguiente: string | null;
+  /** Si tiene el pase en el teléfono (`foorkie-pases.ts`). null = no se pudo leer: la ficha sigue igual. */
+  pases: PaseDelCliente[] | null;
+};
 
 const ERROR_AL_LEER_CLIENTE: FalloDelPanel = {
   ok: false,
@@ -1582,6 +1590,11 @@ export async function detalleDelCliente(
   const miembro = filaDeMiembroDelPanel(data);
   if (!miembro) return { ok: false, codigo: "no_encontrado", motivo: "Ese cliente no tiene esta tarjeta.", status: 404 };
 
+  // Los pases se leen JUNTO con todo lo demás (y Google puede tardar hasta
+  // 2,5 s): la promesa arranca ya y se espera al final. Nunca rechaza, así
+  // que un corte más abajo no la deja colgando con un error suelto.
+  const pasesPromesa = pasesDelCliente(db, miembro.id);
+
   const [filas, identidades, ventas, canjes] = await Promise.all([
     ledgerDelMiembro(db, miembro.id),
     identidadesDeMiembros(db, [miembro], p.ranchoId),
@@ -1600,12 +1613,14 @@ export async function detalleDelCliente(
   const antes = p.antes;
   const candidatos = antes ? todos.filter((m) => esAnterior(m.created_at, antes)) : todos;
   const { pagina, siguiente } = cortarPagina(candidatos.slice(0, p.limite + 1), p.limite);
+  const pases = await pasesPromesa;
   return {
     ok: true,
     detalle: {
       cliente: armarClienteDelPanel(miembro, identidades.get(miembro.id), agregadosPorMiembro(filas).get(miembro.id)),
       movimientos: pagina,
       siguiente,
+      pases,
     },
   };
 }

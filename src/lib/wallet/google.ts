@@ -641,6 +641,60 @@ async function asegurarRecurso(
   }
 }
 
+/** Lo más que espera la ficha del cliente de Foorkie a que Google conteste si el pase está guardado. */
+export const TOPE_PASE_GOOGLE_MS = 2_500;
+
+/**
+ * ¿Alguien guardó en su Google Wallet el pase de este miembro? Para la
+ * ficha del cliente en el panel de Foorkie (`clientes/detalle`): solo
+ * LEE (un GET del objeto), nunca crea ni parcha nada.
+ *
+ * Google no tiene registro de teléfonos como Apple: lo único que dice es
+ * `hasUsers` del LoyaltyObject, que pone la plataforma cuando alguien lo
+ * guarda. Un 200 sin el campo es un «no»: los JSON de Google omiten los
+ * booleanos en false.
+ *
+ *   true  = lo guardó alguien (hasUsers: true)
+ *   false = el objeto existe y nadie lo tiene guardado
+ *   null  = no se sabe: sin credenciales, el objeto no está (404), Google
+ *           dio un error o tardó más de `topeMs`
+ *
+ * El id del objeto es el guardado al crearlo (`pases_wallet.objeto_externo`,
+ * que existe por las fusiones de personas de la 0138) o, si no hay, el que
+ * sale del miembro (`idDeObjeto`). Nunca lanza.
+ */
+export async function paseGoogleGuardado(
+  miembroId: string,
+  objetoExterno: string | null,
+  topeMs: number = TOPE_PASE_GOOGLE_MS,
+): Promise<boolean | null> {
+  let reloj: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const cred = credencialesGoogleDelEntorno();
+    if (!cred) return null;
+    const id = objetoExterno?.trim() || idDeObjeto(cred.issuerId, miembroId);
+    // `llamarApi` no recibe una señal: se corre contra un reloj y, si
+    // gana el reloj, la consulta sigue sola y su resultado se descarta.
+    const consulta = llamarApi(cred, "GET", `/loyaltyObject/${encodeURIComponent(id)}`).then(
+      (res) => {
+        if (res.status !== 200) return null;
+        const objeto = res.json && typeof res.json === "object" ? (res.json as Record<string, unknown>) : null;
+        if (!objeto) return null;
+        return objeto.hasUsers === true;
+      },
+      () => null,
+    );
+    const tope = new Promise<null>((resolver) => {
+      reloj = setTimeout(() => resolver(null), topeMs);
+    });
+    return await Promise.race([consulta, tope]);
+  } catch {
+    return null;
+  } finally {
+    if (reloj) clearTimeout(reloj);
+  }
+}
+
 export type ResultadoClase = { ok: true } | { ok: false; motivo: string };
 
 /**

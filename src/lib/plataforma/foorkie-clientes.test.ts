@@ -19,7 +19,7 @@ vi.mock("@/lib/lealtad/plan-del-negocio", () => ({ planDelNegocio: vi.fn(async (
 vi.mock("@/lib/wallet/mensaje-promocional", () => ({ enviarMensajePromocional: vi.fn() }));
 vi.mock("@/lib/wallet/aviso-de-pausa", () => ({ plataformasConfiguradas: vi.fn(() => ["apple", "google"]) }));
 vi.mock("@/lib/wallet/aviso-de-diseno", () => ({ avisarCambioDeDiseno: vi.fn() }));
-vi.mock("@/lib/wallet/google", () => ({ refrescarClaseGoogle: vi.fn() }));
+vi.mock("@/lib/wallet/google", () => ({ refrescarClaseGoogle: vi.fn(), paseGoogleGuardado: vi.fn(async () => null) }));
 
 import { identidadesDeMiembros } from "@/lib/lealtad/identidades-db";
 import type { FilaLedger } from "@/lib/plataforma/foorkie-caja";
@@ -579,6 +579,8 @@ describe("un cliente y sus movimientos", () => {
       });
       expect(r.detalle.movimientos.map((m) => m.id)).toEqual(["t7", "t6", "t5"]);
       expect(r.detalle.siguiente).toBe("2026-09-05T10:00:00+00:00");
+      // Sin pases en el Wallet: la lista vacía (no null, que es «no se pudo leer»).
+      expect(r.detalle.pases).toEqual([]);
 
       const sigue = await detalleDelCliente(db, { ranchoId: RANCHO, programaId: PROGRAMA, miembroId: MIEMBRO, limite: 3, antes: r.detalle.siguiente }, DUENO);
       expect(sigue.ok && sigue.detalle.movimientos.map((m) => m.id)).toEqual(["t4", "t3", "t2"]);
