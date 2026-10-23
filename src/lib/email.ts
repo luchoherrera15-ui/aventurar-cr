@@ -32,10 +32,14 @@ export async function enviarCorreo({
   subject,
   html,
   bajaOneClickUrl,
+  idempotencyKey,
 }: {
   to: string;
   subject: string;
   html: string;
+  /** Resend no manda dos veces el mismo correo con la misma clave (durante 24 horas): así un
+   * reintento después de un corte de red no duplica el mensaje. Lo usan los impulsos automáticos. */
+  idempotencyKey?: string;
   /** Correos de MARKETING: el endpoint one-click del destinatario
    * (enlacesBaja().oneClick, 0082). Va en las cabeceras
    * List-Unsubscribe (RFC 8058) para el botón "Cancelar suscripción"
@@ -51,25 +55,29 @@ export async function enviarCorreo({
   }
 
   try {
-    const { error } = await resend.emails.send({
-      from: REMITENTE,
-      to,
-      subject,
-      html,
-      ...(bajaOneClickUrl
-        ? {
-            headers: {
-              "List-Unsubscribe": `<${bajaOneClickUrl}>`,
-              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-            },
-          }
-        : {}),
-    });
+    const { data, error } = await resend.emails.send(
+      {
+        from: REMITENTE,
+        to,
+        subject,
+        html,
+        ...(bajaOneClickUrl
+          ? {
+              headers: {
+                "List-Unsubscribe": `<${bajaOneClickUrl}>`,
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+              },
+            }
+          : {}),
+      },
+      idempotencyKey ? { idempotencyKey } : undefined,
+    );
     if (error) {
       console.error("[email] Resend rechazó el envío:", error);
       return { enviado: false };
     }
-    return { enviado: true };
+    // `id` es el del proveedor: sirve para rastrear un envío (los demás llamadores lo ignoran).
+    return { enviado: true, id: data?.id };
   } catch (err) {
     // Un correo que falla no puede tumbar una reserva que ya se guardó.
     console.error("[email] Error inesperado enviando correo:", err);

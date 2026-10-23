@@ -1,0 +1,39 @@
+name: Impulsos automáticos de Lealtad
+
+# Manda los mensajes de los «impulsos automáticos» (0254): la bienvenida 5 minutos después de
+# inscribirse, el «te falta 1», la recuperación de clientes que dejaron de venir, etc.
+#
+# Cada corrida hace tres cosas, en este orden (ver src/lib/lealtad/impulsos/motor.ts):
+#   1. convierte en tareas lo que anotaron los triggers de la base («se inscribió», «sumó un sello»);
+#   2. busca a los clientes que dejaron de venir (una vez por hora por impulso);
+#   3. manda las tareas cuya hora ya llegó.
+#
+# Vive acá y no en vercel.json por lo mismo que el resto de los crons de Lealtad: Vercel Hobby solo
+# permite crons DIARIOS y rechaza el deploy entero si vercel.json trae uno más frecuente.
+#
+# CADA 5 MINUTOS, que es lo más frecuente que GitHub Actions garantiza. Ojo con la puntualidad: las
+# corridas programadas pueden atrasarse varios minutos en horas de mucho uso, o saltarse una. Por eso
+# «5 minutos después» se cumple, en la práctica, entre 5 y ~15 minutos. No se pierde nada: las tareas
+# esperan en la base y las toma la corrida siguiente.
+#
+# Correrlo de más no molesta: es idempotente (una tarea es única por impulso + hecho y se toma con
+# FOR UPDATE SKIP LOCKED), así que dos corridas a la vez se reparten el trabajo sin duplicar mensajes.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+# Si una corrida se demora, la siguiente espera en vez de pisarla.
+concurrency:
+  group: impulsos-lealtad
+  cancel-in-progress: false
+
+jobs:
+  llamar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar a /api/lealtad/impulsos
+        run: |
+          curl -sf --max-time 90 -X GET \
+            "https://www.bookea.lat/api/lealtad/impulsos" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

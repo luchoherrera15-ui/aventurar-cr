@@ -3,6 +3,7 @@ import { enviarCorreo, escaparHtml } from "@/lib/email";
 import { SITIO } from "@/lib/sitio";
 import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
 import { losCorreosLosMandaFoorkie } from "@/lib/plataforma/foorkie-marca";
+import { hayImpulsoQueReemplazaAlHito } from "@/lib/lealtad/impulsos/cobertura";
 
 /**
  * EL CORREO DE LOS SELLOS — solo en los HITOS, nunca en cada sello.
@@ -164,6 +165,10 @@ export async function avisarSelloPorCorreo(miembroId: string, saldo: number): Pr
 
     const hito = hitoDelSaldo(saldo, meta, premio);
     if (!hito) return; // sello intermedio: el pase ya se actualizó solo, nada de spam
+
+    // Un impulso de correo ACTIVO para este mismo momento toma el relevo: sin esto el cliente recibiría
+    // dos correos casi iguales. Ante cualquier duda la función responde «no» y este correo sale como siempre.
+    if (await hayImpulsoQueReemplazaAlHito(db, miembro.programa_id as string, hito.tipo)) return;
 
     const modo = tipoDe((programa.modo as string | null) ?? null);
     // "visita" para sellos (se sella al venir), "compra" para el resto

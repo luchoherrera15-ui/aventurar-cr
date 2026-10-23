@@ -63,6 +63,7 @@ import TabsContenido from "./tabs-contenido";
 import ClientesAuditoria from "./clientes-auditoria";
 import { cargarClientesAuditados } from "./clientes-datos";
 import MarketingLealtad from "./marketing-lealtad";
+import ImpulsosLealtad from "./impulsos-lealtad";
 import CompartirTarjeta, { type TarjetaCompartible } from "./compartir-tarjeta";
 import { BloqueEstado } from "./pases-panel";
 import EditorRecompensas from "./editor-recompensas";
@@ -793,6 +794,8 @@ export async function armarPanelLealtad({
           ? [{ id: "metricas", etiqueta: "Estadísticas", icono: "metricas" as const }]
           : []),
         ...(puedeDisenar ? [{ id: "marketing", etiqueta: "Marketing", icono: "campana" as const }] : []),
+        // «Impulsos»: mensajes automáticos por regla. Solo dueño/admin, igual que Marketing.
+        ...(puedeDisenar ? [{ id: "impulsos", etiqueta: "Impulsos", icono: "reloj" as const }] : []),
         ...(puedeDisenar
           ? [{ id: "configuracion", etiqueta: "Configuración", icono: "configuracion" as const }]
           : []),
@@ -1069,6 +1072,9 @@ export async function armarPanelLealtad({
     ),
 
     marketing: <MarketingLealtad ranchoId={id} programaId={p?.id ?? null} />,
+
+    // Mensajes automáticos (0254). Las acciones vuelven a comprobar que quien pregunta es dueño o admin.
+    ...(puedeDisenar ? { impulsos: <ImpulsosLealtad ranchoId={id} programaId={p?.id ?? null} /> } : {}),
 
     // «Mi página» (0229): el editor de la página pública. Va gateado
     // igual que su ítem del rail — mismo criterio que `configuracion`.

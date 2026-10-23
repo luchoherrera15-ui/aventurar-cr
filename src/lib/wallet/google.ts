@@ -1463,7 +1463,9 @@ export async function avisarEventoGoogle(
   miembroId: string,
   // `vence`: el aviso de que el saldo está por vencer en una tarjeta de
   // Foorkie (0253, `foorkie-vencimiento.ts`). Solo cambia el id del mensaje.
-  aviso: { evento: EventoDelPase | "vence"; texto: string; encabezado: string },
+  // `impulso`: un impulso automático del negocio (0254, `lib/lealtad/impulsos`). El id del
+  // mensaje es `evento-impulso-<ms>`: cuenta para el tope de Google igual que los demás.
+  aviso: { evento: EventoDelPase | "vence" | "impulso"; texto: string; encabezado: string },
   { ahora = Date.now() }: { ahora?: number } = {},
 ): Promise<ResultadoAvisoGoogle> {
   try {
