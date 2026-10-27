@@ -308,17 +308,32 @@ describe("copiarImagenDeFoorkie", () => {
     else process.env.NEXT_PUBLIC_IMAGES_URL = originalImagenes;
   });
 
-  function fetchDeMentira(opciones: { tipoContenido?: string; headOk?: boolean; importarOk?: boolean }) {
-    const { tipoContenido = "image/png", headOk = true, importarOk = true } = opciones;
+  // Como la API real: importar POR URL algo que está en imagedelivery.net da 5454 (comprobado en producción el 2026-10-27).
+  // `cuerpos` guarda los FormData que llegan a /images/v1 para ver si se mandó `file` o `url`.
+  function fetchDeMentira(opciones: { tipoContenido?: string; headOk?: boolean; importarOk?: boolean; getOk?: boolean; pesoDescarga?: number; pesoHead?: number; cuerpos?: FormData[] }) {
+    const { tipoContenido = "image/png", headOk = true, importarOk = true, getOk = true, pesoDescarga = 10, pesoHead, cuerpos } = opciones;
     return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (init?.method === "HEAD") {
         if (!headOk) return new Response(null, { status: 404 });
-        return new Response(null, { status: 200, headers: { "content-type": tipoContenido } });
+        const headers: Record<string, string> = { "content-type": tipoContenido };
+        if (pesoHead !== undefined) headers["content-length"] = String(pesoHead);
+        return new Response(null, { status: 200, headers });
       }
       if (url.includes("/images/v1")) {
+        const cuerpo = init?.body as FormData;
+        cuerpos?.push(cuerpo);
+        const porUrl = cuerpo?.get("url");
+        if (typeof porUrl === "string" && porUrl.startsWith("https://imagedelivery.net/")) {
+          return Response.json({ success: false, errors: [{ code: 5454, message: "Error during the fetch, code: 400, message: Fetching image from imagedelivery.net is not supported" }] }, { status: 400 });
+        }
         if (!importarOk) return Response.json({ success: false, errors: [{ code: 5455, message: "no se pudo bajar" }] }, { status: 200 });
         return Response.json({ success: true, result: { id: "nuevo-id-en-bookea", uploaded: "2026-10-12T00:00:00Z", requireSignedURLs: false, variants: [] } });
+      }
+      // La descarga de la imagen de origen (Cloudflare de Foorkie).
+      if (!init?.method || init.method === "GET") {
+        if (!getOk) return new Response(null, { status: 500 });
+        return new Response(new Uint8Array(pesoDescarga), { status: 200, headers: { "content-type": tipoContenido } });
       }
       throw new Error(`fetch no esperado: ${url}`);
     });
@@ -364,14 +379,40 @@ describe("copiarImagenDeFoorkie", () => {
   });
 
   it("respeta el tope de cada destino con el content-length del HEAD (2 MB el ícono, 4 MB el logo)", async () => {
-    const pesada = (bytes: number) =>
-      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        if (init?.method === "HEAD") return new Response(null, { status: 200, headers: { "content-type": "image/png", "content-length": String(bytes) } });
-        if (String(input).includes("/images/v1")) return Response.json({ success: true, result: { id: "nuevo-id-en-bookea", uploaded: "2026-10-12T00:00:00Z", requireSignedURLs: false, variants: [] } });
-        throw new Error("fetch no esperado");
-      });
     const tresMb = 3 * 1024 * 1024;
-    expect(await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "icono", { fetch: pesada(tresMb), entorno: ENTORNO })).toBe("error");
-    expect(await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: pesada(tresMb), entorno: ENTORNO })).toBe("https://imagedelivery.net/hash-123/nuevo-id-en-bookea/gallery");
+    expect(await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "icono", { fetch: fetchDeMentira({ pesoHead: tresMb, pesoDescarga: tresMb }), entorno: ENTORNO })).toBe("error");
+    expect(await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: fetchDeMentira({ pesoHead: tresMb, pesoDescarga: tresMb }), entorno: ENTORNO })).toBe("https://imagedelivery.net/hash-123/nuevo-id-en-bookea/gallery");
+  });
+
+  it("las de Cloudflare se SUBEN como archivo (`file`), nunca por URL: Cloudflare no importa desde imagedelivery.net (5454)", async () => {
+    const cuerpos: FormData[] = [];
+    const r = await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: fetchDeMentira({ cuerpos }), entorno: ENTORNO });
+    expect(r).toBe("https://imagedelivery.net/hash-123/nuevo-id-en-bookea/gallery");
+    expect(cuerpos).toHaveLength(1);
+    expect(cuerpos[0].get("url")).toBeNull();
+    const archivo = cuerpos[0].get("file") as File;
+    expect(archivo).toBeInstanceOf(Blob);
+    expect(archivo.type).toBe("image/png");
+    expect(archivo.size).toBe(10);
+    expect(cuerpos[0].get("requireSignedURLs")).toBe("false");
+    expect(JSON.parse(String(cuerpos[0].get("metadata")))).toEqual({ origen: "foorkie", destino: "logo" });
+  });
+
+  it("las del bucket viejo de Supabase siguen yendo por URL (las descarga Cloudflare)", async () => {
+    const original = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://bjhprmtobmualefvcmau.supabase.co";
+    const vieja = "https://bjhprmtobmualefvcmau.supabase.co/storage/v1/object/public/foorkie_media/u1/logo.png";
+    const cuerpos: FormData[] = [];
+    const r = await copiarImagenDeFoorkie({} as never, vieja, "logo", { fetch: fetchDeMentira({ cuerpos }), entorno: ENTORNO });
+    process.env.NEXT_PUBLIC_SUPABASE_URL = original;
+    expect(r).toBe("https://imagedelivery.net/hash-123/nuevo-id-en-bookea/gallery");
+    expect(cuerpos[0].get("url")).toBe(vieja);
+    expect(cuerpos[0].get("file")).toBeNull();
+  });
+
+  it("rechaza si la descarga falla, cambia de tipo, viene vacía o pesa más que el tope (aunque el HEAD no lo dijera)", async () => {
+    expect(await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: fetchDeMentira({ getOk: false }), entorno: ENTORNO })).toBe("error");
+    expect(await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "logo", { fetch: fetchDeMentira({ pesoDescarga: 0 }), entorno: ENTORNO })).toBe("error");
+    expect(await copiarImagenDeFoorkie({} as never, URL_FOORKIE, "icono", { fetch: fetchDeMentira({ pesoDescarga: 3 * 1024 * 1024 }), entorno: ENTORNO })).toBe("error");
   });
 });

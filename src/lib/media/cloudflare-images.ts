@@ -387,15 +387,21 @@ export async function importarDesdeUrl(
   const r = await llamar(config.valor, "/images/v1", { method: "POST", body: form }, deps);
   if (!r.ok) return r;
 
-  const res = r.valor;
+  return imagenSubidaDe(r.valor);
+}
+
+/**
+ * La respuesta de `POST /images/v1` (por URL o por archivo) convertida en
+ * `ImagenImportada`. Se exige `uploaded` válido: sin él no se puede afirmar
+ * que la imagen esté servible, y este es el único camino que habilita
+ * escribir `cf_verificado_en`.
+ */
+function imagenSubidaDe(res: unknown): ResultadoCF<ImagenImportada> {
   if (typeof res !== "object" || res === null || !("id" in res)) {
     return fallo("respuesta-invalida", "Cloudflare no devolvió la imagen importada.");
   }
   const obj = res as Record<string, unknown>;
 
-  // Se exige `uploaded` válido: sin él no se puede afirmar que la
-  // imagen esté servible, y este es el único camino que habilita
-  // escribir `cf_verificado_en`.
   const subidaEn = fechaValida(obj.uploaded);
   if (subidaEn === null) {
     return fallo(
@@ -413,6 +419,43 @@ export async function importarDesdeUrl(
       variantes: Array.isArray(obj.variants) ? obj.variants.map(String) : [],
     },
   };
+}
+
+/**
+ * Sube a Cloudflare Images unos bytes que el SERVIDOR ya tiene (2026-10-27).
+ *
+ * Existe porque `importarDesdeUrl` no sirve cuando el origen es el propio
+ * servicio de entrega de Cloudflare: la API contesta `5454: Fetching image
+ * from imagedelivery.net is not supported`. Las imágenes de Foorkie viven ahí
+ * (la misma cuenta), así que para copiarlas Bookea las descarga y las sube
+ * como archivo. Quien llama es responsable de haber validado el origen, el
+ * tipo y el peso (ver `copiarImagenDeFoorkie`).
+ */
+export async function subirDesdeBytes(
+  params: {
+    bytes: Uint8Array;
+    /** image/png, image/jpeg o image/webp. */
+    tipo: string;
+    requiereFirma: boolean;
+    metadata?: Record<string, string>;
+  },
+  deps: DependenciasCF = {},
+): Promise<ResultadoCF<ImagenImportada>> {
+  if (!params.bytes || params.bytes.byteLength === 0) {
+    return fallo("respuesta-invalida", "No hay bytes que subir.");
+  }
+
+  const config = preparar(deps);
+  if (!config.ok) return config;
+
+  const form = new FormData();
+  form.set("file", new Blob([params.bytes as BlobPart], { type: params.tipo }), "imagen");
+  form.set("requireSignedURLs", String(params.requiereFirma));
+  if (params.metadata) form.set("metadata", JSON.stringify(params.metadata));
+
+  const r = await llamar(config.valor, "/images/v1", { method: "POST", body: form }, deps);
+  if (!r.ok) return r;
+  return imagenSubidaDe(r.valor);
 }
 
 // ------------------------------------------------------------

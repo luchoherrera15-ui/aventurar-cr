@@ -409,9 +409,11 @@ const TIPOS_IMAGEN: Record<string, string> = { "image/png": "png", "image/jpeg":
  *
  * Acepta tanto una URL de Cloudflare Images de Foorkie (lo normal desde
  * el 2026-10-12) como una del bucket `foorkie_media` de Supabase (lo que
- * Foorkie no migró todavía): en los dos casos, Cloudflare se descarga la
- * imagen ÉL MISMO (`importarDesdeUrl`, nunca pasa por nuestro servidor)
- * y queda un `cf_image_id` nuevo, nuestro. Devuelve la URL de entrega
+ * Foorkie no migró todavía). Las de Supabase las descarga Cloudflare ÉL
+ * MISMO (`importarDesdeUrl`); las de Cloudflare Images NO se pueden
+ * importar por URL (error 5454), así que acá se descargan y se suben como
+ * archivo (`subirDesdeBytes`). En los dos casos queda un `cf_image_id`
+ * nuevo, nuestro. Devuelve la URL de entrega
  * (variante `gallery`, la más grande sin recortar — Apple Wallet
  * necesita el detalle completo para componer la tira de sellos con
  * `sharp`), o "error" si la URL no es de Foorkie, no es PNG/JPG/WebP,
@@ -473,8 +475,26 @@ export async function copiarImagenDeFoorkie(
 
     // Import dinámico: cloudflare-images.ts trae `server-only`, y este archivo lo importan muchas
     // rutas y pruebas que no copian imágenes (con un import fijo, todas tendrían que mockearlo).
-    const { importarDesdeUrl, urlDeVariante, configuracionCF } = await import("@/lib/media/cloudflare-images");
-    const importada = await importarDesdeUrl({ url, requiereFirma: false, metadata: { origen: "foorkie", destino } }, deps);
+    const { importarDesdeUrl, subirDesdeBytes, urlDeVariante, configuracionCF } = await import("@/lib/media/cloudflare-images");
+    const metadata = { origen: "foorkie", destino };
+    let importada: Awaited<ReturnType<typeof importarDesdeUrl>>;
+    if (esUrlDeCloudflareImages(url)) {
+      // Cloudflare NO deja importar por URL desde su propio imagedelivery.net (error 5454, comprobado en
+      // producción el 2026-10-27): se descarga acá —el host ya se verificó contra NEXT_PUBLIC_IMAGES_URL y el
+      // tipo y el peso con el HEAD— y se sube como archivo, con el mismo tope de peso.
+      const g = await hacerFetch(url, { method: "GET", signal: AbortSignal.timeout(15_000), cache: "no-store" });
+      if (!g.ok) return registrarFalloDeCopia(url, "descarga-http", String(g.status));
+      const tipoGet = (g.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+      if (!TIPOS_IMAGEN[tipoGet]) return registrarFalloDeCopia(url, "descarga-tipo", tipoGet || "sin-content-type");
+      const bytes = new Uint8Array(await g.arrayBuffer());
+      if (bytes.byteLength === 0 || bytes.byteLength > MAX_BYTES_COPIA[destino]) {
+        return registrarFalloDeCopia(url, "descarga-peso", `${bytes.byteLength} bytes (tope ${MAX_BYTES_COPIA[destino]})`);
+      }
+      importada = await subirDesdeBytes({ bytes, tipo: tipoGet, requiereFirma: false, metadata }, { ...deps, timeoutMs: 25_000 });
+    } else {
+      // El bucket viejo foorkie_media de Supabase: ahí sí, Cloudflare lo descarga él mismo.
+      importada = await importarDesdeUrl({ url, requiereFirma: false, metadata }, deps);
+    }
     if (!importada.ok) return registrarFalloDeCopia(url, "cloudflare-importar", `${importada.error.codigo}: ${importada.error.mensaje}`);
 
     const config = configuracionCF(deps.entorno ?? process.env);

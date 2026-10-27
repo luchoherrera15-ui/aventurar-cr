@@ -22,6 +22,7 @@ import {
   detalleImagen,
   esConfirmada,
   importarDesdeUrl,
+  subirDesdeBytes,
   firmarUrl,
   medidasDeVariante,
   solicitarSubidaDirecta,
@@ -675,5 +676,54 @@ describe("urlSegunVisibilidad — olvidarse de firmar no es posible", () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error.codigo).toBe("variante-invalida");
+  });
+});
+
+describe("subirDesdeBytes — subir un archivo que el servidor ya tiene", () => {
+  const BYTES = new Uint8Array([137, 80, 78, 71]);
+
+  it("manda el archivo en `file` (no `url`), respeta requireSignedURLs y la metadata, y devuelve id + fecha", async () => {
+    const { fn, llamadas } = fetchFalso({
+      json: SOBRE_OK({ id: "img-subida", uploaded: "2026-08-10T12:00:00.000Z", requireSignedURLs: false, variants: [`${DELIVERY}/img-subida/gallery`] }),
+    });
+    const r = await subirDesdeBytes({ bytes: BYTES, tipo: "image/png", requiereFirma: false, metadata: { origen: "foorkie" } }, deps({ fetch: fn }));
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.valor.id).toBe("img-subida");
+      expect(r.valor.subidaEn).toBe("2026-08-10T12:00:00.000Z");
+    }
+    expect(llamadas[0].url).toContain("/images/v1");
+    expect(llamadas[0].init.method).toBe("POST");
+    const cuerpo = llamadas[0].init.body as FormData;
+    expect(cuerpo.get("url")).toBeNull();
+    const archivo = cuerpo.get("file") as File;
+    expect(archivo.type).toBe("image/png");
+    expect(archivo.size).toBe(4);
+    expect(cuerpo.get("requireSignedURLs")).toBe("false");
+    expect(cuerpo.get("metadata")).toBe(JSON.stringify({ origen: "foorkie" }));
+  });
+
+  it("sin bytes no llama a la API", async () => {
+    const { fn, llamadas } = fetchFalso({ json: SOBRE_OK({}) });
+    const r = await subirDesdeBytes({ bytes: new Uint8Array(), tipo: "image/png", requiereFirma: false }, deps({ fetch: fn }));
+    expect(r.ok).toBe(false);
+    expect(llamadas).toHaveLength(0);
+  });
+
+  it("SIN `uploaded` válido NO se da por subida, igual que al importar", async () => {
+    const { fn } = fetchFalso({ json: SOBRE_OK({ id: "x", uploaded: null }) });
+    const r = await subirDesdeBytes({ bytes: BYTES, tipo: "image/png", requiereFirma: false }, deps({ fetch: fn }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error.codigo).toBe("respuesta-invalida");
+  });
+
+  it("un fallo de Cloudflare se reporta con su código y sin filtrar el token", async () => {
+    const { fn } = fetchFalso({ status: 415, json: { success: false, errors: [{ code: 5443, message: "Unsupported image" }] } });
+    const r = await subirDesdeBytes({ bytes: BYTES, tipo: "image/png", requiereFirma: false }, deps({ fetch: fn }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.mensaje).toContain("5443");
+      expect(r.error.mensaje).not.toContain("token-secreto-de-prueba");
+    }
   });
 });
