@@ -422,6 +422,23 @@ const TIPOS_IMAGEN: Record<string, string> = { "image/png": "png", "image/jpeg":
  */
 export const MAX_BYTES_COPIA = { logo: 4 * 1024 * 1024, banda: 4 * 1024 * 1024, icono: 2 * 1024 * 1024 } as const;
 
+/**
+ * Deja en los registros de Vercel POR QUÉ se rechazó una imagen (2026-10-27): antes todo era un "error" mudo y no se
+ * podía saber si fallaba el reconocimiento de la URL, el HEAD, Cloudflare o su configuración. Solo la etapa y lo que
+ * Cloudflare contestó (`ErrorCF.mensaje` nunca trae el token); de la URL, el host y la ruta (una imagen pública).
+ */
+function registrarFalloDeCopia(url: string, etapa: string, detalle?: string): "error" {
+  let donde = "url-ilegible";
+  try {
+    const u = new URL(url);
+    donde = `${u.host}${u.pathname}`;
+  } catch {
+    // se deja url-ilegible
+  }
+  console.error(`[foorkie:copiar-imagen] ${etapa}${detalle ? ` · ${detalle}` : ""} · ${donde}`);
+  return "error";
+}
+
 export async function copiarImagenDeFoorkie(
   // Ya no se usa (antes subía a Supabase con este cliente): se deja en la
   // firma para no tocar los dos lugares que la llaman.
@@ -431,31 +448,41 @@ export async function copiarImagenDeFoorkie(
   // Inyectables para pruebas sin red (mismo patrón que cloudflare-images.ts).
   deps: { fetch?: typeof fetch; entorno?: NodeJS.ProcessEnv } = {},
 ): Promise<string | "error"> {
-  if (!esUrlDeCloudflareImages(url) && !esUrlDeNuestroStorage(url, BUCKET_FOORKIE)) return "error";
+  if (!esUrlDeCloudflareImages(url) && !esUrlDeNuestroStorage(url, BUCKET_FOORKIE)) {
+    // NEXT_PUBLIC_IMAGES_URL es público (sale en cada <img>): se muestra su host para ver si coincide con el de Foorkie.
+    let esperado = "sin-definir";
+    try {
+      const base = (process.env.NEXT_PUBLIC_IMAGES_URL ?? "").trim();
+      if (base) esperado = new URL(base).host;
+    } catch {
+      esperado = "ilegible";
+    }
+    return registrarFalloDeCopia(url, "url-no-reconocida", `host-esperado=${esperado}`);
+  }
   const hacerFetch = deps.fetch ?? fetch;
   try {
     // Un HEAD liviano para confirmar el tipo antes de pedirle a Cloudflare
     // que la importe (así una URL que no es una imagen falla acá, no del
     // lado de Cloudflare con un error menos claro).
     const r = await hacerFetch(url, { method: "HEAD", signal: AbortSignal.timeout(10_000), cache: "no-store" });
-    if (!r.ok) return "error";
+    if (!r.ok) return registrarFalloDeCopia(url, "head-http", String(r.status));
     const tipo = (r.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
-    if (!TIPOS_IMAGEN[tipo]) return "error";
+    if (!TIPOS_IMAGEN[tipo]) return registrarFalloDeCopia(url, "tipo-no-permitido", tipo || "sin-content-type");
     const largo = Number(r.headers.get("content-length") ?? "");
-    if (Number.isFinite(largo) && largo > MAX_BYTES_COPIA[destino]) return "error";
+    if (Number.isFinite(largo) && largo > MAX_BYTES_COPIA[destino]) return registrarFalloDeCopia(url, "muy-pesada", `${largo} bytes > ${MAX_BYTES_COPIA[destino]}`);
 
     // Import dinámico: cloudflare-images.ts trae `server-only`, y este archivo lo importan muchas
     // rutas y pruebas que no copian imágenes (con un import fijo, todas tendrían que mockearlo).
     const { importarDesdeUrl, urlDeVariante, configuracionCF } = await import("@/lib/media/cloudflare-images");
     const importada = await importarDesdeUrl({ url, requiereFirma: false, metadata: { origen: "foorkie", destino } }, deps);
-    if (!importada.ok) return "error";
+    if (!importada.ok) return registrarFalloDeCopia(url, "cloudflare-importar", `${importada.error.codigo}: ${importada.error.mensaje}`);
 
     const config = configuracionCF(deps.entorno ?? process.env);
-    if (!config.ok) return "error";
+    if (!config.ok) return registrarFalloDeCopia(url, "config-cloudflare", `${config.error.codigo}: ${config.error.mensaje}`);
     const entrega = urlDeVariante({ deliveryUrl: config.valor.deliveryUrl, imageId: importada.valor.id, variante: "gallery" });
-    return entrega.ok ? entrega.valor : "error";
-  } catch {
-    return "error";
+    return entrega.ok ? entrega.valor : registrarFalloDeCopia(url, "variante-entrega", `${entrega.error.codigo}: ${entrega.error.mensaje}`);
+  } catch (e) {
+    return registrarFalloDeCopia(url, "excepcion", e instanceof Error ? `${e.name}: ${e.message}`.slice(0, 200) : "desconocida");
   }
 }
 
