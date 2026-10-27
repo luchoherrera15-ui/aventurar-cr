@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { formatearCRC } from "../dinero";
 import {
   TRAMO_CASHBACK,
@@ -48,6 +48,21 @@ describe("traducirMotivo", () => {
 });
 
 describe("traducirErrorDeBase", () => {
+  it("deja en los registros el código, el mensaje, el detalle y la pista del error de la base (2026-10-27: un canje fallaba mudo)", () => {
+    const espia = vi.spyOn(console, "error").mockImplementation(() => {});
+    const frase = traducirErrorDeBase({ code: "23503", message: "insert or update on table \"canjes\" violates foreign key", details: "Key (entregado_por) is not present", hint: "revisar el usuario" }, "entregar el premio");
+    expect(frase).toContain("entregar el premio");
+    expect(espia).toHaveBeenCalledTimes(1);
+    const linea = String(espia.mock.calls[0][0]);
+    expect(linea).toContain("[lealtad:error-base]");
+    expect(linea).toContain("entregar el premio");
+    expect(linea).toContain("23503");
+    expect(linea).toContain("violates foreign key");
+    expect(linea).toContain("Key (entregado_por)");
+    expect(linea).toContain("revisar el usuario");
+    espia.mockRestore();
+  });
+
   it("deja pasar NUESTROS mensajes (los raise de las 0146/0148, en español)", () => {
     const nuestro =
       "Tu programa está en pausa porque el paquete de Lealtad no está al día. Renovalo desde el panel, en Plan.";

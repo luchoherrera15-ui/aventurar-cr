@@ -126,10 +126,18 @@ export function traducirMotivo(motivo: string | null | undefined, respaldo: stri
  * pantalla va una frase que dice qué pasó y qué hacer.
  */
 export function traducirErrorDeBase(
-  error: { code?: string | null; message?: string | null },
+  error: { code?: string | null; message?: string | null; details?: string | null; hint?: string | null },
   queSeIntentaba: string,
 ): string {
   const mensaje = (error.message ?? "").trim();
+
+  // Antes decía "se registra en el servidor" y no registraba nada: el 2026-10-27 un canje falló dos veces con
+  // `error_rpc` y no había forma de saber por qué. Código, mensaje, detalle y pista (sin datos del cliente: son
+  // los de la base) van a los registros de Vercel, buscables por "[lealtad:error-base]".
+  console.error(
+    `[lealtad:error-base] ${queSeIntentaba} · ${error.code ?? "sin-código"} · ${mensaje || "sin-mensaje"}` +
+      `${error.details ? ` · detalle: ${String(error.details).slice(0, 300)}` : ""}${error.hint ? ` · pista: ${String(error.hint).slice(0, 200)}` : ""}`,
+  );
 
   // 42501 = insufficient_privilege: o es un `raise` nuestro (escrito en
   // español, para el dueño) o es la RLS. En los dos casos el texto
