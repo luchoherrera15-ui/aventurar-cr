@@ -1,5 +1,6 @@
 import { responder } from "@/lib/plataforma/foorkie-api";
 import { abrirElPanel, clientesDeLaTarjeta, leerPedidoClientes } from "@/lib/plataforma/foorkie-panel";
+import { pasesDeLaLista, SIN_PASE } from "@/lib/plataforma/foorkie-pases";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ export const maxDuration = 60;
  *
  *   200 { ok: true, clientes: [{ miembro_id, nombre, correo, telefono,
  *         saldo, acumulado, visitas, canjes, ultimo_canje, desde,
- *         ultima_actividad, estado, posicion? }], total,
+ *         ultima_actividad, estado, posicion?, pase }], total,
  *         siguiente: ISO | null, siguiente_desde: number | null,
  *         resumen?: { clientes, activos_30, canjearon, canjes, acumulado } }
  *
@@ -38,6 +39,10 @@ export const maxDuration = 60;
  *       `acumulado` = lo ganado en toda la historia (sin lo revertido);
  *       `visitas` = cuántas veces sumó; `canjes` = cuántas canjeó (sin los
  *       revertidos). Sellos, colones de cashback o puntos, según la tarjeta.
+ *       `pase` (2 nov 2026): si tiene la tarjeta en el teléfono,
+ *       `{ apple: "instalado" | "no_instalado" | null, google: "pedido" | null }`
+ *       (ver `pasesDeLaLista` en `src/lib/plataforma/foorkie-pases.ts`);
+ *       `null` si no se pudo leer (la lista sale igual).
  *       `resumen` (con `resumen: true`) es de TODA la tarjeta, aunque se
  *       busque: clientes, los que sumaron o canjearon en 30 días, los que
  *       canjearon alguna vez, los canjes y lo entregado en total.
@@ -54,9 +59,13 @@ export async function POST(request: Request) {
   if (!pagina) {
     return responder({ ok: false, codigo: "error_base", motivo: "No pudimos leer los clientes. Probá de nuevo." }, 500);
   }
+  const pases = await pasesDeLaLista(
+    panel.db,
+    pagina.clientes.map((c) => c.miembro_id),
+  );
   return responder({
     ok: true,
-    clientes: pagina.clientes,
+    clientes: pagina.clientes.map((c) => ({ ...c, pase: pases ? (pases.get(c.miembro_id) ?? SIN_PASE) : null })),
     total: pagina.total,
     siguiente: pagina.siguiente,
     siguiente_desde: pagina.siguienteDesde,

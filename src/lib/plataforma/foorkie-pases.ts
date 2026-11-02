@@ -218,3 +218,104 @@ export async function pasesDelCliente(
     return null;
   }
 }
+
+// ════════════════════════════════════════════════════════════════════
+//  EN LA LISTA DE CLIENTES — ¿quién tiene la tarjeta en el teléfono?
+// ════════════════════════════════════════════════════════════════════
+//
+// Pedido del 2 nov 2026 (Luis: «¿Podemos ver quiénes tienen la tarjeta
+// descargada?»): en la LISTA de clientes de Foorkie (`clientes`), de cada
+// uno, si tiene la tarjeta en el teléfono. Solo LEE, igual que la ficha,
+// pero sin preguntarle a Google: serían cientos de llamadas por página.
+//
+//   apple   «instalado» / «no_instalado», con la misma regla que la ficha
+//           (al menos un teléfono en `registros_dispositivo`).
+//   google  «pedido»: tocó «Agregar a Google Wallet» y el pase se emitió
+//           (`google.ts` crea la fila en ese momento). Si después lo
+//           guardó o lo borró, Google no avisa: eso lo dice la ficha.
+//   null    nunca pidió el pase de esa plataforma.
+
+export type PaseEnLaLista = { apple: "instalado" | "no_instalado" | null; google: "pedido" | null };
+
+export const SIN_PASE: PaseEnLaLista = { apple: null, google: null };
+
+/** Una fila de `pases_wallet` con su miembro (la lista lee los de muchos a la vez). */
+export type FilaDePaseDeMiembro = FilaDePase & { miembro_id: string };
+
+export function filaDePaseDeMiembro(v: unknown): FilaDePaseDeMiembro | null {
+  const f = filaDePase(v);
+  const miembro = f ? texto((v as Record<string, unknown>).miembro_id) : null;
+  return f && miembro ? { ...f, miembro_id: miembro } : null;
+}
+
+/**
+ * El pase de cada miembro pedido, a partir de sus filas y de los seriales
+ * de Apple que tienen al menos un teléfono registrado. Cada miembro pedido
+ * sale en el mapa (sin filas, `SIN_PASE`).
+ */
+export function armarPasesDeLaLista(d: {
+  miembros: readonly string[];
+  filas: readonly FilaDePaseDeMiembro[];
+  conTelefono: ReadonlySet<string>;
+}): Map<string, PaseEnLaLista> {
+  const porMiembro = new Map<string, FilaDePaseDeMiembro[]>();
+  for (const f of d.filas) porMiembro.set(f.miembro_id, [...(porMiembro.get(f.miembro_id) ?? []), f]);
+  const mapa = new Map<string, PaseEnLaLista>();
+  for (const id of d.miembros) {
+    const pase: PaseEnLaLista = { ...SIN_PASE };
+    for (const f of elegirPasesPorPlataforma(porMiembro.get(id) ?? [])) {
+      if (f.plataforma === "apple") pase.apple = d.conTelefono.has(f.serial) ? "instalado" : "no_instalado";
+      else pase.google = "pedido";
+    }
+    mapa.set(id, pase);
+  }
+  return mapa;
+}
+
+/** De a cuántos se pregunta con `in (…)`: con cien uuids la URL ya es larga. */
+const POR_TANDA = 100;
+/** El `max_rows` de PostgREST: una tanda que llega a esto pudo venir cortada. */
+const TOPE_FILAS = 1000;
+
+/**
+ * El pase de cada uno de estos miembros (una página de la lista). `null` =
+ * no se pudo leer `pases_wallet` o `registros_dispositivo` (la lista sigue
+ * sin esto). Nunca rechaza.
+ */
+export async function pasesDeLaLista(db: Db, miembros: readonly string[]): Promise<Map<string, PaseEnLaLista> | null> {
+  try {
+    const ids = [...new Set(miembros)];
+    if (ids.length === 0) return new Map();
+    const filas: FilaDePaseDeMiembro[] = [];
+    for (let i = 0; i < ids.length; i += POR_TANDA) {
+      // `select *` por lo mismo que la ficha: `activo` y `objeto_externo` (0138) pueden faltar en una base vieja.
+      const { data, error } = await db.from("pases_wallet").select("*").in("miembro_id", ids.slice(i, i + POR_TANDA));
+      if (error || (data ?? []).length >= TOPE_FILAS) return null;
+      for (const v of (data ?? []) as unknown[]) {
+        const f = filaDePaseDeMiembro(v);
+        if (f) filas.push(f);
+      }
+    }
+    // Solo los seriales que cuentan: el pase de Apple elegido de cada miembro.
+    const seriales = ids.flatMap((id) =>
+      elegirPasesPorPlataforma(filas.filter((f) => f.miembro_id === id))
+        .filter((f) => f.plataforma === "apple")
+        .map((f) => f.serial),
+    );
+    const conTelefono = new Set<string>();
+    for (let i = 0; i < seriales.length; i += POR_TANDA) {
+      const { data, error } = await db
+        .from("registros_dispositivo")
+        .select("serial_number")
+        .in("serial_number", seriales.slice(i, i + POR_TANDA));
+      if (error || (data ?? []).length >= TOPE_FILAS) return null;
+      for (const r of (data ?? []) as Record<string, unknown>[]) {
+        const s = texto(r.serial_number);
+        if (s) conTelefono.add(s);
+      }
+    }
+    return armarPasesDeLaLista({ miembros: ids, filas, conTelefono });
+  } catch {
+    return null;
+  }
+}

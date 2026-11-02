@@ -222,6 +222,42 @@ describe("clientes con orden", () => {
     expect((r.cuerpo.clientes as Fila[])[0]).not.toHaveProperty("posicion");
   });
 
+  it("quién tiene la tarjeta en el teléfono (2 nov 2026): Apple por los teléfonos, Google si la pidió; sin preguntarle a Google", async () => {
+    vi.mocked(paseGoogleGuardado).mockClear();
+    tablas.pases_wallet = [
+      { id: "pa", miembro_id: ANA, plataforma: "apple", serial_number: "serial-ana", auth_token: "token-ana", activo: true, created_at: "2026-08-02T10:00:00+00:00" },
+      { id: "pg", miembro_id: BETO, plataforma: "google", serial_number: "serial-beto-g", auth_token: "token-beto", activo: true, created_at: "2026-08-16T10:00:00+00:00" },
+      { id: "pn", miembro_id: NUEVO, plataforma: "apple", serial_number: "serial-nuevo", auth_token: "token-nuevo", activo: true, created_at: "2026-09-30T10:00:00+00:00" },
+    ];
+    tablas.registros_dispositivo = [
+      { device_library_id: "iphone-de-ana", push_token: "push-de-ana", pass_type_id: "pass.lat.bookea", serial_number: "serial-ana", created_at: "2026-08-02T10:01:00+00:00" },
+    ];
+    for (const cuerpo of [{ ...vinculo, orden: "saldo" }, { ...vinculo }]) {
+      const r = await pedir("clientes", cuerpo);
+      expect(r.status).toBe(200);
+      const pases = Object.fromEntries((r.cuerpo.clientes as Fila[]).map((c) => [c.miembro_id, c.pase]));
+      expect(pases).toEqual({
+        [ANA]: { apple: "instalado", google: null },
+        [BETO]: { apple: null, google: "pedido" },
+        [NUEVO]: { apple: "no_instalado", google: null },
+      });
+      expect(JSON.stringify(r.cuerpo)).not.toMatch(/serial-|token-|push-|iphone/);
+    }
+    expect(vi.mocked(paseGoogleGuardado)).not.toHaveBeenCalled();
+    expect(escrituras).toBe(0);
+  });
+
+  it("si no se pueden leer los pases: la lista sale igual, con pase null", async () => {
+    fallan = ["pases_wallet"];
+    const r = await pedir("clientes", { ...vinculo, orden: "saldo" });
+    expect(r.status).toBe(200);
+    expect((r.cuerpo.clientes as Fila[]).map((c) => [c.miembro_id, c.pase])).toEqual([
+      [BETO, null],
+      [ANA, null],
+      [NUEVO, null],
+    ]);
+  });
+
   it("lo que no se entiende: 400 sin tocar la base", async () => {
     expect(await pedir("clientes", { ...vinculo, orden: "dinero" })).toMatchObject({ status: 400, cuerpo: { codigo: "datos" } });
     expect(await pedir("clientes", { ...vinculo, orden: "saldo", antes: "2026-09-01T10:00:00Z" })).toMatchObject({ status: 400 });

@@ -14,10 +14,14 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/wallet/google", () => ({ paseGoogleGuardado: vi.fn(async () => null) }));
 
 import {
+  armarPasesDeLaLista,
   armarPasesDelCliente,
   elegirPasesPorPlataforma,
   filaDePase,
+  filaDePaseDeMiembro,
+  pasesDeLaLista,
   pasesDelCliente,
+  SIN_PASE,
   type FilaDePase,
 } from "./foorkie-pases";
 
@@ -160,7 +164,7 @@ function base(tablas: Record<string, Record<string, unknown>[]>, fallan: string[
         const filtros: unknown[][] = [];
         pedidos.push({ tabla, filtros });
         const q: Record<string, unknown> = {};
-        for (const m of ["select", "eq", "limit"]) {
+        for (const m of ["select", "eq", "in", "limit"]) {
           q[m] = (...args: unknown[]) => {
             filtros.push([m, ...args]);
             return q;
@@ -173,6 +177,7 @@ function base(tablas: Record<string, Record<string, unknown>[]>, fallan: string[
               let filas = tablas[tabla] ?? [];
               for (const [m, col, val] of filtros as [string, string, unknown][]) {
                 if (m === "eq") filas = filas.filter((f) => f[col] === val);
+                if (m === "in") filas = filas.filter((f) => (val as unknown[]).includes(f[col]));
               }
               return { data: filas, error: null };
             })
@@ -240,5 +245,71 @@ describe("pasesDelCliente: el lector", () => {
       },
     } as never;
     expect(await pasesDelCliente(db, MIEMBRO, async () => true)).toBeNull();
+  });
+});
+
+// ── En la lista de clientes (2 nov 2026) ────────────────────────────
+
+const OTRO = "44444444-4444-4444-8444-444444444444";
+const SIN_NADA = "55555555-5555-4555-8555-555555555555";
+
+describe("armarPasesDeLaLista: quién tiene la tarjeta en el teléfono, sin preguntarle a Google", () => {
+  it("Apple instalado o no según los teléfonos; Google «pedido» si se emitió; sin filas, SIN_PASE", () => {
+    const filas = [
+      { ...pase({ plataforma: "apple", serial: "s-ana" }), miembro_id: MIEMBRO },
+      { ...pase({ plataforma: "google" }), miembro_id: MIEMBRO },
+      { ...pase({ plataforma: "apple", serial: "s-otro" }), miembro_id: OTRO },
+    ];
+    const r = armarPasesDeLaLista({ miembros: [MIEMBRO, OTRO, SIN_NADA], filas, conTelefono: new Set(["s-ana"]) });
+    expect(Object.fromEntries(r)).toEqual({
+      [MIEMBRO]: { apple: "instalado", google: "pedido" },
+      [OTRO]: { apple: "no_instalado", google: null },
+      [SIN_NADA]: SIN_PASE,
+    });
+  });
+
+  it("cuenta la fila elegida: un teléfono del pase heredado no hace instalado al activo", () => {
+    const filas = [
+      { ...pase({ plataforma: "apple", serial: "activo", created_at: "2026-09-01T10:00:00+00:00" }), miembro_id: MIEMBRO },
+      { ...pase({ plataforma: "apple", serial: "heredado", activo: false, created_at: "2026-09-20T10:00:00+00:00" }), miembro_id: MIEMBRO },
+    ];
+    expect(armarPasesDeLaLista({ miembros: [MIEMBRO], filas, conTelefono: new Set(["heredado"]) }).get(MIEMBRO)).toEqual({ apple: "no_instalado", google: null });
+  });
+
+  it("filaDePaseDeMiembro: sin miembro, no sirve", () => {
+    const cruda = { id: "pa", plataforma: "apple", serial_number: "s", created_at: "2026-09-01T10:00:00+00:00" };
+    expect(filaDePaseDeMiembro(cruda)).toBeNull();
+    expect(filaDePaseDeMiembro({ ...cruda, miembro_id: MIEMBRO })).toMatchObject({ miembro_id: MIEMBRO, serial: "s" });
+  });
+});
+
+describe("pasesDeLaLista: el lector de una página", () => {
+  it("lee los pases de los miembros y los teléfonos de los seriales de Apple, sin preguntarle a Google", async () => {
+    const { db, pedidos } = base({
+      pases_wallet: [filaApple, filaGoogle, { ...filaApple, id: "otro", miembro_id: OTRO, serial_number: "s-otro" }, { ...filaApple, id: "ajeno", miembro_id: "fuera", serial_number: "s-ajeno" }],
+      registros_dispositivo: [{ serial_number: "s-apple", created_at: "2026-09-01T11:00:00+00:00", push_token: "push", device_library_id: "dev" }],
+    });
+    const r = await pasesDeLaLista(db, [MIEMBRO, OTRO, SIN_NADA]);
+    expect(r && Object.fromEntries(r)).toEqual({
+      [MIEMBRO]: { apple: "instalado", google: "pedido" },
+      [OTRO]: { apple: "no_instalado", google: null },
+      [SIN_NADA]: SIN_PASE,
+    });
+    expect(pedidos.find((p) => p.tabla === "pases_wallet")?.filtros).toContainEqual(["in", "miembro_id", [MIEMBRO, OTRO, SIN_NADA]]);
+    expect(pedidos.find((p) => p.tabla === "registros_dispositivo")?.filtros).toContainEqual(["in", "serial_number", ["s-apple", "s-otro"]]);
+  });
+
+  it("sin miembros no lee nada; sin pases de Apple no lee los teléfonos", async () => {
+    const vacio = base({});
+    expect(await pasesDeLaLista(vacio.db, [])).toEqual(new Map());
+    expect(vacio.pedidos).toEqual([]);
+    const soloGoogle = base({ pases_wallet: [filaGoogle] });
+    expect((await pasesDeLaLista(soloGoogle.db, [MIEMBRO]))?.get(MIEMBRO)).toEqual({ apple: null, google: "pedido" });
+    expect(soloGoogle.pedidos.map((p) => p.tabla)).toEqual(["pases_wallet"]);
+  });
+
+  it("si falla pases_wallet o registros_dispositivo: null, sin lanzar", async () => {
+    expect(await pasesDeLaLista(base({ pases_wallet: [filaApple] }, ["pases_wallet"]).db, [MIEMBRO])).toBeNull();
+    expect(await pasesDeLaLista(base({ pases_wallet: [filaApple] }, ["registros_dispositivo"]).db, [MIEMBRO])).toBeNull();
   });
 });
