@@ -13,7 +13,8 @@ export const maxDuration = 60;
 /**
  * POST /api/plataforma/foorkie/clientes/contacto — el contacto COMPLETO
  * (nombre, correo y teléfono) de los clientes de la tarjeta de un local
- * de Foorkie que aceptaron que el negocio los contacte. Ver
+ * de Foorkie: el correo de todos, y el nombre y el teléfono de los que
+ * aceptaron que el negocio los contacte. Ver
  * `src/lib/plataforma/foorkie-contacto.ts`. Solo lee.
  *
  *   { rancho_id, programa_id, miembro_ids: uuid[] (1..200) }
@@ -27,11 +28,10 @@ export const maxDuration = 60;
  *       sale, igual que si no existiera).
  *       `acepta` dice por qué canal aceptó que el negocio le escriba
  *       (la última fila de `consentimientos_persona`, como `persona_acepta`).
- *       El `correo` sale SOLO si aceptó el canal de correo; el
+ *       El `correo` sale SIEMPRE (desde el 1 nov 2026, para control del
+ *       negocio; `acepta.correo` dice si se le puede escribir); el
  *       `telefono` (solo dígitos), SOLO si aceptó el de WhatsApp; el
- *       `nombre` completo, si aceptó alguno. Lo demás va en `null`: de
- *       quien revocó, de quien nunca aceptó y de las membresías sin
- *       persona no sale un solo dato.
+ *       `nombre` completo, si aceptó alguno. Lo demás va en `null`.
  *   400 datos · 401 firma · 403 no_vinculado | no_es_de_foorkie
  *   404 sin_programa · 500 error_base · 503 no_configurado
  *

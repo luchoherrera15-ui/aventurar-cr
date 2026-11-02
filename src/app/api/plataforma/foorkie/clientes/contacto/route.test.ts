@@ -208,8 +208,8 @@ beforeEach(() => {
 const contactos = (r: { cuerpo: Record<string, unknown> }) => r.cuerpo.contactos as Fila[];
 const por = (r: { cuerpo: Record<string, unknown> }, id: string) => contactos(r).find((c) => c.miembro_id === id);
 
-describe("clientes/contacto: el contacto completo, solo de quien aceptó", () => {
-  it("entrega nombre, correo y teléfono de quien aceptó, y nada de los demás", async () => {
+describe("clientes/contacto: el correo de todos; el nombre y el teléfono, solo de quien aceptó", () => {
+  it("entrega nombre, correo y teléfono de quien aceptó, y de los demás solo el correo", async () => {
     const r = await pedir({ ...vinculo, miembro_ids: [ANA, BETO, CARLA, DANI, ELI, FRAN, GINA, HUGO] });
     expect(r.status).toBe(200);
     expect(contactos(r).map((c) => c.miembro_id)).toEqual([ANA, BETO, CARLA, DANI, ELI, FRAN, GINA, HUGO]);
@@ -220,12 +220,14 @@ describe("clientes/contacto: el contacto completo, solo de quien aceptó", () =>
     // Aceptó por la cuenta del negocio, no por el rancho.
     expect(por(r, HUGO)).toMatchObject({ nombre: "Hugo Paz", correo: "hugo@correo.cr", telefono: "88889999", acepta: { correo: true, whatsapp: true } });
 
-    // Revocó, nunca contestó, se bajó de la plataforma, no tiene persona, aceptó en otro negocio: nada.
+    // Revocó, nunca contestó, se bajó de la plataforma, no tiene persona, aceptó en otro negocio: solo el correo
+    // (para control del negocio, desde el 1 nov 2026), con acepta en no.
+    const correos: Record<string, string> = { [BETO]: "beto@correo.cr", [CARLA]: "carla@correo.cr", [ELI]: "eli@correo.cr", [FRAN]: "fran@correo.cr", [GINA]: "gina@correo.cr" };
     for (const id of [BETO, CARLA, ELI, FRAN, GINA]) {
-      expect(por(r, id)).toEqual({ miembro_id: id, nombre: null, correo: null, telefono: null, acepta: { correo: false, whatsapp: false } });
+      expect(por(r, id)).toEqual({ miembro_id: id, nombre: null, correo: correos[id], telefono: null, acepta: { correo: false, whatsapp: false } });
     }
     const texto = JSON.stringify(r.cuerpo);
-    expect(texto).not.toMatch(/beto@|carla@|eli@|fran@|gina@|8888[1245]|88886666|Beto|Carla|Eli |Fran |Gina/);
+    expect(texto).not.toMatch(/8888[1245]|88886666|Beto|Carla|Eli |Fran |Gina/);
     expect(escrituras).toBe(0);
   });
 
@@ -296,7 +298,8 @@ describe("clientes/contacto: el contacto completo, solo de quien aceptó", () =>
     }
     const r = await pedir({ ...vinculo, miembro_ids: muchos });
     expect(contactos(r)).toHaveLength(150);
-    expect(contactos(r).filter((c) => c.correo !== null)).toHaveLength(75);
-    expect(contactos(r).every((c, i) => (c.correo !== null) === (i % 2 === 0))).toBe(true);
+    expect(contactos(r).every((c) => c.correo !== null)).toBe(true);
+    expect(contactos(r).filter((c) => c.telefono !== null)).toHaveLength(75);
+    expect(contactos(r).every((c, i) => (c.acepta as { correo: boolean }).correo === (i % 2 === 0))).toBe(true);
   });
 });

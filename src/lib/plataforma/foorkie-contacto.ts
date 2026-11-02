@@ -57,8 +57,16 @@ type Db = SupabaseClient;
  * aceptó, el dato. El correo sale si aceptó el canal 'correo'; el
  * teléfono, si aceptó 'whatsapp'; el nombre completo, si aceptó alguno. El
  * resto va en null: Foorkie sigue mostrando lo enmascarado que ya tenía.
- * Nunca sale nada de quien revocó, de quien no tiene fila de consentimiento
- * o de un miembro de otra tarjeta (se ignora, como si no existiera).
+ * Nunca sale nada de un miembro de otra tarjeta (se ignora, como si no
+ * existiera).
+ *
+ * ACTUALIZADO 1 nov 2026 (el dueño, mirando Lealtad → Clientes de Donde
+ * George: «ocupamos sí o sí ver los correos de la gente aunque hayan
+ * marcado que no quieren recibir notificaciones… por un tema de
+ * control»): el CORREO sale siempre, haya aceptado o no; `acepta.correo`
+ * sigue diciendo si se le puede escribir, y quien manda correos (las
+ * campañas de Foorkie, los jobs) sigue pasando por eso. El teléfono y el
+ * nombre completo siguen con la regla de arriba.
  *
  * ── SOLO TARJETAS DE FOORKIE, SOLO LECTURA ──────────────────────────
  * La puerta es la del panel (firma, vínculo con un local de Foorkie) más
@@ -185,7 +193,7 @@ export type ContactoDelCliente = {
   miembro_id: string;
   /** El nombre completo, solo si aceptó algún canal. */
   nombre: string | null;
-  /** El correo completo, solo si aceptó el canal de correo. */
+  /** El correo completo, haya aceptado o no (desde el 1 nov 2026; `acepta.correo` dice si se le puede escribir). */
   correo: string | null;
   /** El teléfono (solo dígitos), solo si aceptó el canal de WhatsApp. */
   telefono: string | null;
@@ -230,7 +238,7 @@ export function armarContacto(
   return {
     miembro_id: miembroId,
     nombre: acepta.correo || acepta.whatsapp ? nombreCompleto(identidad?.nombre) : null,
-    correo: acepta.correo ? correoLimpio(identidad?.correo) : null,
+    correo: correoLimpio(identidad?.correo),
     telefono: acepta.whatsapp ? telefonoEnDigitos(identidad?.telefono) : null,
     acepta: { correo: acepta.correo, whatsapp: acepta.whatsapp },
   };

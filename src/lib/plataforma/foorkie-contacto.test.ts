@@ -120,7 +120,7 @@ describe("aceptaContacto: la misma cuenta que persona_acepta", () => {
   });
 });
 
-describe("armarContacto: solo sale el dato del canal que aceptó", () => {
+describe("armarContacto: el correo siempre; el teléfono y el nombre, solo del canal que aceptó", () => {
   const identidad = { nombre: "Ana María Solís", correo: "Ana.Solis@Gmail.com", telefono: "+506 8888-7777" };
 
   it("aceptó los dos canales: nombre, correo y teléfono completos", () => {
@@ -137,14 +137,14 @@ describe("armarContacto: solo sale el dato del canal que aceptó", () => {
     expect(armarContacto("m1", identidad, { correo: true, whatsapp: false })).toMatchObject({ nombre: "Ana María Solís", correo: "ana.solis@gmail.com", telefono: null });
   });
 
-  it("aceptó solo el WhatsApp: el correo no sale", () => {
-    expect(armarContacto("m1", identidad, { correo: false, whatsapp: true })).toMatchObject({ correo: null, telefono: "50688887777" });
+  it("aceptó solo el WhatsApp: el correo sale igual (acepta.correo dice que no se le escribe)", () => {
+    expect(armarContacto("m1", identidad, { correo: false, whatsapp: true })).toMatchObject({ correo: "ana.solis@gmail.com", telefono: "50688887777", acepta: { correo: false, whatsapp: true } });
   });
 
-  it("no aceptó nada: ni nombre ni contacto, aunque los tengamos", () => {
+  it("no aceptó nada: sale solo el correo (para control del negocio), ni nombre ni teléfono", () => {
     const c = armarContacto("m1", identidad, { correo: false, whatsapp: false });
-    expect(c).toEqual({ miembro_id: "m1", nombre: null, correo: null, telefono: null, acepta: { correo: false, whatsapp: false } });
-    expect(JSON.stringify(c)).not.toMatch(/ana|solis|8888/i);
+    expect(c).toEqual({ miembro_id: "m1", nombre: null, correo: "ana.solis@gmail.com", telefono: null, acepta: { correo: false, whatsapp: false } });
+    expect(JSON.stringify(c)).not.toMatch(/María|Solís|8888/);
   });
 
   it("aceptó pero no dejó el dato: acepta sí, dato null", () => {
