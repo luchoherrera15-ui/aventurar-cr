@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { verificarAccesoLealtad } from "@/lib/auth";
+import { bloqueoPorMembresia } from "@/lib/lealtad/membresia-vencida";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { tipoDe } from "@/lib/lealtad/tipos-tarjeta";
 import { registraCompraElTipo } from "@/lib/lealtad/mostrador";
@@ -117,6 +118,23 @@ export default async function ScanDirectoPage({
           titulo="Tu negocio está en revisión"
           texto="Bookea todavía no lo aprueba — mirá el panel completo para más detalles."
           enlace={`/lealtad/panel/${ranchoId}`}
+        />
+      </Pantalla>
+    );
+  }
+
+  // La misma puerta del panel (ver `lib/lealtad/membresia-vencida.ts`):
+  // este link no puede ser el atajo alrededor del aviso. Va antes que el
+  // complemento porque, cuando vence un pago por SINPE, el complemento
+  // también vence y su mensaje taparía la razón real.
+  if (!acceso.esAdmin && (await bloqueoPorMembresia(admin, ranchoId))) {
+    return (
+      <Pantalla nombreNegocio={nombreNegocio}>
+        <Mensaje
+          titulo="¡MEMBRESÍA VENCIDA!"
+          texto="No se pueden dar sellos ni canjear premios hasta renovarla desde el panel."
+          enlace={`/lealtad/panel/${ranchoId}`}
+          textoEnlace="Ir al panel →"
         />
       </Pantalla>
     );

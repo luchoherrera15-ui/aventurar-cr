@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { PERIODOS_PAGADOS } from "@/lib/lealtad/regalias";
 import { atenderSolicitudLealtad } from "./plan-actions";
 
 /**
@@ -74,6 +75,8 @@ function Fila({
   // El id del negocio tras aprobar: en un ALTA no existe hasta que la
   // acción lo crea y lo devuelve.
   const [aprobadaCon, setAprobadaCon] = useState<string | null>(null);
+  // Lo decide quien ve el comprobante: la solicitud no guarda el monto.
+  const [mesesPagados, setMesesPagados] = useState<number>(PERIODOS_PAGADOS[0].meses);
 
   function atender(aprobar: boolean) {
     if (
@@ -86,7 +89,7 @@ function Fila({
     )
       return;
     iniciar(async () => {
-      const res = await atenderSolicitudLealtad({ solicitudId: s.id, aprobar });
+      const res = await atenderSolicitudLealtad({ solicitudId: s.id, aprobar, mesesPagados });
       if (res.error) setError(res.error);
       else if (aprobar) setAprobadaCon(res.ranchoId ?? s.ranchoId ?? null);
       else alResolver();
@@ -147,6 +150,23 @@ function Fila({
           {s.plan}
         </span>
         <span className="text-[11.5px] text-aventurea-ink-soft">{s.fecha}</span>
+        {s.metodoPago && (
+          <label className="flex items-center gap-1.5 text-[12px] font-bold text-aventurea-ink">
+            Este pago cubre
+            <select
+              value={mesesPagados}
+              onChange={(e) => setMesesPagados(Number(e.target.value))}
+              disabled={ocupado}
+              className="rounded-lg border border-aventurea-line bg-white px-2 py-1 text-[12px] text-aventurea-ink"
+            >
+              {PERIODOS_PAGADOS.map((p) => (
+                <option key={p.meses} value={p.meses}>
+                  {p.etiqueta}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button
           type="button"
           onClick={() => atender(true)}

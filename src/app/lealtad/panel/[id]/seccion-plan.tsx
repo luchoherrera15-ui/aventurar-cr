@@ -55,6 +55,7 @@ export default function SeccionPlan({
   miembros,
   equipo,
   prueba,
+  pagadoHasta,
 }: {
   ranchoId: string;
   plan: string | null;
@@ -68,6 +69,11 @@ export default function SeccionPlan({
    * ser una sorpresa. `esPrueba: false` = no hay nada que contar.
    */
   prueba: EstadoPrueba;
+  /**
+   * Hasta cuándo cubre lo que pagó por SINPE. null = no vence por fecha.
+   * Se dice acá para que el aviso de membresía vencida no lo sorprenda.
+   */
+  pagadoHasta: string | null;
 }) {
   const actual = definicionDe(plan);
   const limite = estadoDelLimite(plan, "clientesActivos", miembros);
@@ -105,6 +111,24 @@ export default function SeccionPlan({
             <b>{fechaLargaCR(fechaISOCR(new Date(prueba.venceEn)))}</b>. Ese día el programa
             queda en pausa hasta que elijas un paquete —{" "}
             <b>no se borra nada</b>: tus clientes, sus sellos y sus pases quedan tal cual.
+          </p>
+        </div>
+      )}
+
+      {pagadoHasta && (
+        <div
+          className={`${RADIO_CARD} border px-5 py-4`}
+          style={{ background: "rgba(255,255,255,.06)", borderColor: "rgba(255,255,255,.14)" }}
+        >
+          <p className="text-[14.5px] font-extrabold text-aventurea-ink">
+            Tu paquete está pagado hasta el{" "}
+            {fechaLargaCR(fechaISOCR(new Date(pagadoHasta))).toLowerCase()}
+          </p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-aventurea-ink-soft">
+            Ese día se cierra el panel hasta renovar.{" "}
+            <Link href={`/lealtad/planes?negocio=${ranchoId}`} className="font-bold underline">
+              Renovar ahora
+            </Link>
           </p>
         </div>
       )}

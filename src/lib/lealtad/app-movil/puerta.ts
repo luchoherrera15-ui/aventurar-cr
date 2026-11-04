@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { accesoLealtadDeLaPeticion } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { LIMITES } from "@/lib/lealtad/api/limites";
+import { bloqueoPorMembresia } from "@/lib/lealtad/membresia-vencida";
 import type { PermisoLealtad, PermisosLealtad } from "@/lib/lealtad/permisos";
 
 /**
@@ -194,6 +195,19 @@ export async function abrirPuertaApp(
     return {
       ok: false,
       respuesta: jsonApp({ ok: false, motivo: "Tu negocio todavía está en revisión." }, 403),
+    };
+  }
+
+  // 5.b LA REGALÍA VENCIDA. El mismo portón del panel y del link de la
+  //     caja, y con el MISMO texto del complemento apagado: en la app no
+  //     se habla de pagos (ver la cabecera de `sin-cobros.test.ts`).
+  if (!acceso.esAdmin && (await bloqueoPorMembresia(db, ranchoId))) {
+    return {
+      ok: false,
+      respuesta: jsonApp(
+        { ok: false, motivo: "Este negocio no tiene el programa de lealtad activo." },
+        403,
+      ),
     };
   }
 

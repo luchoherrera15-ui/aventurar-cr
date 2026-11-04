@@ -301,7 +301,7 @@ export async function armarPanelLealtad({
     admin && puedeDisenar
       ? admin
           .from("addons_negocio")
-          .select("vence_en")
+          .select("vence_en, es_cortesia")
           .eq("rancho_id", id)
           .eq("addon", "lealtad")
           .maybeSingle()
@@ -1436,6 +1436,12 @@ export async function armarPanelLealtad({
                 aviso={avisoPago}
               />
               <SeccionPlan
+                pagadoHasta={
+                  // Ni la Prueba ni lo regalado están «pagados».
+                  !prueba.esPrueba && filaAddonPlan?.vence_en && !filaAddonPlan.es_cortesia
+                    ? (filaAddonPlan.vence_en as string)
+                    : null
+                }
                 ranchoId={id}
                 plan={plan}
                 miembros={miembros}

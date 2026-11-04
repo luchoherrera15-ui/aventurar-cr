@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { avisarAAdministradores } from "@/lib/correo/administradores";
 import { esUrlDeNuestroStorage } from "@/lib/storage-publico";
 import { puedeCrearNegocioDeLealtad } from "@/lib/lealtad/tenencia";
+import { bloqueoPorMembresia } from "@/lib/lealtad/membresia-vencida";
 
 /**
  * Dejar la solicitud de un paquete de lealtad (0126).
@@ -110,12 +111,16 @@ export async function solicitarPlanLealtad(datos: {
     // Si YA tiene programa (nació aislado, o es un caso viejo de antes
     // de este cambio), esto es exactamente el upgrade que este archivo
     // sí tiene que dejar pasar.
+    //
+    // `limit(1)` y no `maybeSingle`: con dos tarjetas (0134) devuelve
+    // error y null, y el negocio que más tiene era el que no podía
+    // renovar.
     const { data: yaTienePrograma } = await supabase
       .from("programa_lealtad")
       .select("id")
       .eq("rancho_id", ranchoId)
-      .maybeSingle();
-    if (!yaTienePrograma) {
+      .limit(1);
+    if (!yaTienePrograma?.length) {
       return {
         ok: false,
         motivo:
@@ -143,6 +148,17 @@ export async function solicitarPlanLealtad(datos: {
         ok: false,
         motivo: "Tu negocio está en revisión por Bookea — te avisamos al aprobarlo y ahí podés solicitar el plan.",
       };
+    }
+  }
+
+  // Una membresía vencida se renueva pagando. La Prueba no es salida:
+  // aprobarla no deja venta en la bitácora, así que el negocio seguiría
+  // bloqueado y además con un paquete menor. La pantalla ya no la ofrece;
+  // esto es para la petición armada a mano.
+  if (!esAlta && gratis) {
+    const db = createAdminClient();
+    if (db && (await bloqueoPorMembresia(db, ranchoId))) {
+      return { ok: false, motivo: "Esta membresía se renueva con un paquete de pago." };
     }
   }
 

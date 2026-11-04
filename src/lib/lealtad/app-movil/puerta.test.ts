@@ -30,6 +30,8 @@ type Escenario = {
   conteo?: number | null;
   /** true = `createAdminClient()` devuelve null. */
   sinLlaveDeServicio?: boolean;
+  /** La regalía del paquete ya venció y nadie ha pagado. */
+  regaliaVencida?: boolean;
 };
 
 let escenario: Escenario = {};
@@ -74,8 +76,25 @@ vi.mock("@/lib/supabase/admin", () => ({
         const c = {
           select: () => c,
           eq: () => c,
+          or: () => c,
+          order: () => c,
+          limit: () => c,
           async maybeSingle() {
+            if (tabla !== "ranchos") return { data: null, error: null };
             return { data: escenario.rancho ?? { id: "r-1" }, error: null };
+          },
+          then(ok: (r: { data: unknown; error: null }) => unknown) {
+            const data =
+              tabla === "historial_plan_lealtad" && escenario.regaliaVencida
+                ? [
+                    {
+                      concepto: "cortesia",
+                      plan_despues: "impulso",
+                      cortesia_hasta: "2026-01-01T00:00:00Z",
+                    },
+                  ]
+                : [];
+            return Promise.resolve({ data, error: null }).then(ok);
           },
         };
         return c;
@@ -143,6 +162,33 @@ describe("3 · el acceso al negocio", () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.respuesta.status).toBe(403);
     expect(llamadas.some((l) => l.startsWith("from:"))).toBe(false);
+  });
+});
+
+describe("5.b · la regalía vencida", () => {
+  it("cierra la app igual que el panel, antes del rate limit", async () => {
+    escenario = { regaliaVencida: true };
+    const r = await abrir("acreditar");
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.respuesta.status).toBe(403);
+    expect(llamadas).not.toContain("rpc:api_rate_limit_tomar");
+  });
+
+  it("y sin hablar de plata: la regla 3.1.1 de Apple", async () => {
+    escenario = { regaliaVencida: true };
+    const r = await abrir("acreditar");
+    if (r.ok) throw new Error("tenía que rechazar");
+    const { motivo } = (await r.respuesta.json()) as { motivo: string };
+    expect(motivo).not.toMatch(/membres|renov|pag|plan|paquete|vencid/i);
+  });
+
+  it("un admin de Bookea entra igual: tiene que poder ayudarle al negocio", async () => {
+    escenario = {
+      regaliaVencida: true,
+      acceso: { ok: true, esAdmin: true, permisos: PERMISOS_TODO },
+    };
+    const r = await abrir("acreditar");
+    expect(r.ok).toBe(true);
   });
 });
 

@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { createAdminClient, FALTA_SERVICE_KEY } from "@/lib/supabase/admin";
 import { esPlan, esPlanSinCosto } from "@/lib/lealtad/planes";
-import { esConceptoPlan, motivoObligatorio, MOTIVO_MAX } from "@/lib/lealtad/regalias";
+import {
+  esConceptoPlan,
+  esPeriodoPagado,
+  motivoObligatorio,
+  MOTIVO_MAX,
+} from "@/lib/lealtad/regalias";
+import { fechaDelPagoManual } from "@/lib/lealtad/membresia-vencida";
 import { finDePrueba } from "@/lib/lealtad/prueba";
 import { crearNegocioDesdeSolicitud } from "@/lib/lealtad/alta-desde-solicitud";
 import { abrirHiloDeAyudaDesdeAlta } from "@/lib/lealtad/ayuda-hilo";
@@ -82,6 +88,7 @@ export async function asignarPlanLealtad({
   concepto,
   motivo,
   cortesiaHasta,
+  mesesPagados,
 }: {
   ranchoId: string;
   /** null = quitarle el plan. OJO: quitarlo NO lo apaga, lo deja sin topes. */
@@ -92,6 +99,8 @@ export async function asignarPlanLealtad({
   motivo?: string | null;
   /** ISO. Solo para regalías: hasta cuándo. null/ausente = indefinida. */
   cortesiaHasta?: string | null;
+  /** Solo para ventas: cuántos meses cubre lo que pagó. */
+  mesesPagados?: number;
 }): Promise<{ error?: string; aviso?: string }> {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };
@@ -144,6 +153,15 @@ export async function asignarPlanLealtad({
   const admin = createAdminClient();
   if (!admin) return { error: FALTA_SERVICE_KEY };
 
+  // Una venta sin período sería un pago que no vence nunca. Se calcula
+  // ANTES de tocar el plan: si falta, no se escribe nada.
+  const esVenta = concepto === "venta";
+  if (esVenta && !esPeriodoPagado(mesesPagados)) {
+    return { error: "Elegí cuánto tiempo cubre este pago." };
+  }
+  const pagadoHasta =
+    esVenta && mesesPagados ? await fechaDelPagoManual(admin, ranchoId, mesesPagados) : null;
+
   // El «antes», leído ANTES de escribir: es la mitad del registro.
   //
   // Y es el plan EFECTIVO, no `ranchos.plan_lealtad` a secas. Con la
@@ -161,21 +179,60 @@ export async function asignarPlanLealtad({
     data: { user },
   } = await supabase.auth.getUser();
 
+  const cubre = pagadoHasta ? `Cubre hasta ${pagadoHasta.slice(0, 10)}` : "";
   const { aviso } = await registrarMovimiento(admin, {
     ranchoId,
     cuentaId: aplicado.cuentaId,
     planAntes: antes.plan,
     planDespues: plan,
     concepto,
-    motivo: nota || null,
+    motivo: [nota, cubre].filter(Boolean).join(" — ").slice(0, MOTIVO_MAX) || null,
     cortesiaHasta: hasta,
     autorId: user?.id ?? null,
   });
 
+  const avisoFecha = await fijarFechaDelComplemento(admin, ranchoId, concepto, pagadoHasta);
+
   revalidatePath("/admin/complementos");
   // El panel de lealtad del negocio cambia con el plan.
   revalidatePath(`/lealtad/panel/${ranchoId}`);
-  return aviso ? { aviso } : {};
+  const avisos = [aviso, avisoFecha].filter(Boolean).join(" ");
+  return avisos ? { aviso: avisos } : {};
+}
+
+/**
+ * La fecha del complemento después de un movimiento del plan.
+ *
+ *   · VENTA: la que cubre el pago. `null` si paga con tarjeta, y entonces
+ *     no se toca nada.
+ *   · REGALÍA: se limpia. De ahí en adelante la fecha que manda es
+ *     `cortesia_hasta`; si quedara la del último pago, el negocio
+ *     seguiría bloqueado con la regalía recién dada.
+ *   · Lo demás no la toca: una corrección no cambia lo pagado.
+ */
+async function fijarFechaDelComplemento(
+  admin: Admin,
+  ranchoId: string,
+  concepto: string,
+  pagadoHasta: string | null,
+): Promise<string | undefined> {
+  if (concepto === "venta" && !pagadoHasta) return undefined;
+  if (concepto !== "venta" && concepto !== "cortesia") return undefined;
+
+  const { data, error } = await admin
+    .from("addons_negocio")
+    .update(
+      concepto === "venta" ? { vence_en: pagadoHasta, es_cortesia: false } : { vence_en: null },
+    )
+    .eq("rancho_id", ranchoId)
+    .eq("addon", "lealtad")
+    .select("rancho_id");
+
+  if (error) return "El plan quedó guardado, pero la fecha no: " + error.message;
+  if (concepto === "venta" && !data?.length) {
+    return "El plan quedó guardado, pero este negocio no tiene el complemento «Lealtad y pases» y la fecha no se pudo anotar.";
+  }
+  return undefined;
 }
 
 /**
@@ -233,9 +290,12 @@ export async function aprobarNegocioLealtad({
 export async function atenderSolicitudLealtad({
   solicitudId,
   aprobar,
+  mesesPagados,
 }: {
   solicitudId: string;
   aprobar: boolean;
+  /** Cuántos meses cubre lo que pagó. Solo para aprobar un paquete de pago. */
+  mesesPagados?: number;
 }): Promise<{ error?: string; ranchoId?: string }> {
   const { supabase, ok } = await requireAdmin();
   if (!ok) return { error: "No tenés permiso para esto." };
@@ -250,6 +310,12 @@ export async function atenderSolicitudLealtad({
     .maybeSingle();
   if (!solicitud) return { error: "Esa solicitud no existe." };
   if (solicitud.estado !== "pendiente") return { error: "Esa solicitud ya se atendió." };
+
+  // Antes de crear nada: un alta aprobada a medias no se deshace sola.
+  const esDePago = aprobar && !esPlanSinCosto(solicitud.plan as string | null);
+  if (esDePago && !esPeriodoPagado(mesesPagados)) {
+    return { error: "Elegí cuánto tiempo cubre este pago." };
+  }
 
   const {
     data: { user },
@@ -279,6 +345,11 @@ export async function atenderSolicitudLealtad({
     // plan en ninguna parte, en silencio.
     if (!ranchoId) return { error: "La solicitud quedó sin negocio al que asignarle el plan." };
 
+    // Se calcula antes de escribir el plan y de ponerle la fecha nueva al
+    // complemento: renovar antes de tiempo suma desde la fecha que tenía.
+    const pagadoHasta =
+      esDePago && mesesPagados ? await fechaDelPagoManual(admin, ranchoId, mesesPagados) : null;
+
     // Por la MISMA puerta que el desplegable y que el webhook de Stripe
     // (`aplicarPlanDeLealtad`): raíz primero, espejo después. Escribir
     // solo el rancho dejaba a un negocio con cuenta —el que alguna vez
@@ -305,7 +376,9 @@ export async function atenderSolicitudLealtad({
         concepto: "venta",
         // ⚠️ NO se guarda el MONTO porque no existe: `solicitudes_lealtad`
         // registra el método y el comprobante, nunca cuánto entró.
-        motivo: `Solicitud aprobada desde el panel — pago por ${metodo}`,
+        motivo:
+          `Solicitud aprobada desde el panel — pago por ${metodo}` +
+          (pagadoHasta ? ` — cubre hasta ${pagadoHasta.slice(0, 10)}` : ""),
         cortesiaHasta: null,
         autorId: user?.id ?? null,
       });
@@ -318,9 +391,12 @@ export async function atenderSolicitudLealtad({
     // Y el vencimiento sale del PAQUETE, no de un `null` fijo: aprobar
     // una solicitud de «Prueba» a mano le daba 14 días prometidos y cero
     // días de corte, o sea el mismo agujero que tenía el alta automática
-    // pero por la puerta del admin. Un paquete de pago sigue dando
-    // `null` — no vence por tiempo.
-    const corte = finDePrueba(solicitud.plan as string | null);
+    // pero por la puerta del admin.
+    //
+    // Un paquete de pago vence cuando se acaba lo que cubre el pago
+    // (`pagadoHasta`): por SINPE no hay cobro recurrente que lo corte. Si
+    // paga con tarjeta, `pagadoHasta` es null y queda como lo dejó Stripe.
+    const corte = esDePago ? pagadoHasta : finDePrueba(solicitud.plan as string | null);
     const { error: eAddon } = await admin.from("addons_negocio").upsert(
       {
         rancho_id: ranchoId,
@@ -328,8 +404,10 @@ export async function atenderSolicitudLealtad({
         activo: true,
         vence_en: corte,
         activado_en: new Date().toISOString(),
+        // Lo pagado deja de ser regalo: ninguna auditoría puede restarlo.
+        ...(esDePago ? { es_cortesia: false } : {}),
         notas: corte
-          ? `Solicitud aprobada (plan ${solicitud.plan}) — prueba hasta ${corte.slice(0, 10)}`
+          ? `Solicitud aprobada (plan ${solicitud.plan}) — ${esDePago ? "pagado" : "prueba"} hasta ${corte.slice(0, 10)}`
           : `Solicitud aprobada (plan ${solicitud.plan})`,
       },
       { onConflict: "rancho_id,addon" },

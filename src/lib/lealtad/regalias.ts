@@ -1,5 +1,6 @@
 import {
   definicionDe,
+  esPlanSinCosto,
   estadoDelLimite,
   PLANES,
   tiposDelPlan,
@@ -99,19 +100,17 @@ const UN_DIA = 24 * 60 * 60 * 1000;
 /**
  * En qué punto está una regalía con fecha.
  *
- * ⚠️ VENCIDA NO SIGNIFICA APAGADA, y la pantalla tiene que decirlo así.
+ * El plan sigue sin gate por tiempo EN LA BASE: `ranchos.plan_lealtad`
+ * y `cuentas.plan` son columnas de texto que nadie compara contra un
+ * reloj, y la única fecha que la base hace cumplir es
+ * `addons_negocio.vence_en`.
  *
- * El plan no tiene gate por tiempo: `ranchos.plan_lealtad` y
- * `cuentas.plan` son columnas de texto que nadie compara contra un
- * reloj. La única fecha que la base HACE CUMPLIR es
- * `addons_negocio.vence_en`, y esa apaga el módulo entero, no el
- * paquete.
- *
- * O sea que `cortesia_hasta` es un COMPROMISO ANOTADO: cuando se pasa,
- * el negocio sigue exactamente igual y alguien de Bookea tiene que
- * decidir. Por eso la pantalla la saca a una bandeja en vez de
- * esconderla — una regalía vencida que nadie ve es una suscripción
- * regalada para siempre.
+ * Hasta el 4 nov 2026 eso significaba que `cortesia_hasta` era un
+ * compromiso anotado: la fecha se pasaba y el negocio seguía igual. La
+ * bandeja del admin era lo único que lo mostraba, y una regalía vencida
+ * que nadie mira es una suscripción regalada para siempre. Desde esa
+ * fecha manda `membresiaVencidaDe`, acá abajo: el panel se cierra con el
+ * aviso «¡MEMBRESÍA VENCIDA!» hasta que el negocio pague.
  */
 export function estadoDeCortesia(hasta: string | null, ahora: Date = new Date()): EstadoCortesia {
   if (!hasta) return { indefinida: true, vencida: false, diasRestantes: null };
@@ -125,6 +124,149 @@ export function estadoDeCortesia(hasta: string | null, ahora: Date = new Date())
   if (faltan <= 0) return { indefinida: false, vencida: true, diasRestantes: null };
 
   return { indefinida: false, vencida: false, diasRestantes: Math.floor(faltan / UN_DIA) };
+}
+
+// ── La membresía vencida ───────────────────────────────────────────
+
+export type MembresiaVencida = {
+  /**
+   * Qué se venció. `paquete` es una regalía del paquete
+   * (`historial_plan_lealtad.cortesia_hasta`). `complemento` es la fecha
+   * de `addons_negocio.vence_en`: la de un complemento regalado, o el
+   * fin de lo que cubría un pago por SINPE o transferencia.
+   */
+  origen: "paquete" | "complemento";
+  /** Cuándo venció, tal cual está guardado. */
+  hasta: string;
+  /** El paquete que tenía. null = no se sabe. */
+  plan: string | null;
+};
+
+/**
+ * ¿La membresía de este negocio ya venció?
+ *
+ * Son dos fechas, y las dos terminan en el mismo aviso: la de la regalía
+ * y la del complemento. Un pago por SINPE no tiene cobro recurrente que
+ * se corte solo, así que lo que cubre se escribe en `vence_en` al
+ * aprobarlo (`finDelPagoManual`) y vence igual que una regalía.
+ *
+ * La Prueba de 14 días queda afuera a propósito: también usa `vence_en`,
+ * pero tiene su propia pantalla, que explica que la prueba se terminó.
+ * No es una membresía que venció.
+ *
+ * Mira el ÚLTIMO movimiento del plan y no «alguna regalía vencida»: si
+ * después de la regalía hubo una venta (SINPE aprobado, o «Ya paga —
+ * cerrar la regalía»), una corrección, una baja o una regalía nueva con
+ * otra fecha, esa es la que manda. Sin esto, un negocio que ya pagó
+ * seguiría viendo el aviso por una fila vieja.
+ *
+ * Una regalía SIN fecha nunca vence (los convenios), y una fecha
+ * ilegible tampoco: sin dato confiable no se bloquea a nadie.
+ *
+ * Lo que esta función NO sabe es si hay una suscripción de Stripe: el
+ * webhook no escribe en la bitácora, así que la regalía sigue siendo el
+ * último movimiento aunque el negocio ya esté pagando con tarjeta. Eso
+ * lo resuelve `bloqueoPorMembresia`, que es la única que hay que llamar
+ * desde una pantalla.
+ */
+export function membresiaVencidaDe(
+  d: {
+    ultimoMovimiento: {
+      concepto: string;
+      planDespues: string | null;
+      cortesiaHasta: string | null;
+    } | null;
+    complemento: { activo: boolean; venceEn: string | null; esCortesia: boolean } | null;
+    /** El paquete del negocio. Solo hace falta si el complemento venció. */
+    plan?: string | null;
+  },
+  ahora: Date = new Date(),
+): MembresiaVencida | null {
+  const mov = d.ultimoMovimiento;
+  if (mov?.concepto === "cortesia" && mov.cortesiaHasta) {
+    if (estadoDeCortesia(mov.cortesiaHasta, ahora).vencida) {
+      return { origen: "paquete", hasta: mov.cortesiaHasta, plan: mov.planDespues };
+    }
+  }
+
+  const c = d.complemento;
+  if (complementoVencio(c, ahora) && c?.venceEn) {
+    const plan = d.plan ?? null;
+    if (c.esCortesia || !esPlanSinCosto(plan)) {
+      return { origen: "complemento", hasta: c.venceEn, plan };
+    }
+  }
+
+  return null;
+}
+
+/** El complemento sigue encendido, pero su fecha ya se pasó. */
+export function complementoVencio(
+  c: { activo: boolean; venceEn: string | null } | null,
+  ahora: Date = new Date(),
+): boolean {
+  return !!c?.activo && !!c.venceEn && estadoDeCortesia(c.venceEn, ahora).vencida;
+}
+
+// ── Lo que cubre un pago por SINPE o transferencia ─────────────────
+
+/**
+ * Las opciones al registrar un pago. Las decide quien lo aprueba, porque
+ * es quien vio el comprobante: ni `solicitudes_lealtad` ni la bitácora
+ * guardan el monto, así que el sistema no puede deducir si esa plata era
+ * un mes o un año.
+ */
+export const PERIODOS_PAGADOS = [
+  { meses: 1, etiqueta: "1 mes" },
+  { meses: 3, etiqueta: "3 meses" },
+  { meses: 6, etiqueta: "6 meses" },
+  { meses: 12, etiqueta: "1 año" },
+] as const;
+
+export function esPeriodoPagado(meses: unknown): meses is number {
+  return PERIODOS_PAGADOS.some((p) => p.meses === meses);
+}
+
+/**
+ * Hasta cuándo queda pagado un negocio con este pago.
+ *
+ * Suma desde la fecha que ya tenía si todavía no llegó: quien renueva
+ * unos días antes no pierde esos días. Si ya venció, o no tenía fecha,
+ * cuenta desde hoy.
+ *
+ * Son meses de calendario y no 30 días, y sin desbordarse: del 31 de
+ * enero más un mes es el 28 de febrero, no el 3 de marzo.
+ */
+export function finDelPagoManual(
+  meses: number,
+  venceActual: string | null,
+  ahora: Date = new Date(),
+): string {
+  const actual = venceActual ? new Date(venceActual).getTime() : Number.NaN;
+  const base = new Date(Math.max(ahora.getTime(), Number.isNaN(actual) ? 0 : actual));
+
+  const dia = base.getUTCDate();
+  const fin = new Date(base);
+  fin.setUTCDate(1);
+  fin.setUTCMonth(fin.getUTCMonth() + meses);
+  const ultimoDelMes = new Date(
+    Date.UTC(fin.getUTCFullYear(), fin.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  fin.setUTCDate(Math.min(dia, ultimoDelMes));
+  return fin.toISOString();
+}
+
+/**
+ * ¿Esta suscripción de Stripe suelta el bloqueo?
+ *
+ * `morosa` también, a propósito: es una tarjeta que falló y que Stripe
+ * está reintentando. Ese caso ya tiene su propio camino (avisos por
+ * correo y la pausa al terminar el mes); cerrarle el panel acá sería
+ * cortarle el servicio antes de tiempo a alguien que sí venía pagando.
+ * Solo `cancelada` deja de contar.
+ */
+export function suscripcionSueltaElBloqueo(estado: string): boolean {
+  return estado === "activa" || estado === "en_prueba" || estado === "morosa";
 }
 
 // ── Qué pasa si le cambio el paquete ───────────────────────────────

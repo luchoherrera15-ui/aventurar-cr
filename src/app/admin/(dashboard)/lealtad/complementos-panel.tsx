@@ -21,6 +21,7 @@ import {
   estadoDeCortesia,
   motivoObligatorio,
   MOTIVO_MAX,
+  PERIODOS_PAGADOS,
   resumenDePlan,
   type ConceptoPlan,
 } from "@/lib/lealtad/regalias";
@@ -1244,6 +1245,7 @@ function EditorDePlan({
   const [concepto, setConcepto] = useState<ConceptoPlan>("venta");
   const [motivo, setMotivo] = useState("");
   const [hasta, setHasta] = useState("");
+  const [mesesPagados, setMesesPagados] = useState<number>(PERIODOS_PAGADOS[0].meses);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [pendiente, iniciar] = useTransition();
@@ -1268,6 +1270,7 @@ function EditorDePlan({
     setConcepto(conceptoInicial);
     setMotivo("");
     setHasta("");
+    setMesesPagados(PERIODOS_PAGADOS[0].meses);
     setError(null);
     setAviso(null);
   }
@@ -1282,6 +1285,7 @@ function EditorDePlan({
         concepto,
         motivo,
         cortesiaHasta: concepto === "cortesia" && hasta ? new Date(hasta).toISOString() : null,
+        mesesPagados: concepto === "venta" ? mesesPagados : undefined,
       });
       if (res.error) setError(res.error);
       else {
@@ -1380,8 +1384,9 @@ function EditorDePlan({
             .
           </p>
           <p className="mt-1 text-[12px] leading-snug text-aventurea-ink-soft">
-            No entró plata por él. Si ya empezó a pagar, cerrala como venta; si se terminó,
-            cambiale el paquete abajo con concepto «Baja».
+            {regalia.estado.vencida
+              ? "No entró plata por él. El negocio ya ve «¡MEMBRESÍA VENCIDA!» y no puede usar su panel ni dar sellos hasta pagar. Si ya pagó, cerrala como venta; si le querés dar más tiempo, regalale otra vez con una fecha nueva."
+              : "No entró plata por él. Si ya empezó a pagar, cerrala como venta; si se terminó, cambiale el paquete abajo con concepto «Baja». Cuando se pase la fecha, el negocio queda bloqueado con el aviso «¡MEMBRESÍA VENCIDA!» hasta que pague."}
           </p>
           <button
             type="button"
@@ -1473,9 +1478,31 @@ function EditorDePlan({
                 className="mt-1 rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] text-aventurea-ink"
               />
               <p className="mt-1 text-[11.5px] leading-snug text-aventurea-ink-soft">
-                Ojo: esta fecha <strong>no apaga nada sola</strong> — el paquete no vence en la
-                base. Cuando llegue, el negocio va a aparecer en la bandeja de arriba para que
-                alguien decida.
+                Cuando llegue esa fecha el negocio <strong>queda bloqueado</strong> con el aviso
+                «¡MEMBRESÍA VENCIDA!» hasta que pague.
+              </p>
+            </div>
+          )}
+
+          {concepto === "venta" && negocio.stripe !== "activa" && (
+            <div className="mt-2.5">
+              <label className="block text-[12px] font-bold text-aventurea-ink">
+                ¿Cuánto tiempo cubre este pago?
+              </label>
+              <select
+                value={mesesPagados}
+                onChange={(e) => setMesesPagados(Number(e.target.value))}
+                className="mt-1 rounded-lg border border-aventurea-line bg-white px-2.5 py-1.5 text-[12.5px] text-aventurea-ink"
+              >
+                {PERIODOS_PAGADOS.map((p) => (
+                  <option key={p.meses} value={p.meses}>
+                    {p.etiqueta}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11.5px] leading-snug text-aventurea-ink-soft">
+                Si renueva antes de tiempo, se suma a la fecha que ya tenía. Al terminarse, el
+                negocio queda bloqueado con el aviso «¡MEMBRESÍA VENCIDA!» hasta volver a pagar.
               </p>
             </div>
           )}

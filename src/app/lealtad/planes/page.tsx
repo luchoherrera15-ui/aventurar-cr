@@ -4,12 +4,14 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  esPlanSinCosto,
   etiquetasDeCapacidades,
   PLANES,
   PLANES_OFRECIDOS,
   PLAN_DESTACADO,
   precioDe,
 } from "@/lib/lealtad/planes";
+import { bloqueoPorMembresia } from "@/lib/lealtad/membresia-vencida";
 import { datosDePagoBookea } from "@/lib/pagos-bookea";
 import { planesConPrecio } from "@/lib/pagos/precios";
 import PlanesCliente, { type TarjetaPlan } from "./planes-cliente";
@@ -146,7 +148,20 @@ export default async function PlanesLealtadPage({
     }
   }
 
-  const planes: TarjetaPlan[] = PLANES_OFRECIDOS.map((id) => {
+  // ── Viene a renovar una membresía vencida (el botón del popup) ─────
+  // Solo se pregunta por un negocio que esta persona administra: el
+  // `?negocio=` lo puede escribir cualquiera en la URL.
+  const negocioARenovar = negocios.find((n) => n.id === negocio) ?? null;
+  const dbRenovacion = negocioARenovar ? createAdminClient() : null;
+  const renovando =
+    negocioARenovar && dbRenovacion
+      ? (await bloqueoPorMembresia(dbRenovacion, negocioARenovar.id)) !== null
+      : false;
+
+  const planes: TarjetaPlan[] = PLANES_OFRECIDOS.filter(
+    // La Prueba gratis no renueva nada: ver `solicitarPlanLealtad`.
+    (id) => !(renovando && esPlanSinCosto(id)),
+  ).map((id) => {
     const def = PLANES[id];
     return {
       id,
@@ -231,6 +246,13 @@ export default async function PlanesLealtadPage({
               )}
             </div>
           </div>
+        )}
+
+        {renovando && negocioARenovar && (
+          <p className="mt-6 rounded-2xl bg-white/10 px-4 py-3.5 text-[13.5px] font-bold leading-relaxed text-white/85">
+            La membresía de {negocioARenovar.nombre} venció. Renueva con cualquiera de estos
+            paquetes y tu panel vuelve tal como estaba.
+          </p>
         )}
 
         {/* ── De vuelta de Stripe ────────────────────────────────────

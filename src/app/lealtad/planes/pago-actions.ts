@@ -115,12 +115,14 @@ export async function iniciarPagoDelPaquete(datos: {
     // encima de sí mismo — eso mezclaba negocios reales del directorio
     // con pases. Si YA tiene programa, esto es el upgrade que sí debe
     // seguir funcionando.
+    // `limit(1)` y no `maybeSingle`: con dos tarjetas (0134) devuelve
+    // error y null, y este negocio no podría pagar.
     const { data: yaTienePrograma } = await supabase
       .from("programa_lealtad")
       .select("id")
       .eq("rancho_id", datos.ranchoId)
-      .maybeSingle();
-    if (!yaTienePrograma) {
+      .limit(1);
+    if (!yaTienePrograma?.length) {
       return {
         ok: false,
         motivo: "Ese negocio todavía no tiene programa de lealtad — lealtad nace siempre en un negocio aparte.",
