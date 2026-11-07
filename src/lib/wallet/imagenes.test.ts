@@ -164,6 +164,19 @@ async function cuantosDe(imagen: Buffer, [r, g, b]: [number, number, number]): P
 const SELLO_RGB: [number, number, number] = [217, 232, 196]; // #D9E8C4
 
 describe("dibujarBanda", () => {
+  it("una foto de verdad pesa menos de la mitad que en PNG de 24 bits (el pase de Donde George pesaba 1,76 MB)", async () => {
+    // Una foto con detalle: ruido sobre un degradado, en el tamaño de @3x. Es lo que hace pesar el pase: la
+    // banda en PNG de 24 bits era 1 MB de los 1,76 MB y la gente que escaneaba el QR se cansaba de esperar.
+    const imagen = await sharp({ create: { width: 1125, height: 369, channels: 3, background: "#f2b705", noise: { type: "gaussian", mean: 128, sigma: 40 } } })
+      .png()
+      .toBuffer();
+    const banda = await dibujarBanda({ imagen, escala: 3 });
+    const sinPaleta = await sharp(imagen).resize(1125, 369, { fit: "cover" }).png().toBuffer();
+    expect(banda.length).toBeLessThan(sinPaleta.length / 2);
+    const m = await sharp(banda).metadata();
+    expect([m.format, m.width, m.height]).toEqual(["png", 1125, 369]);
+  }, 20_000);
+
   it("respeta las medidas de Apple en cada escala", async () => {
     const imagen = await foto(800, 800, [["#3366cc", 800]]);
     for (const [escala, ancho, alto] of [[1, 375, 123], [2, 750, 246], [3, 1125, 369]] as const) {

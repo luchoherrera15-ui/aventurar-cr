@@ -1,4 +1,4 @@
-import sharp, { type OverlayOptions } from "sharp";
+import sharp, { type OverlayOptions, type PngOptions } from "sharp";
 import { join } from "node:path";
 import { ICONOS_SELLO, type IconoSello } from "@/lib/lealtad/iconos-sello";
 import { CONFIG_CLASICA, layoutDeLaTira, type ConfigTira } from "./layout-tira";
@@ -57,13 +57,29 @@ export type ColoresTarjeta = { fondo: string; sello: string };
  * tomada con el celular en vertical llega con los píxeles acostados y
  * la orientación en los metadatos — sin esto sale de lado en el pase.
  */
-async function recortarACover(imagen: Buffer, ancho: number, alto: number): Promise<Buffer> {
+async function recortarACover(imagen: Buffer, ancho: number, alto: number, png: PngOptions = {}): Promise<Buffer> {
   return sharp(imagen)
     .rotate()
     .resize(ancho, alto, { fit: "cover", position: "centre" })
-    .png()
+    .png(png)
     .toBuffer();
 }
+
+/**
+ * LA BANDA ES UNA FOTO Y EN PNG DE 24 BITS PESABA MÁS QUE TODO EL PASE.
+ *
+ * Donde George (Foorkie, 2026-11-07): `strip@3x.png` pesaba 1 MB y el
+ * pase entero 1,76 MB (el de Pura Matcha, sin foto, 122 KB). Tardaba
+ * ~5 s en llegar y, con datos móviles, la gente que escaneaba el QR
+ * tocaba «Agregar a Apple Wallet» otra vez antes de que terminara: cada
+ * toque cancelaba la descarga anterior y la tarjeta nunca llegaba al
+ * Wallet (un cliente tocó 10 veces en un minuto). Con paleta de 256
+ * colores las tres escalas de esa banda pesan 409 KB (antes 1,6 MB) y a
+ * la vista es igual. `effort: 4` y no el 7 de sharp: el 7 ahorraba 40 KB
+ * más pero sumaba 1,3 s a cada pase; el 4 suma ~0,2 s. Solo la banda
+ * sola: la tira de sellos se compone aparte y no cambia.
+ */
+const PNG_DE_FOTO: PngOptions = { palette: true, quality: 90, effort: 4, compressionLevel: 9 };
 
 /**
  * La banda sola: la foto del negocio ocupando todo el strip.
@@ -78,7 +94,7 @@ export async function dibujarBanda({
   imagen: Buffer;
   escala: 1 | 2 | 3;
 }): Promise<Buffer> {
-  return recortarACover(imagen, TIRA_ANCHO * escala, TIRA_ALTO * escala);
+  return recortarACover(imagen, TIRA_ANCHO * escala, TIRA_ALTO * escala, PNG_DE_FOTO);
 }
 
 /**
