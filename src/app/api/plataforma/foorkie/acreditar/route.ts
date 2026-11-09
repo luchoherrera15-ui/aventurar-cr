@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
  * suma en la tarjeta de lealtad del cliente (ver src/lib/plataforma/foorkie.ts).
  *
  *   { rancho_id, programa_id, pedido_id, correo, monto, producto? }
- *   firmado en `x-foorkie-firma`.
+ *   firmado en `x-foorkie-firma`. `monto`, `puntos` y `saldo` van en la
+ *   moneda de la tarjeta (`moneda-tarjeta.ts`).
  *
  * Respuestas (200 salvo error de la puerta):
  *   { ok: true, otorgado: true,  puntos, saldo, tipo }       sumó
@@ -57,7 +58,10 @@ export async function POST(request: Request) {
   if (!UUID.test(ranchoId) || !UUID.test(programaId) || !UUID.test(pedidoId) || !correo) {
     return responder({ ok: false, codigo: "datos" }, 400);
   }
-  if (typeof monto !== "number" || !Number.isInteger(monto) || monto < 0 || monto > 10_000_000) {
+  // En la moneda del local (8 nov 2026): con centavos si la tarjeta los
+  // lleva ($15.50). El núcleo lo pasa a unidades de la tarjeta y redondea;
+  // en colones da el mismo entero de siempre.
+  if (typeof monto !== "number" || !Number.isFinite(monto) || monto < 0 || monto > 10_000_000) {
     return responder({ ok: false, codigo: "monto" }, 400);
   }
 

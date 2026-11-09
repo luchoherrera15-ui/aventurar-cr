@@ -24,7 +24,8 @@ import { personasActivasDe } from "./cupo";
 import { definicionDe } from "./planes";
 import { estadoDelPrograma } from "./reglas";
 import type { PermisosLealtad } from "./permisos";
-import { canjeLibreDe, leerMontoLibre, motivoCanjeLibre, motivoDelCanjeLibre } from "./canje-libre";
+import { canjeLibreDe, motivoCanjeLibre, motivoDelCanjeLibre } from "./canje-libre";
+import { aMoneda, aUnidades, leerMontoDeAfuera, monedaDeTarjeta, TOPE_UNIDADES } from "./moneda-tarjeta";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -476,7 +477,12 @@ async function miembroDeEsteNegocio(
  */
 function revisarMonto(monto: number | null): { ok: false; motivo: string; codigo: string } | null {
   if (monto === null) return null;
-  if (!Number.isInteger(monto) || monto < 0 || monto > 10_000_000) {
+  // Desde el 8 nov 2026 puede traer decimales: en una tarjeta de cashback
+  // en dólares, $15.50 es un monto válido. `acreditarResuelto` lo pasa a
+  // unidades de SU tarjeta (`aUnidades`, que en colones redondea al
+  // entero) y vuelve a mirar el techo ya en unidades. Las puertas de
+  // Bookea (mostrador, escáner, POS) siguen pidiendo enteros por su lado.
+  if (!Number.isFinite(monto) || monto < 0 || monto > 10_000_000) {
     return {
       ok: false,
       codigo: "monto_invalido",
@@ -503,7 +509,17 @@ async function acreditarResuelto(args: {
   referencia: string;
   via: ViaOperacion;
 }): Promise<ResultadoAcreditar> {
-  const { db, ranchoId, quien, monto, miembro, referencia, via } = args;
+  const { db, ranchoId, quien, miembro, referencia, via } = args;
+
+  // ── LA MONEDA DE LA TARJETA (8 nov 2026, `moneda-tarjeta.ts`) ────
+  // El monto llega en la moneda ($15.50) y de acá para abajo —el RPC, la
+  // compra registrada, la compra mínima— todo va en unidades del ledger
+  // (1550 centavos). En una tarjeta en colones es el mismo número.
+  const moneda = monedaDeTarjeta(miembro.beneficio);
+  const monto = args.monto === null ? null : aUnidades(args.monto, moneda);
+  if (monto !== null && monto > TOPE_UNIDADES) {
+    return { ok: false, codigo: "monto_invalido", motivo: "Ese monto es demasiado alto para una sola compra." };
+  }
 
   // ── LA ARCHIVADA SE DICE CON NOMBRE, ANTES DEL RPC ──────────────
   // El RPC sigue siendo la autoridad (revalida el estado bajo lock);
@@ -677,11 +693,12 @@ async function acreditarResuelto(args: {
     });
   }
 
+  // Hacia afuera, en la moneda: 77 centavos son 0.77 (identidad en colones).
   return {
     ok: true,
     cliente,
-    puntos: r.puntos ?? 0,
-    saldo: r.saldo ?? 0,
+    puntos: aMoneda(r.puntos ?? 0, moneda),
+    saldo: aMoneda(r.saldo ?? 0, moneda),
     yaEstaba,
     miembroId: miembro.miembroId,
     programaId: miembro.programaId,
@@ -901,7 +918,8 @@ export async function canjearCore(entrada: {
 
   return {
     ok: true,
-    saldo: r.saldo ?? 0,
+    // En la moneda de la tarjeta (identidad salvo en un cashback con centavos).
+    saldo: aMoneda(r.saldo ?? 0, monedaDeTarjeta(resuelto.miembro.beneficio)),
     recompensa: r.recompensa ?? "",
     sku: r.sku ?? null,
     instrucciones: r.instrucciones ?? null,
@@ -1112,8 +1130,7 @@ export async function canjearMontoCore(entrada: {
       motivo: "No tenés permiso para canjear premios — pedíselo al dueño.",
     };
   }
-  const monto = leerMontoLibre(entrada.monto);
-  if (monto === null) {
+  if (typeof entrada.monto !== "number" || !Number.isFinite(entrada.monto) || entrada.monto <= 0) {
     return { ok: false, codigo: "monto_invalido", motivo: motivoDelCanjeLibre({ codigo: "monto_invalido" }) };
   }
   if (!referencia.trim()) {
@@ -1129,6 +1146,14 @@ export async function canjearMontoCore(entrada: {
   // El RPC vuelve a mirarlo bajo lock; esto solo da la frase antes.
   if (tipoDe(miembro.modo) !== "cashback" || !canjeLibreDe(leerBeneficio(miembro.beneficio, "cashback"))) {
     return { ok: false, codigo: "canje_no_libre", motivo: motivoDelCanjeLibre({ codigo: "canje_no_libre" }) };
+  }
+
+  // El monto llega en la moneda de la tarjeta ($2.50) y el RPC cuenta
+  // unidades (250 centavos); en colones, el mismo entero de siempre.
+  const moneda = monedaDeTarjeta(miembro.beneficio);
+  const monto = leerMontoDeAfuera(entrada.monto, moneda, 1);
+  if (monto === null) {
+    return { ok: false, codigo: "monto_invalido", motivo: motivoDelCanjeLibre({ codigo: "monto_invalido" }, moneda) };
   }
 
   const reglas = await reglasDeUsoDelMonto(db, miembro.programaId, monto);
@@ -1162,28 +1187,30 @@ export async function canjearMontoCore(entrada: {
     monto?: number;
     minimo?: number;
   };
-  const saldo = typeof r.saldo === "number" ? r.saldo : 0;
+  // Hacia afuera, todo en la moneda (identidad en colones).
+  const saldo = aMoneda(typeof r.saldo === "number" ? r.saldo : 0, moneda);
+  const usado = aMoneda(typeof r.monto === "number" ? r.monto : monto, moneda);
 
   if (r.ok !== true) {
     return {
       ok: false,
       codigo: r.codigo ?? "rechazado",
-      motivo: motivoDelCanjeLibre(r),
-      ...(typeof r.saldo === "number" ? { saldo: r.saldo } : {}),
-      ...(typeof r.minimo === "number" ? { minimo: r.minimo } : {}),
+      motivo: motivoDelCanjeLibre(r, moneda),
+      ...(typeof r.saldo === "number" ? { saldo: aMoneda(r.saldo, moneda) } : {}),
+      ...(typeof r.minimo === "number" ? { minimo: aMoneda(r.minimo, moneda) } : {}),
     };
   }
 
   // Un reintento: el saldo ya se había descontado y el pase ya se enteró
   // (y agradecer de nuevo sería mentirle). No se avisa nada.
   if (r.ya_estaba === true) {
-    return { ok: true, yaEstaba: true, monto: typeof r.monto === "number" ? r.monto : monto, saldo };
+    return { ok: true, yaEstaba: true, monto: usado, saldo };
   }
 
   // Igual que el canje de premios: el aviso al Wallet corre después de
   // responder y `canjear` es el agradecimiento del restaurante.
   after(() => avisarCambioDePase(miembro.miembroId, "canjear"));
-  return { ok: true, yaEstaba: false, monto: typeof r.monto === "number" ? r.monto : monto, saldo };
+  return { ok: true, yaEstaba: false, monto: usado, saldo };
 }
 
 /**

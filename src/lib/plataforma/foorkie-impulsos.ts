@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerVinculo, uuidDe, ausente, type Lectura, type Vinculo } from "@/lib/plataforma/foorkie-caja";
 import { localDeFoorkieDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 import { construirCatalogo, type Catalogo } from "@/lib/lealtad/impulsos/catalogo-vista";
+import { aMonedaOpcional } from "@/lib/lealtad/moneda-tarjeta";
 import {
   hoyDe,
   servicioCambiarEstado,
@@ -243,7 +244,10 @@ export type ImpulsosLeidos = {
     hoy: string;
     tieneRecompensa: boolean;
     recompensa: string | null;
+    /** En la moneda de la tarjeta (en un cashback con centavos, 20 = $20.00). */
     meta: number | null;
+    /** La moneda de la tarjeta (código ISO; «CRC» si no guardó otra). */
+    moneda: string;
     tarjetaOpera: boolean;
   };
   impulsos: ImpulsoVista[];
@@ -267,12 +271,18 @@ export async function impulsosDeLaTarjeta(db: Db, p: Vinculo, actorId: string): 
       hoy: hoyDe(info.zona),
       tieneRecompensa: info.meta !== null,
       recompensa: info.recompensa,
-      meta: info.meta,
+      // En la moneda de la tarjeta (8 nov 2026): las condiciones de saldo se escriben y se comparan en ella.
+      meta: info.moneda ? aMonedaOpcional(info.meta, info.moneda) : info.meta,
+      moneda: info.moneda?.codigo ?? "CRC",
       tarjetaOpera: info.opera,
     },
     impulsos,
     plantillas,
-    catalogo: construirCatalogo(info.modo, { nombreNegocio: info.nombreNegocio, nombrePrograma: info.nombrePrograma }, "foorkie"),
+    catalogo: construirCatalogo(
+      info.modo,
+      { nombreNegocio: info.nombreNegocio, nombrePrograma: info.nombrePrograma, moneda: info.moneda },
+      "foorkie",
+    ),
   };
 }
 

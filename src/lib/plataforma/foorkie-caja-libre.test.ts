@@ -37,10 +37,18 @@ describe("leerPedidoCanjear — un premio O un monto", () => {
   it("los dos a la vez, un monto raro o sin intento: no", () => {
     expect(leerPedidoCanjear({ ...vinculo, miembro_id: MIEMBRO, recompensa_id: RECOMPENSA, monto: 1000, intento_id: INTENTO })).toMatchObject({ ok: false });
     expect(leerPedidoCanjear({ ...vinculo, miembro_id: MIEMBRO, monto: 0, intento_id: INTENTO })).toMatchObject({ ok: false });
-    expect(leerPedidoCanjear({ ...vinculo, miembro_id: MIEMBRO, monto: 99.9, intento_id: INTENTO })).toMatchObject({ ok: false });
+    expect(leerPedidoCanjear({ ...vinculo, miembro_id: MIEMBRO, monto: -5, intento_id: INTENTO })).toMatchObject({ ok: false });
+    expect(leerPedidoCanjear({ ...vinculo, miembro_id: MIEMBRO, monto: Number.NaN, intento_id: INTENTO })).toMatchObject({ ok: false });
     expect(leerPedidoCanjear({ ...vinculo, miembro_id: MIEMBRO, monto: "1000", intento_id: INTENTO })).toMatchObject({ ok: false });
     expect(leerPedidoCanjear({ ...vinculo, miembro_id: MIEMBRO, monto: 1000 })).toMatchObject({ ok: false });
     expect(leerPedidoCanjear({ ...vinculo, monto: 1000, intento_id: INTENTO })).toMatchObject({ ok: false });
+  });
+
+  it("8 nov 2026: un monto con centavos pasa; el núcleo lo lleva a la moneda de la tarjeta", () => {
+    expect(leerPedidoCanjear({ ...vinculo, miembro_id: MIEMBRO, monto: 2.5, intento_id: INTENTO })).toMatchObject({
+      ok: true,
+      valor: { monto: 2.5 },
+    });
   });
 });
 

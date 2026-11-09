@@ -30,6 +30,14 @@ import {
 import { pideRecompensa } from "@/lib/lealtad/editable";
 import { estadoDelPrograma, type EstadoPrograma } from "@/lib/lealtad/reglas";
 import { tipoDe, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import {
+  aMoneda,
+  aMonedaOpcional,
+  aUnidades,
+  MONEDA_DE_SIEMPRE,
+  monedaDeTarjeta,
+  type MonedaTarjeta,
+} from "@/lib/lealtad/moneda-tarjeta";
 import { traducirError } from "@/lib/lealtad/errores-base";
 import { planDelNegocio } from "@/lib/lealtad/plan-del-negocio";
 import {
@@ -986,6 +994,33 @@ export function recompensaDelPanel(fila: Record<string, unknown>): RecompensaDel
   };
 }
 
+// ── La moneda de la tarjeta (8 nov 2026, `moneda-tarjeta.ts`) ────────
+// El ledger de un cashback con centavos cuenta centavos; hacia Foorkie todo
+// sale en la moneda. En cualquier otra tarjeta estas funciones devuelven
+// los mismos números.
+
+/** La moneda de una tarjeta, leída de su beneficio. Si no se puede leer, colones (la de siempre). */
+export async function monedaDelPrograma(db: Db, programaId: string): Promise<MonedaTarjeta> {
+  const { data, error } = await db.from("programa_lealtad").select("beneficio").eq("id", programaId).maybeSingle();
+  if (error || !data) return MONEDA_DE_SIEMPRE;
+  return monedaDeTarjeta((data as { beneficio?: unknown }).beneficio);
+}
+
+export function clienteEnMoneda(c: ClienteDelPanel, m: MonedaTarjeta): ClienteDelPanel {
+  return m.escala === 1 ? c : { ...c, saldo: aMoneda(c.saldo, m), acumulado: aMoneda(c.acumulado, m) };
+}
+
+export function movimientoEnMoneda(mv: MovimientoDelCliente, m: MonedaTarjeta): MovimientoDelCliente {
+  if (m.escala === 1) return mv;
+  return { ...mv, puntos: aMoneda(mv.puntos, m), saldo: aMoneda(mv.saldo, m), monto: aMonedaOpcional(mv.monto, m) };
+}
+
+/** El costo de un premio cuenta saldo; el valor, solo en un descuento fijo (en un porcentaje es un %). */
+export function recompensaEnMoneda(r: RecompensaDelPanel, m: MonedaTarjeta): RecompensaDelPanel {
+  if (m.escala === 1) return r;
+  return { ...r, costo: aMoneda(r.costo, m), valor: r.tipo === "descuento_fijo" ? aMonedaOpcional(r.valor, m) : r.valor };
+}
+
 /** De la más barata a la más cara (la más barata activa es la meta de la tarjeta). */
 export function ordenarRecompensas(lista: RecompensaDelPanel[]): RecompensaDelPanel[] {
   return [...lista].sort(
@@ -1367,6 +1402,18 @@ export async function clientesDeLaTarjeta(
   p: PedidoClientes,
   ahora: Date = new Date(),
 ): Promise<PaginaDeClientes | null> {
+  // Se ordena y se pagina en unidades del ledger (escalar no cambia el
+  // orden); lo que sale, en la moneda de la tarjeta (8 nov 2026).
+  const [pagina, moneda] = await Promise.all([clientesEnUnidades(db, p, ahora), monedaDelPrograma(db, p.programaId)]);
+  if (!pagina || moneda.escala === 1) return pagina;
+  return {
+    ...pagina,
+    clientes: pagina.clientes.map((c) => clienteEnMoneda(c, moneda)),
+    resumen: pagina.resumen && { ...pagina.resumen, acumulado: aMoneda(pagina.resumen.acumulado, moneda) },
+  };
+}
+
+async function clientesEnUnidades(db: Db, p: PedidoClientes, ahora: Date): Promise<PaginaDeClientes | null> {
   if (p.orden !== null) return clientesOrdenados(db, { ...p, orden: p.orden }, ahora);
 
   let resumen: ResumenDeClientes | null = null;
@@ -1595,11 +1642,12 @@ export async function detalleDelCliente(
   // que un corte más abajo no la deja colgando con un error suelto.
   const pasesPromesa = pasesDelCliente(db, miembro.id);
 
-  const [filas, identidades, ventas, canjes] = await Promise.all([
+  const [filas, identidades, ventas, canjes, moneda] = await Promise.all([
     ledgerDelMiembro(db, miembro.id),
     identidadesDeMiembros(db, [miembro], p.ranchoId),
     ventasDelMiembro(db, p.ranchoId, miembro.id),
     canjesDelMiembro(db, miembro.id),
+    monedaDelPrograma(db, p.programaId),
   ]);
   if (!filas) return ERROR_AL_LEER_CLIENTE;
 
@@ -1617,8 +1665,11 @@ export async function detalleDelCliente(
   return {
     ok: true,
     detalle: {
-      cliente: armarClienteDelPanel(miembro, identidades.get(miembro.id), agregadosPorMiembro(filas).get(miembro.id)),
-      movimientos: pagina,
+      cliente: clienteEnMoneda(
+        armarClienteDelPanel(miembro, identidades.get(miembro.id), agregadosPorMiembro(filas).get(miembro.id)),
+        moneda,
+      ),
+      movimientos: pagina.map((mv) => movimientoEnMoneda(mv, moneda)),
       siguiente,
       pases,
     },
@@ -1627,21 +1678,21 @@ export async function detalleDelCliente(
 
 /** Las regalías de la tarjeta, activas y apagadas, de la más barata a la más cara. null = la base no contestó. */
 export async function recompensasDeLaTarjeta(db: Db, programaId: string): Promise<RecompensaDelPanel[] | null> {
-  const { data, error } = await db
-    .from("recompensas")
-    .select("*")
-    .eq("programa_id", programaId)
-    .order("costo_puntos", { ascending: true });
+  const [{ data, error }, moneda] = await Promise.all([
+    db.from("recompensas").select("*").eq("programa_id", programaId).order("costo_puntos", { ascending: true }),
+    monedaDelPrograma(db, programaId),
+  ]);
   if (error) return null;
   return ordenarRecompensas(
     ((data ?? []) as Record<string, unknown>[])
       .map(recompensaDelPanel)
-      .filter((r): r is RecompensaDelPanel => r !== null),
+      .filter((r): r is RecompensaDelPanel => r !== null)
+      .map((r) => recompensaEnMoneda(r, moneda)),
   );
 }
 
 type TarjetaConRegalias =
-  | { ok: true; tipo: TipoTarjeta; estado: EstadoPrograma; filas: Record<string, unknown>[] }
+  | { ok: true; tipo: TipoTarjeta; estado: EstadoPrograma; filas: Record<string, unknown>[]; moneda: MonedaTarjeta }
   | FalloDelPanel;
 
 /** La tarjeta (tipo y estado) y TODAS sus regalías, para decidir antes de escribir. */
@@ -1661,6 +1712,7 @@ async function tarjetaYRegalias(db: Db, p: Vinculo): Promise<TarjetaConRegalias>
     tipo: tipoDe(typeof fila.modo === "string" ? fila.modo : null),
     estado: estadoDelPrograma({ estado: typeof fila.estado === "string" ? fila.estado : null, activo: fila.activo === true }),
     filas: (regalias.data ?? []) as Record<string, unknown>[],
+    moneda: monedaDeTarjeta(fila.beneficio),
   };
 }
 
@@ -1684,7 +1736,19 @@ export async function guardarRecompensaDeFoorkie(
     return { ok: false, codigo: "recompensa_ajena", motivo: "Esa recompensa no es de esta tarjeta.", status: 404 };
   }
 
-  const entrada = entradaDeRecompensa(p, previa);
+  // Lo que manda Foorkie va en la moneda de la tarjeta ($2.50); la fila,
+  // en unidades del ledger (250). El valor solo se escala en un descuento
+  // fijo: en un porcentaje es un %, y lo que no vino se conserva tal cual.
+  const tipoFinal = p.tipo !== undefined ? p.tipo : previa ? tipoDeRecompensa(previa.tipo) : null;
+  const enUnidades: PedidoGuardarRecompensa =
+    t.moneda.escala === 1
+      ? p
+      : {
+          ...p,
+          costo: aUnidades(p.costo, t.moneda),
+          valor: typeof p.valor === "number" && tipoFinal === "descuento_fijo" ? aUnidades(p.valor, t.moneda) : p.valor,
+        };
+  const entrada = entradaDeRecompensa(enUnidades, previa);
   const invalido = validarRecompensa(entrada);
   if (invalido) return { ok: false, codigo: "datos", motivo: invalido, status: 400 };
 
@@ -1710,7 +1774,11 @@ export async function guardarRecompensaDeFoorkie(
   }
 
   const despues = previa ? t.filas.map((f) => (f === previa ? data : f)) : [...t.filas, data];
-  return { ok: true, recompensa, metaCambio: dibujaLaMeta(t.tipo) && firmaDeLaMeta(t.filas) !== firmaDeLaMeta(despues) };
+  return {
+    ok: true,
+    recompensa: recompensaEnMoneda(recompensa, t.moneda),
+    metaCambio: dibujaLaMeta(t.tipo) && firmaDeLaMeta(t.filas) !== firmaDeLaMeta(despues),
+  };
 }
 
 export type RecompensaBorrada = { ok: true; borrada: boolean; metaCambio: boolean };

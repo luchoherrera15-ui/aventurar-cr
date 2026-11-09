@@ -53,6 +53,7 @@
  */
 
 import { formatearCRC } from "../dinero";
+import { formatearMonto, monedaDeTarjeta } from "./moneda-tarjeta";
 import {
   TIPOS_TARJETA,
   UNIDAD_SALDO,
@@ -608,12 +609,17 @@ export function recompensaInicial(config: ConfigBeneficio): RecompensaInicial | 
       // costo FIJO: por eso se usa en tramos. ₡1.000 es el tramo que un
       // 5% de devolución alcanza en una compra normal — y el dueño lo
       // puede cambiar desde Recompensas cuando quiera.
+      //
+      // Con la moneda de la tarjeta (8 nov 2026): el tramo son las mismas
+      // 1 000 unidades del ledger, escritas en su moneda — ₡1 000 en
+      // colones (el texto de siempre), $10.00 en dólares (1 000 centavos).
+      const tramo = formatearMonto(TRAMO_CASHBACK, monedaDeTarjeta(config));
       return {
-        nombre: `${colones(TRAMO_CASHBACK)} de tu cashback`,
+        nombre: `${tramo} de tu cashback`,
         costo: TRAMO_CASHBACK,
         tipo: "descuento_fijo",
         valor: TRAMO_CASHBACK,
-        instrucciones: `Descontale ${colones(TRAMO_CASHBACK)} de la cuenta y registralo como cashback usado.`,
+        instrucciones: `Descontale ${tramo} de la cuenta y registralo como cashback usado.`,
         limitePorCliente: null,
         stockTotal: null,
         vigenciaMeses: null,

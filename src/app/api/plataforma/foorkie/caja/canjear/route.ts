@@ -30,7 +30,7 @@ export const dynamic = "force-dynamic";
  *       ese intento YA se entregó (un reintento), no se cobró dos veces.
  *
  * ── UN MONTO DEL CASHBACK (0253, canje libre: solo tarjetas de Foorkie) ──
- *   { rancho_id, programa_id, miembro_id, monto: colones enteros (1..10.000.000),
+ *   { rancho_id, programa_id, miembro_id, monto: en la moneda de la tarjeta (> 0; centavos si la tarjeta los lleva),
  *     intento_id: uuid, operador?: quién operó en Foorkie (≤ 80) }
  *   — `monto` o `recompensa_id`, nunca los dos —
  *

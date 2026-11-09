@@ -100,9 +100,24 @@ describe("leerCambiosDeReglas — la forma de lo que manda Foorkie", () => {
   it("el pedido de la ruta: tarjeta + reglas", () => {
     expect(leerPedidoGuardarReglas({ rancho_id: RANCHO, programa_id: PROGRAMA, reglas: { vencimiento: { meses: 3 } } })).toEqual({
       ok: true,
-      valor: { ranchoId: RANCHO, programaId: PROGRAMA, cambios: { vencimiento: { meses: 3 } } },
+      valor: { ranchoId: RANCHO, programaId: PROGRAMA, cambios: { vencimiento: { meses: 3 } }, reglas: { vencimiento: { meses: 3 } } },
     });
     expect(leerPedidoGuardarReglas({ rancho_id: RANCHO, reglas: { vencimiento: { meses: 3 } } })).toMatchObject({ ok: false });
+  });
+
+  it("8 nov 2026: con la moneda de la tarjeta, los montos del cashback pasan a centavos", () => {
+    const USD = { codigo: "USD", escala: 100 } as const;
+    expect(leerCambiosDeReglas({ cashback: { compraMinima: 2.5, topePorCompra: 3, minimoCanje: 5 } }, USD)).toEqual({
+      ok: true,
+      valor: { cashback: { compraMinima: 250, topePorCompra: 300, minimoCanje: 500 } },
+    });
+    // Un dólar de mínimo es un mínimo de verdad (100 centavos), no «sin mínimo».
+    expect(leerCambiosDeReglas({ cashback: { minimoCanje: 1 } }, USD)).toEqual({ ok: true, valor: { cashback: { minimoCanje: 100 } } });
+    expect(leerCambiosDeReglas({ cashback: { topePorCompra: 1000.01 } }, USD)).toMatchObject({ ok: false, motivo: expect.stringMatching(/\$1,000\.00/) });
+    // La ruta acepta la forma con centavos; decide `guardarReglasDeLaTarjeta`, con la tarjeta enfrente.
+    expect(leerPedidoGuardarReglas({ rancho_id: RANCHO, programa_id: PROGRAMA, reglas: { cashback: { compraMinima: 2.5 } } })).toMatchObject({ ok: true });
+    // En colones, un decimal sigue siendo un error.
+    expect(leerCambiosDeReglas({ cashback: { compraMinima: 2.5 } })).toMatchObject({ ok: false, motivo: expect.stringMatching(/colones enteros/) });
   });
 });
 
@@ -119,7 +134,7 @@ describe("reglasDeFila — lo que el motor aplica hoy", () => {
     );
     expect(r).toEqual({
       tipo: "cashback",
-      cashback: { porcentaje: 5, compraMinima: 2000, topePorCompra: 300, minimoCanje: 1000, canjeLibre: true },
+      cashback: { porcentaje: 5, moneda: "CRC", compraMinima: 2000, topePorCompra: 300, minimoCanje: 1000, canjeLibre: true },
       sellos: null,
       vencimiento: { meses: null, desde: null, diasDeAviso: 14 },
     });

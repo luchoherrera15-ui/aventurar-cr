@@ -8,6 +8,8 @@
  * el navegador (la vista previa y la validación en vivo).
  */
 
+import type { MonedaTarjeta } from "../moneda-tarjeta";
+
 export const ESTADOS_IMPULSO = ["borrador", "activo", "pausado", "archivado"] as const;
 export type EstadoImpulso = (typeof ESTADOS_IMPULSO)[number];
 
@@ -200,10 +202,16 @@ export type ContextoCliente = {
   nombreNegocio: string;
   nombrePrograma: string;
   modo: string;
-  /** Sellos, puntos o colones de cashback (la suma del ledger). */
+  /**
+   * Sellos, puntos o la plata del cashback (la suma del ledger). En un
+   * cashback con su moneda (8 nov 2026) va EN LA MONEDA: 12.5 = $12.50, y
+   * así se comparan las condiciones («saldo ≥ 5» son cinco dólares).
+   */
   saldo: number;
-  /** Lo que cuesta la recompensa activa más barata; null = la tarjeta no tiene. */
+  /** Lo que cuesta la recompensa activa más barata (en la misma unidad que `saldo`); null = la tarjeta no tiene. */
   meta: number | null;
+  /** La moneda de la tarjeta, para escribir el saldo. Ausente = colones (la de siempre). */
+  moneda?: MonedaTarjeta;
   recompensa: string | null;
   /** Veces que vino (sellos/puntos ganados que NO son el regalo de bienvenida). */
   visitas: number;
@@ -229,7 +237,10 @@ export type InfoPrograma = {
   opera: boolean;
   /** true = tarjeta de Foorkie: los correos los manda Foorkie, y Apple sí muestra el mensaje por cliente. */
   esFoorkie: boolean;
+  /** En unidades del ledger (como `costo_puntos`). */
   meta: number | null;
   recompensa: string | null;
   cuentaId: string | null;
+  /** La moneda de la tarjeta (`moneda-tarjeta.ts`). Ausente = colones. */
+  moneda?: MonedaTarjeta;
 };

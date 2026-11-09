@@ -8,7 +8,8 @@ import { canalDelMovimiento } from "@/lib/lealtad/canal-del-sello";
 import { identidadesDeMiembros, miembrosConIdentidad, type MiembroIdentificable } from "@/lib/lealtad/identidades-db";
 import type { PermisosLealtad } from "@/lib/lealtad/permisos";
 import type { TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
-import { canjeLibreDe, leerMontoLibre, type CanjeLibre } from "@/lib/lealtad/canje-libre";
+import { canjeLibreDe, TOPE_CANJE_LIBRE, type CanjeLibre } from "@/lib/lealtad/canje-libre";
+import { aMoneda, aMonedaOpcional, monedaDeTarjeta } from "@/lib/lealtad/moneda-tarjeta";
 import type { CamposTarjeta } from "@/lib/wallet/tarjeta";
 
 /**
@@ -96,7 +97,11 @@ export type PedidoBuscar = Vinculo &
 
 export type PedidoAcreditar = Vinculo & {
   miembroId: string;
-  /** Colones enteros; null = visita sin monto. El núcleo valida que sea entero y razonable. */
+  /**
+   * En la moneda de la tarjeta (colones enteros, o $15.50 en una de
+   * cashback con centavos); null = visita sin monto. El núcleo lo pasa a
+   * unidades del ledger y valida que sea razonable.
+   */
   monto: number | null;
   intentoId: string;
   operador: string | null;
@@ -178,10 +183,11 @@ export function leerPedidoAcreditar(d: Record<string, unknown>): Lectura<PedidoA
   if (!miembroId) return { ok: false, motivo: "Falta el cliente (miembro_id)." };
   const intentoId = uuidDe(d.intento_id);
   if (!intentoId) return { ok: false, motivo: FALTA_INTENTO };
-  // Entero, decimales o fuera de rango los rechaza el núcleo con su frase
-  // de siempre (`monto_invalido`); acá solo se exige que sea un número.
+  // Fuera de rango lo rechaza el núcleo con su frase de siempre
+  // (`monto_invalido`), y lo redondea a la moneda de la tarjeta; acá solo
+  // se exige que sea un número.
   if (d.monto !== undefined && d.monto !== null && typeof d.monto !== "number") {
-    return { ok: false, motivo: "El monto tiene que ser un número de colones, o null para una visita sin monto." };
+    return { ok: false, motivo: "El monto tiene que ser un número, o null para una visita sin monto." };
   }
   const monto = typeof d.monto === "number" ? d.monto : null;
   return { ok: true, valor: { ...v.valor, miembroId, monto, intentoId, operador: leerOperador(d.operador) } };
@@ -194,11 +200,13 @@ export function leerPedidoCanjear(d: Record<string, unknown>): Lectura<PedidoCan
   if (!ausente(d.monto) && !ausente(d.recompensa_id)) {
     return { ok: false, motivo: "Mandá el premio (recompensa_id) o el monto del cashback (monto), no los dos." };
   }
-  // El monto del cashback (0253): colones enteros de 1 a ₡10.000.000.
+  // El monto del cashback (0253), en la moneda de la tarjeta (8 nov 2026:
+  // con centavos si la tarjeta los lleva). Acá, que sea un número
+  // positivo; el núcleo lo pasa a unidades y lo compara con el saldo.
   if (!ausente(d.monto)) {
     if (!miembroId) return { ok: false, motivo: "Falta el cliente (miembro_id)." };
-    const monto = leerMontoLibre(d.monto);
-    if (monto === null) return { ok: false, motivo: "El monto tiene que ser una cantidad entera de colones, de 1 a 10.000.000." };
+    const monto = typeof d.monto === "number" && Number.isFinite(d.monto) && d.monto > 0 && d.monto <= TOPE_CANJE_LIBRE ? d.monto : null;
+    if (monto === null) return { ok: false, motivo: "El monto tiene que ser una cantidad mayor que cero." };
     const intentoId = uuidDe(d.intento_id);
     if (!intentoId) return { ok: false, motivo: FALTA_INTENTO };
     return { ok: true, valor: { ...v.valor, miembroId, monto, intentoId, operador: leerOperador(d.operador) } };
@@ -338,6 +346,8 @@ export type ClienteDeLaCaja = {
   nombre: string;
   correo: string | null;
   tipo: TipoTarjeta;
+  /** La moneda de la tarjeta (código ISO; «CRC» en toda tarjeta anterior al 8 nov 2026). Los montos de abajo van en ella. */
+  moneda: string;
   saldo: number;
   /** true = hoy no suma ni canjea: la tarjeta del local está en pausa o el negocio suspendió a este cliente. */
   pausada: boolean;
@@ -394,20 +404,26 @@ export function armarClienteDeLaCaja(d: {
   // La meta es la recompensa activa más barata: la misma que dibuja el pase (`metaDelPrograma`).
   const meta = recompensas[0] ? { nombre: recompensas[0].nombre, costo_puntos: recompensas[0].costo } : null;
   const tarjeta = lecturaDeTarjeta({ fila: d.fila, negocio: d.negocio, saldo: d.saldo, meta, ahora: d.ahora });
+  // Todo lo que se cuenta en plata sale en la MONEDA de la tarjeta (8 nov
+  // 2026): 77 centavos son 0.77. En colones, y en sellos o puntos, es el
+  // mismo número de siempre. `alcanza` ya se decidió en unidades.
+  const moneda = monedaDeTarjeta(tarjeta.beneficio);
+  const libre = tarjeta.modo === "cashback" ? canjeLibreDe(tarjeta.beneficio) : null;
   return {
     miembro_id: d.miembroId,
     nombre: d.quien.nombre,
     correo: d.quien.correo,
     tipo: tarjeta.modo,
-    saldo: d.saldo,
+    moneda: moneda.codigo,
+    saldo: aMoneda(d.saldo, moneda),
     pausada: tarjeta.pausada || d.estadoMiembro === "pausada",
     textos: tarjeta.textos,
-    progreso: tarjeta.progreso,
-    recompensas,
-    canje_libre: tarjeta.modo === "cashback" ? canjeLibreDe(tarjeta.beneficio) : null,
+    progreso: tarjeta.progreso && { actual: aMoneda(tarjeta.progreso.actual, moneda), total: aMoneda(tarjeta.progreso.total, moneda) },
+    recompensas: recompensas.map((r) => ({ ...r, costo: aMoneda(r.costo, moneda) })),
+    canje_libre: libre && { minimo: aMonedaOpcional(libre.minimo, moneda) },
     acumulacion: {
-      compra_minima: enteroPositivo(d.fila.compra_minima),
-      tope_por_compra: enteroPositivo(d.fila.max_por_transaccion),
+      compra_minima: aMonedaOpcional(enteroPositivo(d.fila.compra_minima), moneda),
+      tope_por_compra: aMonedaOpcional(enteroPositivo(d.fila.max_por_transaccion), moneda),
     },
   };
 }
@@ -808,14 +824,17 @@ export async function historialDeLaCaja(
   // De a 30: cada referencia ronda los 85 caracteres y van en la URL.
   const tandas: string[][] = [];
   for (let i = 0; i < referencias.length; i += 30) tandas.push(referencias.slice(i, i + 30));
-  const [ventas, quien] = await Promise.all([
+  const [ventas, quien, programa] = await Promise.all([
     Promise.all(
       tandas.map((tanda) =>
         db.from("lealtad_transacciones").select("referencia, producto").eq("rancho_id", p.ranchoId).in("referencia", tanda),
       ),
     ),
     miembrosConIdentidad(db, { ids }).then((miembros) => quienesSon(db, p.ranchoId, miembros)),
+    // La moneda de la tarjeta (8 nov 2026): los movimientos de un cashback con centavos se cuentan en centavos.
+    db.from("programa_lealtad").select("beneficio").eq("id", p.programaId).maybeSingle(),
   ]);
+  const moneda = monedaDeTarjeta((programa.data as { beneficio?: unknown } | null)?.beneficio);
   // Sin la 0197 la tabla no existe: las compras salen con el motivo del ledger.
   const productoDe = new Map<string, string>();
   for (const tanda of ventas) {
@@ -826,9 +845,10 @@ export async function historialDeLaCaja(
   }
 
   return {
-    movimientos: pagina.map((f) =>
-      armarMovimiento(f, quien.get(f.miembro_id), f.referencia ? (productoDe.get(f.referencia) ?? null) : null),
-    ),
+    movimientos: pagina.map((f) => {
+      const m = armarMovimiento(f, quien.get(f.miembro_id), f.referencia ? (productoDe.get(f.referencia) ?? null) : null);
+      return { ...m, puntos: aMoneda(m.puntos, moneda) };
+    }),
     siguiente,
   };
 }

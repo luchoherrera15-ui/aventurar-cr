@@ -11,6 +11,7 @@ import {
   type TipoCondicion,
 } from "./catalogo";
 import { contextoDeEjemplo, variablesParaModo } from "./mensaje";
+import type { MonedaTarjeta } from "../moneda-tarjeta";
 import type { IdActivador, IdCanal, OpCondicion } from "./tipos";
 import { activadorEnVoz, canalEnVoz, type Voz } from "./voz-foorkie";
 
@@ -111,7 +112,7 @@ export const TOPES: TopesDelCatalogo = {
 
 export function construirCatalogo(
   modo: string,
-  { nombreNegocio, nombrePrograma }: { nombreNegocio: string; nombrePrograma: string },
+  { nombreNegocio, nombrePrograma, moneda }: { nombreNegocio: string; nombrePrograma: string; moneda?: MonedaTarjeta },
   voz: Voz = "bookea",
 ): Catalogo {
   const activadores: ActivadorDelCatalogo[] = ACTIVADORES.map((a) => {
@@ -157,7 +158,7 @@ export function construirCatalogo(
   }));
 
   // Un nombre vacío daría un ejemplo sin nombre del negocio: se usa el de siempre («Tu negocio»).
-  const ejemplo = contextoDeEjemplo(modo, nombreNegocio.trim() || undefined, nombrePrograma.trim() || undefined);
+  const ejemplo = contextoDeEjemplo(modo, nombreNegocio.trim() || undefined, nombrePrograma.trim() || undefined, moneda);
   const variables: VariableDelCatalogo[] = variablesParaModo(modo).map((v) => ({
     id: v.id,
     etiqueta: v.etiqueta,

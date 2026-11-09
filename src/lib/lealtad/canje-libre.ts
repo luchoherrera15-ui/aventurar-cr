@@ -1,4 +1,4 @@
-import { formatearCRC } from "../dinero";
+import { aUnidades, formatearMonto, MONEDA_DE_SIEMPRE, type MonedaTarjeta } from "./moneda-tarjeta";
 import { traducirMotivo } from "./mostrador";
 import type { ConfigBeneficio } from "./tipos-tarjeta";
 
@@ -54,13 +54,25 @@ export function canjeLibreDe(beneficio: ConfigBeneficio | null | undefined): Can
 
 /**
  * Una tarjeta de cashback que nace en Foorkie (`/api/plataforma/foorkie/
- * negocio`) nace con canje libre. Lo demás pasa tal cual: lo valida
- * `validarTarjetaDeAlta`, como siempre.
+ * negocio`) nace con canje libre y con la MONEDA de sus locales (8 nov
+ * 2026, `moneda-tarjeta.ts`). Los montos llegan en la moneda («compra
+ * mínima $5») y se guardan en unidades del ledger (500 centavos). Lo
+ * demás pasa tal cual: lo valida `validarTarjetaDeAlta`, como siempre.
  */
-export function beneficioDeFoorkie(beneficio: unknown): unknown {
+export function beneficioDeFoorkie(beneficio: unknown, moneda: MonedaTarjeta = MONEDA_DE_SIEMPRE): unknown {
   if (!beneficio || typeof beneficio !== "object" || Array.isArray(beneficio)) return beneficio;
   const b = beneficio as Record<string, unknown>;
-  return b.tipo === "cashback" ? { ...b, canjeLibre: true } : beneficio;
+  if (b.tipo !== "cashback") return beneficio;
+  const enUnidades = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? aUnidades(v, moneda) : v);
+  return {
+    ...b,
+    canjeLibre: true,
+    moneda: moneda.codigo,
+    escala: moneda.escala,
+    compraMinima: enUnidades(b.compraMinima),
+    topePorCompra: enUnidades(b.topePorCompra),
+    ...(b.minimoCanje !== undefined ? { minimoCanje: enUnidades(b.minimoCanje) } : {}),
+  };
 }
 
 /** El monto que llega de afuera: colones enteros de 1 a ₡10.000.000, o null. */
@@ -97,22 +109,25 @@ export type RechazoCanjeLibre = {
 /**
  * El rechazo del RPC en palabras de la caja. Los códigos son los de la
  * 0253; una frase que el RPC ya escribió para una persona pasa tal cual
- * (`traducirMotivo`), un identificador nunca.
+ * (`traducirMotivo`), un identificador nunca. `saldo` y `minimo` llegan
+ * en unidades del ledger y se escriben en la moneda de la tarjeta.
  */
-export function motivoDelCanjeLibre(r: RechazoCanjeLibre): string {
+export function motivoDelCanjeLibre(r: RechazoCanjeLibre, moneda: MonedaTarjeta = MONEDA_DE_SIEMPRE): string {
   switch (r.codigo) {
     case "saldo_insuficiente":
       return typeof r.saldo === "number"
-        ? `No le alcanza: tiene ${formatearCRC(r.saldo)} de cashback.`
+        ? `No le alcanza: tiene ${formatearMonto(r.saldo, moneda)} de cashback.`
         : "No le alcanza el cashback para ese monto.";
     case "debajo_del_minimo":
       return typeof r.minimo === "number"
-        ? `Lo mínimo que se puede usar de una vez es ${formatearCRC(r.minimo)}.`
+        ? `Lo mínimo que se puede usar de una vez es ${formatearMonto(r.minimo, moneda)}.`
         : "Ese monto está por debajo del mínimo de la tarjeta.";
     case "canje_no_libre":
       return "Esta tarjeta no usa el cashback en el monto que se quiera.";
     case "monto_invalido":
-      return "El monto tiene que ser una cantidad entera de colones.";
+      return moneda.codigo === "CRC" && moneda.escala === 1
+        ? "El monto tiene que ser una cantidad entera de colones."
+        : "Ese monto no es válido para esta tarjeta.";
     case "verificacion_pendiente":
       return "Falta confirmar el WhatsApp o el correo antes de canjear.";
     case "membresia_inactiva":
@@ -138,21 +153,25 @@ type Renglon = { label: string; value: string };
  *
  * Con mínimo, el renglón chico lo dice («SE USA DESDE ₡1 000»).
  */
-export function textosCashbackLibre(saldo: number, libre: CanjeLibre): { detalle: Renglon; regalia: Renglon | null } {
+export function textosCashbackLibre(
+  saldo: number,
+  libre: CanjeLibre,
+  moneda: MonedaTarjeta = MONEDA_DE_SIEMPRE,
+): { detalle: Renglon; regalia: Renglon | null } {
   const s = Number.isFinite(saldo) ? Math.max(0, Math.floor(saldo)) : 0;
   let valor: string;
   if (s <= 0) valor = "Se suma con cada compra";
-  else if (libre.minimo !== null && s < libre.minimo) valor = `Te faltan ${formatearCRC(libre.minimo - s)} para usarlo`;
+  else if (libre.minimo !== null && s < libre.minimo) valor = `Te faltan ${formatearMonto(libre.minimo - s, moneda)} para usarlo`;
   else valor = "Usalo cuando quieras";
   return {
     detalle: { label: "TU CASHBACK", value: valor },
-    regalia: libre.minimo !== null ? { label: "SE USA DESDE", value: formatearCRC(libre.minimo) } : null,
+    regalia: libre.minimo !== null ? { label: "SE USA DESDE", value: formatearMonto(libre.minimo, moneda) } : null,
   };
 }
 
 /** El dorso de una tarjeta de cashback libre: cómo se usa, en dos frases. */
-export function ayudaCashbackLibre(libre: CanjeLibre): string {
-  const minimo = libre.minimo !== null ? ` Se usa desde ${formatearCRC(libre.minimo)}.` : "";
+export function ayudaCashbackLibre(libre: CanjeLibre, moneda: MonedaTarjeta = MONEDA_DE_SIEMPRE): string {
+  const minimo = libre.minimo !== null ? ` Se usa desde ${formatearMonto(libre.minimo, moneda)}.` : "";
   return (
     "Presentá esta tarjeta al pagar. Tu cashback crece con cada compra y lo usás cuando quieras: " +
     `decís cuánto y se descuenta de tu saldo.${minimo}`

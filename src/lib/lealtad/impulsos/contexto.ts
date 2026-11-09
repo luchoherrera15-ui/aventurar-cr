@@ -1,3 +1,4 @@
+import { aMoneda, aMonedaOpcional } from "../moneda-tarjeta";
 import { nombreDePila } from "./mensaje";
 import type { ContextoCliente, InfoPrograma } from "./tipos";
 import { diasEntreFechas, partesLocales } from "./zona-horaria";
@@ -79,8 +80,11 @@ export function armarContextoCliente(
     nombreNegocio: info.nombreNegocio,
     nombrePrograma: info.nombrePrograma,
     modo: info.modo,
-    saldo: ledger.saldo,
-    meta: info.meta,
+    // En la moneda de la tarjeta (8 nov 2026): un cashback en dólares cuenta
+    // centavos en el ledger. Sin moneda, el mismo número de siempre.
+    saldo: info.moneda ? aMoneda(ledger.saldo, info.moneda) : ledger.saldo,
+    meta: info.moneda ? aMonedaOpcional(info.meta, info.moneda) : info.meta,
+    ...(info.moneda ? { moneda: info.moneda } : {}),
     recompensa: info.recompensa,
     visitas: ledger.visitas,
     canjes: ledger.canjes,

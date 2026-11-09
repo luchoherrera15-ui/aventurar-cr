@@ -35,6 +35,8 @@
  * nadie valida.
  */
 
+import { monedaParaCrear } from "./moneda-tarjeta";
+
 export const TIPOS_TARJETA_ID = [
   "sellos",
   "puntos",
@@ -309,10 +311,20 @@ export type ConfigCashback = {
    */
   canjeLibre?: boolean;
   /**
-   * Con canje libre: lo MÍNIMO que se puede usar de una vez, en colones
-   * enteros. null o ausente = desde ₡1. Lo hace cumplir el RPC, bajo lock.
+   * Con canje libre: lo MÍNIMO que se puede usar de una vez, en UNIDADES
+   * del ledger (colones enteros, o centavos con `escala: 100`). null o
+   * ausente = desde una unidad. Lo hace cumplir el RPC, bajo lock.
    */
   minimoCanje?: number | null;
+  /**
+   * LA MONEDA DE LA TARJETA (Foorkie, 8 nov 2026; ver `moneda-tarjeta.ts`):
+   * código ISO de `MONEDAS_TARJETA`. Ausente = colones, como toda tarjeta
+   * anterior. `compraMinima`, `topePorCompra`, `minimoCanje` y el saldo
+   * van en unidades de `escala`.
+   */
+  moneda?: string;
+  /** Unidades del ledger por unidad de la moneda: 1 o 100 (centavos). Ausente = 1. */
+  escala?: number;
 };
 
 export type ConfigBeneficio =
@@ -483,8 +495,20 @@ export function validarBeneficio(config: ConfigBeneficio): string | null {
       if (config.minimoCanje !== undefined && config.minimoCanje !== null) {
         const m = config.minimoCanje;
         if (typeof m !== "number" || !Number.isInteger(m) || m < 1 || m > 10_000_000) {
-          return "El mínimo para usar el saldo va en colones enteros, de ₡1 a ₡10.000.000.";
+          return config.moneda === undefined
+            ? "El mínimo para usar el saldo va en colones enteros, de ₡1 a ₡10.000.000."
+            : "El mínimo para usar el saldo no es un monto válido.";
         }
+      }
+      // La moneda (8 nov 2026): opcional; si viene, una de la tabla y con
+      // la escala que le corresponde. Una escala que no cuadra con la
+      // moneda haría que el saldo se lea ×100.
+      if (config.moneda !== undefined) {
+        const m = monedaParaCrear(config.moneda);
+        if (!m || m.codigo !== config.moneda) return "Esa moneda no está disponible para el cashback.";
+        if (config.escala !== undefined && config.escala !== m.escala) return "La escala no corresponde a la moneda.";
+      } else if (config.escala !== undefined && config.escala !== 1) {
+        return "Una tarjeta en colones no lleva centavos.";
       }
       return null;
     }

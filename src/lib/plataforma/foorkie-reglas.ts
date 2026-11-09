@@ -2,6 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { leerVinculo, type Lectura, type Vinculo } from "@/lib/plataforma/foorkie-caja";
 import { localDeFoorkieDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 import { canjeLibreDe, TOPE_CANJE_LIBRE } from "@/lib/lealtad/canje-libre";
+import {
+  aMonedaOpcional,
+  aUnidades,
+  formatearMonto,
+  MONEDA_DE_SIEMPRE,
+  monedaDeTarjeta,
+  type MonedaTarjeta,
+} from "@/lib/lealtad/moneda-tarjeta";
 import { puedeEditarse } from "@/lib/lealtad/editable";
 import { esColumnaAusente, traducirError } from "@/lib/lealtad/errores-base";
 import { reglaDeSellos } from "@/lib/lealtad/mostrador";
@@ -85,11 +93,13 @@ export type TipoConReglas = "cashback" | "sellos" | "puntos";
 export type ReglasCashback = {
   /** El % de vuelta: se cambia en el diseño, acá solo se muestra. */
   porcentaje: number;
-  /** Compra mínima para sumar, en colones. null = sin mínimo. */
+  /** La moneda de la tarjeta (código ISO; «CRC» en las anteriores al 8 nov 2026). Los montos de abajo van en ella. */
+  moneda: string;
+  /** Compra mínima para sumar, en la moneda. null = sin mínimo. */
   compraMinima: number | null;
-  /** Lo más que una compra le puede dar de cashback, en colones. null = sin tope. */
+  /** Lo más que una compra le puede dar de cashback, en la moneda. null = sin tope. */
   topePorCompra: number | null;
-  /** Lo mínimo que se usa de una vez, en colones. null = desde ₡1. */
+  /** Lo mínimo que se usa de una vez, en la moneda. null = desde una unidad. */
   minimoCanje: number | null;
   /** El cliente usa el monto que quiera (0253). En las tarjetas de Foorkie, siempre. */
   canjeLibre: boolean;
@@ -172,7 +182,7 @@ function objeto(v: unknown): Record<string, unknown> | null {
  * regalo contra la meta, el monto por sello contra la regla) se mira
  * después, con la tarjeta enfrente.
  */
-export function leerCambiosDeReglas(v: unknown): Lectura<CambiosDeReglas> {
+export function leerCambiosDeReglas(v: unknown, moneda: MonedaTarjeta = MONEDA_DE_SIEMPRE): Lectura<CambiosDeReglas> {
   const r = objeto(v);
   if (!r) return { ok: false, motivo: "Mandá las reglas que cambian (cashback, sellos o vencimiento)." };
   for (const clave of Object.keys(r)) {
@@ -183,18 +193,37 @@ export function leerCambiosDeReglas(v: unknown): Lectura<CambiosDeReglas> {
   const cambios: CambiosDeReglas = {};
 
   if (r.cashback !== undefined) {
-    const c = objeto(r.cashback);
-    if (!c) return { ok: false, motivo: "Las reglas del cashback vienen como un objeto." };
-    const minima = enteroOpcional(c.compraMinima, 0, COMPRA_MINIMA_MAXIMA, "La compra mínima va en colones enteros, de ₡0 a ₡10.000.000.");
+    const c0 = objeto(r.cashback);
+    if (!c0) return { ok: false, motivo: "Las reglas del cashback vienen como un objeto." };
+    // LA MONEDA DE LA TARJETA (8 nov 2026): en un cashback con centavos los
+    // montos llegan en la moneda ($2.50) y se revisan y guardan en unidades
+    // del ledger (250), con los mismos techos de la base. En colones los
+    // números pasan tal cual y los motivos son los de siempre.
+    const enUnidades = (x: unknown) => (moneda.escala !== 1 && typeof x === "number" && Number.isFinite(x) ? aUnidades(x, moneda) : x);
+    const c = { compraMinima: enUnidades(c0.compraMinima), topePorCompra: enUnidades(c0.topePorCompra), minimoCanje: enUnidades(c0.minimoCanje) };
+    const deSiempre = moneda.codigo === "CRC" && moneda.escala === 1;
+    const rango = (que: string, min: number, max: number, siempre: string) =>
+      deSiempre ? siempre : `${que} va de ${formatearMonto(min, moneda)} a ${formatearMonto(max, moneda)}.`;
+    const minima = enteroOpcional(
+      c.compraMinima,
+      0,
+      COMPRA_MINIMA_MAXIMA,
+      rango("La compra mínima", 0, COMPRA_MINIMA_MAXIMA, "La compra mínima va en colones enteros, de ₡0 a ₡10.000.000."),
+    );
     if (!minima.ok) return minima;
     const tope = enteroOpcional(
       c.topePorCompra,
       1,
       TOPE_POR_COMPRA_MAXIMO,
-      "El tope de cashback por compra va en colones enteros, de ₡1 a ₡100.000.",
+      rango("El tope de cashback por compra", 1, TOPE_POR_COMPRA_MAXIMO, "El tope de cashback por compra va en colones enteros, de ₡1 a ₡100.000."),
     );
     if (!tope.ok) return tope;
-    const minimo = enteroOpcional(c.minimoCanje, 0, TOPE_CANJE_LIBRE, "El mínimo para usar el saldo va en colones enteros, de ₡1 a ₡10.000.000.");
+    const minimo = enteroOpcional(
+      c.minimoCanje,
+      0,
+      TOPE_CANJE_LIBRE,
+      rango("El mínimo para usar el saldo", 1, TOPE_CANJE_LIBRE, "El mínimo para usar el saldo va en colones enteros, de ₡1 a ₡10.000.000."),
+    );
     if (!minimo.ok) return minimo;
     const cashback: NonNullable<CambiosDeReglas["cashback"]> = {};
     if (minima.valor !== undefined) cashback.compraMinima = minima.valor && minima.valor > 0 ? minima.valor : null;
@@ -296,13 +325,16 @@ export function reglasDeFila(fila: Record<string, unknown>, meta: PremioDeLaMeta
   if (tipo === "cashback") {
     const b = cashbackDeFila(fila);
     const libre = canjeLibreDe(b);
+    // Hacia Foorkie, en la moneda de la tarjeta (8 nov 2026): 250 centavos son 2.5.
+    const moneda = monedaDeTarjeta(fila.beneficio);
     return {
       tipo,
       cashback: {
         porcentaje: b.porcentaje,
-        compraMinima: enteroPositivo(fila.compra_minima),
-        topePorCompra: enteroPositivo(fila.max_por_transaccion),
-        minimoCanje: libre?.minimo ?? null,
+        moneda: moneda.codigo,
+        compraMinima: aMonedaOpcional(enteroPositivo(fila.compra_minima), moneda),
+        topePorCompra: aMonedaOpcional(enteroPositivo(fila.max_por_transaccion), moneda),
+        minimoCanje: aMonedaOpcional(libre?.minimo ?? null, moneda),
         canjeLibre: libre !== null,
       },
       sellos: null,
@@ -441,15 +473,30 @@ export function leerPedidoReglas(d: Record<string, unknown>): Lectura<Vinculo> {
   return leerVinculo(d);
 }
 
-export type PedidoGuardarReglas = Vinculo & { cambios: CambiosDeReglas };
+export type PedidoGuardarReglas = Vinculo & {
+  cambios: CambiosDeReglas;
+  /**
+   * Las reglas tal cual llegaron (8 nov 2026). Acá todavía no se sabe la
+   * moneda de la tarjeta: `guardarReglasDeLaTarjeta` las vuelve a leer con
+   * ella, porque «2.5» es un monto válido en dólares y no en colones.
+   */
+  reglas?: unknown;
+};
+
+/** Para revisar solo la FORMA de unas reglas que pueden traer centavos. */
+const CON_CENTAVOS: MonedaTarjeta = { codigo: "USD", escala: 100 };
 
 /** `programa/reglas/guardar`: la tarjeta y `reglas`, con lo que cambia. */
 export function leerPedidoGuardarReglas(d: Record<string, unknown>): Lectura<PedidoGuardarReglas> {
   const v = leerVinculo(d);
   if (!v.ok) return v;
   const cambios = leerCambiosDeReglas(d.reglas);
-  if (!cambios.ok) return cambios;
-  return { ok: true, valor: { ...v.valor, cambios: cambios.valor } };
+  if (cambios.ok) return { ok: true, valor: { ...v.valor, cambios: cambios.valor, reglas: d.reglas } };
+  // Puede ser una tarjeta con centavos («compraMinima: 2.5»): la forma se
+  // acepta y la decisión es de `guardarReglasDeLaTarjeta`, con la tarjeta enfrente.
+  const conCentavos = leerCambiosDeReglas(d.reglas, CON_CENTAVOS);
+  if (!conCentavos.ok) return cambios;
+  return { ok: true, valor: { ...v.valor, cambios: conCentavos.valor, reglas: d.reglas } };
 }
 
 /** La fila de la tarjeta y su premio de la meta, si existe y es de Foorkie. */
@@ -536,7 +583,18 @@ export async function guardarReglasDeLaTarjeta(
   });
   if (!editable.puede) return { ok: false, codigo: "no_editable", motivo: editable.motivo, status: 409 };
 
-  const r = planDeReglas({ fila: t.fila, meta: t.meta, cambios: p.cambios, ahora });
+  // Las reglas, leídas con la moneda de ESTA tarjeta (8 nov 2026): en una
+  // con centavos los montos pasan a unidades del ledger. En una de colones
+  // es la misma lectura que ya pasó la ruta.
+  const moneda = monedaDeTarjeta(t.fila.beneficio);
+  let cambios = p.cambios;
+  if (p.reglas !== undefined) {
+    const leidos = leerCambiosDeReglas(p.reglas, moneda);
+    if (!leidos.ok) return { ok: false, codigo: "datos", motivo: leidos.motivo, status: 400 };
+    cambios = leidos.valor;
+  }
+
+  const r = planDeReglas({ fila: t.fila, meta: t.meta, cambios, ahora });
   if (!r.ok) return { ok: false, codigo: "datos", motivo: r.motivo, status: 400 };
   const { columnas, premio } = r.plan;
 

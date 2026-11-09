@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { minutoISOCR, TZ_CR } from "@/lib/fechas";
 import { identidadesDeMiembros } from "@/lib/lealtad/identidades-db";
 import { operaAhora } from "@/lib/lealtad/programas";
+import { monedaDeTarjeta, tieneMonedaGuardada } from "@/lib/lealtad/moneda-tarjeta";
 import { localDeFoorkieDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 import { ACTIVADORES } from "./catalogo";
 import { armarContextoCliente, resumirLedger, type FilaLedger } from "./contexto";
@@ -216,7 +217,7 @@ export async function leerInfoPrograma(db: Db, programaId: string): Promise<Info
   }
   if (!fila) return null;
 
-  const [rancho, recompensa, local] = await Promise.all([
+  const [rancho, recompensa, local, beneficio] = await Promise.all([
     db.from("ranchos").select("nombre, zona_horaria").eq("id", fila.rancho_id).maybeSingle(),
     db
       .from("recompensas")
@@ -227,7 +228,12 @@ export async function leerInfoPrograma(db: Db, programaId: string): Promise<Info
       .limit(1)
       .maybeSingle(),
     localDeFoorkieDeLaTarjeta(db, { programaId, ranchoId: fila.rancho_id }),
+    // La moneda de un cashback (8 nov 2026). Aparte y sin frenar nada: si
+    // no se lee, la tarjeta se trata como siempre (colones).
+    db.from("programa_lealtad").select("beneficio").eq("id", programaId).maybeSingle(),
   ]);
+  const crudo = (beneficio.data as { beneficio?: unknown } | null)?.beneficio;
+  const moneda = tieneMonedaGuardada(crudo) ? monedaDeTarjeta(crudo) : undefined;
   if (rancho.error) fallo("negocio", rancho.error);
 
   const r = (rancho.data ?? null) as { nombre?: string | null; zona_horaria?: string | null } | null;
@@ -249,6 +255,7 @@ export async function leerInfoPrograma(db: Db, programaId: string): Promise<Info
     meta: Number.isFinite(costo) && costo > 0 ? costo : null,
     recompensa: rec?.nombre ? String(rec.nombre).trim() : null,
     cuentaId: fila.cuenta_id ?? null,
+    ...(moneda ? { moneda } : {}),
   };
 }
 

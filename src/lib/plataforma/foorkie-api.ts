@@ -20,6 +20,7 @@ import {
   type MetaRecompensa,
 } from "@/lib/wallet/tarjeta";
 import { tarjetaDelPase } from "@/lib/wallet/programa-principal";
+import { aMoneda, beneficioEnMoneda, monedaDeTarjeta } from "@/lib/lealtad/moneda-tarjeta";
 import { marcaDeLaTarjeta, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
 import { vistaParaFoorkie, type VistaParaFoorkie } from "@/lib/plataforma/foorkie-vista";
 import {
@@ -187,7 +188,9 @@ export type TarjetaParaFoorkie = {
   nombre: string;
   modo: TipoTarjeta;
   pausada: boolean;
-  /** Suma del ledger: sellos, puntos o colones según `modo`. */
+  /** La moneda de la tarjeta (código ISO; «CRC» en toda tarjeta anterior al 8 nov 2026). */
+  moneda: string;
+  /** Suma del ledger: sellos, puntos, o plata EN LA MONEDA (0.77 = 77 centavos) según `modo`. */
   saldo: number;
   meta: MetaRecompensa;
   /** Solo en tarjetas de sellos: «5 de 10». */
@@ -315,6 +318,10 @@ export function armarTarjeta(d: {
   marca?: MarcaDelPase | null;
 }): TarjetaParaFoorkie {
   const { modo, pausada, textos, progreso, beneficio } = lecturaDeTarjeta(d);
+  // Hacia Foorkie, la plata en la MONEDA de la tarjeta (8 nov 2026): en un
+  // cashback con centavos el ledger cuenta centavos. Los textos y la vista
+  // ya salen escritos en esa moneda; en el resto de las tarjetas, nada cambia.
+  const moneda = monedaDeTarjeta(beneficio);
   return {
     miembro_id: d.miembroId,
     programa_id: String(d.fila.id),
@@ -323,11 +330,12 @@ export function armarTarjeta(d: {
     nombre: typeof d.fila.nombre === "string" ? d.fila.nombre : d.negocio,
     modo,
     pausada,
-    saldo: d.saldo,
-    meta: d.meta,
+    moneda: moneda.codigo,
+    saldo: aMoneda(d.saldo, moneda),
+    meta: d.meta && modo === "cashback" ? { ...d.meta, costo_puntos: aMoneda(d.meta.costo_puntos, moneda) } : d.meta,
     progreso,
     textos,
-    beneficio,
+    beneficio: beneficioEnMoneda(beneficio),
     diseno: disenoDeFila(d.fila),
     vista: vistaParaFoorkie({ fila: d.fila, negocio: d.negocio, saldo: d.saldo, meta: d.meta, pausada, marca: d.marca }),
     wallet: d.links,
@@ -372,16 +380,20 @@ export async function programaParaFoorkie(
   const negocio = String(rancho?.nombre ?? "");
   const { config, beneficio } = tarjetaDesdeFila(fila as Record<string, unknown>);
   const pausada = estaPausada(fila as Record<string, unknown>);
+  // La plata hacia Foorkie, en la moneda de la tarjeta (ver `armarTarjeta`).
+  const moneda = monedaDeTarjeta(beneficio);
+  const modo = tipoDe(config.modo);
   return {
     id: programaId,
     rancho_id: ranchoId,
     negocio,
     nombre: typeof fila.nombre === "string" ? fila.nombre : negocio,
-    modo: tipoDe(config.modo),
+    modo,
     estado: typeof fila.estado === "string" ? fila.estado : null,
     pausada,
-    beneficio,
-    meta,
+    moneda: moneda.codigo,
+    beneficio: beneficioEnMoneda(beneficio),
+    meta: meta && modo === "cashback" ? { ...meta, costo_puntos: aMoneda(meta.costo_puntos, moneda) } : meta,
     // Los cuatro de siempre + lo guardado del sello y la tira (`disenoGuardadoDeFila`).
     diseno: disenoGuardadoDeFila(fila as Record<string, unknown>),
     // Lo que diría la tarjeta de alguien que recién se une (saldo 0).

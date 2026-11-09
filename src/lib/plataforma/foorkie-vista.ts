@@ -1,6 +1,7 @@
 import { tintaSobre } from "@/lib/colores-imagen";
 import { ICONOS_SELLO, imagenDentroDelSello, type DibujoDelSello } from "@/lib/lealtad/iconos-sello";
 import { tipoDe, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import { aMoneda, monedaDeTarjeta } from "@/lib/lealtad/moneda-tarjeta";
 import { MARCA_BOOKEA, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
 import { paradasDelFondo, type Parada } from "@/lib/wallet/fondo-tira";
 import { contenidoDelObjeto } from "@/lib/wallet/google";
@@ -251,7 +252,9 @@ export function vistaParaFoorkie(d: {
     negocio: d.negocio,
     nombreLogo: nombreDelLogo(d.negocio) || d.negocio,
     modo,
-    saldo,
+    // En la moneda de la tarjeta (8 nov 2026): en un cashback con centavos
+    // el ledger cuenta centavos; los textos de arriba ya lo escriben bien.
+    saldo: aMoneda(saldo, monedaDeTarjeta(beneficio)),
     pausada: d.pausada,
     colores: { fondo: colores.fondo, tinta: tintaSobre(colores.fondo), etiqueta: colores.sello, sello: colores.sello },
     logo,

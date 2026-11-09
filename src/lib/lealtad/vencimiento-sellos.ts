@@ -1,4 +1,5 @@
 import { fechaISOEnZona, fechaLargaCR } from "@/lib/fechas";
+import { formatearMonto, type MonedaTarjeta } from "./moneda-tarjeta";
 import { tipoDe, type TipoTarjeta } from "./tipos-tarjeta";
 
 /**
@@ -338,18 +339,23 @@ export function textoPorVencerEnElPase({
   tipo,
   saldo,
   venceEl,
+  moneda,
 }: {
   tipo: TipoTarjeta;
+  /** En unidades del ledger (centavos en un cashback con `escala: 100`). */
   saldo: number;
   /** ISO de la fecha de corte, en la zona del negocio. */
   venceEl: string;
+  /** La moneda del cashback (8 nov 2026). Ausente o colones: el texto de siempre. */
+  moneda?: MonedaTarjeta;
 }): string {
   const largo = fechaLargaCR(venceEl);
   // «Sábado 17 de octubre de 2026» → «17 de octubre de 2026».
   const cuando = largo.slice(largo.indexOf(" ") + 1);
   const n = Math.max(0, Math.round(saldo));
   if (tipo === "cashback") {
-    return `Tus ₡${n.toLocaleString("es-CR")} de cashback vencen el ${cuando}. Usalos o volvé antes y no los perdés.`;
+    const monto = moneda && !(moneda.codigo === "CRC" && moneda.escala === 1) ? formatearMonto(n, moneda) : `₡${n.toLocaleString("es-CR")}`;
+    return `Tus ${monto} de cashback vencen el ${cuando}. Usalos o volvé antes y no los perdés.`;
   }
   if (tipo === "puntos") {
     return n === 1

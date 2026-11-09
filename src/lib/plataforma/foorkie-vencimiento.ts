@@ -3,6 +3,7 @@ import { elegirLocalDeFoorkie, localDeFoorkieDeLaTarjeta, marcaDelPase, type Fil
 import { COLUMNA_LEALTAD_POR_FOORKIE } from "@/lib/plataforma/negocio-de-foorkie";
 import { textoPorVencerEnElPase } from "@/lib/lealtad/vencimiento-sellos";
 import { tipoDe, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import { monedaDeTarjeta } from "@/lib/lealtad/moneda-tarjeta";
 import { escribirMensajeDelMiembro } from "@/lib/wallet/mensaje-del-miembro";
 
 /**
@@ -108,8 +109,8 @@ export async function avisarPorVencerEnElPase(
     const { data: miembro } = await db.from("miembros").select("programa_id").eq("id", d.miembroId).maybeSingle();
     const programaId = (miembro as { programa_id?: unknown } | null)?.programa_id;
     if (typeof programaId !== "string") return false;
-    const { data: programa } = await db.from("programa_lealtad").select("rancho_id, modo").eq("id", programaId).maybeSingle();
-    const fila = (programa ?? null) as { rancho_id?: unknown; modo?: unknown } | null;
+    const { data: programa } = await db.from("programa_lealtad").select("rancho_id, modo, beneficio").eq("id", programaId).maybeSingle();
+    const fila = (programa ?? null) as { rancho_id?: unknown; modo?: unknown; beneficio?: unknown } | null;
     if (!fila) return false;
 
     const local = await localDeFoorkieDeLaTarjeta(db, {
@@ -127,7 +128,8 @@ export async function avisarPorVencerEnElPase(
     if (plataformas.size === 0) return false;
 
     const tipo = d.tipo ?? tipoDe(typeof fila.modo === "string" ? fila.modo : null);
-    const texto = textoPorVencerEnElPase({ tipo, saldo: d.saldo, venceEl: d.venceEl });
+    // El saldo llega en unidades del ledger: el texto lo escribe en la moneda de la tarjeta (8 nov 2026).
+    const texto = textoPorVencerEnElPase({ tipo, saldo: d.saldo, venceEl: d.venceEl, moneda: monedaDeTarjeta(fila.beneficio) });
 
     // Apple: el renglón con `changeMessage`, ANTES del push.
     if (plataformas.has("apple")) await acciones.escribir(db, d.miembroId, texto);

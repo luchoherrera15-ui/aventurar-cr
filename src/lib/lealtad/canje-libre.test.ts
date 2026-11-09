@@ -137,14 +137,20 @@ describe("el pase de una tarjeta de cashback libre", () => {
 });
 
 describe("beneficioDeFoorkie — el cashback que nace en Foorkie nace libre", () => {
-  it("cashback → canjeLibre: true; lo demás, tal cual", () => {
+  it("cashback → canjeLibre: true y la moneda (colones si no se dice otra); lo demás, tal cual", () => {
     expect(beneficioDeFoorkie({ tipo: "cashback", porcentaje: 5, compraMinima: 0, topePorCompra: null })).toEqual({
       tipo: "cashback",
       porcentaje: 5,
       compraMinima: 0,
       topePorCompra: null,
       canjeLibre: true,
+      moneda: "CRC",
+      escala: 1,
     });
+    // 8 nov 2026: en dólares, los montos pasan a centavos.
+    expect(
+      beneficioDeFoorkie({ tipo: "cashback", porcentaje: 5, compraMinima: 2.5, topePorCompra: 3 }, { codigo: "USD", escala: 100 }),
+    ).toEqual({ tipo: "cashback", porcentaje: 5, compraMinima: 250, topePorCompra: 300, canjeLibre: true, moneda: "USD", escala: 100 });
     const sellos = { tipo: "sellos", requeridos: 10, recompensa: "Café", inicial: 0, repetible: true };
     expect(beneficioDeFoorkie(sellos)).toBe(sellos);
     expect(beneficioDeFoorkie(null)).toBeNull();

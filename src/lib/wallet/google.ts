@@ -16,6 +16,7 @@ import {
   type MetaRecompensa,
 } from "./tarjeta";
 import { canjeLibreDe } from "@/lib/lealtad/canje-libre";
+import { tieneMonedaGuardada } from "@/lib/lealtad/moneda-tarjeta";
 import { estadoVisible } from "@/lib/lealtad/programas";
 import { fechaDeCorte, reglaDeFila } from "@/lib/lealtad/vencimiento-sellos";
 import { resumenDeFila } from "./programa-principal";
@@ -476,7 +477,12 @@ export function contenidoDelObjeto({
       // Un cupón o una entrada no tienen saldo que crezca: mostrar un
       // «0» sería mentirle al cliente sobre lo que tiene en la mano.
       // `balance` acepta int o string, y acá el string ES el beneficio.
-      balance: TIPOS_TARJETA[tipo].acumula ? { int: saldo } : { string: campos.encabezado.value },
+      // Un cashback con su moneda guardada (8 nov 2026) va como texto
+      // («$0.77»): el entero serían centavos. Los de antes, el int de siempre.
+      balance:
+        TIPOS_TARJETA[tipo].acumula && !(tipo === "cashback" && tieneMonedaGuardada(beneficio))
+          ? { int: saldo }
+          : { string: campos.encabezado.value },
     },
     // Ver el comentario de `pausado`: con un booleano explícito el
     // campo VIAJA SIEMPRE (es la única forma de que el PATCH borre el

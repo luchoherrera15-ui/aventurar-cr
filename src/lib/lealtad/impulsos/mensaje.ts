@@ -1,3 +1,4 @@
+import { aUnidades, formatearMonto, type MonedaTarjeta } from "../moneda-tarjeta";
 import type { ContextoCliente } from "./tipos";
 
 /**
@@ -37,8 +38,18 @@ export function formatearNumero(n: number): string {
   return new Intl.NumberFormat("es-CR", { maximumFractionDigits: 0 }).format(Math.round(n)).replace(SIN_ESPACIOS_DUROS, " ");
 }
 
+/**
+ * Plata de un cashback, ya en la moneda del contexto. Sin moneda (todas las
+ * tarjetas anteriores al 8 nov 2026) es «₡1 250», exactamente como antes;
+ * con moneda, como la escribe el pase («$12.50», «$12,500»).
+ */
+function dinero(n: number, c: ContextoCliente): string {
+  if (!c.moneda) return `₡${formatearNumero(n)}`;
+  return formatearMonto(aUnidades(n, c.moneda), c.moneda);
+}
+
 function saldoTexto(c: ContextoCliente): string {
-  return c.modo === "cashback" ? `₡${formatearNumero(c.saldo)}` : formatearNumero(c.saldo);
+  return c.modo === "cashback" ? dinero(c.saldo, c) : formatearNumero(c.saldo);
 }
 
 function faltantes(c: ContextoCliente): number | null {
@@ -104,7 +115,7 @@ export const VARIABLES: readonly DefinicionVariable[] = [
   {
     id: "puntos_disponibles",
     etiqueta: "Puntos o saldo",
-    descripcion: "Lo que tiene acumulado. En cashback incluye el símbolo ₡.",
+    descripcion: "Lo que tiene acumulado. En cashback incluye el símbolo de la moneda.",
     ejemplo: "180",
     modos: POR_SALDO,
     valor: (c) => saldoTexto(c),
@@ -112,23 +123,23 @@ export const VARIABLES: readonly DefinicionVariable[] = [
   {
     id: "meta_puntos",
     etiqueta: "Puntos de la meta",
-    descripcion: "Lo que cuesta la recompensa. En cashback incluye el símbolo ₡.",
+    descripcion: "Lo que cuesta la recompensa. En cashback incluye el símbolo de la moneda.",
     ejemplo: "200",
     modos: POR_SALDO,
     requiereRecompensa: true,
-    valor: (c) => (c.meta === null ? null : c.modo === "cashback" ? `₡${formatearNumero(c.meta)}` : formatearNumero(c.meta)),
+    valor: (c) => (c.meta === null ? null : c.modo === "cashback" ? dinero(c.meta, c) : formatearNumero(c.meta)),
   },
   {
     id: "puntos_faltantes",
     etiqueta: "Puntos que le faltan",
-    descripcion: "Lo que le falta para el premio. En cashback incluye el símbolo ₡.",
+    descripcion: "Lo que le falta para el premio. En cashback incluye el símbolo de la moneda.",
     ejemplo: "20",
     modos: POR_SALDO,
     requiereRecompensa: true,
     valor: (c) => {
       const f = faltantes(c);
       if (f === null) return null;
-      return c.modo === "cashback" ? `₡${formatearNumero(f)}` : formatearNumero(f);
+      return c.modo === "cashback" ? dinero(f, c) : formatearNumero(f);
     },
   },
   {
@@ -299,8 +310,17 @@ export function recortar(texto: string, max: number): string {
 //  VISTA PREVIA
 // ═══════════════════════════════════════════════════════════════════
 
-/** Un cliente de mentira, con datos que lucen como los de verdad, para la vista previa. */
-export function contextoDeEjemplo(modo: string, nombreNegocio = "Tu negocio", nombrePrograma = "Tu tarjeta"): ContextoCliente {
+/**
+ * Un cliente de mentira, con datos que lucen como los de verdad, para la
+ * vista previa. Con `moneda` (un cashback que guardó la suya) el ejemplo
+ * habla en ella: $12.50 de saldo en dólares, no «₡1 250».
+ */
+export function contextoDeEjemplo(
+  modo: string,
+  nombreNegocio = "Tu negocio",
+  nombrePrograma = "Tu tarjeta",
+  moneda?: MonedaTarjeta,
+): ContextoCliente {
   const base = {
     nombre: "María",
     nombreNegocio,
@@ -314,6 +334,10 @@ export function contextoDeEjemplo(modo: string, nombreNegocio = "Tu negocio", no
     plataformas: ["google"] as const,
   };
   if (modo === "sellos") return { ...base, saldo: 4, meta: 5, recompensa: "Café gratis" };
+  if (modo === "cashback" && moneda) {
+    const [saldo, meta] = moneda.escala === 100 ? [12.5, 20] : [1250, 2000];
+    return { ...base, saldo, meta, moneda, recompensa: `${formatearMonto(aUnidades(meta, moneda), moneda)} de descuento` };
+  }
   if (modo === "cashback") return { ...base, saldo: 1250, meta: 2000, recompensa: "₡2 000 de descuento" };
   return { ...base, saldo: 180, meta: 200, recompensa: "Postre gratis" };
 }

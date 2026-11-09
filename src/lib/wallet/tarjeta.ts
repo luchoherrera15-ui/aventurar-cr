@@ -24,6 +24,7 @@ import { tintaSobre } from "@/lib/colores-imagen";
 import { MARCA_BOOKEA, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
 import { textoVisible } from "@/lib/wallet/mensaje-del-miembro";
 import { ayudaCashbackLibre, canjeLibreDe, textosCashbackLibre } from "@/lib/lealtad/canje-libre";
+import { formatearMonto, monedaDeTarjeta } from "@/lib/lealtad/moneda-tarjeta";
 
 /**
  * Alias histórico de `TipoTarjeta`. El nombre «modo» quedó de cuando
@@ -511,13 +512,17 @@ function camposDelTipo(datos: DatosDelTexto): CamposTarjeta {
   }
 
   if (modo === "cashback") {
-    const encabezado = { label: "SALDO", value: `₡${datos.saldo.toLocaleString("es-CR")}` };
+    // LA MONEDA DE LA TARJETA (8 nov 2026, `moneda-tarjeta.ts`): el saldo
+    // llega en unidades del ledger y se escribe en su moneda («$0.77»). Sin
+    // moneda guardada es colones: «₡1 250», el mismo texto de siempre.
+    const moneda = monedaDeTarjeta(b);
+    const encabezado = { label: "SALDO", value: formatearMonto(datos.saldo, moneda) };
     // EL CANJE LIBRE (0253, las tarjetas de Foorkie): el saldo se usa en
     // el monto que el cliente quiera, así que no hay un «CANJEÁ POR ₡1 000
     // de tu cashback» que prometer. Sin la marca en el beneficio, la
     // tarjeta de siempre, byte por byte.
     const libre = canjeLibreDe(b);
-    if (libre) return { encabezado, ...textosCashbackLibre(datos.saldo, libre) };
+    if (libre) return { encabezado, ...textosCashbackLibre(datos.saldo, libre, moneda) };
     return {
       encabezado,
       detalle: { label: "ACUMULADO", value: "Se descuenta en tu próxima compra" },
@@ -812,7 +817,7 @@ function textoDeAyuda(datos: DatosDelTexto): string {
   if (modo === "cashback") {
     // Canje libre (0253): el mínimo para usarlo, si la tarjeta tiene uno.
     const libre = canjeLibreDe(b);
-    if (libre) return ayudaCashbackLibre(libre);
+    if (libre) return ayudaCashbackLibre(libre, monedaDeTarjeta(b));
     return "Presentá esta tarjeta al pagar. Tu saldo crece con cada compra y se descuenta cuando quieras usarlo.";
   }
 

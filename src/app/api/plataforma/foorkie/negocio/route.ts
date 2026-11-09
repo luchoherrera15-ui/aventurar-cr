@@ -4,6 +4,7 @@ import { validarTarjetaDeAlta, type TarjetaDeAlta } from "@/lib/lealtad/tarjeta-
 import { definicionDe } from "@/lib/lealtad/planes";
 import { normalizarCorreo } from "@/lib/lealtad/personas";
 import { beneficioDeFoorkie } from "@/lib/lealtad/canje-libre";
+import { monedaParaCrear } from "@/lib/lealtad/moneda-tarjeta";
 import {
   copiarImagenDeFoorkie,
   leerIconoSello,
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
   // Los locales: existen, son del mismo dueño y todavía no tienen tarjeta.
   const { data: locales } = await db
     .from("foorkie_restaurantes")
-    .select("id, dueno_id, bookea_rancho_id, bookea_programa_id")
+    .select("id, dueno_id, bookea_rancho_id, bookea_programa_id, moneda")
     .in("id", ids);
   if (!locales || locales.length !== new Set(ids).size) return responder({ ok: false, codigo: "datos", motivo: "Algún local no existe." }, 400);
   const duenos = new Set(locales.map((l) => String(l.dueno_id ?? "")));
@@ -110,6 +111,21 @@ export async function POST(request: Request) {
   }
   if (locales.some((l) => l.bookea_rancho_id || l.bookea_programa_id)) {
     return responder({ ok: false, codigo: "ya_vinculado", motivo: "Alguno de esos locales ya tiene tarjeta de lealtad." }, 409);
+  }
+
+  // LA MONEDA DEL CASHBACK (8 nov 2026, `moneda-tarjeta.ts`): la de los
+  // locales, leída de Foorkie y no de lo que diga el pedido. Una tarjeta
+  // de cashback cuenta plata, así que todos sus locales tienen que cobrar
+  // en la misma moneda, y tiene que ser una que el pase sepa escribir. Sin
+  // moneda cargada, colones (como todo local de Foorkie hasta hoy).
+  const esCashback = modoCrudo === "cashback";
+  const codigos = new Set(locales.map((l) => String((l as { moneda?: unknown }).moneda ?? "CRC").trim().toUpperCase() || "CRC"));
+  if (esCashback && codigos.size !== 1) {
+    return responder({ ok: false, codigo: "datos", motivo: "Para un cashback, todos los locales tienen que cobrar en la misma moneda." }, 400);
+  }
+  const moneda = esCashback ? monedaParaCrear([...codigos][0]) : null;
+  if (esCashback && !moneda) {
+    return responder({ ok: false, codigo: "datos", motivo: `Todavía no hay cashback en ${[...codigos][0]}.` }, 400);
   }
 
   const [logoUrl, bannerUrl, iconoUrl] = await Promise.all([
@@ -125,8 +141,9 @@ export async function POST(request: Request) {
   const cruda: TarjetaDeAlta = {
     modo: typeof tarjetaCruda.modo === "string" ? tarjetaCruda.modo : null,
     // Toda tarjeta de este alta es de Foorkie: su cashback nace con canje
-    // libre (0253, `canje-libre.ts`), sin el tramo de «₡1 000».
-    beneficio: (beneficioDeFoorkie(tarjetaCruda.beneficio) ?? null) as TarjetaDeAlta["beneficio"],
+    // libre (0253, `canje-libre.ts`), sin el tramo de «₡1 000», y con la
+    // moneda de sus locales (sus montos pasan a unidades de esa moneda).
+    beneficio: (beneficioDeFoorkie(tarjetaCruda.beneficio, moneda ?? undefined) ?? null) as TarjetaDeAlta["beneficio"],
     colorFondo: typeof tarjetaCruda.colorFondo === "string" ? tarjetaCruda.colorFondo : null,
     colorSello: typeof tarjetaCruda.colorSello === "string" ? tarjetaCruda.colorSello : null,
     logoUrl,

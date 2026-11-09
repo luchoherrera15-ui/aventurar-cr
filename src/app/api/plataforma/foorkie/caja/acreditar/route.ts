@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
  * suma al cliente la compra (o la visita) que tiene enfrente. Ver
  * `src/lib/plataforma/foorkie-caja.ts`.
  *
- *   { rancho_id, programa_id, miembro_id, monto: colones enteros | null,
+ *   { rancho_id, programa_id, miembro_id, monto: en la moneda de la tarjeta | null,
  *     intento_id: uuid, operador?: quién operó en Foorkie (≤ 80) }
  *   firmado en `x-foorkie-firma`.
  *
