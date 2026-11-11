@@ -28,8 +28,13 @@ export const dynamic = "force-dynamic";
  *   200 { ok: false, codigo: "no_encontrado", motivo }   el código no es una tarjeta, el
  *       `miembro_id` no es de ESTA tarjeta (no existe, o es de otra: es la misma
  *       respuesta), o la tarjeta está dada de baja
- *   200 { ok: false, codigo: "tarjeta_ajena", motivo }   el pase escaneado es de otro
- *       negocio, o de otra tarjeta de este
+ *   200 { ok: false, codigo: "tarjeta_ajena", motivo[, programa_id] }   el pase
+ *       escaneado es de otro negocio, o de otra tarjeta de este. Si es OTRA
+ *       tarjeta de Foorkie del mismo negocio (un local con varias, 11 nov
+ *       2026), `programa_id` dice cuál: la caja cambia a esa y vuelve a buscar.
+ *   200 { ok: true, cliente: { …, membresia? } }   `membresia` solo en una
+ *       tarjeta de socio: { nivel, beneficios, porcentaje, vence } (se USA con
+ *       `caja/usar`, no se suma ni se canjea)
  *   400 datos · 401 firma · 403 no_vinculado · 500 error_base · 503 no_configurado
  *
  * Solo lee: no afilia a nadie ni toca el saldo.
@@ -47,7 +52,12 @@ export async function POST(request: Request) {
         : await miembroPorId(db, pedido.programaId, pedido.miembroId);
   if (!encontrado.ok) {
     return responder(
-      { ok: false, codigo: encontrado.codigo, motivo: encontrado.motivo },
+      {
+        ok: false,
+        codigo: encontrado.codigo,
+        motivo: encontrado.motivo,
+        ...(encontrado.programaId ? { programa_id: encontrado.programaId } : {}),
+      },
       encontrado.codigo === "error_base" ? 500 : 200,
     );
   }

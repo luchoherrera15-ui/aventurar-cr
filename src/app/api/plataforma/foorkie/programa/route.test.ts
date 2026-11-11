@@ -17,9 +17,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 type Fila = Record<string, unknown>;
 let tablas: Record<string, Fila[]> = {};
 
-/** Una consulta encadenable que aplica `eq` (y `limit`) a las filas de su tabla, con `count`. */
+/** Una consulta encadenable que aplica `eq`, `in` (y `limit`) a las filas de su tabla, con `count`. */
 function consulta(tabla: string) {
   const eqs: [string, unknown][] = [];
+  const ins: [string, unknown[]][] = [];
   let unico = false;
   let limite: number | null = null;
   const b = {
@@ -27,6 +28,10 @@ function consulta(tabla: string) {
     order: () => b,
     eq: (col: string, val: unknown) => {
       eqs.push([col, val]);
+      return b;
+    },
+    in: (col: string, vals: unknown[]) => {
+      ins.push([col, vals]);
       return b;
     },
     limit: (n: number) => {
@@ -40,7 +45,9 @@ function consulta(tabla: string) {
     then: (ok: (r: unknown) => unknown, mal?: (e: unknown) => unknown) =>
       Promise.resolve()
         .then(() => {
-          const filas = (tablas[tabla] ?? []).filter((f) => eqs.every(([c, v]) => f[c] === v));
+          const filas = (tablas[tabla] ?? []).filter(
+            (f) => eqs.every(([c, v]) => f[c] === v) && ins.every(([c, vs]) => vs.includes(f[c])),
+          );
           const vistas = (limite === null ? filas : filas.slice(0, limite)).map((f) => structuredClone(f));
           return { data: unico ? (vistas[0] ?? null) : vistas, error: null, count: filas.length };
         })
@@ -163,5 +170,43 @@ describe("programa: la vista del pase", () => {
     expect(await leer({ rancho_id: "x", programa_id: PROGRAMA })).toMatchObject({ status: 400, cuerpo: { codigo: "datos" } });
     tablas.foorkie_restaurantes = [];
     expect(await leer(vinculo)).toMatchObject({ status: 403, cuerpo: { codigo: "no_vinculado" } });
+  });
+});
+
+describe("programa: una tarjeta EXTRA de socio (11 nov 2026, las de equipo de Tostado)", () => {
+  const EQUIPO = "33333333-3333-4333-8333-333333333333";
+  const socio = { tipo: "membresia", nivel: "Equipo 1", beneficios: ["10 % de descuento"], porcentaje: 10, vigenciaMeses: 12, renovacionAutomatica: true };
+
+  beforeEach(() => {
+    tablas.foorkie_restaurantes[0].lealtad_por_foorkie = true;
+    // No está en la columna de siempre: está en la vista de Foorkie.
+    tablas.foorkie_lealtad_vinculos = [
+      { id: "local-1", slug: "pura", activo: true, estado_publicacion: "aprobado", lealtad_por_foorkie: true, bookea_rancho_id: RANCHO, bookea_programa_id: EQUIPO, principal: false, tarjeta_slug: "equipo-1", tarjeta_nombre: "Equipo 1", requiere_codigo: true },
+    ];
+    tablas.programa_lealtad.push({ id: EQUIPO, rancho_id: RANCHO, nombre: "Equipo 1", modo: "membresia", estado: "activo", activo: true, beneficio: socio });
+    tablas.recompensas.push({ id: "rc-socio", programa_id: EQUIPO, nombre: "Beneficio de socio Equipo 1", costo_puntos: 1, activo: true, vigencia_hasta: null });
+  });
+
+  it("abre por la vista, es de Foorkie y trae su parte de socio", async () => {
+    const r = await leer({ rancho_id: RANCHO, programa_id: EQUIPO });
+    expect(r.status).toBe(200);
+    expect(r.cuerpo.programa).toMatchObject({
+      id: EQUIPO,
+      nombre: "Equipo 1",
+      modo: "membresia",
+      membresia: { nivel: "Equipo 1", beneficios: ["10 % de descuento"], porcentaje: 10, vence: null },
+      textos: { encabezado: { label: "MEMBRESÍA", value: "Equipo 1" } },
+      vista: { marca: "foorkie" },
+    });
+  });
+
+  it("la principal (que no es de socio) no trae `membresia`", async () => {
+    const r = await leer(vinculo);
+    expect(r.cuerpo.programa).not.toHaveProperty("membresia");
+  });
+
+  it("sin la fila en la vista, la extra no es de Foorkie: 403 como siempre", async () => {
+    tablas.foorkie_lealtad_vinculos = [];
+    expect(await leer({ rancho_id: RANCHO, programa_id: EQUIPO })).toMatchObject({ status: 403, cuerpo: { codigo: "no_vinculado" } });
   });
 });

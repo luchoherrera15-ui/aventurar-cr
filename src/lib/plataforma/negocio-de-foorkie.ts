@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { tarjetasExtraDeFoorkie } from "@/lib/plataforma/foorkie-tarjetas-extra";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -57,11 +58,22 @@ export async function negociosDeFoorkie(db: Db, ranchoIds: readonly string[]): P
       .in("bookea_rancho_id", ids)
       .eq(COLUMNA_LEALTAD_POR_FOORKIE, true);
     if (error) throw new Error(error.message);
-    return new Set(
+    const deFoorkie = new Set(
       ((data ?? []) as { bookea_rancho_id: unknown }[])
         .map((f) => f.bookea_rancho_id)
         .filter((id): id is string => typeof id === "string" && ids.includes(id)),
     );
+    // Las tarjetas EXTRA de un local (11 nov 2026) viven en el negocio de
+    // su principal, así que casi siempre ya está arriba. Se pregunta igual
+    // por los que faltan: si el local desvinculó la principal y le quedan
+    // extras, su negocio sigue siendo de Foorkie.
+    const faltan = ids.filter((id) => !deFoorkie.has(id));
+    if (faltan.length > 0) {
+      for (const f of await tarjetasExtraDeFoorkie(db, { ranchoIds: faltan, soloMarcadas: true })) {
+        if (typeof f.bookea_rancho_id === "string" && faltan.includes(f.bookea_rancho_id)) deFoorkie.add(f.bookea_rancho_id);
+      }
+    }
+    return deFoorkie;
   } catch (e) {
     console.warn(
       "[foorkie] No se pudo saber si el negocio es de Foorkie; se le escribe al dueño como siempre:",

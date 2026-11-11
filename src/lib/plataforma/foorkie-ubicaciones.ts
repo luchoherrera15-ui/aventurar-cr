@@ -3,6 +3,7 @@ import type { Lectura, Vinculo } from "@/lib/plataforma/foorkie-caja";
 import { localDeFoorkieDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 import { limpiarTexto } from "@/lib/plataforma/foorkie-mensajes";
 import { COLUMNA_LEALTAD_POR_FOORKIE } from "@/lib/plataforma/negocio-de-foorkie";
+import { tarjetasExtraDeFoorkie } from "@/lib/plataforma/foorkie-tarjetas-extra";
 import { traducirError, type ErrorBase } from "@/lib/lealtad/errores-base";
 
 /**
@@ -291,6 +292,16 @@ async function tarjetasDelNegocio(
       .filter((l) => l.bookea_rancho_id === null || l.bookea_rancho_id === undefined || l.bookea_rancho_id === ranchoId)
       .map((l) => l.bookea_programa_id),
   );
+  // Las tarjetas EXTRA del local (11 nov 2026) viven en el mismo negocio
+  // y también son de Foorkie: sin esto, un local con dos tarjetas daba
+  // `negocio_compartido`. Si la vista no contesta, siguen contando como
+  // ajenas: ante la duda, no se escribe.
+  const faltan = programas.filter((id) => !deFoorkie.has(id));
+  if (faltan.length > 0) {
+    for (const f of await tarjetasExtraDeFoorkie(db, { programaIds: faltan, ranchoId, soloMarcadas: true })) {
+      deFoorkie.add(f.bookea_programa_id);
+    }
+  }
   return { ok: true, programas, ajenas: programas.filter((id) => !deFoorkie.has(id)).length };
 }
 

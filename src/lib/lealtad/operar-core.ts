@@ -516,7 +516,19 @@ async function acreditarResuelto(args: {
   // compra registrada, la compra mínima— todo va en unidades del ledger
   // (1550 centavos). En una tarjeta en colones es el mismo número.
   const moneda = monedaDeTarjeta(miembro.beneficio);
-  const monto = args.monto === null ? null : aUnidades(args.monto, moneda);
+  // ── LOS PUNTOS SON «POR CADA $1» (11 nov 2026) ───────────────────
+  // Una tarjeta de puntos no guarda moneda (cuenta puntos, no plata), así
+  // que su monto entra en unidades enteras. Redondeado, una compra de
+  // $8.50 en un local en dólares daba 9 puntos con «1 punto por cada $1»
+  // (Tostado Café Bistró, San Salvador); el dólar que no se completó no
+  // suma: se trunca. Las puertas de Bookea mandan enteros, así que para
+  // ellas no cambia nada; en colones tampoco.
+  const monto =
+    args.monto === null
+      ? null
+      : tipoDe(miembro.modo) === "puntos"
+        ? Math.floor(Number((args.monto * moneda.escala).toFixed(6)))
+        : aUnidades(args.monto, moneda);
   if (monto !== null && monto > TOPE_UNIDADES) {
     return { ok: false, codigo: "monto_invalido", motivo: "Ese monto es demasiado alto para una sola compra." };
   }

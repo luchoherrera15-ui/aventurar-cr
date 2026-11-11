@@ -276,6 +276,16 @@ export type ConfigMembresia = {
   /** Meses de vigencia. */
   vigenciaMeses: number;
   renovacionAutomatica: boolean;
+  /**
+   * EL DESCUENTO DEL SOCIO, como número (11 nov 2026, las tarjetas de
+   * equipo de Foorkie: «10 % de descuento cada vez que compra»). Los
+   * `beneficios` son texto libre para el pase; esto es lo que la caja de
+   * Foorkie usa para calcular el descuento sobre el monto de la compra.
+   * OPCIONAL a propósito: las membresías guardadas antes no lo traen y se
+   * siguen leyendo igual. null o ausente = sin porcentaje (un beneficio
+   * que no es un descuento: un café de cortesía, la fila rápida).
+   */
+  porcentaje?: number | null;
 };
 
 export type ConfigGiftCard = {
@@ -463,6 +473,13 @@ export function validarBeneficio(config: ConfigBeneficio): string | null {
       if (config.beneficios.length === 0) return "Una membresía sin beneficios no se vende sola.";
       if (!Number.isInteger(config.vigenciaMeses) || config.vigenciaMeses < 1) {
         return "La vigencia tiene que ser de al menos un mes.";
+      }
+      if (
+        config.porcentaje !== undefined &&
+        config.porcentaje !== null &&
+        !(typeof config.porcentaje === "number" && Number.isFinite(config.porcentaje) && config.porcentaje > 0 && config.porcentaje <= 100)
+      ) {
+        return "El descuento del socio va de 1 a 100.";
       }
       return null;
     }

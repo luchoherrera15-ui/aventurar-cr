@@ -279,6 +279,30 @@ describe("armarClienteDeLaCaja — la tarjeta del cliente, como la ve la caja", 
     expect(c.tipo).toBe("cashback");
     expect(c.progreso).toBeNull();
     expect(c.textos.encabezado.label).toBe("SALDO");
+    // Solo las de socio traen `membresia` (11 nov 2026).
+    expect(c).not.toHaveProperty("membresia");
+  });
+
+  it("socio (las de equipo, 11 nov 2026): el nivel, los beneficios, el porcentaje y hasta cuándo vale", () => {
+    const socio = { tipo: "membresia", nivel: "Equipo 1", beneficios: ["10 % de descuento"], porcentaje: 10, vigenciaMeses: 12, renovacionAutomatica: true };
+    const armar = (vigencia: string | null, beneficio: Record<string, unknown> = socio) =>
+      armarClienteDeLaCaja({
+        miembroId: MIEMBRO,
+        estadoMiembro: "activa",
+        quien: { nombre: "Ana", correo: null },
+        fila: { ...sellos, nombre: "Equipo 1", modo: "membresia", beneficio },
+        negocio: "Tostado Café Bistró",
+        saldo: 0,
+        recompensas: [{ id: RECOMPENSA, nombre: "Beneficio de socio Equipo 1", costo_puntos: 1, vigencia_hasta: vigencia }],
+      });
+    expect(armar(null)).toMatchObject({
+      tipo: "membresia",
+      membresia: { nivel: "Equipo 1", beneficios: ["10 % de descuento"], porcentaje: 10, vence: null },
+    });
+    expect(armar("2027-11-11").membresia?.vence).toBe("2027-11-11");
+    // Una membresía de antes, sin el porcentaje: se lee igual, con null.
+    const { porcentaje: _sinPorcentaje, ...vieja } = socio;
+    expect(armar(null, vieja).membresia).toEqual({ nivel: "Equipo 1", beneficios: ["10 % de descuento"], porcentaje: null, vence: null });
   });
 });
 
@@ -422,6 +446,27 @@ describe("miembroPorCodigo — pase → miembro → la tarjeta de Foorkie", () =
     expect(mismo.ok ? "" : mismo.motivo).toMatch(/otra tarjeta de lealtad de este negocio/);
     const ajeno = await miembroPorCodigo(escenario({ programa_id: otra }, "otro-rancho").db, RANCHO, PROGRAMA, SERIAL);
     expect(ajeno).toMatchObject({ ok: false, codigo: "tarjeta_ajena", motivo: "Esa tarjeta es de otro negocio." });
+    expect(mismo).not.toHaveProperty("programaId");
+  });
+
+  it("otra tarjeta de FOORKIE del mismo local (11 nov 2026, varias por local): dice cuál, para que la caja cambie", async () => {
+    const equipo = "77777777-7777-4777-8777-777777777777";
+    const { db } = baseFalsa((c) => {
+      if (c.tabla === "pases_wallet") return { data: [{ miembro_id: MIEMBRO }], error: null };
+      if (c.tabla === "miembros") return { data: { id: MIEMBRO, programa_id: equipo, persona_id: null, cliente_id: null, estado: "activa" }, error: null };
+      if (c.tabla === "programa_lealtad") return { data: { rancho_id: RANCHO }, error: null };
+      if (c.tabla === "ranchos") return { data: { owner_id: "dueno-1" }, error: null };
+      // No es la principal (la columna de siempre): es una extra del local, en la vista de Foorkie.
+      if (c.tabla === "foorkie_restaurantes") return { data: null, error: null };
+      if (c.tabla === "foorkie_lealtad_vinculos") return { data: [{ bookea_programa_id: equipo, bookea_rancho_id: RANCHO }], error: null };
+      return { data: null, error: null };
+    });
+    expect(await miembroPorCodigo(db, RANCHO, PROGRAMA, SERIAL)).toEqual({
+      ok: false,
+      codigo: "tarjeta_ajena",
+      motivo: "Esa es otra tarjeta de este mismo local.",
+      programaId: equipo,
+    });
   });
 
   it("una membresía dada de baja no se atiende", async () => {

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { COLUMNA_LEALTAD_POR_FOORKIE } from "@/lib/plataforma/negocio-de-foorkie";
+import { tarjetasExtraDeFoorkie } from "@/lib/plataforma/foorkie-tarjetas-extra";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -81,8 +82,20 @@ export const MARCA_BOOKEA: MarcaDelPase = Object.freeze({
   encabezadoMensaje: "Bookea",
 });
 
-/** El local de Foorkie dueño de la marca de una tarjeta. */
-export type LocalDeFoorkie = { slug: string | null };
+/**
+ * El local de Foorkie dueño de la marca de una tarjeta.
+ *
+ * `tarjetaSlug` y `requiereCodigo` solo vienen en una tarjeta EXTRA del
+ * local (`foorkie-tarjetas-extra.ts`, 11 nov 2026): la principal sigue
+ * siendo `{ slug }` a secas, exactamente como antes.
+ */
+export type LocalDeFoorkie = {
+  slug: string | null;
+  /** El slug de la tarjeta dentro del local: su página es `/lealtad/<slug>/<tarjetaSlug>`. */
+  tarjetaSlug?: string | null;
+  /** true = para unirse hace falta el código del local (las tarjetas de un equipo). */
+  requiereCodigo?: boolean;
+};
 
 /**
  * Un slug de Foorkie (`foorkie_slugify`: minúsculas, números y guiones) o
@@ -94,9 +107,15 @@ export function slugDeFoorkie(v: unknown): string | null {
   return /^[a-z0-9][a-z0-9-]{0,79}$/.test(s) ? s : null;
 }
 
-/** La dirección donde alguien se une a la tarjeta de ese local desde Foorkie. */
-export function urlUnirseFoorkie(slug: string): string {
-  return `${VITRINA_FOORKIE}/lealtad/${encodeURIComponent(slug)}`;
+/**
+ * La dirección donde alguien se une a la tarjeta de ese local desde
+ * Foorkie. Con `tarjetaSlug`, la de UNA tarjeta extra del local
+ * (`/lealtad/<slug>/<tarjeta>`); sin él, la principal, como siempre.
+ */
+export function urlUnirseFoorkie(slug: string, tarjetaSlug?: string | null): string {
+  const base = `${VITRINA_FOORKIE}/lealtad/${encodeURIComponent(slug)}`;
+  const tarjeta = slugDeFoorkie(tarjetaSlug);
+  return tarjeta ? `${base}/${encodeURIComponent(tarjeta)}` : base;
 }
 
 /**
@@ -104,10 +123,14 @@ export function urlUnirseFoorkie(slug: string): string {
  * Lealtad» y su QR impreso apunta a bookea.lat/tarjeta/<negocio>). Una tarjeta de Foorkie (vinculada a un local
  * de Foorkie Y marcada `lealtad_por_foorkie`) se une desde la página de Foorkie; una de Bookea (sin local, sin
  * marca o sin slug válido) no tiene destino: sigue sirviendo su propia pantalla. Pura: la decisión se prueba sola.
+ *
+ * Una tarjeta EXTRA de un local (11 nov 2026) va a SU página de Foorkie, `/lealtad/<local>/<tarjeta>`, que es la
+ * que pide el código cuando la tarjeta lo tiene. La de Bookea no lo pide: por eso una tarjeta con código nunca se
+ * une acá (ver también la guardia de `afiliarPorQr`).
  */
 export function destinoDeFoorkieDeLaTarjeta(local: LocalDeFoorkie | null): string | null {
   const slug = local ? slugDeFoorkie(local.slug) : null;
-  return slug ? urlUnirseFoorkie(slug) : null;
+  return slug ? urlUnirseFoorkie(slug, local?.tarjetaSlug) : null;
 }
 
 /** «https://www.foorkie.tech/cuenta» → «foorkie.tech/cuenta»: lo que se lee en el reverso. */
@@ -122,8 +145,10 @@ export function marcaDelPase(local: LocalDeFoorkie | null): MarcaDelPase {
   const slug = slugDeFoorkie(local.slug);
   const links: LinkDelPase[] = [];
   // Sin slug no hay página para unirse: el renglón no sale (los demás sí).
-  if (slug) {
-    const url = urlUnirseFoorkie(slug);
+  // Tampoco en una tarjeta con código (la de un equipo): mandar a alguien
+  // a una página que le va a pedir un código que no tiene no es invitarlo.
+  if (slug && local.requiereCodigo !== true) {
+    const url = urlUnirseFoorkie(slug, local.tarjetaSlug);
     links.push({ id: "unirse", etiqueta: "Invitá a alguien a esta tarjeta", texto: corta(url), url });
   }
   const del = (id: IdLinkDelPase, etiqueta: string, ruta: string): LinkDelPase => {
@@ -146,13 +171,19 @@ export function marcaDelPase(local: LocalDeFoorkie | null): MarcaDelPase {
   };
 }
 
-/** Una fila de `foorkie_restaurantes`, como llega (sin confiar en los tipos). */
+/**
+ * Una fila de `foorkie_restaurantes` —o de la vista de las tarjetas
+ * extra, que trae además `tarjeta_slug` y `requiere_codigo`—, como llega
+ * (sin confiar en los tipos).
+ */
 export type FilaLocalDeFoorkie = {
   slug?: unknown;
   activo?: unknown;
   estado_publicacion?: unknown;
   created_at?: unknown;
   bookea_rancho_id?: unknown;
+  tarjeta_slug?: unknown;
+  requiere_codigo?: unknown;
 };
 
 /** Más viejo primero; sin fecha, al final (una incógnita no gana el primer puesto). */
@@ -183,8 +214,13 @@ export function elegirLocalDeFoorkie(
   );
   if (validas.length === 0) return null;
   const ordenadas = [...validas].sort(porAntiguedad);
-  const publicada = ordenadas.find((f) => f.activo === true && f.estado_publicacion === "aprobado");
-  return { slug: slugDeFoorkie((publicada ?? ordenadas[0]).slug) };
+  const elegida = ordenadas.find((f) => f.activo === true && f.estado_publicacion === "aprobado") ?? ordenadas[0];
+  const slug = slugDeFoorkie(elegida.slug);
+  // Una tarjeta extra del local (la vista la trae con su slug) agrega a
+  // dónde lleva su página. La principal sigue siendo `{ slug }` a secas.
+  const tarjetaSlug = slugDeFoorkie(elegida.tarjeta_slug);
+  if (!tarjetaSlug) return { slug };
+  return { slug, tarjetaSlug, requiereCodigo: elegida.requiere_codigo === true };
 }
 
 /** Más que esto no comparte una tarjeta (una marca con sus sucursales). */
@@ -194,9 +230,15 @@ const MAX_LOCALES = 50;
  * El local de Foorkie de una tarjeta, o null si la tarjeta no es de
  * Foorkie: ningún local la tiene vinculada CON la marca
  * `lealtad_por_foorkie` (una vinculada sin la marca, como la de Pura
- * Matcha, es de Bookea). UNA consulta. Nunca lanza: si la base no
- * contesta o la columna todavía no existe, null — o sea, el pase y los
- * correos de siempre, que es lo que pasaba antes de que esto existiera.
+ * Matcha, es de Bookea). Nunca lanza: si la base no contesta o la
+ * columna todavía no existe, null — o sea, el pase y los correos de
+ * siempre, que es lo que pasaba antes de que esto existiera.
+ *
+ * UNA consulta para las principales, la de siempre. Solo si ahí no
+ * aparece, una segunda a las tarjetas EXTRA de los locales
+ * (`foorkie-tarjetas-extra.ts`, 11 nov 2026), con la misma marca y el
+ * mismo par negocio + tarjeta. Si la primera FALLÓ no se pregunta la
+ * segunda: ante la duda, Bookea.
  */
 export async function localDeFoorkieDeLaTarjeta(
   db: SupabaseClient,
@@ -214,7 +256,10 @@ export async function localDeFoorkieDeLaTarjeta(
       console.warn("[foorkie] No se pudo leer si la tarjeta es de Foorkie:", error.message);
       return null;
     }
-    return elegirLocalDeFoorkie((data ?? []) as FilaLocalDeFoorkie[], ranchoId);
+    const principal = elegirLocalDeFoorkie((data ?? []) as FilaLocalDeFoorkie[], ranchoId);
+    if (principal) return principal;
+    const extras = await tarjetasExtraDeFoorkie(db, { programaIds: [programaId], soloMarcadas: true });
+    return elegirLocalDeFoorkie(extras as FilaLocalDeFoorkie[], ranchoId);
   } catch (e) {
     console.warn("[foorkie] No se pudo leer si la tarjeta es de Foorkie:", e);
     return null;

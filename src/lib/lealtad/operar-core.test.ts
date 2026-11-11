@@ -132,6 +132,10 @@ let identidades: Record<
   { nombre: string | null; correo: string | null; telefono: string | null }
 > = {};
 let programasConsultados: string[] = [];
+/** El tipo de la tarjeta del miembro (sellos, salvo en las pruebas de puntos). */
+let modoDelPrograma = "sellos";
+/** Lo último que recibió `acreditar_lealtad`: el monto que de verdad llega al motor. */
+let argsDeAcreditar: Record<string, unknown> | null = null;
 
 /** La fila de `programa_lealtad` que ve `revisarReglas`: activa y sin reglas. */
 const programaActivo = () => ({
@@ -139,7 +143,7 @@ const programaActivo = () => ({
   rancho_id: ranchoDelPrograma,
   estado: "activo",
   activo: true,
-  modo: "sellos",
+  modo: modoDelPrograma,
   beneficio: null,
 });
 
@@ -239,6 +243,7 @@ const db = {
     }
 
     if (nombre === "acreditar_lealtad") {
+      argsDeAcreditar = args;
       return {
         data: acreditacionRepetida
           ? { otorgado: false, motivo: "ya-otorgado", saldo: 4 }
@@ -272,6 +277,8 @@ beforeEach(() => {
   miembrosDelNegocio = [];
   identidades = {};
   programasConsultados = [];
+  modoDelPrograma = "sellos";
+  argsDeAcreditar = null;
 });
 
 const canjear = (referencia: string, quien = QUIEN_PUEDE_TODO) =>
@@ -607,5 +614,44 @@ describe("el aviso al Wallet dice QUÉ pasó (los mensajes de las tarjetas de Fo
     await expect(canjear("canje:colgado")).resolves.toMatchObject({ ok: true, recompensa: "Café gratis" });
     await expect(acreditar()).resolves.toMatchObject({ ok: true, puntos: 1 });
     expect(llamadas.filter((l) => l === "after").length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("puntos «por cada $1» con centavos (11 nov 2026, Tostado Café Bistró)", () => {
+  /**
+   * Una tarjeta de puntos no guarda moneda: su monto entra en unidades
+   * enteras. Con «1 punto por cada $1», una compra de $8.50 son 8 puntos
+   * (el dólar que no se completó no suma), no 9 como daba el redondeo.
+   * Las puertas de Bookea mandan enteros: para ellas no cambia nada.
+   */
+  const acreditarCompra = (monto: number) =>
+    acreditarPorMiembroCore({
+      db,
+      ranchoId: RANCHO,
+      quien: QUIEN_PUEDE_TODO,
+      monto,
+      miembroId: MIEMBRO,
+      referencia: `mostrador:${MIEMBRO}:intento-puntos-${monto}`,
+      via: "mostrador",
+    });
+
+  it("en una tarjeta de puntos, $8.50 llega al motor como 8", async () => {
+    modoDelPrograma = "puntos";
+    await acreditarCompra(8.5);
+    expect(argsDeAcreditar).toMatchObject({ p_monto: 8 });
+    await acreditarCompra(8.99);
+    expect(argsDeAcreditar).toMatchObject({ p_monto: 8 });
+  });
+
+  it("un entero no cambia (las puertas de Bookea y los colones)", async () => {
+    modoDelPrograma = "puntos";
+    await acreditarCompra(12500);
+    expect(argsDeAcreditar).toMatchObject({ p_monto: 12500 });
+  });
+
+  it("en los demás tipos el monto se sigue redondeando como antes", async () => {
+    modoDelPrograma = "sellos";
+    await acreditarCompra(8.5);
+    expect(argsDeAcreditar).toMatchObject({ p_monto: 9 });
   });
 });

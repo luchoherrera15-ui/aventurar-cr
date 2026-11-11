@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizarCorreo } from "@/lib/lealtad/personas";
+import { tarjetasExtraDeFoorkie } from "@/lib/plataforma/foorkie-tarjetas-extra";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -50,6 +51,11 @@ export function firmaValida(cuerpo: string, cabecera: string | null, secreto: st
  * ¿Este negocio y esta tarjeta están vinculados a un local de Foorkie?
  * Devuelve el dueño del negocio (a su nombre queda el movimiento en el
  * ledger, como cuando él mismo acredita desde el panel).
+ *
+ * Vinculada = la principal de un local (`foorkie_restaurantes`) o, desde
+ * el 11 nov 2026, una de sus tarjetas EXTRA (`foorkie-tarjetas-extra.ts`),
+ * siempre con el MISMO par negocio + tarjeta. La segunda pregunta solo
+ * corre si la primera no la encontró.
  */
 export async function vinculoConFoorkie(
   db: SupabaseClient,
@@ -67,7 +73,11 @@ export async function vinculoConFoorkie(
     db.from("ranchos").select("owner_id").eq("id", ranchoId).maybeSingle(),
     db.from("programa_lealtad").select("rancho_id").eq("id", programaId).maybeSingle(),
   ]);
-  if (!local || !rancho?.owner_id || programa?.rancho_id !== ranchoId) return null;
+  if (!rancho?.owner_id || programa?.rancho_id !== ranchoId) return null;
+  if (!local) {
+    const extras = await tarjetasExtraDeFoorkie(db, { programaIds: [programaId], ranchoId });
+    if (extras.length === 0) return null;
+  }
   return { ownerId: rancho.owner_id as string };
 }
 

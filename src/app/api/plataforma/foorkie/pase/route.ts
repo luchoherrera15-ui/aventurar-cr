@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { leerLinkPase } from "@/lib/plataforma/foorkie-api";
+import { tarjetasExtraDeFoorkie } from "@/lib/plataforma/foorkie-tarjetas-extra";
 import { generarPaseDeLealtad } from "@/lib/wallet/generar";
 import { generarPaseGoogle } from "@/lib/wallet/google";
 
@@ -58,7 +59,12 @@ export async function GET(request: Request) {
     db.from("programa_lealtad").select("id, rancho_id").eq("id", miembro.programa_id).maybeSingle(),
     db.from("foorkie_restaurantes").select("id").eq("bookea_programa_id", miembro.programa_id).limit(1).maybeSingle(),
   ]);
-  if (!programa || !vinculo) {
+  // Una tarjeta EXTRA de un local (11 nov 2026) no está en esa columna:
+  // está en la vista de Foorkie. Solo se pregunta si no apareció arriba.
+  const vinculada =
+    !!vinculo ||
+    (!!programa && (await tarjetasExtraDeFoorkie(db, { programaIds: [String(miembro.programa_id)] })).length > 0);
+  if (!programa || !vinculada) {
     return pantalla("Tarjeta no disponible", "Esta tarjeta no está vinculada a un local de Foorkie.", 404);
   }
 

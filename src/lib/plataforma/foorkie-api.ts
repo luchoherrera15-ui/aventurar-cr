@@ -305,6 +305,57 @@ export function lecturaDeTarjeta(d: {
   };
 }
 
+/**
+ * Una tarjeta de SOCIO, como la necesitan la caja y el panel de Foorkie
+ * (11 nov 2026: las tarjetas de equipo de «Tostado Café Bistró», 10 % de
+ * descuento en cada compra). Solo existe en las de `modo: "membresia"`.
+ */
+export type MembresiaParaFoorkie = {
+  /** El nivel («Equipo 1»): lo que el pase dice en grande. */
+  nivel: string;
+  /** Los beneficios en texto, como los dice el pase. */
+  beneficios: string[];
+  /** El descuento en número, para calcularlo sobre la compra. null = el beneficio no es un porcentaje. */
+  porcentaje: number | null;
+  /**
+   * Hasta qué día vale el beneficio ("YYYY-MM-DD"), o null si no vence.
+   * Es la `vigencia_hasta` del premio de la tarjeta («Beneficio de socio
+   * …», sembrado con `vigenciaMeses`): vale POR TARJETA, no por cliente —
+   * ese día deja de valer para todos sus socios—.
+   */
+  vence: string | null;
+};
+
+/** La parte de socio de una tarjeta, o null si no es de socio. Pura. */
+export function membresiaParaFoorkie(beneficio: ConfigBeneficio | null, vigenciaHasta: unknown): MembresiaParaFoorkie | null {
+  if (!beneficio || beneficio.tipo !== "membresia") return null;
+  const p = beneficio.porcentaje;
+  return {
+    nivel: beneficio.nivel.trim(),
+    beneficios: beneficio.beneficios.map((b) => (typeof b === "string" ? b.trim() : "")).filter(Boolean),
+    porcentaje: typeof p === "number" && Number.isFinite(p) && p > 0 && p <= 100 ? p : null,
+    vence: typeof vigenciaHasta === "string" && /^\d{4}-\d{2}-\d{2}/.test(vigenciaHasta) ? vigenciaHasta.slice(0, 10) : null,
+  };
+}
+
+/**
+ * La vigencia del beneficio de una tarjeta de socio: la del premio activo
+ * más barato (el mismo que la caja canjea en cada uso). null = no vence, o
+ * no se pudo leer.
+ */
+export async function vigenciaDelBeneficio(db: SupabaseClient, programaId: string): Promise<string | null> {
+  const { data } = await db
+    .from("recompensas")
+    .select("vigencia_hasta, costo_puntos")
+    .eq("programa_id", programaId)
+    .eq("activo", true)
+    .order("costo_puntos", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const v = (data as { vigencia_hasta?: unknown } | null)?.vigencia_hasta;
+  return typeof v === "string" ? v : null;
+}
+
 /** Todo lo que Foorkie necesita para dibujar UNA tarjeta y ofrecer el Wallet. */
 export function armarTarjeta(d: {
   miembroId: string;
@@ -383,12 +434,17 @@ export async function programaParaFoorkie(
   // La plata hacia Foorkie, en la moneda de la tarjeta (ver `armarTarjeta`).
   const moneda = monedaDeTarjeta(beneficio);
   const modo = tipoDe(config.modo);
+  // Una tarjeta de socio trae además su parte de socio (11 nov 2026). Las
+  // demás salen exactamente igual que antes: sin la clave, sin la consulta.
+  const membresia =
+    modo === "membresia" ? membresiaParaFoorkie(beneficio, await vigenciaDelBeneficio(db, programaId)) : null;
   return {
     id: programaId,
     rancho_id: ranchoId,
     negocio,
     nombre: typeof fila.nombre === "string" ? fila.nombre : negocio,
     modo,
+    ...(membresia ? { membresia } : {}),
     estado: typeof fila.estado === "string" ? fila.estado : null,
     pausada,
     moneda: moneda.codigo,

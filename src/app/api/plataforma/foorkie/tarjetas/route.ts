@@ -11,6 +11,7 @@ import {
   type TarjetaParaFoorkie,
 } from "@/lib/plataforma/foorkie-api";
 import { marcaDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
+import { tarjetasExtraDeFoorkie } from "@/lib/plataforma/foorkie-tarjetas-extra";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,6 +59,14 @@ export async function POST(request: Request) {
     db.from("programa_lealtad").select("*").in("id", programaIds),
   ]);
   const deFoorkie = new Set((vinculados ?? []).map((v) => String(v.bookea_programa_id)));
+  // Las tarjetas EXTRA de un local (11 nov 2026) no están en esa columna:
+  // se preguntan a la vista de Foorkie, solo por las que faltan.
+  const faltan = programaIds.filter((id) => !deFoorkie.has(id));
+  if (faltan.length > 0) {
+    for (const f of await tarjetasExtraDeFoorkie(db, { programaIds: faltan })) {
+      if (typeof f.bookea_programa_id === "string") deFoorkie.add(f.bookea_programa_id);
+    }
+  }
   const programas = new Map(((filas ?? []) as Record<string, unknown>[]).map((f) => [String(f.id), f]));
 
   const ranchoIds = [...new Set([...programas.values()].map((f) => String(f.rancho_id)))];

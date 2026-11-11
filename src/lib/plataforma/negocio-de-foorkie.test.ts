@@ -139,13 +139,45 @@ beforeEach(() => {
 });
 
 describe("negociosDeFoorkie / esNegocioDeFoorkie", () => {
-  it("de Foorkie es solo el vinculado Y marcado, en una consulta", async () => {
+  it("de Foorkie es solo el vinculado Y marcado: una consulta, y otra a las tarjetas extra solo por los que faltan", async () => {
     const { db, consultas } = baseFalsa(vinculados);
     expect(await negociosDeFoorkie(db, [DE_FOORKIE, DE_BOOKEA, SIN_MARCA, DE_FOORKIE])).toEqual(new Set([DE_FOORKIE]));
-    expect(consultas).toHaveLength(1);
+    expect(consultas).toHaveLength(2);
     expect(consultas[0].tabla).toBe("foorkie_restaurantes");
     expect(consultas[0].filtros).toContainEqual(["in", "bookea_rancho_id", [DE_FOORKIE, DE_BOOKEA, SIN_MARCA]]);
     expect(consultas[0].filtros).toContainEqual(["eq", "lealtad_por_foorkie", true]);
+    // La vista de Foorkie (11 nov 2026): solo las extras, solo de los que no aparecieron, con la marca.
+    expect(consultas[1].tabla).toBe("foorkie_lealtad_vinculos");
+    expect(consultas[1].filtros).toContainEqual(["eq", "principal", false]);
+    expect(consultas[1].filtros).toContainEqual(["in", "bookea_rancho_id", [DE_BOOKEA, SIN_MARCA]]);
+    expect(consultas[1].filtros).toContainEqual(["eq", "lealtad_por_foorkie", true]);
+  });
+
+  it("si todos aparecen entre las principales, no se pregunta por las extras", async () => {
+    const { db, consultas } = baseFalsa(vinculados);
+    expect(await negociosDeFoorkie(db, [DE_FOORKIE])).toEqual(new Set([DE_FOORKIE]));
+    expect(consultas.map((c) => c.tabla)).toEqual(["foorkie_restaurantes"]);
+  });
+
+  it("un negocio al que solo le quedan tarjetas extra de un local marcado: de Foorkie", async () => {
+    const { db } = baseFalsa((c) =>
+      c.tabla === "foorkie_lealtad_vinculos"
+        ? { data: [{ bookea_rancho_id: DE_BOOKEA, bookea_programa_id: "p-extra", lealtad_por_foorkie: true }] }
+        : vinculados(c),
+    );
+    expect(await negociosDeFoorkie(db, [DE_FOORKIE, DE_BOOKEA])).toEqual(new Set([DE_FOORKIE, DE_BOOKEA]));
+  });
+
+  it("si la vista todavía no existe (Foorkie sin migrar), el resultado es el de siempre", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const { db } = baseFalsa((c) =>
+      c.tabla === "foorkie_lealtad_vinculos"
+        ? { error: { code: "PGRST205", message: "Could not find the table 'public.foorkie_lealtad_vinculos'" } }
+        : vinculados(c),
+    );
+    expect(await negociosDeFoorkie(db, [DE_FOORKIE, DE_BOOKEA, SIN_MARCA])).toEqual(new Set([DE_FOORKIE]));
+    // Y sin llenar los registros: antes de la migración es lo esperado.
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("con la marca: de Foorkie", async () => {

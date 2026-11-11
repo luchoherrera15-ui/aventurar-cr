@@ -2,12 +2,20 @@ import type { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { miembroPorCorreo, vinculoConFoorkie } from "@/lib/plataforma/foorkie";
-import { lecturaDeTarjeta, leerPedidoFirmado, responder, saldoDelMiembro, UUID } from "@/lib/plataforma/foorkie-api";
+import {
+  lecturaDeTarjeta,
+  leerPedidoFirmado,
+  membresiaParaFoorkie,
+  responder,
+  saldoDelMiembro,
+  UUID,
+  type MembresiaParaFoorkie,
+} from "@/lib/plataforma/foorkie-api";
 import { normalizarCorreo } from "@/lib/lealtad/personas";
 import { canalDelMovimiento } from "@/lib/lealtad/canal-del-sello";
 import { identidadesDeMiembros, miembrosConIdentidad, type MiembroIdentificable } from "@/lib/lealtad/identidades-db";
 import type { PermisosLealtad } from "@/lib/lealtad/permisos";
-import type { TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
+import type { ConfigBeneficio, TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { canjeLibreDe, TOPE_CANJE_LIBRE, type CanjeLibre } from "@/lib/lealtad/canje-libre";
 import { aMoneda, aMonedaOpcional, monedaDeTarjeta } from "@/lib/lealtad/moneda-tarjeta";
 import type { CamposTarjeta } from "@/lib/wallet/tarjeta";
@@ -124,6 +132,13 @@ export type PedidoCanjear = Vinculo &
 
 export type PedidoHistorial = Vinculo & { limite: number; antes: string | null };
 
+/**
+ * USAR una tarjeta de socio (11 nov 2026, `caja/usar`): el cliente
+ * presenta su carnet y la caja registra UN uso del beneficio. Lleva el
+ * `operador` («Ana · Fact. 001-45 · $8.50»), que queda en el historial.
+ */
+export type PedidoUsar = Vinculo & { miembroId: string; intentoId: string; operador: string | null };
+
 /** Un uuid en minúscula, o null. En minúscula porque viaja adentro de la llave de idempotencia. */
 export function uuidDe(v: unknown): string | null {
   if (typeof v !== "string") return null;
@@ -191,6 +206,16 @@ export function leerPedidoAcreditar(d: Record<string, unknown>): Lectura<PedidoA
   }
   const monto = typeof d.monto === "number" ? d.monto : null;
   return { ok: true, valor: { ...v.valor, miembroId, monto, intentoId, operador: leerOperador(d.operador) } };
+}
+
+export function leerPedidoUsar(d: Record<string, unknown>): Lectura<PedidoUsar> {
+  const v = leerVinculo(d);
+  if (!v.ok) return v;
+  const miembroId = uuidDe(d.miembro_id);
+  if (!miembroId) return { ok: false, motivo: "Falta el cliente (miembro_id)." };
+  const intentoId = uuidDe(d.intento_id);
+  if (!intentoId) return { ok: false, motivo: FALTA_INTENTO };
+  return { ok: true, valor: { ...v.valor, miembroId, intentoId, operador: leerOperador(d.operador) } };
 }
 
 export function leerPedidoCanjear(d: Record<string, unknown>): Lectura<PedidoCanjear> {
@@ -366,6 +391,13 @@ export type ClienteDeLaCaja = {
    * ₡500 aprox.» con un tope de ₡300). null = no hay.
    */
   acumulacion: { compra_minima: number | null; tope_por_compra: number | null };
+  /**
+   * Solo en una tarjeta de SOCIO (11 nov 2026, las de equipo): el nivel,
+   * los beneficios, el descuento en número y hasta cuándo vale. La caja
+   * no ofrece «Sumar» ni «Canjear» para estas: registra el uso con
+   * `caja/usar`. Ausente en los demás tipos.
+   */
+  membresia?: MembresiaParaFoorkie;
 };
 
 /** Un entero positivo de una columna de reglas (0125), o null. */
@@ -397,7 +429,7 @@ export function armarClienteDeLaCaja(d: {
   fila: Record<string, unknown>;
   negocio: string;
   saldo: number;
-  recompensas: { id?: unknown; nombre?: unknown; costo_puntos?: unknown }[];
+  recompensas: { id?: unknown; nombre?: unknown; costo_puntos?: unknown; vigencia_hasta?: unknown }[];
   ahora?: Date;
 }): ClienteDeLaCaja {
   const recompensas = recompensasParaCaja(d.recompensas, d.saldo);
@@ -409,6 +441,9 @@ export function armarClienteDeLaCaja(d: {
   // mismo número de siempre. `alcanza` ya se decidió en unidades.
   const moneda = monedaDeTarjeta(tarjeta.beneficio);
   const libre = tarjeta.modo === "cashback" ? canjeLibreDe(tarjeta.beneficio) : null;
+  // La de socio: su vigencia es la del premio que se canjea en cada uso (el más barato).
+  const vigencia = recompensas[0] ? d.recompensas.find((r) => r.id === recompensas[0].id)?.vigencia_hasta : null;
+  const membresia = tarjeta.modo === "membresia" ? membresiaParaFoorkie(tarjeta.beneficio, vigencia) : null;
   return {
     miembro_id: d.miembroId,
     nombre: d.quien.nombre,
@@ -425,7 +460,40 @@ export function armarClienteDeLaCaja(d: {
       compra_minima: aMonedaOpcional(enteroPositivo(d.fila.compra_minima), moneda),
       tope_por_compra: aMonedaOpcional(enteroPositivo(d.fila.max_por_transaccion), moneda),
     },
+    ...(membresia ? { membresia } : {}),
   };
+}
+
+/** Los tipos que se USAN en la caja (`caja/usar`) en vez de sumar y canjear: se presenta la tarjeta y vale. */
+export const TIPOS_DE_USO: readonly TipoTarjeta[] = ["membresia", "descuento"];
+
+/** Lo que la caja le dice a Foorkie del beneficio que se acaba de usar. */
+export type BeneficioDeUso = {
+  /** «Equipo 1» en una de socio; el premio («10% de descuento») en una de descuento. */
+  nombre: string;
+  /** El descuento en número, para calcularlo sobre la compra; null = no es un porcentaje. */
+  porcentaje: number | null;
+  /** El beneficio en palabras, como lo dice el pase. */
+  texto: string;
+};
+
+/** El beneficio de una tarjeta de socio o de descuento, con el nombre de su premio como respaldo. Pura. */
+export function beneficioDeUso(beneficio: ConfigBeneficio | null, premio: string): BeneficioDeUso {
+  const respaldo = premio.trim() || "Beneficio";
+  if (beneficio?.tipo === "membresia") {
+    const m = membresiaParaFoorkie(beneficio, null);
+    return {
+      nombre: m?.nivel || respaldo,
+      porcentaje: m?.porcentaje ?? null,
+      texto: m && m.beneficios.length > 0 ? m.beneficios.join(" · ") : respaldo,
+    };
+  }
+  if (beneficio?.tipo === "descuento" || beneficio?.tipo === "cupon") {
+    const b = beneficio.beneficio;
+    const porcentaje = b.forma === "porcentaje" && Number.isFinite(b.valor) && b.valor > 0 && b.valor <= 100 ? b.valor : null;
+    return { nombre: respaldo, porcentaje, texto: respaldo };
+  }
+  return { nombre: respaldo, porcentaje: null, texto: respaldo };
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -651,7 +719,17 @@ export async function miembroDeLaTarjeta(db: Db, programaId: string, miembroId: 
 
 export type BusquedaDeMiembro =
   | { ok: true; miembro: MiembroDeLaCaja }
-  | { ok: false; codigo: "no_encontrado" | "tarjeta_ajena" | "no_miembro" | "error_base"; motivo: string };
+  | {
+      ok: false;
+      codigo: "no_encontrado" | "tarjeta_ajena" | "no_miembro" | "error_base";
+      motivo: string;
+      /**
+       * Solo en `tarjeta_ajena`, cuando el pase es de OTRA tarjeta de
+       * Foorkie del MISMO negocio (un local con varias, 11 nov 2026): cuál
+       * es, para que la caja cambie a esa tarjeta y vuelva a buscar.
+       */
+      programaId?: string;
+    };
 
 const NO_ES_TARJETA: BusquedaDeMiembro = {
   ok: false,
@@ -679,6 +757,16 @@ export async function miembroPorCodigo(db: Db, ranchoId: string, programaId: str
 
   if (miembro.programa_id !== programaId) {
     const { data: suya } = await db.from("programa_lealtad").select("rancho_id").eq("id", miembro.programa_id).maybeSingle();
+    // Otra tarjeta de Foorkie del mismo negocio (la principal o una extra
+    // del local): se dice cuál, así la caja cambia sola de tarjeta.
+    if (suya?.rancho_id === ranchoId && (await vinculoConFoorkie(db, ranchoId, miembro.programa_id))) {
+      return {
+        ok: false,
+        codigo: "tarjeta_ajena",
+        motivo: "Esa es otra tarjeta de este mismo local.",
+        programaId: miembro.programa_id,
+      };
+    }
     return {
       ok: false,
       codigo: "tarjeta_ajena",
@@ -765,7 +853,8 @@ export async function clienteDeLaCaja(
     db.from("ranchos").select("nombre").eq("id", ranchoId).maybeSingle(),
     db
       .from("recompensas")
-      .select("id, nombre, costo_puntos")
+      // `vigencia_hasta` (0125): hasta cuándo vale el beneficio de una tarjeta de socio.
+      .select("id, nombre, costo_puntos, vigencia_hasta")
       .eq("programa_id", programaId)
       .eq("activo", true)
       .order("costo_puntos", { ascending: true })
@@ -781,7 +870,7 @@ export async function clienteDeLaCaja(
     fila: fila as Record<string, unknown>,
     negocio: String(rancho?.nombre ?? ""),
     saldo,
-    recompensas: (premios ?? []) as { id?: unknown; nombre?: unknown; costo_puntos?: unknown }[],
+    recompensas: (premios ?? []) as { id?: unknown; nombre?: unknown; costo_puntos?: unknown; vigencia_hasta?: unknown }[],
   });
 }
 

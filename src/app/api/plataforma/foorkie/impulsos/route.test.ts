@@ -179,6 +179,9 @@ beforeEach(() => {
     impulsos_lealtad: [],
     impulsos_tareas: [],
     miembros: [{ id: "m-ana", programa_id: PROGRAMA, persona_id: null, cliente_id: null }],
+    // Las tarjetas extra de los locales (11 nov 2026): ninguna acá. La guardia
+    // pregunta por ellas cuando la tarjeta no es una principal marcada (Pura Matcha).
+    foorkie_lealtad_vinculos: [],
   });
 });
 

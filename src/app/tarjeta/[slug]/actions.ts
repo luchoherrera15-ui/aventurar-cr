@@ -13,6 +13,7 @@ import {
 } from "@/lib/wallet/programa-principal";
 import { operaAhora } from "@/lib/lealtad/programas";
 import { buscarPorLlave } from "@/lib/lealtad/llave-tarjeta";
+import { localDeFoorkieDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
 import {
   DIAS_COOKIE_PERSONA,
   NOMBRE_COOKIE_PERSONA,
@@ -131,6 +132,20 @@ export async function afiliarPorQr(
     };
   }
   const programa = pedida;
+
+  // ── UNA TARJETA DE FOORKIE CON CÓDIGO NO SE UNE ACÁ (11 nov 2026) ──
+  // Las tarjetas de un equipo (las de socio de «Tostado Café Bistró») se
+  // unen SOLO con el código que el local le da al equipo, y ese código lo
+  // revisa Foorkie. La pantalla ya manda a Foorkie (`vista-tarjeta.tsx`),
+  // pero este formulario se puede mandar igual sin pasar por ella: sin
+  // esta guardia, cualquiera se ponía el descuento del equipo desde acá.
+  const deFoorkie = await localDeFoorkieDeLaTarjeta(db, {
+    programaId: String(programa.id),
+    ranchoId: negocio.id as string,
+  });
+  if (deFoorkie?.requiereCodigo === true) {
+    return { error: "Esta tarjeta se activa desde Foorkie, con el código que entrega el local." };
+  }
 
   const jar = await cookies();
   const cabeceras = await headers();

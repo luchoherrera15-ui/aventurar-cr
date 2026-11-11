@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { elegirLocalDeFoorkie, localDeFoorkieDeLaTarjeta, marcaDelPase, type FilaLocalDeFoorkie } from "@/lib/plataforma/foorkie-marca";
 import { COLUMNA_LEALTAD_POR_FOORKIE } from "@/lib/plataforma/negocio-de-foorkie";
+import { tarjetasExtraDeFoorkie } from "@/lib/plataforma/foorkie-tarjetas-extra";
 import { textoPorVencerEnElPase } from "@/lib/lealtad/vencimiento-sellos";
 import { tipoDe, type TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { monedaDeTarjeta } from "@/lib/lealtad/moneda-tarjeta";
@@ -60,6 +61,15 @@ export async function tarjetasDeFoorkie(db: Pick<Db, "from">, tarjetas: readonly
       const id = typeof f.bookea_programa_id === "string" ? f.bookea_programa_id : null;
       if (!id) continue;
       porTarjeta.set(id, [...(porTarjeta.get(id) ?? []), f]);
+    }
+    // Las tarjetas EXTRA de un local (11 nov 2026): solo las que no
+    // aparecieron arriba, con la misma marca y el mismo par negocio + tarjeta.
+    const faltan = ids.filter((id) => !porTarjeta.has(id));
+    if (faltan.length > 0) {
+      for (const f of await tarjetasExtraDeFoorkie(db, { programaIds: faltan, soloMarcadas: true })) {
+        const id = typeof f.bookea_programa_id === "string" ? f.bookea_programa_id : null;
+        if (id) porTarjeta.set(id, [...(porTarjeta.get(id) ?? []), f as FilaLocalDeFoorkie]);
+      }
     }
     const deFoorkie = new Set<string>();
     for (const t of tarjetas) {
