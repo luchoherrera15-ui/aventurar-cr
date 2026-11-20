@@ -25,7 +25,8 @@ import { definicionDe } from "./planes";
 import { estadoDelPrograma } from "./reglas";
 import type { PermisosLealtad } from "./permisos";
 import { canjeLibreDe, motivoCanjeLibre, motivoDelCanjeLibre } from "./canje-libre";
-import { aMoneda, aUnidades, leerMontoDeAfuera, monedaDeTarjeta, TOPE_UNIDADES } from "./moneda-tarjeta";
+import { aMoneda, aUnidades, formatearMonto, leerMontoDeAfuera, monedaDeTarjeta, TOPE_UNIDADES } from "./moneda-tarjeta";
+import { revisarPremios, type PremioPedido } from "./canje-varios";
 
 /**
  * ════════════════════════════════════════════════════════════════════
@@ -951,7 +952,18 @@ export async function canjearCore(entrada: {
  */
 async function revisarReglas(
   db: SupabaseClient,
-  datos: { miembroId: string; recompensaId: string; usuarioId: string | null },
+  datos: {
+    miembroId: string;
+    recompensaId: string;
+    usuarioId: string | null;
+    /**
+     * Cuántas unidades se canjean en esta operación (1 = un premio, lo de
+     * siempre; el canje de varios, 0257, pasa el total). Los topes de usos
+     * de la tarjeta (uso único, por cliente, global) cuentan LO QUE SE
+     * PIDE: con 4 unidades, el último ya tiene que caber.
+     */
+    unidades?: number;
+  },
 ): Promise<
   | { ok: true; programaId: string | null }
   | { ok: false; motivo: string; codigo?: string; programaId: string | null }
@@ -1025,8 +1037,11 @@ async function revisarReglas(
     // autoridad sobre el saldo es una sola, y es el RPC.
     saldo: (recompensa?.costo_puntos as number) ?? 0,
     costo: (recompensa?.costo_puntos as number) ?? 0,
-    canjesDelCliente: delCliente ?? 0,
-    canjesTotales: totales ?? 0,
+    // `autorizarCanje` rechaza cuando lo ya canjeado ALCANZÓ el tope: con
+    // las unidades de más que se piden hoy, la última es la que se mide
+    // (con `unidades` = 1 no se suma nada: igual que siempre).
+    canjesDelCliente: (delCliente ?? 0) + Math.max(0, (datos.unidades ?? 1) - 1),
+    canjesTotales: (totales ?? 0) + Math.max(0, (datos.unidades ?? 1) - 1),
     ahoraCR,
   });
 
@@ -1081,6 +1096,217 @@ function anotarIntento(
       // Sin la 0137 no hay dónde anotar. El canje ya se decidió.
     }
   });
+}
+
+// ════════════════════════════════════════════════════════════════════
+//  CANJEAR VARIOS PREMIOS A LA VEZ — todo o nada (0257)
+// ════════════════════════════════════════════════════════════════════
+
+/** Un premio entregado: cuántos y a cuánto cada uno (en la moneda de la tarjeta). */
+export type PremioCanjeado = { recompensaId: string; recompensa: string; cantidad: number; puntos: number };
+
+export type ResultadoCanjearVarios =
+  | {
+      ok: true;
+      /** El saldo que le queda. */
+      saldo: number;
+      /** Lo descontado en total. */
+      totalPuntos: number;
+      canjeados: PremioCanjeado[];
+      /** Las de cada premio que las tenga (una por premio, no por unidad). */
+      instrucciones: string[];
+      /**
+       * NO SE DESCONTÓ NADA DE NUEVO: ese intento ya se había entregado (un
+       * reintento). Lo demás es lo que entregó ESE intento. Quien lo pinte
+       * tiene que decirlo.
+       */
+      yaEstaba: boolean;
+    }
+  | { ok: false; codigo: string; motivo: string; saldo?: number; total?: number };
+
+type ItemDelRpc = {
+  recompensa_id?: string;
+  recompensa?: string;
+  instrucciones?: string | null;
+  cantidad?: number;
+  puntos?: number;
+};
+
+type CanjeDelRpc = { canje_id?: string; recompensa?: string; sku?: string | null; saldo?: number };
+
+/**
+ * Canjea VARIOS premios de una vez, todo o nada: «tengo 100 puntos y canjeo
+ * 4 cosas de 25». Es el hermano de `canjearCore` (que entrega UNO) y NO una
+ * rama adentro: el RPC (`canjear_recompensas_varias`, 0257) valida TODO bajo
+ * el lock del miembro —la tarjeta, cada premio con su cantidad y el saldo
+ * contra el TOTAL— y recién entonces escribe; si algo falla no se descuenta
+ * nada. Es idempotente por la referencia: un reintento del mismo intento
+ * contesta `yaEstaba` y no cobra dos veces.
+ *
+ * Lo de afuera del RPC es lo de `canjearCore`: el permiso `canjear`, que el
+ * miembro y TODOS los premios sean de esta tarjeta, y las reglas de la 0136
+ * (vigencia, día, horario, topes de usos) por cada premio —con la cantidad
+ * total pedida—. Cada intento queda anotado (`intentos_canje`) y el aviso al
+ * Wallet sale UNA vez, no una por unidad.
+ *
+ * `referencia` es la BASE (`referenciaCanjeVarios`): la arma la puerta y
+ * nunca llega cruda de afuera, igual que en el resto del archivo.
+ */
+export async function canjearVariosCore(entrada: {
+  db: SupabaseClient;
+  ranchoId: string;
+  quien: QuienOpera;
+  miembroId: string;
+  premios: PremioPedido[];
+  referencia: string;
+}): Promise<ResultadoCanjearVarios> {
+  const { db, ranchoId, quien, miembroId, premios, referencia } = entrada;
+
+  if (!quien.permisos.canjear) {
+    return { ok: false, codigo: "sin_permiso", motivo: "No tienes permiso para canjear premios: pídeselo al dueño." };
+  }
+  const malos = revisarPremios(premios);
+  if (malos) return { ok: false, codigo: "datos", motivo: malos };
+  if (!referencia.trim()) {
+    return { ok: false, codigo: "sin_referencia", motivo: "Falta la llave de la operación. Prueba de nuevo." };
+  }
+
+  const resuelto = await miembroDeEsteNegocio(db, ranchoId, miembroId);
+  if (!resuelto.ok) return { ok: false, codigo: "miembro_ajeno", motivo: resuelto.motivo };
+  const programaId = resuelto.miembro.programaId;
+  const moneda = monedaDeTarjeta(resuelto.miembro.beneficio);
+
+  // Una constancia por premio pedido, con lo que de verdad pasó.
+  const anotarTodos = (aprobado: boolean, motivo: string | null) => {
+    for (const p of premios) {
+      anotarIntento(db, { programaId, miembroId, recompensaId: p.recompensaId, usuarioId: quien.usuarioId, aprobado, motivo });
+    }
+  };
+
+  // ── TODOS los premios tienen que ser de ESTA tarjeta ─────────────
+  // Misma razón que en `canjearCore`: los ids llegan de fuera y de acá
+  // para abajo todo corre con la llave de servicio. Un solo mensaje para
+  // «no existe» y «es de otro negocio»: no se delata qué hay afuera.
+  const ids = premios.map((p) => p.recompensaId);
+  const { data: duenas } = await db.from("recompensas").select("id, programa_id").in("id", ids);
+  const propios = new Set(
+    ((duenas ?? []) as { id: string; programa_id: string }[]).filter((r) => r.programa_id === programaId).map((r) => r.id),
+  );
+  if (ids.some((id) => !propios.has(id))) {
+    return { ok: false, codigo: "recompensa_ajena", motivo: "Alguno de esos premios no es de esta tarjeta." };
+  }
+
+  // ── Las reglas de la tarjeta (0136), por cada premio ─────────────
+  // Con la cantidad TOTAL pedida: los topes de usos miden la última unidad.
+  const unidades = premios.reduce((s, p) => s + p.cantidad, 0);
+  const veredictos = await Promise.all(
+    premios.map((p) => revisarReglas(db, { miembroId, recompensaId: p.recompensaId, usuarioId: quien.usuarioId, unidades })),
+  );
+  for (const v of veredictos) {
+    if (!v.ok) {
+      anotarTodos(false, v.codigo ?? "reglas");
+      return { ok: false, codigo: v.codigo ?? "reglas", motivo: v.motivo };
+    }
+  }
+
+  const { data, error } = await db.rpc("canjear_recompensas_varias", {
+    p_miembro_id: miembroId,
+    p_items: premios.map((p) => ({ recompensa_id: p.recompensaId, cantidad: p.cantidad })),
+    p_usuario_id: quien.usuarioId,
+    p_referencia_base: referencia,
+  });
+  if (error) {
+    // Sin la 0257 la función no existe: no se hizo nada (no es ambiguo).
+    if (error.code === "PGRST202" || error.code === "42883") {
+      return {
+        ok: false,
+        codigo: "sin_migracion",
+        motivo: "Todavía no se pueden canjear varios premios a la vez. Prueba más tarde.",
+      };
+    }
+    anotarTodos(false, "error_rpc");
+    return { ok: false, codigo: "error_base", motivo: traducirErrorDeBase(error, "entregar los premios") };
+  }
+
+  const r = (data ?? {}) as {
+    ok?: boolean;
+    ya_estaba?: boolean;
+    codigo?: string;
+    motivo?: string;
+    saldo?: number;
+    total?: number;
+    total_puntos?: number;
+    items?: ItemDelRpc[];
+    canjes?: CanjeDelRpc[];
+  };
+
+  if (r.ok !== true) {
+    const codigo = r.codigo ?? "rechazado";
+    anotarTodos(false, codigo);
+    // Un cashback con centavos cuenta unidades del ledger (centavos): la
+    // frase del RPC diría «250» donde la caja ve «$2.50».
+    const enMoneda = moneda.escala !== 1 && typeof r.saldo === "number" && typeof r.total === "number";
+    return {
+      ok: false,
+      codigo,
+      motivo:
+        codigo === "saldo_insuficiente" && enMoneda
+          ? `Saldo insuficiente: tiene ${formatearMonto(r.saldo as number, moneda)} y el total cuesta ${formatearMonto(r.total as number, moneda)}.`
+          : traducirMotivo(r.motivo, "No se pudieron entregar los premios."),
+      ...(typeof r.saldo === "number" ? { saldo: aMoneda(r.saldo, moneda) } : {}),
+      ...(typeof r.total === "number" ? { total: aMoneda(r.total, moneda) } : {}),
+    };
+  }
+
+  const items = Array.isArray(r.items) ? r.items : [];
+  const entregado = {
+    ok: true as const,
+    saldo: aMoneda(r.saldo ?? 0, moneda),
+    totalPuntos: aMoneda(r.total_puntos ?? 0, moneda),
+    canjeados: items.map((i) => ({
+      recompensaId: i.recompensa_id ?? "",
+      recompensa: i.recompensa ?? "",
+      cantidad: i.cantidad ?? 0,
+      puntos: aMoneda(i.puntos ?? 0, moneda),
+    })),
+    instrucciones: items.map((i) => (typeof i.instrucciones === "string" ? i.instrucciones.trim() : "")).filter(Boolean),
+  };
+
+  // Un reintento: ya se descontó, ya se anotó y el pase ya se enteró (y
+  // agradecer de nuevo sería mentirle). No se anota ni se avisa nada.
+  if (r.ya_estaba === true) return { ...entregado, yaEstaba: true };
+
+  anotarTodos(true, null);
+
+  // Tras el canje sale un evento por unidad para el POS (como en
+  // `canjearCore`: modo manual = 'pendiente' hasta que el personal lo
+  // marque). Un fallo escribiendo los eventos NO tumba el canje: el débito
+  // ya está en el ledger. La idempotencia es el id de cada canje.
+  const canjes = (Array.isArray(r.canjes) ? r.canjes : []).filter((c) => typeof c.canje_id === "string");
+  if (canjes.length > 0) {
+    try {
+      await db.from("eventos_integracion").insert(
+        canjes.map((c) => ({
+          rancho_id: ranchoId,
+          tipo: "canje",
+          payload: {
+            canje_id: c.canje_id,
+            miembro_id: miembroId,
+            recompensa: c.recompensa,
+            sku: c.sku ?? null,
+            saldo_resultante: c.saldo,
+          },
+          idempotencia: `canje:${c.canje_id}`,
+        })),
+      );
+    } catch {
+      // Ver arriba: el canje vale igual.
+    }
+  }
+
+  // UNA vez, no una por unidad: es un solo aviso al teléfono.
+  after(() => avisarCambioDePase(miembroId, "canjear"));
+  return { ...entregado, yaEstaba: false };
 }
 
 // ════════════════════════════════════════════════════════════════════

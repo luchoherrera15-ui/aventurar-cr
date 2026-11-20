@@ -17,6 +17,7 @@ import { identidadesDeMiembros, miembrosConIdentidad, type MiembroIdentificable 
 import type { PermisosLealtad } from "@/lib/lealtad/permisos";
 import type { ConfigBeneficio, TipoTarjeta } from "@/lib/lealtad/tipos-tarjeta";
 import { canjeLibreDe, TOPE_CANJE_LIBRE, type CanjeLibre } from "@/lib/lealtad/canje-libre";
+import { revisarPremios, type PremioPedido } from "@/lib/lealtad/canje-varios";
 import { aMoneda, aMonedaOpcional, monedaDeTarjeta } from "@/lib/lealtad/moneda-tarjeta";
 import type { CamposTarjeta } from "@/lib/wallet/tarjeta";
 
@@ -116,18 +117,28 @@ export type PedidoAcreditar = Vinculo & {
 };
 
 /**
- * Canjear es una de dos cosas, nunca las dos (0253):
+ * Canjear es una de tres cosas, nunca dos a la vez (0253, 0257):
  *
  *   · un PREMIO de la tarjeta (`recompensa_id`): su costo fijo, como siempre;
  *   · un MONTO del cashback (`monto`, colones enteros): lo que el cliente
  *     quiera usar de su saldo, en una tarjeta de canje libre
  *     (`canje-libre.ts`, solo las de Foorkie). Lleva el `operador`, que
- *     queda en el motivo del ledger («Cashback usado (Caja Foorkie · Ana)»).
+ *     queda en el motivo del ledger («Cashback usado (Caja Foorkie · Ana)»);
+ *   · VARIOS premios (`premios`: [{ recompensa_id, cantidad }]): todo o
+ *     nada, con el saldo contra el total (`canje-varios.ts`).
  */
 export type PedidoCanjear = Vinculo &
   (
-    | { miembroId: string; recompensaId: string; intentoId: string; monto?: undefined }
-    | { miembroId: string; monto: number; intentoId: string; operador: string | null; recompensaId?: undefined }
+    | { miembroId: string; recompensaId: string; intentoId: string; monto?: undefined; premios?: undefined }
+    | {
+        miembroId: string;
+        monto: number;
+        intentoId: string;
+        operador: string | null;
+        recompensaId?: undefined;
+        premios?: undefined;
+      }
+    | { miembroId: string; premios: PremioPedido[]; intentoId: string; monto?: undefined; recompensaId?: undefined }
   );
 
 export type PedidoHistorial = Vinculo & { limite: number; antes: string | null };
@@ -218,10 +229,46 @@ export function leerPedidoUsar(d: Record<string, unknown>): Lectura<PedidoUsar> 
   return { ok: true, valor: { ...v.valor, miembroId, intentoId, operador: leerOperador(d.operador) } };
 }
 
+/**
+ * La lista `premios` del canje de varios (0257): de 1 a 10 renglones
+ * `{ recompensa_id, cantidad }`, sin repetir premio, de 1 a 20 de cada uno
+ * y 30 en total. Los topes los pone `revisarPremios`.
+ */
+function leerPremios(v: unknown): Lectura<PremioPedido[]> {
+  if (!Array.isArray(v)) return { ok: false, motivo: "Los premios (premios) tienen que ser una lista de { recompensa_id, cantidad }." };
+  const premios: PremioPedido[] = [];
+  for (const [i, r] of v.entries()) {
+    if (!r || typeof r !== "object" || Array.isArray(r)) {
+      return { ok: false, motivo: `El renglón ${i + 1} de los premios tiene que traer recompensa_id y cantidad.` };
+    }
+    const recompensaId = uuidDe((r as Record<string, unknown>).recompensa_id);
+    if (!recompensaId) return { ok: false, motivo: `El renglón ${i + 1} de los premios no trae un premio válido (recompensa_id).` };
+    const cantidad = (r as Record<string, unknown>).cantidad;
+    if (typeof cantidad !== "number" || !Number.isInteger(cantidad)) {
+      return { ok: false, motivo: `El renglón ${i + 1} de los premios tiene que traer la cantidad como número entero.` };
+    }
+    premios.push({ recompensaId, cantidad });
+  }
+  const mal = revisarPremios(premios);
+  return mal ? { ok: false, motivo: mal } : { ok: true, valor: premios };
+}
+
 export function leerPedidoCanjear(d: Record<string, unknown>): Lectura<PedidoCanjear> {
   const v = leerVinculo(d);
   if (!v.ok) return v;
   const miembroId = uuidDe(d.miembro_id);
+  // Varios premios (0257): excluyente con `recompensa_id` y con `monto`.
+  if (!ausente(d.premios)) {
+    if (!ausente(d.recompensa_id) || !ausente(d.monto)) {
+      return { ok: false, motivo: "Manda solo una cosa: varios premios (premios), un premio (recompensa_id) o un monto del cashback (monto)." };
+    }
+    if (!miembroId) return { ok: false, motivo: "Falta el cliente (miembro_id)." };
+    const premios = leerPremios(d.premios);
+    if (!premios.ok) return premios;
+    const intentoId = uuidDe(d.intento_id);
+    if (!intentoId) return { ok: false, motivo: FALTA_INTENTO };
+    return { ok: true, valor: { ...v.valor, miembroId, premios: premios.valor, intentoId } };
+  }
   if (!ausente(d.monto) && !ausente(d.recompensa_id)) {
     return { ok: false, motivo: "Mandá el premio (recompensa_id) o el monto del cashback (monto), no los dos." };
   }

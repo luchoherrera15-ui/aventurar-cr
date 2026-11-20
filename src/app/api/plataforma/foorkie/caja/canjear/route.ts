@@ -1,4 +1,5 @@
-import { canjearCore, canjearMontoCore } from "@/lib/lealtad/operar-core";
+import { canjearCore, canjearMontoCore, canjearVariosCore } from "@/lib/lealtad/operar-core";
+import { referenciaCanjeVarios } from "@/lib/lealtad/canje-varios";
 import { motivoCanjeLibre, referenciaCanjeLibre } from "@/lib/lealtad/canje-libre";
 import { responder } from "@/lib/plataforma/foorkie-api";
 import { localDeFoorkieDeLaTarjeta } from "@/lib/plataforma/foorkie-marca";
@@ -29,6 +30,26 @@ export const dynamic = "force-dynamic";
  *       de horario, `recompensa_ajena`, `miembro_ajeno`… y `ya-canjeado`:
  *       ese intento YA se entregó (un reintento), no se cobró dos veces.
  *
+ * ── VARIOS PREMIOS A LA VEZ (0257), todo o nada ─────────────────────
+ *   { rancho_id, programa_id, miembro_id, intento_id: uuid,
+ *     premios: [{ recompensa_id: uuid, cantidad: entero 1..20 }, …] }
+ *   — `premios`, `recompensa_id` y `monto` son excluyentes —
+ *   De 1 a 10 renglones, sin repetir premio, hasta 30 unidades en total.
+ *
+ *   200 { ok: true, saldo, total_puntos, canjeados: [{ recompensa_id,
+ *         recompensa, cantidad, puntos (el costo de UNA unidad) }],
+ *         instrucciones: [string…] (las de cada premio que las tenga),
+ *         ya_estaba?: true }
+ *       `ya_estaba: true` = ese intento ya se había entregado: NO se
+ *       descontó de nuevo (lo demás es lo que entregó ESE intento).
+ *   200 { ok: false, codigo, motivo[, saldo, total] }
+ *       saldo_insuficiente (+ saldo y total: no se descontó NADA) ·
+ *       recompensa_ajena · recompensa_no_disponible · agotada ·
+ *       limite_alcanzado · membresia_inactiva · miembro_ajeno · sin_permiso ·
+ *       las reglas de la tarjeta (vigencia, día, horario…) · sin_migracion
+ *       (falta la 0257: no se hizo nada) · error_base (no se sabe: reintentar
+ *       con el MISMO intento_id, que no descuenta dos veces)
+ *
  * ── UN MONTO DEL CASHBACK (0253, canje libre: solo tarjetas de Foorkie) ──
  *   { rancho_id, programa_id, miembro_id, monto: en la moneda de la tarjeta (> 0; centavos si la tarjeta los lleva),
  *     intento_id: uuid, operador?: quién operó en Foorkie (≤ 80) }
@@ -50,8 +71,10 @@ export const dynamic = "force-dynamic";
  *
  * ESTE ARCHIVO NO DECIDE NADA: la tenencia, las reglas de la tarjeta, el
  * débito bajo lock, la idempotencia y el aviso al Wallet son de
- * `canjearCore` / `canjearMontoCore`. Las referencias las arma Bookea:
- * `canje:<miembro>:<recompensa>:<intento>` y `canje:<miembro>:cashback:<intento>`.
+ * `canjearCore` / `canjearMontoCore` / `canjearVariosCore`. Las referencias
+ * las arma Bookea: `canje:<miembro>:<recompensa>:<intento>`,
+ * `canje:<miembro>:cashback:<intento>` y, para varios, la base
+ * `canje:<miembro>:<intento>` (el RPC le pone `:<n>` a cada unidad).
  */
 export async function POST(request: Request) {
   const caja = await abrirLaCaja(request, leerPedidoCanjear);
@@ -62,6 +85,42 @@ export async function POST(request: Request) {
   // tarjeta del miembro, el premio también queda atado a esta.
   const miembro = await miembroDeLaTarjeta(db, pedido.programaId, pedido.miembroId);
   if (!miembro) return responder({ ok: false, codigo: "miembro_ajeno", motivo: "Ese cliente no tiene esta tarjeta." });
+
+  if (pedido.premios !== undefined) {
+    // Varios premios, todo o nada (0257): el núcleo y el RPC validan los
+    // premios y el saldo contra el TOTAL; acá solo se arma la llave y se
+    // contesta en el formato de la caja.
+    const r = await canjearVariosCore({
+      db,
+      ranchoId: pedido.ranchoId,
+      quien: { usuarioId: duenoId, permisos: PERMISOS_CAJA },
+      miembroId: miembro.id,
+      premios: pedido.premios,
+      referencia: referenciaCanjeVarios(miembro.id, pedido.intentoId),
+    });
+    if (!r.ok) {
+      return responder({
+        ok: false,
+        codigo: codigoDeRechazo(r.codigo),
+        motivo: r.motivo,
+        ...(r.saldo !== undefined ? { saldo: r.saldo } : {}),
+        ...(r.total !== undefined ? { total: r.total } : {}),
+      });
+    }
+    return responder({
+      ok: true,
+      saldo: r.saldo,
+      total_puntos: r.totalPuntos,
+      canjeados: r.canjeados.map((c) => ({
+        recompensa_id: c.recompensaId,
+        recompensa: c.recompensa,
+        cantidad: c.cantidad,
+        puntos: c.puntos,
+      })),
+      instrucciones: r.instrucciones,
+      ...(r.yaEstaba ? { ya_estaba: true } : {}),
+    });
+  }
 
   if (pedido.monto !== undefined) {
     // El dinero no se mueve por un campo de un jsonb: la tarjeta tiene que
