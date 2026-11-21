@@ -258,6 +258,13 @@ export type ConfigPuntos = {
   minimoCanje: number;
   /** Tope acumulable. null = sin tope. */
   maximo: number | null;
+  /**
+   * PUNTOS CON DECIMALES (21 nov 2026; ver `monedaDeTarjeta` en `moneda-tarjeta.ts`): la moneda y la escala. Con
+   * `escala: 100`, `porVisita`, `inicial`, `minimoCanje` y `maximo` van en CENTÉSIMOS de punto y el ledger y los premios
+   * también; `porMoneda` sigue siendo la tasa por unidad de moneda. Ausentes = puntos enteros, como toda tarjeta anterior.
+   */
+  moneda?: string;
+  escala?: number;
 };
 
 export type ConfigCupon = {
@@ -448,6 +455,16 @@ export function validarBeneficio(config: ConfigBeneficio): string | null {
       }
       if (config.maximo !== null && config.maximo < config.minimoCanje) {
         return "El tope acumulable no puede ser menor que el mínimo para canjear.";
+      }
+      // Puntos con decimales (21 nov 2026): moneda y escala van juntas y cuadran, o no van.
+      if ((config.moneda === undefined) !== (config.escala === undefined)) {
+        return "Los puntos con decimales llevan moneda y escala, las dos.";
+      }
+      if (config.moneda !== undefined) {
+        const m = monedaParaCrear(config.moneda);
+        if (!m || m.codigo !== config.moneda) return "Esa moneda no está disponible para los puntos.";
+        if (config.escala !== 1 && config.escala !== 100) return "La escala de los puntos es 1 (enteros) o 100 (dos decimales).";
+        if (config.escala === 100 && m.escala !== 100) return "Esa moneda no usa decimales: los puntos tampoco.";
       }
       return null;
     }

@@ -1,4 +1,4 @@
-import { aUnidades, formatearMonto, type MonedaTarjeta } from "../moneda-tarjeta";
+import { aUnidades, formatearMonto, formatearPuntos, type MonedaTarjeta } from "../moneda-tarjeta";
 import type { ContextoCliente } from "./tipos";
 
 /**
@@ -48,8 +48,16 @@ function dinero(n: number, c: ContextoCliente): string {
   return formatearMonto(aUnidades(n, c.moneda), c.moneda);
 }
 
+/**
+ * Puntos ya en puntos (no en centésimos). Con decimales (21 nov 2026: el contexto trae la moneda de unos puntos con
+ * `escala: 100`) se escriben como el pase, «4.75»; sin ellos, el número entero de siempre.
+ */
+function puntos(n: number, c: ContextoCliente): string {
+  return c.moneda && c.moneda.escala === 100 ? formatearPuntos(aUnidades(n, c.moneda), c.moneda) : formatearNumero(n);
+}
+
 function saldoTexto(c: ContextoCliente): string {
-  return c.modo === "cashback" ? dinero(c.saldo, c) : formatearNumero(c.saldo);
+  return c.modo === "cashback" ? dinero(c.saldo, c) : puntos(c.saldo, c);
 }
 
 function faltantes(c: ContextoCliente): number | null {
@@ -127,7 +135,7 @@ export const VARIABLES: readonly DefinicionVariable[] = [
     ejemplo: "200",
     modos: POR_SALDO,
     requiereRecompensa: true,
-    valor: (c) => (c.meta === null ? null : c.modo === "cashback" ? dinero(c.meta, c) : formatearNumero(c.meta)),
+    valor: (c) => (c.meta === null ? null : c.modo === "cashback" ? dinero(c.meta, c) : puntos(c.meta, c)),
   },
   {
     id: "puntos_faltantes",
@@ -139,7 +147,7 @@ export const VARIABLES: readonly DefinicionVariable[] = [
     valor: (c) => {
       const f = faltantes(c);
       if (f === null) return null;
-      return c.modo === "cashback" ? dinero(f, c) : formatearNumero(f);
+      return c.modo === "cashback" ? dinero(f, c) : puntos(f, c);
     },
   },
   {

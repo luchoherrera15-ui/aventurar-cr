@@ -1,5 +1,5 @@
 import { fechaISOEnZona, fechaLargaCR } from "@/lib/fechas";
-import { formatearMonto, type MonedaTarjeta } from "./moneda-tarjeta";
+import { formatearMonto, formatearPuntos, type MonedaTarjeta } from "./moneda-tarjeta";
 import { tipoDe, type TipoTarjeta } from "./tipos-tarjeta";
 
 /**
@@ -358,6 +358,10 @@ export function textoPorVencerEnElPase({
     return `Tus ${monto} de cashback vencen el ${cuando}. Usalos o volvé antes y no los perdés.`;
   }
   if (tipo === "puntos") {
+    // Puntos con decimales (21 nov 2026): el saldo llega en centésimos y se escribe en puntos («4.75»).
+    if (moneda && moneda.escala === 100) {
+      return `Tus ${formatearPuntos(Math.max(0, saldo), moneda)} puntos vencen el ${cuando}. Usalos o volvé antes y no los perdés.`;
+    }
     return n === 1
       ? `Tu punto vence el ${cuando}. Usalo o volvé antes y no lo perdés.`
       : `Tus ${n.toLocaleString("es-CR")} puntos vencen el ${cuando}. Usalos o volvé antes y no los perdés.`;

@@ -383,7 +383,9 @@ export function armarTarjeta(d: {
     pausada,
     moneda: moneda.codigo,
     saldo: aMoneda(d.saldo, moneda),
-    meta: d.meta && modo === "cashback" ? { ...d.meta, costo_puntos: aMoneda(d.meta.costo_puntos, moneda) } : d.meta,
+    // El costo de la meta, en la moneda en un cashback y en puntos en unos puntos con decimales (21 nov 2026);
+    // con escala 1 (todo lo demás) `aMoneda` es la identidad.
+    meta: d.meta && (modo === "cashback" || modo === "puntos") ? { ...d.meta, costo_puntos: aMoneda(d.meta.costo_puntos, moneda) } : d.meta,
     progreso,
     textos,
     beneficio: beneficioEnMoneda(beneficio),
@@ -449,7 +451,7 @@ export async function programaParaFoorkie(
     pausada,
     moneda: moneda.codigo,
     beneficio: beneficioEnMoneda(beneficio),
-    meta: meta && modo === "cashback" ? { ...meta, costo_puntos: aMoneda(meta.costo_puntos, moneda) } : meta,
+    meta: meta && (modo === "cashback" || modo === "puntos") ? { ...meta, costo_puntos: aMoneda(meta.costo_puntos, moneda) } : meta,
     // Los cuatro de siempre + lo guardado del sello y la tira (`disenoGuardadoDeFila`).
     diseno: disenoGuardadoDeFila(fila as Record<string, unknown>),
     // Lo que diría la tarjeta de alguien que recién se une (saldo 0).

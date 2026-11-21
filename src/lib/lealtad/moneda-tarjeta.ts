@@ -100,31 +100,77 @@ export function monedaParaCrear(valor: unknown): MonedaTarjeta | null {
 
 /**
  * La moneda de una tarjeta, leída de su `beneficio` (el jsonb crudo o ya
- * leído). Solo el CASHBACK la lleva; cualquier otra cosa —otro tipo, un
- * beneficio viejo, uno roto, una moneda que no conocemos— es
+ * leído). La llevan el CASHBACK y, desde el 21 nov 2026, los PUNTOS CON
+ * DECIMALES (ver `PUNTOS CON DECIMALES` arriba): cualquier otra cosa —otro
+ * tipo, un beneficio viejo, uno roto, una moneda que no conocemos— es
  * `MONEDA_DE_SIEMPRE`, que es como se leyó siempre.
+ *
+ * ── PUNTOS CON DECIMALES (21 nov 2026) ──────────────────────────────
+ * Pedido del dueño de Tostado: «necesitamos poder poner decimales» (una
+ * compra de $4.75 a 1 punto por dólar son 4.75 puntos). Una tarjeta de
+ * puntos los cuenta igual que el cashback cuenta centavos: su `beneficio`
+ * guarda `moneda` y `escala: 100`, y el ledger, los premios (`costo_puntos`)
+ * y las columnas de reglas están en CENTÉSIMOS de punto. La compra entra en
+ * centavos (`aUnidades`) y la tasa `puntos_por_colon` se aplica a esos
+ * centavos, así que 1 punto por dólar sigue siendo `1`: 475 centavos × 1 =
+ * 475 centésimos = 4.75 puntos.
+ *
+ * Una tarjeta de puntos solo cuenta decimales si guarda `escala` EXPLÍCITA
+ * (a diferencia del cashback, no se deduce de la tabla de monedas): así una
+ * tarjeta de puntos que ya existe, con o sin moneda, no empieza a leerse
+ * ×100 por accidente. Sin `escala`, todo sale como siempre.
  */
 export function monedaDeTarjeta(beneficio: unknown): MonedaTarjeta {
   const crudo = typeof beneficio === "string" ? intentarJson(beneficio) : beneficio;
   if (!crudo || typeof crudo !== "object" || Array.isArray(crudo)) return MONEDA_DE_SIEMPRE;
   const b = crudo as Record<string, unknown>;
-  if (b.tipo !== "cashback") return MONEDA_DE_SIEMPRE;
+  if (b.tipo !== "cashback" && b.tipo !== "puntos") return MONEDA_DE_SIEMPRE;
   const codigo = codigoDeMoneda(b.moneda);
   if (!codigo) return MONEDA_DE_SIEMPRE;
-  // La escala guardada manda; si falta o está rota, la de la tabla.
-  const escala: Escala = b.escala === 100 || b.escala === 1 ? b.escala : MONEDAS_TARJETA[codigo].decimales === 2 ? 100 : 1;
+  const guardada = b.escala === 100 || b.escala === 1;
+  // Puntos: sin escala guardada, la de siempre (nunca se deduce de la tabla).
+  if (b.tipo === "puntos" && !guardada) return MONEDA_DE_SIEMPRE;
+  // Cashback: la escala guardada manda; si falta o está rota, la de la tabla.
+  const escala: Escala = guardada ? (b.escala as Escala) : MONEDAS_TARJETA[codigo].decimales === 2 ? 100 : 1;
   return { codigo, escala };
 }
 
 /**
- * ¿Es un cashback que guardó su moneda (los nacidos desde el 8 nov 2026)?
- * Los de antes no: para ellos todo sale exactamente como salía.
+ * ¿Es una tarjeta que guardó su moneda: un cashback nacido desde el 8 nov
+ * 2026 o unos puntos con decimales (`escala` guardada)? Las de antes no:
+ * para ellas todo sale exactamente como salía.
  */
 export function tieneMonedaGuardada(beneficio: unknown): boolean {
   const crudo = typeof beneficio === "string" ? intentarJson(beneficio) : beneficio;
   if (!crudo || typeof crudo !== "object" || Array.isArray(crudo)) return false;
   const b = crudo as Record<string, unknown>;
+  if (b.tipo === "puntos") return codigoDeMoneda(b.moneda) !== null && (b.escala === 100 || b.escala === 1);
   return b.tipo === "cashback" && codigoDeMoneda(b.moneda) !== null;
+}
+
+/**
+ * ¿Son unos puntos que cuentan decimales (`escala: 100` guardada)? Los puntos
+ * enteros de siempre —también los que guardaron `escala: 1`— dan false.
+ */
+export function esPuntosConDecimales(beneficio: unknown): boolean {
+  const crudo = typeof beneficio === "string" ? intentarJson(beneficio) : beneficio;
+  if (!crudo || typeof crudo !== "object" || Array.isArray(crudo)) return false;
+  return (crudo as Record<string, unknown>).tipo === "puntos" && tieneMonedaGuardada(crudo) && monedaDeTarjeta(crudo).escala === 100;
+}
+
+/**
+ * Unos puntos escritos para una persona. Entero de siempre = «475»; con
+ * decimales, sin ceros de sobra y con coma de miles: 475 centésimos = «4.75»,
+ * 450 = «4.5», 500 = «5», 123450 = «1,234.5». Lo que llega son UNIDADES del
+ * ledger (centésimos con `escala: 100`).
+ */
+export function formatearPuntos(unidades: number, m: MonedaTarjeta): string {
+  if (!Number.isFinite(unidades)) return "0";
+  if (m.escala === 1) return String(Math.round(unidades));
+  const [entero, fraccion = ""] = Math.abs(aMoneda(unidades, m)).toFixed(2).split(".");
+  const conMiles = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const decimales = fraccion.replace(/0+$/, "");
+  return `${unidades < 0 ? "-" : ""}${conMiles}${decimales ? `.${decimales}` : ""}`;
 }
 
 /** ¿Esta tarjeta cuenta centavos? (para decidir si un monto puede traer decimales) */
@@ -187,14 +233,27 @@ export function leerMontoDeAfuera(v: unknown, m: MonedaTarjeta, minimo = 0): num
 /**
  * El beneficio como lo lee AFUERA (Foorkie): en un cashback con centavos,
  * `compraMinima`, `topePorCompra` y `minimoCanje` pasan de unidades a la
- * moneda (500 → 5). Cualquier otra tarjeta sale tal cual, el mismo
- * objeto. Nunca se guarda lo que devuelve esto: es solo para responder.
+ * moneda (500 → 5); en unos puntos con decimales, `porVisita`, `inicial`,
+ * `minimoCanje` y `maximo` pasan de centésimos a puntos. Cualquier otra
+ * tarjeta sale tal cual, el mismo objeto. Nunca se guarda lo que devuelve
+ * esto: es solo para responder.
  */
 export function beneficioEnMoneda<T>(beneficio: T): T {
   const m = monedaDeTarjeta(beneficio);
   if (m.escala === 1 || !beneficio || typeof beneficio !== "object") return beneficio;
   const b = beneficio as Record<string, unknown>;
   const enMoneda = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? aMoneda(v, m) : v);
+  // Puntos con decimales (21 nov 2026): lo que se cuenta en puntos —por visita, de regalo, el mínimo para canjear y el
+  // tope acumulable— pasa de centésimos a puntos. `porMoneda` no: es una tasa («1 punto por dólar»), no una cantidad.
+  if (b.tipo === "puntos") {
+    return {
+      ...b,
+      porVisita: enMoneda(b.porVisita),
+      inicial: enMoneda(b.inicial),
+      minimoCanje: enMoneda(b.minimoCanje),
+      maximo: enMoneda(b.maximo),
+    } as T;
+  }
   return {
     ...b,
     compraMinima: enMoneda(b.compraMinima),

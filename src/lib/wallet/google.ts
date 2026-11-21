@@ -16,7 +16,7 @@ import {
   type MetaRecompensa,
 } from "./tarjeta";
 import { canjeLibreDe } from "@/lib/lealtad/canje-libre";
-import { tieneMonedaGuardada } from "@/lib/lealtad/moneda-tarjeta";
+import { esPuntosConDecimales, tieneMonedaGuardada } from "@/lib/lealtad/moneda-tarjeta";
 import { estadoVisible } from "@/lib/lealtad/programas";
 import { fechaDeCorte, reglaDeFila } from "@/lib/lealtad/vencimiento-sellos";
 import { resumenDeFila } from "./programa-principal";
@@ -479,8 +479,9 @@ export function contenidoDelObjeto({
       // `balance` acepta int o string, y acá el string ES el beneficio.
       // Un cashback con su moneda guardada (8 nov 2026) va como texto
       // («$0.77»): el entero serían centavos. Los de antes, el int de siempre.
+      // Igual los puntos con decimales (21 nov 2026): «4.75», no los 475 centésimos.
       balance:
-        TIPOS_TARJETA[tipo].acumula && !(tipo === "cashback" && tieneMonedaGuardada(beneficio))
+        TIPOS_TARJETA[tipo].acumula && !(tipo === "cashback" && tieneMonedaGuardada(beneficio)) && !esPuntosConDecimales(beneficio)
           ? { int: saldo }
           : { string: campos.encabezado.value },
     },

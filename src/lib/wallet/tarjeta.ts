@@ -24,7 +24,7 @@ import { tintaSobre } from "@/lib/colores-imagen";
 import { MARCA_BOOKEA, type MarcaDelPase } from "@/lib/plataforma/foorkie-marca";
 import { textoVisible } from "@/lib/wallet/mensaje-del-miembro";
 import { ayudaCashbackLibre, canjeLibreDe, textosCashbackLibre } from "@/lib/lealtad/canje-libre";
-import { formatearMonto, monedaDeTarjeta } from "@/lib/lealtad/moneda-tarjeta";
+import { esPuntosConDecimales, formatearMonto, formatearPuntos, monedaDeTarjeta } from "@/lib/lealtad/moneda-tarjeta";
 
 /**
  * Alias histórico de `TipoTarjeta`. El nombre «modo» quedó de cuando
@@ -586,6 +586,19 @@ function camposDelTipo(datos: DatosDelTexto): CamposTarjeta {
         value: b?.tipo === "evento" && b.ubicacion.trim() ? b.ubicacion : datos.negocioNombre,
       },
       regalia: null,
+    };
+  }
+
+  // PUNTOS CON DECIMALES (21 nov 2026, `monedaDeTarjeta`): el saldo y la meta llegan en centésimos de punto
+  // y se escriben como puntos («4.75»). Sin `escala` guardada, el texto de siempre, byte por byte.
+  if (modo === "puntos" && esPuntosConDecimales(b)) {
+    const moneda = monedaDeTarjeta(b);
+    return {
+      encabezado: { label: "PUNTOS", value: formatearPuntos(datos.saldo, moneda) },
+      detalle: datos.meta
+        ? { label: "PARA TU PRÓXIMA REGALÍA", value: `Te faltan ${formatearPuntos(Math.max(0, datos.meta.costo_puntos - datos.saldo), moneda)}` }
+        : { label: "ACUMULADOS", value: "Seguí sumando en cada visita" },
+      regalia: datos.meta ? { label: "CANJEÁ POR", value: datos.meta.nombre } : null,
     };
   }
 
