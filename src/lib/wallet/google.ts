@@ -603,7 +603,7 @@ export function construirObjeto({
 
 async function llamarApi(
   cred: CredencialesGoogle,
-  metodo: "GET" | "POST" | "PATCH",
+  metodo: "GET" | "POST" | "PATCH" | "PUT",
   ruta: string,
   cuerpo?: unknown,
 ): Promise<{ status: number; json: unknown }> {
@@ -625,6 +625,41 @@ async function llamarApi(
   return { status: res.status, json };
 }
 
+/** El 400 de Google cuando el saldo del objeto quedaría con dos tipos a la vez (entero y texto). */
+const ERROR_DOS_TIPOS_DE_SALDO = /More than one type of loyalty point balances/i;
+
+/**
+ * Parcha un objeto de lealtad. Un PATCH NO cambia el TIPO del saldo: Google
+ * mezcla el campo nuevo con el que ya tenía y, si el objeto nació con el
+ * saldo entero (`balance.int`) y ahora el saldo viaja como texto
+ * (`balance.string`: los puntos con decimales y el cashback con moneda) o
+ * al revés, contesta 400 «More than one type of loyalty point balances
+ * cannot be set» y el teléfono se queda con el saldo viejo para siempre
+ * (pasó el 22 nov 2026 con los pases de Tostado, que se habían creado
+ * antes de pasar a decimales).
+ *
+ * En ese único caso se lee el objeto, se le cambia el bloque de saldo por
+ * el nuevo y se guarda ENTERO con PUT (conserva mensajes, código y estado).
+ * Desde ahí el objeto ya es del tipo nuevo y los PATCH siguientes entran
+ * solos. Cualquier otra respuesta se devuelve tal cual, sin tocar nada.
+ */
+export async function parchearObjetoDeGoogle(
+  cred: CredencialesGoogle,
+  ruta: string,
+  parche: Record<string, unknown>,
+): Promise<{ status: number; json: unknown; metodo: "PATCH" | "PUT" }> {
+  const res = await llamarApi(cred, "PATCH", ruta, parche);
+  if (res.status !== 400 || !ERROR_DOS_TIPOS_DE_SALDO.test(JSON.stringify(res.json))) {
+    return { ...res, metodo: "PATCH" };
+  }
+  const actual = await llamarApi(cred, "GET", ruta);
+  if (actual.status !== 200 || typeof actual.json !== "object" || actual.json === null) {
+    return { ...res, metodo: "PATCH" };
+  }
+  const entero = await llamarApi(cred, "PUT", ruta, { ...(actual.json as Record<string, unknown>), ...parche });
+  return { ...entero, metodo: "PUT" };
+}
+
 /** Crea el recurso si no existe; si existe, lo actualiza (PATCH). */
 async function asegurarRecurso(
   cred: CredencialesGoogle,
@@ -642,7 +677,11 @@ async function asegurarRecurso(
   if (existe.status >= 300) {
     throw new Error(`Google respondió ${existe.status} consultando el ${coleccion}.`);
   }
-  const parche = await llamarApi(cred, "PATCH", `/${coleccion}/${recurso.id}`, recurso);
+  // El objeto del cliente puede haber nacido con el otro tipo de saldo.
+  const parche =
+    coleccion === "loyaltyObject"
+      ? await parchearObjetoDeGoogle(cred, `/${coleccion}/${recurso.id}`, recurso)
+      : await llamarApi(cred, "PATCH", `/${coleccion}/${recurso.id}`, recurso);
   if (parche.status >= 300) {
     throw new Error(`Google no aceptó actualizar el ${coleccion}: ${JSON.stringify(parche.json).slice(0, 300)}`);
   }
@@ -1221,16 +1260,15 @@ export async function refrescarPaseGoogleDeMiembro(
       marca,
     });
 
-    const res = await llamarApi(
+    const res = await parchearObjetoDeGoogle(
       cred,
-      "PATCH",
       `/loyaltyObject/${idDeObjeto(cred.issuerId, miembroId)}`,
       parche,
     );
     if (res.status >= 300 && res.status !== 404) {
       // 404 = nunca se creó el objeto (fila huérfana): no es un error
       // que valga la pena gritar en cada sello.
-      console.warn(`[google-wallet] PATCH respondió ${res.status}: ${JSON.stringify(res.json).slice(0, 200)}`);
+      console.warn(`[google-wallet] ${res.metodo} respondió ${res.status}: ${JSON.stringify(res.json).slice(0, 200)}`);
     }
 
     // ── EL ESPEJO SOLO SE ESCRIBE SI EL PATCH ENTRÓ ────────────────
